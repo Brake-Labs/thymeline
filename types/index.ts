@@ -1,31 +1,19 @@
+export interface LimitedTag {
+  tag: string
+  cap: number  // 1–7
+}
+
 export interface UserPreferences {
   id: string
   user_id: string
   options_per_day: number
-  comfort_limit_per_week: number
   cooldown_days: number
+  seasonal_mode: boolean
   preferred_tags: string[]
   avoided_tags: string[]
-  seasonal_mode: boolean
-  healthy_bias: boolean
-  weekly_tag_caps: Record<string, number>
-  seasonal_rules: SeasonalRules
-  cadence_rules: CadenceRule[]
+  limited_tags: LimitedTag[]
+  onboarding_completed: boolean
   created_at: string
-}
-
-export interface SeasonalRules {
-  [season: string]: {
-    favor: string[]
-    cap: Record<string, number>
-    exclude: string[]
-  }
-}
-
-export interface CadenceRule {
-  tag: string
-  min_per_window: number
-  window_days: number
 }
 
 export interface UserTag {
