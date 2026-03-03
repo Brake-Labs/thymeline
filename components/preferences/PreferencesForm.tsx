@@ -5,11 +5,7 @@ import { LimitedTag } from '@/types'
 import StepperInput from './StepperInput'
 import CooldownSlider from './CooldownSlider'
 import TagBucketPicker from './TagBucketPicker'
-
-function getToken(): string {
-  if (typeof window === 'undefined') return ''
-  return (window as Window & { __supabaseToken?: string }).__supabaseToken ?? ''
-}
+import { getAccessToken } from '@/lib/supabase/browser'
 
 interface SectionSaveButtonProps {
   onSave: () => Promise<void>
@@ -67,15 +63,19 @@ export default function PreferencesForm({ allTags }: PreferencesFormProps) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/preferences', {
-      headers: { Authorization: `Bearer ${getToken()}` },
-    })
-      .then((r) => r.json())
-      .then((data: PrefsState) => {
+    async function fetchPrefs() {
+      try {
+        const r = await fetch('/api/preferences', {
+          headers: { Authorization: `Bearer ${await getAccessToken()}` },
+        })
+        const data: PrefsState = await r.json()
         setPrefs(data)
         setLoading(false)
-      })
-      .catch(() => setLoading(false))
+      } catch {
+        setLoading(false)
+      }
+    }
+    fetchPrefs()
   }, [])
 
   async function patch(fields: Partial<PrefsState>) {
@@ -83,7 +83,7 @@ export default function PreferencesForm({ allTags }: PreferencesFormProps) {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${getToken()}`,
+        Authorization: `Bearer ${await getAccessToken()}`,
       },
       body: JSON.stringify(fields),
     })

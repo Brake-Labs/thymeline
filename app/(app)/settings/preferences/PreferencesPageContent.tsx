@@ -2,22 +2,20 @@
 
 import { useEffect, useState } from 'react'
 import PreferencesForm from '@/components/preferences/PreferencesForm'
-
-function getToken(): string {
-  if (typeof window === 'undefined') return ''
-  return (window as Window & { __supabaseToken?: string }).__supabaseToken ?? ''
-}
+import { getAccessToken } from '@/lib/supabase/browser'
 
 export default function PreferencesPageContent() {
   const [allTags, setAllTags] = useState<string[]>([])
 
   useEffect(() => {
-    fetch('/api/tags', { headers: { Authorization: `Bearer ${getToken()}` } })
-      .then((r) => r.json())
-      .then((data: { id: string; name: string }[]) => {
+    async function fetchTags() {
+      try {
+        const r = await fetch('/api/tags', { headers: { Authorization: `Bearer ${await getAccessToken()}` } })
+        const data: { id: string; name: string }[] = await r.json()
         if (Array.isArray(data)) setAllTags(data.map((t) => t.name))
-      })
-      .catch(() => {})
+      } catch {}
+    }
+    fetchTags()
   }, [])
 
   return <PreferencesForm allTags={allTags} />

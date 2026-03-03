@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { getAccessToken } from '@/lib/supabase/browser'
 
 interface UserTag {
   id: string
@@ -22,14 +23,16 @@ export default function RecipeFilters() {
   const [tags, setTags] = useState<UserTag[]>([])
 
   useEffect(() => {
-    fetch('/api/tags', {
-      headers: {
-        Authorization: `Bearer ${typeof window !== 'undefined' ? (window as Window & { __supabaseToken?: string }).__supabaseToken ?? '' : ''}`,
-      },
-    })
-      .then((r) => r.json())
-      .then((data: UserTag[]) => Array.isArray(data) && setTags(data))
-      .catch(() => {})
+    async function fetchTags() {
+      try {
+        const r = await fetch('/api/tags', {
+          headers: { Authorization: `Bearer ${await getAccessToken()}` },
+        })
+        const data: UserTag[] = await r.json()
+        if (Array.isArray(data)) setTags(data)
+      } catch {}
+    }
+    fetchTags()
   }, [])
 
   function handleChange(param: 'category' | 'tag', value: string) {

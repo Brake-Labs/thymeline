@@ -6,11 +6,7 @@ import { RecipeListItem } from '@/types'
 import RecipeTable, { SortKey, SortDir } from '@/components/recipes/RecipeTable'
 import RecipeFilters from '@/components/recipes/RecipeFilters'
 import AddRecipeModal from '@/components/recipes/AddRecipeModal'
-
-function getToken(): string {
-  if (typeof window === 'undefined') return ''
-  return (window as Window & { __supabaseToken?: string }).__supabaseToken ?? ''
-}
+import { getAccessToken } from '@/lib/supabase/browser'
 
 function sortRecipes(
   recipes: RecipeListItem[],
@@ -51,7 +47,7 @@ export default function RecipePageContent() {
     if (tag) params.set('tag', tag)
 
     const res = await fetch(`/api/recipes?${params.toString()}`, {
-      headers: { Authorization: `Bearer ${getToken()}` },
+      headers: { Authorization: `Bearer ${await getAccessToken()}` },
     })
     if (res.ok) {
       const data: RecipeListItem[] = await res.json()
@@ -65,12 +61,14 @@ export default function RecipePageContent() {
   }, [fetchRecipes])
 
   useEffect(() => {
-    fetch('/api/tags', { headers: { Authorization: `Bearer ${getToken()}` } })
-      .then((r) => r.json())
-      .then((data: { id: string; name: string }[]) => {
+    async function fetchTags() {
+      try {
+        const r = await fetch('/api/tags', { headers: { Authorization: `Bearer ${await getAccessToken()}` } })
+        const data: { id: string; name: string }[] = await r.json()
         if (Array.isArray(data)) setAvailableTags(data.map((t) => t.name))
-      })
-      .catch(() => {})
+      } catch {}
+    }
+    fetchTags()
   }, [])
 
   function handleSort(key: SortKey) {
@@ -116,7 +114,7 @@ export default function RecipePageContent() {
           availableTags={availableTags}
           onClose={() => setShowModal(false)}
           onSaved={() => fetchRecipes()}
-          getToken={getToken}
+          getToken={getAccessToken}
         />
       )}
     </div>
