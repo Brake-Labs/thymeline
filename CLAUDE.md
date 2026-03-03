@@ -8,9 +8,13 @@ based on preferences, generate grocery lists, and track what they've cooked.
 - `main` — production, never commit directly
 - `staging` — integration, agents merge here via PR only
 - `feature/*` — all agent work happens here
-- `briefs/` — feature briefs for every sprint, numbered sequentially
+- `briefs/` — feature briefs written by the product owner, numbered sequentially
+- `specs/` — technical specs produced by the Architect agent in response to briefs
 
-**Always read the relevant brief in `briefs/` before starting any work.**
+**Agent reading order:**
+- Architect: read the brief in `briefs/`, produce a spec into `specs/`
+- Writer: read both the brief in `briefs/` AND the approved spec in `specs/`
+- Reviewer: read the spec in `specs/` to verify the implementation matches
 
 ## Tech Stack
 - **Frontend:** Next.js 14+ with TypeScript, Tailwind CSS
