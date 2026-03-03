@@ -7,7 +7,7 @@ interface InlineTagEditorProps {
   recipeId: string
   currentTags: string[]
   availableTags: string[]
-  getToken: () => string
+  getToken: () => Promise<string> | string
   onUpdate: (updatedTags: string[]) => void
 }
 
@@ -28,7 +28,7 @@ export default function InlineTagEditor({
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${getToken()}`,
+          Authorization: `Bearer ${await getToken()}`,
         },
         body: JSON.stringify({ tags: next }),
       })

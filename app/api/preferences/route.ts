@@ -10,6 +10,7 @@ const DEFAULT_PREFS = {
   avoided_tags: [] as string[],
   limited_tags: [] as LimitedTag[],
   onboarding_completed: false,
+  is_active: true,
 }
 
 export async function GET(req: NextRequest) {
@@ -21,7 +22,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await supabase
     .from('user_preferences')
-    .select('options_per_day, cooldown_days, seasonal_mode, preferred_tags, avoided_tags, limited_tags, onboarding_completed')
+    .select('options_per_day, cooldown_days, seasonal_mode, preferred_tags, avoided_tags, limited_tags, onboarding_completed, is_active')
     .eq('user_id', user.id)
     .single()
 
@@ -110,7 +111,7 @@ export async function PATCH(req: NextRequest) {
     }
   }
 
-  // Build update payload — only include fields present in body
+  // Build update payload — only include allowed fields; is_active is write-protected
   const allowed = ['options_per_day', 'cooldown_days', 'seasonal_mode', 'preferred_tags', 'avoided_tags', 'limited_tags', 'onboarding_completed']
   const update: Record<string, unknown> = { user_id: user.id }
   for (const key of allowed) {
@@ -120,7 +121,7 @@ export async function PATCH(req: NextRequest) {
   const { data, error } = await supabase
     .from('user_preferences')
     .upsert(update, { onConflict: 'user_id' })
-    .select('options_per_day, cooldown_days, seasonal_mode, preferred_tags, avoided_tags, limited_tags, onboarding_completed')
+    .select('options_per_day, cooldown_days, seasonal_mode, preferred_tags, avoided_tags, limited_tags, onboarding_completed, is_active')
     .single()
 
   if (error || !data) {

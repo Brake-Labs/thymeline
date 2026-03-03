@@ -9,13 +9,9 @@ import InlineTagEditor from '@/components/recipes/InlineTagEditor'
 import LogMadeTodayButton from '@/components/recipes/LogMadeTodayButton'
 import DeleteConfirmDialog from '@/components/recipes/DeleteConfirmDialog'
 import ShareToggle from '@/components/recipes/ShareToggle'
+import { getAccessToken } from '@/lib/supabase/browser'
 
 type RecipeWithHistory = Recipe & { last_made: string | null; times_made: number }
-
-function getToken(): string {
-  if (typeof window === 'undefined') return ''
-  return (window as Window & { __supabaseToken?: string }).__supabaseToken ?? ''
-}
 
 function getCurrentUserId(): string {
   if (typeof window === 'undefined') return ''
@@ -36,27 +32,31 @@ export default function RecipeDetailPage({ params }: Props) {
   const isOwner = recipe?.user_id === getCurrentUserId()
 
   useEffect(() => {
-    fetch(`/api/recipes/${params.id}`, {
-      headers: { Authorization: `Bearer ${getToken()}` },
-    })
-      .then((r) => {
-        if (r.status === 404) { setNotFound(true); return null }
-        return r.json()
-      })
-      .then((data: RecipeWithHistory | null) => {
+    async function fetchRecipe() {
+      try {
+        const r = await fetch(`/api/recipes/${params.id}`, {
+          headers: { Authorization: `Bearer ${await getAccessToken()}` },
+        })
+        if (r.status === 404) { setNotFound(true); setLoading(false); return }
+        const data: RecipeWithHistory = await r.json()
         if (data) setRecipe(data)
         setLoading(false)
-      })
-      .catch(() => setLoading(false))
+      } catch {
+        setLoading(false)
+      }
+    }
+    fetchRecipe()
   }, [params.id])
 
   useEffect(() => {
-    fetch('/api/tags', { headers: { Authorization: `Bearer ${getToken()}` } })
-      .then((r) => r.json())
-      .then((data: { id: string; name: string }[]) => {
+    async function fetchTags() {
+      try {
+        const r = await fetch('/api/tags', { headers: { Authorization: `Bearer ${await getAccessToken()}` } })
+        const data: { id: string; name: string }[] = await r.json()
         if (Array.isArray(data)) setAvailableTags(data.map((t) => t.name))
-      })
-      .catch(() => {})
+      } catch {}
+    }
+    fetchTags()
   }, [])
 
   if (loading) {
@@ -117,7 +117,7 @@ export default function RecipeDetailPage({ params }: Props) {
             recipeId={recipe.id}
             currentTags={recipe.tags}
             availableTags={availableTags}
-            getToken={getToken}
+            getToken={getAccessToken}
             onUpdate={(tags) => setRecipe((r) => r ? { ...r, tags } : r)}
           />
         ) : (
@@ -144,7 +144,7 @@ export default function RecipeDetailPage({ params }: Props) {
       <div className="flex flex-wrap gap-3 mb-8">
         <LogMadeTodayButton
           recipeId={recipe.id}
-          getToken={getToken}
+          getToken={getAccessToken}
           onLogged={() =>
             setRecipe((r) => {
               if (!r) return r
@@ -181,7 +181,7 @@ export default function RecipeDetailPage({ params }: Props) {
           <ShareToggle
             recipeId={recipe.id}
             initialIsShared={recipe.is_shared}
-            getToken={getToken}
+            getToken={getAccessToken}
             onUpdate={(isShared) => setRecipe((r) => r ? { ...r, is_shared: isShared } : r)}
           />
         </div>
@@ -228,7 +228,7 @@ export default function RecipeDetailPage({ params }: Props) {
       {showDelete && (
         <DeleteConfirmDialog
           recipeId={recipe.id}
-          getToken={getToken}
+          getToken={getAccessToken}
           onCancel={() => setShowDelete(false)}
         />
       )}

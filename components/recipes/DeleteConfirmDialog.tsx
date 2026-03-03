@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 
 interface DeleteConfirmDialogProps {
   recipeId: string
-  getToken: () => string
+  getToken: () => Promise<string> | string
   onCancel: () => void
 }
 
@@ -22,7 +22,7 @@ export default function DeleteConfirmDialog({
     try {
       const res = await fetch(`/api/recipes/${recipeId}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${getToken()}` },
+        headers: { Authorization: `Bearer ${await getToken()}` },
       })
       if (res.ok) {
         router.push('/recipes')

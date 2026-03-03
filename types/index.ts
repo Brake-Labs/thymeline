@@ -13,7 +13,37 @@ export interface UserPreferences {
   avoided_tags: string[]
   limited_tags: LimitedTag[]
   onboarding_completed: boolean
+  is_active: boolean
   created_at: string
+}
+
+export interface Invite {
+  id:         string
+  token:      string
+  created_by: string | null
+  used_by:    string | null
+  used_at:    string | null
+  expires_at: string
+  created_at: string
+}
+
+export interface HomeData {
+  currentWeekPlan: {
+    id:         string
+    week_start: string
+    entries: {
+      planned_date:  string
+      recipe_id:     string
+      recipe_title:  string
+      position:      number
+      confirmed:     boolean
+    }[]
+  } | null
+  recentlyMade: {
+    recipe_id:    string
+    recipe_title: string
+    made_on:      string
+  }[]
 }
 
 export interface UserTag {

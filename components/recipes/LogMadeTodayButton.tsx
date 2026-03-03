@@ -4,7 +4,7 @@ import { useState } from 'react'
 
 interface LogMadeTodayButtonProps {
   recipeId: string
-  getToken: () => string
+  getToken: () => Promise<string> | string
   onLogged?: () => void
 }
 
@@ -22,7 +22,7 @@ export default function LogMadeTodayButton({
     try {
       const res = await fetch(`/api/recipes/${recipeId}/log`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${getToken()}` },
+        headers: { Authorization: `Bearer ${await getToken()}` },
       })
       if (res.ok) {
         const data: { made_on: string; already_logged: boolean } = await res.json()
