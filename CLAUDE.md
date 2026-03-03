@@ -8,6 +8,9 @@ based on preferences, generate grocery lists, and track what they've cooked.
 - `main` — production, never commit directly
 - `staging` — integration, agents merge here via PR only
 - `feature/*` — all agent work happens here
+- `briefs/` — feature briefs for every sprint, numbered sequentially
+
+**Always read the relevant brief in `briefs/` before starting any work.**
 
 ## Tech Stack
 - **Frontend:** Next.js 14+ with TypeScript, Tailwind CSS
@@ -125,6 +128,7 @@ These are examples only — users can change everything:
   ],
   "healthy_bias": true
 }
+```
 
 ---
 
