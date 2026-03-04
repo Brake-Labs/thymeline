@@ -64,5 +64,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, reason: 'Failed to consume invite' })
   }
 
+  // Seed preferences for the new user if not already present
+  await supabase.from('user_preferences').upsert({
+    user_id: user.id,
+    options_per_day: 3,
+    cooldown_days: 28,
+    seasonal_mode: true,
+    preferred_tags: [],
+    avoided_tags: [],
+    limited_tags: [],
+    onboarding_completed: false,
+    is_active: true,
+  }, { onConflict: 'user_id', ignoreDuplicates: true })
+
   return NextResponse.json({ success: true })
 }

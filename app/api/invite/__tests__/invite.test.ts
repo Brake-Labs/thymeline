@@ -29,6 +29,7 @@ const consumeMockState = {
   lookupError: null as { message: string } | null,
   updateError: null as { message: string } | null,
   prefsUpdateCalled: false,
+  prefsUpsertCalled: false,
 }
 
 vi.mock('@/lib/supabase-server', () => ({
@@ -48,6 +49,10 @@ vi.mock('@/lib/supabase-server', () => ({
               return { error: null }
             },
           }),
+          upsert: async () => {
+            consumeMockState.prefsUpsertCalled = true
+            return { error: null }
+          },
         }
       }
       // invites table
@@ -148,9 +153,10 @@ describe('POST /api/invite/consume', () => {
     consumeMockState.lookupError = null
     consumeMockState.updateError = null
     consumeMockState.prefsUpdateCalled = false
+    consumeMockState.prefsUpsertCalled = false
   })
 
-  it('T15 - returns success=true for a valid token and marks it used', async () => {
+  it('T15 - returns success=true for a valid token and seeds user_preferences', async () => {
     consumeMockState.invite = {
       id: 'invite-1',
       used_by: null,
@@ -160,6 +166,7 @@ describe('POST /api/invite/consume', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.success).toBe(true)
+    expect(consumeMockState.prefsUpsertCalled).toBe(true)
   })
 
   it('T16 - returns success=false and sets is_active=false when token is null', async () => {
