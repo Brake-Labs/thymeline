@@ -5,11 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Recipe } from '@/types'
 import RecipeForm, { RecipeFormValues } from '@/components/recipes/RecipeForm'
-
-function getToken(): string {
-  if (typeof window === 'undefined') return ''
-  return (window as Window & { __supabaseToken?: string }).__supabaseToken ?? ''
-}
+import { getAccessToken } from '@/lib/supabase/browser'
 
 interface Props {
   params: { id: string }
@@ -25,27 +21,31 @@ export default function EditRecipePage({ params }: Props) {
   const [saveError, setSaveError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch(`/api/recipes/${params.id}`, {
-      headers: { Authorization: `Bearer ${getToken()}` },
-    })
-      .then((r) => {
-        if (r.status === 404) { setNotFound(true); return null }
-        return r.json()
-      })
-      .then((data: Recipe | null) => {
+    async function fetchRecipe() {
+      try {
+        const r = await fetch(`/api/recipes/${params.id}`, {
+          headers: { Authorization: `Bearer ${await getAccessToken()}` },
+        })
+        if (r.status === 404) { setNotFound(true); setLoading(false); return }
+        const data: Recipe = await r.json()
         if (data) setRecipe(data)
         setLoading(false)
-      })
-      .catch(() => setLoading(false))
+      } catch {
+        setLoading(false)
+      }
+    }
+    fetchRecipe()
   }, [params.id])
 
   useEffect(() => {
-    fetch('/api/tags', { headers: { Authorization: `Bearer ${getToken()}` } })
-      .then((r) => r.json())
-      .then((data: { id: string; name: string }[]) => {
+    async function fetchTags() {
+      try {
+        const r = await fetch('/api/tags', { headers: { Authorization: `Bearer ${await getAccessToken()}` } })
+        const data: { id: string; name: string }[] = await r.json()
         if (Array.isArray(data)) setAvailableTags(data.map((t) => t.name))
-      })
-      .catch(() => {})
+      } catch {}
+    }
+    fetchTags()
   }, [])
 
   async function handleSubmit(values: RecipeFormValues) {
@@ -56,7 +56,7 @@ export default function EditRecipePage({ params }: Props) {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${getToken()}`,
+          Authorization: `Bearer ${await getAccessToken()}`,
         },
         body: JSON.stringify({
           title: values.title,

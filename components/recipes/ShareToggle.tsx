@@ -5,7 +5,7 @@ import { useState } from 'react'
 interface ShareToggleProps {
   recipeId: string
   initialIsShared: boolean
-  getToken: () => string
+  getToken: () => Promise<string> | string
   onUpdate: (isShared: boolean) => void
 }
 
@@ -26,7 +26,7 @@ export default function ShareToggle({
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${getToken()}`,
+          Authorization: `Bearer ${await getToken()}`,
         },
         body: JSON.stringify({ is_shared: next }),
       })

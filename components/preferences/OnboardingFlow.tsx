@@ -6,6 +6,7 @@ import { LimitedTag } from '@/types'
 import StepperInput from './StepperInput'
 import CooldownSlider from './CooldownSlider'
 import TagBucketPicker from './TagBucketPicker'
+import { getAccessToken } from '@/lib/supabase/browser'
 
 interface OnboardingState {
   options_per_day: number
@@ -17,11 +18,6 @@ interface OnboardingState {
 
 interface OnboardingFlowProps {
   allTags: string[]
-}
-
-function getToken(): string {
-  if (typeof window === 'undefined') return ''
-  return (window as Window & { __supabaseToken?: string }).__supabaseToken ?? ''
 }
 
 export default function OnboardingFlow({ allTags }: OnboardingFlowProps) {
@@ -50,7 +46,7 @@ export default function OnboardingFlow({ allTags }: OnboardingFlowProps) {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${getToken()}`,
+        Authorization: `Bearer ${await getAccessToken()}`,
       },
       body: JSON.stringify(payload),
     })

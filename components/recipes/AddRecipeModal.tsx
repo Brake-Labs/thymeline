@@ -7,7 +7,7 @@ interface AddRecipeModalProps {
   availableTags: string[]
   onClose: () => void
   onSaved: () => void
-  getToken: () => string
+  getToken: () => Promise<string> | string
 }
 
 type Tab = 'url' | 'manual'
@@ -42,7 +42,7 @@ export default function AddRecipeModal({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${getToken()}`,
+          Authorization: `Bearer ${await getToken()}`,
         },
         body: JSON.stringify({ url: urlInput }),
       })
@@ -66,7 +66,7 @@ export default function AddRecipeModal({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${getToken()}`,
+          Authorization: `Bearer ${await getToken()}`,
         },
         body: JSON.stringify({
           title: values.title,
