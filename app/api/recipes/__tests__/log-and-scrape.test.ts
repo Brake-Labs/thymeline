@@ -67,13 +67,15 @@ vi.mock('firecrawl', () => ({
 }))
 
 vi.mock('@/lib/llm', () => ({
-  llmClient: {
-    createChatCompletionNonStreaming: vi.fn(),
+  anthropic: {
+    messages: {
+      create: vi.fn(),
+    },
   },
 }))
 
 import { createServerClient } from '@/lib/supabase-server'
-import { llmClient } from '@/lib/llm'
+import { anthropic } from '@/lib/llm'
 
 function makeReq(url: string, method = 'POST', body?: unknown): Request {
   return new Request(url, {
@@ -129,14 +131,15 @@ describe('POST /api/recipes/scrape', () => {
   it('T01: successful scrape pre-fills title, ingredients, and steps (partial = false)', async () => {
     const mock = makeSupabaseMock()
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
-    vi.mocked(llmClient.createChatCompletionNonStreaming).mockResolvedValue(
-      JSON.stringify({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(anthropic.messages.create).mockResolvedValue({
+      content: [{ type: 'text', text: JSON.stringify({
         title: 'Pasta Carbonara',
         ingredients: '200g pasta\n100g pancetta',
         steps: 'Cook pasta\nFry pancetta\nCombine',
         imageUrl: 'https://example.com/pasta.jpg',
-      }),
-    )
+      }) }],
+    } as any)
 
     const { POST } = await import('@/app/api/recipes/scrape/route')
     const req = makeReq('http://localhost/api/recipes/scrape', 'POST', {
@@ -156,14 +159,15 @@ describe('POST /api/recipes/scrape', () => {
   it('T02: partial scrape (steps null) sets partial = true, save button not blocked', async () => {
     const mock = makeSupabaseMock()
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
-    vi.mocked(llmClient.createChatCompletionNonStreaming).mockResolvedValue(
-      JSON.stringify({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(anthropic.messages.create).mockResolvedValue({
+      content: [{ type: 'text', text: JSON.stringify({
         title: 'Pasta Carbonara',
         ingredients: '200g pasta',
         steps: null,
         imageUrl: null,
-      }),
-    )
+      }) }],
+    } as any)
 
     const { POST } = await import('@/app/api/recipes/scrape/route')
     const req = makeReq('http://localhost/api/recipes/scrape', 'POST', {

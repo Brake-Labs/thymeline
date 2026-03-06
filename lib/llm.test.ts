@@ -1,13 +1,12 @@
 import { describe, it, expect } from 'vitest'
 
 describe('llm client', () => {
-  it('exports an llm client instance', async () => {
-    process.env.LLM_MODEL = 'Anthropic'
+  it('exports an Anthropic client instance', async () => {
     process.env.LLM_API_KEY = 'test-api-key'
 
-    const { llmClient } = await import('./llm')
+    const { anthropic } = await import('./llm')
 
-    expect(llmClient).toBeDefined()
-    expect(typeof llmClient.createChatCompletionNonStreaming).toBe('function')
+    expect(anthropic).toBeDefined()
+    expect(typeof anthropic.messages.create).toBe('function')
   })
 })

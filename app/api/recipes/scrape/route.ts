@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import FirecrawlApp from 'firecrawl'
 import { createServerClient } from '@/lib/supabase-server'
-import { llmClient } from '@/lib/llm'
-import { AnthropicChatModels, ChatRoles } from 'any-llm'
+import { anthropic } from '@/lib/llm'
 
 export async function POST(req: NextRequest) {
   const supabase = createServerClient(req)
@@ -68,22 +67,16 @@ ${pageContent.slice(0, 8000)}`
   } = { title: null, ingredients: null, steps: null, imageUrl: null }
 
   try {
-    const response = await llmClient.createChatCompletionNonStreaming(
-      {
-        model: AnthropicChatModels.CLAUDE_3_HAIKU,
-        temperature: 0,
-        maxTokens: 2048,
-      },
-      [
-        {
-          role: ChatRoles.User,
-          content: extractionPrompt,
-        },
-      ],
-    )
+    const response = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 2048,
+      temperature: 0,
+      messages: [{ role: 'user', content: extractionPrompt }],
+    })
 
+    const rawText = response.content[0].type === 'text' ? response.content[0].text : ''
     // Strip markdown code fences if present
-    const cleaned = response.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
+    const cleaned = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
     const parsed = JSON.parse(cleaned)
     extracted = {
       title: typeof parsed.title === 'string' ? parsed.title : null,
