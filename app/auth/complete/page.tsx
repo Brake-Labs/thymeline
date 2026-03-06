@@ -24,7 +24,14 @@ export default function AuthCompletePage() {
       const prefsRes = await fetch('/api/preferences', {
         headers: { Authorization: `Bearer ${token}` },
       })
-      const prefs = prefsRes.ok ? await prefsRes.json() : null
+      let prefs = prefsRes.ok ? await prefsRes.json() : null
+      if (!prefs) {
+        await new Promise(r => setTimeout(r, 500))
+        const retry = await fetch('/api/preferences', {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        prefs = retry.ok ? await retry.json() : null
+      }
 
       if (prefs?.onboarding_completed === true) {
         // Returning user — skip invite check
