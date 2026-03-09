@@ -96,7 +96,7 @@ function PlanPageInner() {
 
   // ── Suggestion fetching ──────────────────────────────────────────────────────
 
-  async function fetchSuggestions(activeDates: string[]) {
+  async function fetchSuggestions(activeDates: string[], mergeWithPrev = false) {
     setIsGenerating(true)
     try {
       const token = await getAccessToken()
@@ -116,6 +116,19 @@ function PlanPageInner() {
       const contentType = res.headers.get('content-type') ?? ''
       const days: DayState[] = activeDates.map((d) => ({ date: d, options: [], isSwapping: false }))
 
+      const applyDays = (incoming: DayState[]) => {
+        if (mergeWithPrev) {
+          setSuggestions((prev) => prev ? {
+            days: prev.days.map((day) => {
+              const updated = incoming.find((d) => d.date === day.date)
+              return updated ?? day
+            }),
+          } : { days: incoming })
+        } else {
+          setSuggestions({ days: incoming })
+        }
+      }
+
       if (contentType.includes('application/x-ndjson')) {
         // Streaming path
         const reader = res.body?.getReader()
@@ -134,7 +147,7 @@ function PlanPageInner() {
                 const dayData = JSON.parse(line) as DaySuggestions
                 const idx = days.findIndex((d) => d.date === dayData.date)
                 if (idx >= 0) days[idx].options = dayData.options
-                setSuggestions({ days: [...days] })
+                applyDays([...days])
               } catch { /* skip malformed line */ }
             }
           }
@@ -148,8 +161,8 @@ function PlanPageInner() {
         }
       }
 
-      setSuggestions({ days })
-      router.push('/plan?step=suggestions')
+      applyDays(days)
+      if (!mergeWithPrev) router.push('/plan?step=suggestions')
     } catch (err) {
       console.error('Suggest error:', err)
     } finally {
@@ -270,7 +283,7 @@ function PlanPageInner() {
       const unselectedDates = setup.activeDates.filter(
         (d) => selections[d] === undefined,
       )
-      fetchSuggestions(unselectedDates.length > 0 ? unselectedDates : setup.activeDates)
+      fetchSuggestions(unselectedDates.length > 0 ? unselectedDates : setup.activeDates, true)
     }
   }
 
