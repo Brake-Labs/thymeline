@@ -12,6 +12,7 @@ export interface UserPreferences {
   preferred_tags: string[]
   avoided_tags: string[]
   limited_tags: LimitedTag[]
+  seasonal_rules: Record<string, { favor?: string[]; cap?: Record<string, number>; exclude?: string[] }> | null
   onboarding_completed: boolean
   is_active: boolean
   created_at: string
@@ -102,4 +103,35 @@ export interface MealPlanEntry {
   planned_date: string
   position: number
   confirmed: boolean
+}
+
+export interface RecipeSuggestion {
+  recipe_id:    string
+  recipe_title: string
+  reason?:      string
+}
+
+export interface DaySuggestions {
+  date:    string
+  options: RecipeSuggestion[]
+}
+
+export interface SuggestionsResponse {
+  days: DaySuggestions[]
+}
+
+export interface DaySelection {
+  date:         string
+  recipe_id:    string
+  recipe_title: string
+  from_vault:   boolean
+}
+
+export interface SavedPlanEntry {
+  id:           string
+  meal_plan_id: string
+  recipe_id:    string
+  planned_date: string
+  position:     number
+  confirmed:    boolean
 }
