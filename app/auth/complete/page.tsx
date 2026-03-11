@@ -39,6 +39,13 @@ export default function AuthCompletePage() {
         return
       }
 
+      // Preferences fetch errored (e.g. RLS not yet established) — unknown state,
+      // do not attempt invite consume as it would incorrectly set is_active = false
+      if (!prefs) {
+        router.push('/login')
+        return
+      }
+
       // New user — check and consume invite token
       const inviteToken = sessionStorage.getItem('forkcast_invite_token') ?? null
 

@@ -26,7 +26,14 @@ export async function GET(req: NextRequest) {
     .eq('user_id', user.id)
     .single()
 
-  if (error || !data) {
+  if (error) {
+    // PGRST116: no row found — new user with no preferences row yet
+    if (error.code === 'PGRST116') {
+      return NextResponse.json(DEFAULT_PREFS)
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+  if (!data) {
     return NextResponse.json(DEFAULT_PREFS)
   }
 
