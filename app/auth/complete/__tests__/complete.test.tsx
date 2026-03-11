@@ -86,6 +86,26 @@ describe('T06 - Returning user redirects to /home', () => {
   })
 })
 
+// ── Corrupted returning user (is_active=false) is repaired and sent to /home ──
+describe('returning user with is_active=false is reactivated', () => {
+  it('calls reactivate then redirects to /home when onboarding_completed=true but is_active=false', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } })
+
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ onboarding_completed: true, is_active: false }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ success: true }) }) // reactivate
+
+    await act(async () => {
+      render(<AuthCompletePage />)
+    })
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith('/api/auth/reactivate', expect.objectContaining({ method: 'POST' }))
+      expect(mockPush).toHaveBeenCalledWith('/home')
+    })
+  })
+})
+
 // ── T16: New user without valid invite is redirected to /inactive ─────────────
 describe('T16 - New user without valid invite goes to /inactive', () => {
   it('redirects to /inactive when consume returns success=false', async () => {
