@@ -56,8 +56,10 @@ The JSON must have exactly these fields:
 
 If a field cannot be found, set it to null. Do not invent data.
 
+Note: cooking steps may appear after a long ingredients list or narrative content. Look for sections labeled "Instructions", "Directions", "Method", or "Steps".
+
 Page content:
-${pageContent.slice(0, 8000)}`
+${pageContent.slice(0, 20000)}`
 
   let extracted: {
     title: string | null
