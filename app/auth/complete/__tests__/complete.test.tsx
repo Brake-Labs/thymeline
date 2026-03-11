@@ -106,6 +106,45 @@ describe('returning user with is_active=false is reactivated', () => {
   })
 })
 
+// ── Doubly-corrupted user (onboarding_completed=false, is_active=false) ───────
+describe('corrupted user with onboarding_completed=false and is_active=false is repaired', () => {
+  it('calls reactivate and redirects to /home when reactivate succeeds (has recipes)', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } })
+    // No invite token in sessionStorage
+
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ onboarding_completed: false, is_active: false }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ success: true }) }) // reactivate
+
+    await act(async () => {
+      render(<AuthCompletePage />)
+    })
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith('/api/auth/reactivate', expect.objectContaining({ method: 'POST' }))
+      expect(mockPush).toHaveBeenCalledWith('/home')
+    })
+  })
+
+  it('redirects to /inactive when reactivate fails (no prior app data)', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } })
+
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ onboarding_completed: false, is_active: false }) })
+      .mockResolvedValueOnce({ ok: false, status: 403, json: async () => ({ error: 'Not eligible' }) }) // reactivate 403
+
+    await act(async () => {
+      render(<AuthCompletePage />)
+    })
+
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledWith('/inactive')
+      // Must not call consume
+      expect(mockFetch).toHaveBeenCalledTimes(2)
+    })
+  })
+})
+
 // ── T16: New user without valid invite is redirected to /inactive ─────────────
 describe('T16 - New user without valid invite goes to /inactive', () => {
   it('redirects to /inactive when consume returns success=false', async () => {

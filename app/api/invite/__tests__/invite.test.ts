@@ -30,6 +30,7 @@ const consumeMockState = {
   updateError: null as { message: string } | null,
   prefsUpdateCalled: false,
   prefsUpsertCalled: false,
+  existingOnboardingCompleted: false, // what the guard SELECT returns
 }
 
 vi.mock('@/lib/supabase-server', () => ({
@@ -43,6 +44,14 @@ vi.mock('@/lib/supabase-server', () => ({
     from: (table: string) => {
       if (table === 'user_preferences') {
         return {
+          select: () => ({
+            eq: () => ({
+              single: async () => ({
+                data: { onboarding_completed: consumeMockState.existingOnboardingCompleted },
+                error: null,
+              }),
+            }),
+          }),
           update: () => ({
             eq: async () => {
               consumeMockState.prefsUpdateCalled = true
@@ -154,6 +163,7 @@ describe('POST /api/invite/consume', () => {
     consumeMockState.updateError = null
     consumeMockState.prefsUpdateCalled = false
     consumeMockState.prefsUpsertCalled = false
+    consumeMockState.existingOnboardingCompleted = false
   })
 
   it('T15 - returns success=true for a valid token and seeds user_preferences', async () => {
@@ -204,5 +214,16 @@ describe('POST /api/invite/consume', () => {
     consumeMockState.user = null
     const res = await consumePOST(makeRequest({ token: 'any' }))
     expect(res.status).toBe(401)
+  })
+
+  it('returns success=false without deactivating when onboarding_completed=true (returning user guard)', async () => {
+    consumeMockState.existingOnboardingCompleted = true
+    const res = await consumePOST(makeRequest({ token: null }))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.success).toBe(false)
+    expect(body.reason).toBe('Already registered')
+    // Must NOT call setInactive
+    expect(consumeMockState.prefsUpdateCalled).toBe(false)
   })
 })
