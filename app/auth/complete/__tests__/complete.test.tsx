@@ -107,6 +107,27 @@ describe('T16 - New user without valid invite goes to /inactive', () => {
   })
 })
 
+// ── preferences 500 after retry → redirects to /login ────────────────────────
+describe('preferences 500 after retry → redirects to /login', () => {
+  it('redirects to /login when preferences returns non-ok on both attempts', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } })
+
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({ error: 'permission denied' }) })
+      .mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({ error: 'permission denied' }) })
+
+    await act(async () => {
+      render(<AuthCompletePage />)
+    })
+
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledWith('/login')
+      // Must not attempt invite consume
+      expect(mockFetch).toHaveBeenCalledTimes(2)
+    })
+  })
+})
+
 // ── T01: Auth layout redirects unauthenticated users (documented) ─────────────
 describe('T01/T17 - Auth layout redirect behavior', () => {
   it('app layout redirects to /login when no session (verified via layout source)', async () => {
