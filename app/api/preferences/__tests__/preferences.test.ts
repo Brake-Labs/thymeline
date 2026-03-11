@@ -5,6 +5,7 @@ import { NextRequest } from 'next/server'
 const mockState = {
   user: null as { id: string } | null,
   prefsRow: null as Record<string, unknown> | null,
+  prefsError: null as { code?: string; message: string } | null,
   userTags: [] as { name: string }[],
   upsertResult: null as Record<string, unknown> | null,
 }
@@ -29,10 +30,15 @@ vi.mock('@/lib/supabase-server', () => ({
       return {
         select: (_cols: string) => ({
           eq: (_col: string, _val: unknown) => ({
-            single: async () => ({
-              data: mockState.prefsRow,
-              error: mockState.prefsRow ? null : { message: 'not found' },
-            }),
+            single: async () => {
+              if (mockState.prefsError) {
+                return { data: null, error: mockState.prefsError }
+              }
+              if (!mockState.prefsRow) {
+                return { data: null, error: { code: 'PGRST116', message: 'not found' } }
+              }
+              return { data: mockState.prefsRow, error: null }
+            },
           }),
         }),
         upsert: (data: Record<string, unknown>, _opts: unknown) => ({
@@ -84,6 +90,7 @@ function makePatchRequest(body: unknown): NextRequest {
 beforeEach(() => {
   mockState.user = { id: 'user-1' }
   mockState.prefsRow = null
+  mockState.prefsError = null
   mockState.userTags = []
   mockState.upsertResult = null
 })
@@ -121,6 +128,14 @@ describe('GET /api/preferences', () => {
     mockState.user = null
     const res = await GET(makeGetRequest())
     expect(res.status).toBe(401)
+  })
+
+  it('returns 500 when DB returns a non-PGRST116 error (e.g. RLS denial)', async () => {
+    mockState.prefsError = { code: '42501', message: 'permission denied for table user_preferences' }
+    const res = await GET(makeGetRequest())
+    expect(res.status).toBe(500)
+    const body = await res.json()
+    expect(body.error).toContain('permission denied')
   })
 })
 
