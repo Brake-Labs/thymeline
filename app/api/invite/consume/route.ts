@@ -15,6 +15,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  // Never deactivate a user who already has completed onboarding — they are a
+  // returning user who should not be penalised for lacking an invite token.
+  const { data: existingPrefs } = await supabase
+    .from('user_preferences')
+    .select('onboarding_completed')
+    .eq('user_id', user.id)
+    .single()
+  if (existingPrefs?.onboarding_completed === true) {
+    return NextResponse.json({ success: false, reason: 'Already registered' })
+  }
+
   let body: { token: string | null }
   try {
     body = await req.json()
