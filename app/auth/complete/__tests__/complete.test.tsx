@@ -2,14 +2,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, waitFor, act } from '@testing-library/react'
 
-const mockPush = vi.fn()
+// vi.hoisted ensures these are available inside vi.mock factory (hoisted before imports)
+const { mockPush, mockGetUser, mockUpdateUser } = vi.hoisted(() => ({
+  mockPush: vi.fn(),
+  mockGetUser: vi.fn(),
+  mockUpdateUser: vi.fn().mockResolvedValue({}),
+}))
+
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush }),
 }))
 
-// Mock Supabase browser client
-const mockGetUser = vi.fn()
-const mockUpdateUser = vi.fn().mockResolvedValue({})
 vi.mock('@/lib/supabase/browser', () => ({
   getSupabaseClient: () => ({
     auth: {
@@ -52,7 +55,7 @@ describe('T05 - New user with valid invite redirects to /onboarding', () => {
     sessionStorageMock['forkcast_invite_token'] = 'valid-token'
 
     mockFetch
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ onboarding_completed: false, is_active: true }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ onboarding_completed: false, is_active: false }) })
       .mockResolvedValueOnce({ ok: true, json: async () => ({ success: true }) })
 
     await act(async () => {
@@ -101,6 +104,30 @@ describe('T06 - Returning user redirects to /home', () => {
     await waitFor(() => {
       expect(mockUpdateUser).toHaveBeenCalledWith({ data: { is_active: true } })
       expect(mockPush).toHaveBeenCalledWith('/home')
+    })
+  })
+})
+
+// ── Doubly-corrupted user (onboarding_completed=false, is_active=true after migration) ─
+describe('doubly-corrupted user with is_active=true but onboarding_completed=false', () => {
+  it('stamps metadata and redirects to /home without calling consume', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } })
+    // No invite token — simulates returning user whose onboarding_completed was reset
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ onboarding_completed: false, is_active: true }),
+    })
+
+    await act(async () => {
+      render(<AuthCompletePage />)
+    })
+
+    await waitFor(() => {
+      expect(mockUpdateUser).toHaveBeenCalledWith({ data: { is_active: true } })
+      expect(mockPush).toHaveBeenCalledWith('/home')
+      // consume must NOT be called — it would run setInactive and undo migration 007
+      expect(mockFetch).toHaveBeenCalledTimes(1)
     })
   })
 })

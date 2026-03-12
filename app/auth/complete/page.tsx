@@ -38,14 +38,20 @@ export default function AuthCompletePage() {
         return
       }
 
-      if (prefs.onboarding_completed === true) {
+      // Provisioned user: onboarding_completed=true (normal returning user) OR
+      // is_active=true (doubly-corrupted user whose row was repaired by migration 007
+      // but whose onboarding_completed was also reset by the pre-hotfix-11 bug).
+      // Both signals mean the user has a user_preferences row and was legitimately
+      // provisioned — skip consume (which would call setInactive and undo the repair).
+      if (prefs.onboarding_completed === true || prefs.is_active === true) {
         // Stamp user_metadata so the layout never needs to hit the DB for this
         await supabase.auth.updateUser({ data: { is_active: true } })
         router.push('/home')
         return
       }
 
-      // New user — check and consume invite token
+      // New user (no preferences row → DEFAULT_PREFS with is_active=false) —
+      // check and consume invite token
       const inviteToken = sessionStorage.getItem('forkcast_invite_token') ?? null
 
       const consumeRes = await fetch('/api/invite/consume', {
