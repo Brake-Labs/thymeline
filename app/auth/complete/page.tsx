@@ -56,6 +56,24 @@ export default function AuthCompletePage() {
       // New user — check and consume invite token
       const inviteToken = sessionStorage.getItem('forkcast_invite_token') ?? null
 
+      // If the user is already inactive and has no invite token to consume,
+      // try reactivate before giving up. This repairs accounts corrupted by
+      // the pre-hotfix-11 bug that reset onboarding_completed = false and set
+      // is_active = false for returning users on every sign-in.
+      if (prefs.is_active === false && !inviteToken) {
+        const reactivateRes = await fetch('/api/auth/reactivate', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (reactivateRes.ok) {
+          router.push('/home')
+          return
+        }
+        // No evidence of prior usage — legitimately inactive
+        router.push('/inactive')
+        return
+      }
+
       const consumeRes = await fetch('/api/invite/consume', {
         method: 'POST',
         headers: {
