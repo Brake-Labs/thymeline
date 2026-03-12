@@ -125,7 +125,7 @@ describe('returning user with is_active=false is reactivated', () => {
 
 // ── Doubly-corrupted user (onboarding_completed=false, is_active=false) ───────
 describe('corrupted user with onboarding_completed=false and is_active=false is repaired', () => {
-  it('calls reactivate and redirects to /home when reactivate succeeds (has recipes)', async () => {
+  it('calls reactivate and redirects to /home when reactivate succeeds (row exists)', async () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } })
     // No invite token in sessionStorage
 
@@ -143,7 +143,7 @@ describe('corrupted user with onboarding_completed=false and is_active=false is 
     })
   })
 
-  it('redirects to /inactive when reactivate fails (no prior app data)', async () => {
+  it('redirects to /inactive when reactivate fails (no preferences row — never provisioned)', async () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } })
 
     mockFetch
