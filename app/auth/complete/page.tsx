@@ -34,13 +34,15 @@ export default function AuthCompletePage() {
       }
 
       if (prefs?.onboarding_completed === true) {
-        // Returning user — skip invite check.
-        // Repair is_active if a previous failed auth flow incorrectly deactivated them.
         if (prefs.is_active === false) {
-          await fetch('/api/auth/reactivate', {
+          const reactivateRes = await fetch('/api/auth/reactivate', {
             method: 'POST',
             headers: { Authorization: `Bearer ${token}` },
           })
+          if (!reactivateRes.ok) {
+            router.push('/login')
+            return
+          }
         }
         router.push('/home')
         return
