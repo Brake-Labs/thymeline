@@ -9,12 +9,12 @@ vi.mock('next/navigation', () => ({
 
 // Mock Supabase browser client
 const mockGetUser = vi.fn()
-const mockGetSession = vi.fn()
+const mockUpdateUser = vi.fn().mockResolvedValue({})
 vi.mock('@/lib/supabase/browser', () => ({
   getSupabaseClient: () => ({
     auth: {
       getUser: mockGetUser,
-      getSession: mockGetSession,
+      updateUser: mockUpdateUser,
     },
   }),
   getAccessToken: async () => 'mock-token',
@@ -41,14 +41,14 @@ beforeEach(() => {
   mockPush.mockClear()
   mockFetch.mockClear()
   mockGetUser.mockReset()
+  mockUpdateUser.mockClear()
   delete sessionStorageMock['forkcast_invite_token']
 })
 
 // ── T05: New user lands on /onboarding after auth with valid invite ────────────
 describe('T05 - New user with valid invite redirects to /onboarding', () => {
-  it('redirects to /onboarding when onboarding_completed=false and invite consumed', async () => {
+  it('stamps user_metadata and redirects to /onboarding when invite consumed', async () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } })
-    mockGetSession.mockResolvedValue({ data: { session: { access_token: 'tok' } } })
     sessionStorageMock['forkcast_invite_token'] = 'valid-token'
 
     mockFetch
@@ -60,6 +60,7 @@ describe('T05 - New user with valid invite redirects to /onboarding', () => {
     })
 
     await waitFor(() => {
+      expect(mockUpdateUser).toHaveBeenCalledWith({ data: { is_active: true } })
       expect(mockPush).toHaveBeenCalledWith('/onboarding')
     })
   })
@@ -67,9 +68,8 @@ describe('T05 - New user with valid invite redirects to /onboarding', () => {
 
 // ── T06: Returning user lands on /home after auth ─────────────────────────────
 describe('T06 - Returning user redirects to /home', () => {
-  it('redirects to /home when onboarding_completed=true', async () => {
+  it('stamps user_metadata and redirects to /home when onboarding_completed=true', async () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } })
-    mockGetSession.mockResolvedValue({ data: { session: { access_token: 'tok' } } })
 
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -81,92 +81,34 @@ describe('T06 - Returning user redirects to /home', () => {
     })
 
     await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith('/home')
-    })
-  })
-})
-
-// ── Corrupted returning user (is_active=false) is repaired and sent to /home ──
-describe('returning user with is_active=false is reactivated', () => {
-  it('calls reactivate then redirects to /home when onboarding_completed=true but is_active=false', async () => {
-    mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } })
-
-    mockFetch
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ onboarding_completed: true, is_active: false }) })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ success: true }) }) // reactivate
-
-    await act(async () => {
-      render(<AuthCompletePage />)
-    })
-
-    await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith('/api/auth/reactivate', expect.objectContaining({ method: 'POST' }))
+      expect(mockUpdateUser).toHaveBeenCalledWith({ data: { is_active: true } })
       expect(mockPush).toHaveBeenCalledWith('/home')
     })
   })
 
-  it('redirects to /login when reactivate fails (transient DB error) for returning user', async () => {
+  it('redirects to /home even when DB is_active=false (metadata is now the source of truth)', async () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } })
 
-    mockFetch
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ onboarding_completed: true, is_active: false }) })
-      .mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({ error: 'DB error' }) }) // reactivate fails
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ onboarding_completed: true, is_active: false }),
+    })
 
     await act(async () => {
       render(<AuthCompletePage />)
     })
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith('/api/auth/reactivate', expect.objectContaining({ method: 'POST' }))
-      expect(mockPush).toHaveBeenCalledWith('/login')
-    })
-  })
-})
-
-// ── Doubly-corrupted user (onboarding_completed=false, is_active=false) ───────
-describe('corrupted user with onboarding_completed=false and is_active=false is repaired', () => {
-  it('calls reactivate and redirects to /home when reactivate succeeds (row exists)', async () => {
-    mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } })
-    // No invite token in sessionStorage
-
-    mockFetch
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ onboarding_completed: false, is_active: false }) })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ success: true }) }) // reactivate
-
-    await act(async () => {
-      render(<AuthCompletePage />)
-    })
-
-    await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith('/api/auth/reactivate', expect.objectContaining({ method: 'POST' }))
+      expect(mockUpdateUser).toHaveBeenCalledWith({ data: { is_active: true } })
       expect(mockPush).toHaveBeenCalledWith('/home')
-    })
-  })
-
-  it('redirects to /inactive when reactivate fails (no preferences row — never provisioned)', async () => {
-    mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } })
-
-    mockFetch
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ onboarding_completed: false, is_active: false }) })
-      .mockResolvedValueOnce({ ok: false, status: 403, json: async () => ({ error: 'Not eligible' }) }) // reactivate 403
-
-    await act(async () => {
-      render(<AuthCompletePage />)
-    })
-
-    await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith('/inactive')
-      // Must not call consume
-      expect(mockFetch).toHaveBeenCalledTimes(2)
     })
   })
 })
 
 // ── T16: New user without valid invite is redirected to /inactive ─────────────
 describe('T16 - New user without valid invite goes to /inactive', () => {
-  it('redirects to /inactive when consume returns success=false', async () => {
+  it('does not stamp metadata and redirects to /inactive when consume returns success=false', async () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } })
-    mockGetSession.mockResolvedValue({ data: { session: { access_token: 'tok' } } })
     // No token in sessionStorage
 
     mockFetch
@@ -178,6 +120,7 @@ describe('T16 - New user without valid invite goes to /inactive', () => {
     })
 
     await waitFor(() => {
+      expect(mockUpdateUser).not.toHaveBeenCalled()
       expect(mockPush).toHaveBeenCalledWith('/inactive')
     })
   })
@@ -197,8 +140,8 @@ describe('preferences 500 after retry → redirects to /login', () => {
     })
 
     await waitFor(() => {
+      expect(mockUpdateUser).not.toHaveBeenCalled()
       expect(mockPush).toHaveBeenCalledWith('/login')
-      // Must not attempt invite consume
       expect(mockFetch).toHaveBeenCalledTimes(2)
     })
   })

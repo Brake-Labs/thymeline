@@ -13,7 +13,6 @@ export default function AuthCompletePage() {
       const { data: { user } } = await supabase.auth.getUser()
 
       if (!user) {
-        // Auth failed — redirect to login
         router.push('/login')
         return
       }
@@ -33,48 +32,21 @@ export default function AuthCompletePage() {
         prefs = retry.ok ? await retry.json() : null
       }
 
-      if (prefs?.onboarding_completed === true) {
-        if (prefs.is_active === false) {
-          const reactivateRes = await fetch('/api/auth/reactivate', {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${token}` },
-          })
-          if (!reactivateRes.ok) {
-            router.push('/login')
-            return
-          }
-        }
-        router.push('/home')
-        return
-      }
-
-      // Preferences fetch errored (e.g. RLS not yet established) — unknown state,
-      // do not attempt invite consume as it would incorrectly set is_active = false
+      // Preferences fetch errored — unknown state, do not attempt invite consume
       if (!prefs) {
         router.push('/login')
         return
       }
 
-      // New user — check and consume invite token
-      const inviteToken = sessionStorage.getItem('forkcast_invite_token') ?? null
-
-      // If the user is already inactive and has no invite token to consume,
-      // try reactivate before giving up. This repairs accounts corrupted by
-      // the pre-hotfix-11 bug that reset onboarding_completed = false and set
-      // is_active = false for returning users on every sign-in.
-      if (prefs.is_active === false && !inviteToken) {
-        const reactivateRes = await fetch('/api/auth/reactivate', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        if (reactivateRes.ok) {
-          router.push('/home')
-          return
-        }
-        // No evidence of prior usage — legitimately inactive
-        router.push('/inactive')
+      if (prefs.onboarding_completed === true) {
+        // Stamp user_metadata so the layout never needs to hit the DB for this
+        await supabase.auth.updateUser({ data: { is_active: true } })
+        router.push('/home')
         return
       }
+
+      // New user — check and consume invite token
+      const inviteToken = sessionStorage.getItem('forkcast_invite_token') ?? null
 
       const consumeRes = await fetch('/api/invite/consume', {
         method: 'POST',
@@ -87,6 +59,8 @@ export default function AuthCompletePage() {
       const consumeData = consumeRes.ok ? await consumeRes.json() : { success: false }
 
       if (consumeData.success) {
+        // Stamp user_metadata before sending to onboarding
+        await supabase.auth.updateUser({ data: { is_active: true } })
         sessionStorage.removeItem('forkcast_invite_token')
         router.push('/onboarding')
       } else {
