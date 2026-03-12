@@ -16,15 +16,24 @@ export default async function AppLayout({
     redirect('/login')
   }
 
-  // Fetch preferences to check active status and onboarding
+  // Check is_active from user_metadata first — set by auth/complete after
+  // successful invite or returning-user validation. This avoids DB reads and
+  // eliminates the RLS race condition that caused the /inactive redirect bug.
+  const metaActive = user.user_metadata?.is_active
+
+  if (metaActive === false) {
+    redirect('/inactive')
+  }
+
+  // Fetch preferences for onboarding check (and legacy is_active fallback)
   const { data: prefs } = await supabase
     .from('user_preferences')
     .select('is_active, onboarding_completed')
     .eq('user_id', user.id)
     .single()
 
-  // Inactive users (no valid invite) are blocked
-  if (prefs?.is_active === false) {
+  // Legacy fallback: metadata not yet set (user hasn't re-authed since this deploy)
+  if (metaActive === undefined && prefs?.is_active === false) {
     redirect('/inactive')
   }
 
