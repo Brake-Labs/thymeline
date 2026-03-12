@@ -104,6 +104,23 @@ describe('returning user with is_active=false is reactivated', () => {
       expect(mockPush).toHaveBeenCalledWith('/home')
     })
   })
+
+  it('redirects to /login when reactivate fails (transient DB error) for returning user', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } })
+
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ onboarding_completed: true, is_active: false }) })
+      .mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({ error: 'DB error' }) }) // reactivate fails
+
+    await act(async () => {
+      render(<AuthCompletePage />)
+    })
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith('/api/auth/reactivate', expect.objectContaining({ method: 'POST' }))
+      expect(mockPush).toHaveBeenCalledWith('/login')
+    })
+  })
 })
 
 // ── Doubly-corrupted user (onboarding_completed=false, is_active=false) ───────
