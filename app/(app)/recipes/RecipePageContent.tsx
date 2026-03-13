@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { RecipeListItem } from '@/types'
 import RecipeTable, { SortKey, SortDir } from '@/components/recipes/RecipeTable'
 import RecipeFilters from '@/components/recipes/RecipeFilters'
 import AddRecipeModal from '@/components/recipes/AddRecipeModal'
+import TagFilterBar from '@/components/recipes/TagFilterBar'
 import { getAccessToken } from '@/lib/supabase/browser'
 
 function sortRecipes(
@@ -33,7 +34,7 @@ export default function RecipePageContent() {
   const [recipes, setRecipes] = useState<RecipeListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
-  const [availableTags, setAvailableTags] = useState<string[]>([])
+  const [activeTagFilters, setActiveTagFilters] = useState<string[]>([])
   const [sortKey, setSortKey] = useState<SortKey>('title')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
 
@@ -60,17 +61,6 @@ export default function RecipePageContent() {
     fetchRecipes()
   }, [fetchRecipes])
 
-  useEffect(() => {
-    async function fetchTags() {
-      try {
-        const r = await fetch('/api/tags', { headers: { Authorization: `Bearer ${await getAccessToken()}` } })
-        const data: { id: string; name: string }[] = await r.json()
-        if (Array.isArray(data)) setAvailableTags(data.map((t) => t.name))
-      } catch {}
-    }
-    fetchTags()
-  }, [])
-
   function handleSort(key: SortKey) {
     if (key === sortKey) {
       setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
@@ -80,7 +70,19 @@ export default function RecipePageContent() {
     }
   }
 
-  const sorted = sortRecipes(recipes, sortKey, sortDir)
+  const tagsInVault = useMemo(() => {
+    const tagSet = new Set<string>()
+    recipes.forEach((r) => r.tags.forEach((t) => tagSet.add(t)))
+    return Array.from(tagSet).sort()
+  }, [recipes])
+
+  const sorted = sortRecipes(
+    activeTagFilters.length > 0
+      ? recipes.filter((r) => activeTagFilters.every((t) => r.tags.includes(t)))
+      : recipes,
+    sortKey,
+    sortDir,
+  )
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
@@ -98,6 +100,16 @@ export default function RecipePageContent() {
         <RecipeFilters />
       </div>
 
+      {tagsInVault.length > 0 && (
+        <div className="mb-4">
+          <TagFilterBar
+            tags={tagsInVault}
+            activeFilters={activeTagFilters}
+            onChange={setActiveTagFilters}
+          />
+        </div>
+      )}
+
       {loading ? (
         <div className="text-center py-12 text-gray-400">Loading…</div>
       ) : (
@@ -111,7 +123,6 @@ export default function RecipePageContent() {
 
       {showModal && (
         <AddRecipeModal
-          availableTags={availableTags}
           onClose={() => setShowModal(false)}
           onSaved={() => fetchRecipes()}
           getToken={getAccessToken}

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import FirecrawlApp from 'firecrawl'
 import { createServerClient } from '@/lib/supabase-server'
 import { anthropic } from '@/lib/llm'
+import { FIRST_CLASS_TAGS } from '@/lib/tags'
 
 export async function POST(req: NextRequest) {
   const supabase = createServerClient(req)
@@ -45,7 +46,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to fetch URL content' }, { status: 500 })
   }
 
+  // Fetch user's custom tags for tag suggestion matching
+  const { data: userCustomTagRows } = await supabase
+    .from('custom_tags')
+    .select('name')
+    .eq('user_id', user.id)
+  const userCustomTags: string[] = (userCustomTagRows ?? []).map((t: { name: string }) => t.name)
+
   // Extract recipe data via LLM
+  const firstClassList = FIRST_CLASS_TAGS.join(', ')
   const extractionPrompt = `You are a recipe extraction assistant. Extract recipe information from the following web page content and return ONLY a JSON object with no markdown formatting.
 
 The JSON must have exactly these fields:
@@ -53,6 +62,7 @@ The JSON must have exactly these fields:
 - "ingredients": string or null (all ingredients, one per line, newline-separated)
 - "steps": string or null (cooking steps, one per line, plain text without numbering — numbering is a display concern)
 - "imageUrl": string or null (URL of the main recipe image if present)
+- "suggestedTags": array of strings. Suggest relevant tags for this recipe. Prioritize tags from this list: ${firstClassList}. You may suggest additional tags not on the list (e.g. cuisine, technique) if clearly relevant. Keep total suggestions to 6 or fewer. Never suggest protein tags that don't apply to this recipe.
 
 If a field cannot be found, set it to null. Do not invent data.
 
@@ -66,7 +76,8 @@ ${pageContent.slice(0, 20000)}`
     ingredients: string | null
     steps: string | null
     imageUrl: string | null
-  } = { title: null, ingredients: null, steps: null, imageUrl: null }
+    suggestedTags: string[]
+  } = { title: null, ingredients: null, steps: null, imageUrl: null, suggestedTags: [] }
 
   try {
     const response = await anthropic.messages.create({
@@ -80,11 +91,15 @@ ${pageContent.slice(0, 20000)}`
     // Strip markdown code fences if present
     const cleaned = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
     const parsed = JSON.parse(cleaned)
+    const rawSuggested: string[] = Array.isArray(parsed.suggestedTags)
+      ? parsed.suggestedTags.filter((t: unknown) => typeof t === 'string')
+      : []
     extracted = {
       title: typeof parsed.title === 'string' ? parsed.title : null,
       ingredients: typeof parsed.ingredients === 'string' ? parsed.ingredients : null,
       steps: typeof parsed.steps === 'string' ? parsed.steps : null,
       imageUrl: typeof parsed.imageUrl === 'string' ? parsed.imageUrl : null,
+      suggestedTags: rawSuggested,
     }
   } catch (err) {
     console.error('LLM extraction error:', err)
@@ -96,6 +111,23 @@ ${pageContent.slice(0, 20000)}`
     extracted.ingredients === null ||
     extracted.steps === null
 
+  // Split LLM suggestions into matched (canonical casing) and unmatched (Title Case)
+  const fullPool = [...FIRST_CLASS_TAGS, ...userCustomTags]
+  const suggestedTags: string[] = []
+  const suggestedNewTags: string[] = []
+
+  for (const tag of extracted.suggestedTags) {
+    const lc = tag.toLowerCase()
+    const canonical = fullPool.find((t) => t.toLowerCase() === lc)
+    if (canonical) {
+      suggestedTags.push(canonical)
+    } else {
+      // Normalize to Title Case
+      const titleCased = tag.replace(/\b\w/g, (c) => c.toUpperCase())
+      suggestedNewTags.push(titleCased)
+    }
+  }
+
   return NextResponse.json({
     title: extracted.title,
     ingredients: extracted.ingredients,
@@ -103,5 +135,7 @@ ${pageContent.slice(0, 20000)}`
     imageUrl: extracted.imageUrl,
     sourceUrl: rawUrl,
     partial,
+    suggestedTags,
+    suggestedNewTags,
   })
 }

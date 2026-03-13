@@ -47,13 +47,6 @@ export interface HomeData {
   }[]
 }
 
-export interface UserTag {
-  id: string
-  user_id: string
-  name: string
-  created_at: string
-}
-
 export interface Recipe {
   id: string
   user_id: string

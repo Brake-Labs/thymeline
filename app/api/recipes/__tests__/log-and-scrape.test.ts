@@ -26,8 +26,9 @@ function makeSupabaseMock(opts: {
   insertError?: { code: string; message: string } | null
   singleResult?: unknown
   singleError?: { message: string } | null
+  customTags?: { name: string }[]
 } = {}) {
-  const { insertError = null, singleResult = sampleRecipe, singleError = null } = opts
+  const { insertError = null, singleResult = sampleRecipe, singleError = null, customTags = [] } = opts
 
   return {
     auth: {
@@ -46,6 +47,13 @@ function makeSupabaseMock(opts: {
       if (table === 'recipe_history') {
         return {
           insert: vi.fn().mockResolvedValue({ data: null, error: insertError }),
+        }
+      }
+      if (table === 'custom_tags') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ data: customTags, error: null }),
+          }),
         }
       }
       return {}
@@ -131,15 +139,15 @@ describe('POST /api/recipes/scrape', () => {
   it('T01: successful scrape pre-fills title, ingredients, and steps (partial = false)', async () => {
     const mock = makeSupabaseMock()
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(anthropic.messages.create).mockResolvedValue({
       content: [{ type: 'text', text: JSON.stringify({
         title: 'Pasta Carbonara',
         ingredients: '200g pasta\n100g pancetta',
         steps: 'Cook pasta\nFry pancetta\nCombine',
         imageUrl: 'https://example.com/pasta.jpg',
+        suggestedTags: [],
       }) }],
-    } as any)
+    } as unknown as Awaited<ReturnType<typeof anthropic.messages.create>>)
 
     const { POST } = await import('@/app/api/recipes/scrape/route')
     const req = makeReq('http://localhost/api/recipes/scrape', 'POST', {
@@ -159,7 +167,6 @@ describe('POST /api/recipes/scrape', () => {
   it('T02: partial scrape (steps null) sets partial = true, save button not blocked', async () => {
     const mock = makeSupabaseMock()
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(anthropic.messages.create).mockResolvedValue({
       content: [{ type: 'text', text: JSON.stringify({
         title: 'Pasta Carbonara',
@@ -167,7 +174,7 @@ describe('POST /api/recipes/scrape', () => {
         steps: null,
         imageUrl: null,
       }) }],
-    } as any)
+    } as unknown as Awaited<ReturnType<typeof anthropic.messages.create>>)
 
     const { POST } = await import('@/app/api/recipes/scrape/route')
     const req = makeReq('http://localhost/api/recipes/scrape', 'POST', {
@@ -203,5 +210,38 @@ describe('POST /api/recipes/scrape', () => {
     const res = await POST(req as Parameters<typeof POST>[0])
 
     expect(res.status).toBe(400)
+  })
+
+  // ── Spec-06 T01: suggestedTags / suggestedNewTags ───────────────────────────
+
+  it('T01 (spec-06): returns suggestedTags (canonical casing) and suggestedNewTags (Title Case)', async () => {
+    // 'chicken' → matches first-class 'Chicken' → goes to suggestedTags
+    // 'my-custom-sauce' → matches user custom tag 'My-Custom-Sauce' → goes to suggestedTags
+    // 'weird-technique' → no match → Title Case → goes to suggestedNewTags
+    const mock = makeSupabaseMock({
+      customTags: [{ name: 'My-Custom-Sauce' }],
+    })
+    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(anthropic.messages.create).mockResolvedValue({
+      content: [{ type: 'text', text: JSON.stringify({
+        title: 'Pasta',
+        ingredients: '200g pasta',
+        steps: 'Cook it',
+        imageUrl: null,
+        suggestedTags: ['chicken', 'my-custom-sauce', 'weird-technique'],
+      }) }],
+    } as unknown as Awaited<ReturnType<typeof anthropic.messages.create>>)
+
+    const { POST } = await import('@/app/api/recipes/scrape/route')
+    const res = await POST(
+      makeReq('http://localhost/api/recipes/scrape', 'POST', { url: 'https://example.com/recipe' }),
+    )
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.suggestedTags).toContain('Chicken')        // canonical casing
+    expect(body.suggestedTags).toContain('My-Custom-Sauce') // matched custom
+    expect(body.suggestedNewTags).toContain('Weird-Technique') // Title Case normalized
+    // Matched tags not in suggestedNewTags
+    expect(body.suggestedNewTags).not.toContain('Chicken')
   })
 })
