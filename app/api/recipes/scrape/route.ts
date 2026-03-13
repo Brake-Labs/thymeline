@@ -62,7 +62,7 @@ The JSON must have exactly these fields:
 - "ingredients": string or null (all ingredients, one per line, newline-separated)
 - "steps": string or null (cooking steps, one per line, plain text without numbering — numbering is a display concern)
 - "imageUrl": string or null (URL of the main recipe image if present)
-- "suggestedTags": array of strings. Suggest relevant tags for this recipe. Prioritize tags from this list: ${firstClassList}. You may suggest additional tags not on the list (e.g. cuisine, technique) if clearly relevant. Keep total suggestions to 6 or fewer. Never suggest protein tags that don't apply to this recipe. Tag definitions: "Quick" = total prep + cook time is 30 minutes or less. "Healthy" = low calorie, light ingredients — salads, lean proteins, vegetables; NOT cream- or butter-heavy dishes.
+- "suggestedTags": array of strings. Suggest relevant tags for this recipe. Prioritize tags from this list: ${firstClassList}. Keep total suggestions to 6 or fewer. Never suggest protein tags that don't apply to this recipe. Tag definitions: "Quick" = total prep + cook time is 30 minutes or less. "Healthy" = low calorie, light ingredients — salads, lean proteins, vegetables; NOT cream- or butter-heavy dishes. Cuisine tags (Italian, Mexican, Thai, Indian, Greek, French, Middle Eastern, American, Chinese, Japanese, Irish, Hungarian, Mediterranean) — apply only when the recipe's cuisine is clearly identifiable.
 
 If a field cannot be found, set it to null. Do not invent data.
 

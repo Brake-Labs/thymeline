@@ -1,9 +1,36 @@
 'use client'
 
+import { STYLE_DIETARY_TAGS, CUISINE_TAGS, PROTEIN_TAGS } from '@/lib/tags'
+
 interface TagFilterBarProps {
   tags:          string[]
   activeFilters: string[]
   onChange:      (filters: string[]) => void
+}
+
+const STYLE_SET = new Set<string>(STYLE_DIETARY_TAGS)
+const CUISINE_SET = new Set<string>(CUISINE_TAGS)
+const PROTEIN_SET = new Set<string>(PROTEIN_TAGS)
+
+function groupTags(tags: string[]): { label: string; tags: string[] }[] {
+  const style: string[]   = []
+  const cuisine: string[] = []
+  const protein: string[] = []
+  const custom: string[]  = []
+
+  for (const tag of tags) {
+    if (STYLE_SET.has(tag))   style.push(tag)
+    else if (CUISINE_SET.has(tag)) cuisine.push(tag)
+    else if (PROTEIN_SET.has(tag)) protein.push(tag)
+    else custom.push(tag)
+  }
+
+  const groups: { label: string; tags: string[] }[] = []
+  if (style.length)   groups.push({ label: 'Style / Dietary', tags: style })
+  if (cuisine.length) groups.push({ label: 'Cuisine', tags: cuisine })
+  if (protein.length) groups.push({ label: 'Protein', tags: protein })
+  if (custom.length)  groups.push({ label: 'Custom', tags: custom })
+  return groups
 }
 
 export default function TagFilterBar({ tags, activeFilters, onChange }: TagFilterBarProps) {
@@ -17,34 +44,43 @@ export default function TagFilterBar({ tags, activeFilters, onChange }: TagFilte
     }
   }
 
+  const groups = groupTags(tags)
+
   return (
-    <div className="flex items-center gap-2 overflow-x-auto pb-1">
+    <div className="space-y-2">
       {activeFilters.length > 0 && (
         <button
           type="button"
           onClick={() => onChange([])}
-          className="shrink-0 text-xs text-stone-500 hover:text-stone-800 border border-stone-200 rounded-full px-2.5 py-1 bg-white transition-colors"
+          className="text-xs text-stone-500 hover:text-stone-800 border border-stone-200 rounded-full px-2.5 py-1 bg-white transition-colors"
         >
           Clear
         </button>
       )}
-      {tags.map((tag) => {
-        const active = activeFilters.includes(tag)
-        return (
-          <button
-            key={tag}
-            type="button"
-            onClick={() => toggle(tag)}
-            className={`shrink-0 text-xs rounded-full px-2.5 py-1 border transition-colors ${
-              active
-                ? 'bg-stone-800 text-white border-stone-800'
-                : 'border-stone-300 text-stone-600 bg-white hover:bg-stone-50'
-            }`}
-          >
-            {tag}
-          </button>
-        )
-      })}
+      {groups.map(({ label, tags: groupTags }) => (
+        <div key={label}>
+          <p className="text-xs text-stone-400 mb-1">{label}</p>
+          <div className="flex flex-wrap gap-1.5">
+            {groupTags.map((tag) => {
+              const active = activeFilters.includes(tag)
+              return (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => toggle(tag)}
+                  className={`text-xs rounded-full px-2.5 py-1 border transition-colors ${
+                    active
+                      ? 'bg-stone-800 text-white border-stone-800'
+                      : 'border-stone-300 text-stone-600 bg-white hover:bg-stone-50'
+                  }`}
+                >
+                  {tag}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      ))}
     </div>
   )
 }

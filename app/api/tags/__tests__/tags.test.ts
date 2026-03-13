@@ -5,8 +5,8 @@ import { NextRequest } from 'next/server'
 
 const mockState = {
   user: { id: 'user-1' } as { id: string } | null,
-  customTags: [] as { id: string; name: string }[],
-  insertResult: null as { id: string; name: string } | null,
+  customTags: [] as { id: string; name: string; section: string }[],
+  insertResult: null as { id: string; name: string; section: string } | null,
   insertError: null as { message: string } | null,
 }
 
@@ -29,6 +29,11 @@ vi.mock('@/lib/supabase-server', () => ({
               // For order (GET route)
               order: () =>
                 Promise.resolve({ data: mockState.customTags, error: null }),
+              // Chained select().eq() for duplicate check path
+              select: () => ({
+                eq: () =>
+                  Promise.resolve({ data: mockState.customTags, error: null }),
+              }),
             }),
           }),
           insert: () => ({
@@ -68,14 +73,14 @@ beforeEach(() => {
 
 describe('T27 - GET /api/tags returns correct shape', () => {
   it('returns firstClass array containing known tags and custom array for the user', async () => {
-    mockState.customTags = [{ id: 'ct1', name: 'MyTag' }]
+    mockState.customTags = [{ id: 'ct1', name: 'MyTag', section: 'cuisine' }]
     const res = await GET(makeReq('GET', 'http://localhost/api/tags'))
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(Array.isArray(body.firstClass)).toBe(true)
     expect(body.firstClass).toContain('Chicken')
     expect(body.firstClass).toContain('Healthy')
-    expect(body.custom).toEqual(['MyTag'])
+    expect(body.custom).toEqual([{ name: 'MyTag', section: 'cuisine' }])
   })
 
   it('returns empty custom array when user has no custom tags', async () => {
@@ -122,7 +127,7 @@ describe('T13 - POST /api/tags returns 409 for duplicate custom tag', () => {
 
 describe('POST /api/tags creates a new custom tag', () => {
   it('normalizes to Title Case and inserts', async () => {
-    mockState.insertResult = { id: 'ct-new', name: 'My New Tag' }
+    mockState.insertResult = { id: 'ct-new', name: 'My New Tag', section: 'cuisine' }
     const res = await POST(makeReq('POST', 'http://localhost/api/tags', { name: 'my new tag' }))
     expect(res.status).toBe(201)
     const body = await res.json()

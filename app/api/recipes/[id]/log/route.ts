@@ -48,3 +48,35 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
 
   return NextResponse.json({ made_on: madeOn, already_logged: alreadyLogged })
 }
+
+export async function DELETE(req: NextRequest, { params }: RouteContext) {
+  const supabase = createServerClient(req)
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  let body: { made_on?: string }
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
+
+  if (!body.made_on || !/^\d{4}-\d{2}-\d{2}$/.test(body.made_on)) {
+    return NextResponse.json({ error: 'made_on (YYYY-MM-DD) is required' }, { status: 400 })
+  }
+
+  const { error: deleteError } = await supabase
+    .from('recipe_history')
+    .delete()
+    .eq('recipe_id', params.id)
+    .eq('user_id', user.id)
+    .eq('made_on', body.made_on)
+
+  if (deleteError) {
+    return NextResponse.json({ error: deleteError.message }, { status: 500 })
+  }
+
+  return new NextResponse(null, { status: 204 })
+}
