@@ -161,10 +161,33 @@ describe('T05 - Tapping × on pending-new chip removes it without creating', () 
 // ── T08: + chip expands to inline text input ──────────────────────────────────
 
 describe('T08 - + chip expands to inline text input', () => {
-  it('clicking + shows a text input', () => {
+  it('+ chips appear in both Style/Dietary and Protein sections', () => {
     render(<TagSelector selected={[]} onChange={vi.fn()} />)
-    fireEvent.click(screen.getByLabelText('Add custom tag'))
+    const chips = screen.getAllByLabelText('Add custom tag')
+    expect(chips).toHaveLength(2)
+  })
+
+  it('clicking Style/Dietary + shows a text input', () => {
+    render(<TagSelector selected={[]} onChange={vi.fn()} />)
+    const [styleChip] = screen.getAllByLabelText('Add custom tag')
+    fireEvent.click(styleChip)
     expect(screen.getByPlaceholderText('Tag name')).toBeInTheDocument()
+  })
+
+  it('clicking Protein + shows a text input', () => {
+    render(<TagSelector selected={[]} onChange={vi.fn()} />)
+    const chips = screen.getAllByLabelText('Add custom tag')
+    fireEvent.click(chips[1])
+    expect(screen.getByPlaceholderText('Tag name')).toBeInTheDocument()
+  })
+
+  it('opening Style/Dietary + shows input there while Protein + stays visible', () => {
+    render(<TagSelector selected={[]} onChange={vi.fn()} />)
+    const [styleChip] = screen.getAllByLabelText('Add custom tag')
+    fireEvent.click(styleChip)
+    // Input replaces the Style/Dietary + chip; Protein + chip stays
+    expect(screen.getByPlaceholderText('Tag name')).toBeInTheDocument()
+    expect(screen.getAllByLabelText('Add custom tag')).toHaveLength(1)
   })
 })
 
@@ -175,7 +198,8 @@ describe('T09 - Typing a name matching an existing tag selects it instead of cre
     const onChange = vi.fn()
     render(<TagSelector selected={[]} onChange={onChange} />)
 
-    fireEvent.click(screen.getByLabelText('Add custom tag'))
+    const [styleChip] = screen.getAllByLabelText('Add custom tag')
+    fireEvent.click(styleChip)
     const input = screen.getByPlaceholderText('Tag name')
     fireEvent.change(input, { target: { value: 'chicken' } })
     fireEvent.keyDown(input, { key: 'Enter' })
@@ -203,7 +227,8 @@ describe('T10 - Creating a new tag via + chip adds it to custom_tags and selects
     const onChange = vi.fn()
     render(<TagSelector selected={[]} onChange={onChange} />)
 
-    fireEvent.click(screen.getByLabelText('Add custom tag'))
+    const [styleChip] = screen.getAllByLabelText('Add custom tag')
+    fireEvent.click(styleChip)
     const input = screen.getByPlaceholderText('Tag name')
     fireEvent.change(input, { target: { value: 'BrandNew' } })
     fireEvent.keyDown(input, { key: 'Enter' })
