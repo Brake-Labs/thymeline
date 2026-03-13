@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import TagPill from './TagPill'
+import TagSelector from './TagSelector'
 
 export interface RecipeFormValues {
   title: string
@@ -18,7 +18,8 @@ interface RecipeFormProps {
   initialValues?: Partial<RecipeFormValues>
   /** Fields from a scrape that returned null — show "Couldn't find this" placeholder */
   nullFields?: Set<string>
-  availableTags: string[]
+  suggestedTags?:   string[]
+  pendingNewTags?:  string[]
   onSubmit: (values: RecipeFormValues) => Promise<void>
   isSubmitting: boolean
 }
@@ -36,7 +37,8 @@ const PLACEHOLDER = "Couldn't find this — add it manually"
 export default function RecipeForm({
   initialValues = {},
   nullFields,
-  availableTags,
+  suggestedTags,
+  pendingNewTags,
   onSubmit,
   isSubmitting,
 }: RecipeFormProps) {
@@ -59,14 +61,6 @@ export default function RecipeForm({
     }
   }
 
-  function addTag(tag: string) {
-    if (!values.tags.includes(tag)) set('tags', [...values.tags, tag])
-  }
-
-  function removeTag(tag: string) {
-    set('tags', values.tags.filter((t) => t !== tag))
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const newErrors: typeof errors = {}
@@ -79,7 +73,6 @@ export default function RecipeForm({
     await onSubmit(values)
   }
 
-  const unselectedTags = availableTags.filter((t) => !values.tags.includes(t))
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -118,24 +111,12 @@ export default function RecipeForm({
       {/* Tags */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
-        <div className="flex flex-wrap gap-1 mb-2">
-          {values.tags.map((tag) => (
-            <TagPill key={tag} label={tag} onRemove={() => removeTag(tag)} />
-          ))}
-        </div>
-        {unselectedTags.length > 0 && (
-          <select
-            value=""
-            onChange={(e) => { if (e.target.value) addTag(e.target.value) }}
-            className="border border-gray-300 rounded px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            aria-label="Add tag"
-          >
-            <option value="">Add tag...</option>
-            {unselectedTags.map((t) => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
-        )}
+        <TagSelector
+          selected={values.tags}
+          suggested={suggestedTags}
+          pendingNew={pendingNewTags}
+          onChange={(tags) => set('tags', tags)}
+        />
       </div>
 
       {/* Ingredients */}

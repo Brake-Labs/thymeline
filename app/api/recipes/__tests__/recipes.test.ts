@@ -41,7 +41,7 @@ function makeSupabaseMock(opts: {
   user?: typeof mockUser | null
   recipes?: unknown[]
   history?: { recipe_id: string; made_on: string }[]
-  userTags?: { name: string }[]
+  customTags?: { name: string }[]
   insertResult?: unknown
   updateResult?: unknown
   deleteOk?: boolean
@@ -52,7 +52,7 @@ function makeSupabaseMock(opts: {
     user = mockUser,
     recipes = [],
     history = [],
-    userTags = [],
+    customTags = [],
     insertResult = null,
     updateResult = null,
     deleteOk = true,
@@ -139,13 +139,10 @@ function makeSupabaseMock(opts: {
           insert: vi.fn().mockResolvedValue({ data: insertResult, error: null }),
         }
       }
-      if (table === 'user_tags') {
+      if (table === 'custom_tags') {
         return {
           select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              in: vi.fn().mockResolvedValue({ data: userTags, error: null }),
-              order: vi.fn().mockResolvedValue({ data: userTags, error: null }),
-            }),
+            eq: vi.fn().mockResolvedValue({ data: customTags, error: null }),
           }),
         }
       }
@@ -182,7 +179,7 @@ function makeReq(
 describe('POST /api/recipes — T03: manual add with no URL', () => {
   it('creates a recipe with all optional fields empty', async () => {
     const created = { ...sampleRecipe, url: null, ingredients: null, steps: null }
-    const mock = makeSupabaseMock({ insertResult: created, userTags: [] })
+    const mock = makeSupabaseMock({ insertResult: created, customTags: [] })
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
 
     const { POST } = await import('../route')
@@ -373,5 +370,66 @@ describe('PATCH /api/recipes/[id]/share — T10: share toggle', () => {
     const res = await PATCH(req as Parameters<typeof PATCH>[0], { params: { id: sampleRecipe.id } })
 
     expect(res.status).toBe(200)
+  })
+})
+
+// ── T14: POST /api/recipes rejects unknown tag ────────────────────────────────
+
+describe('T14 - POST /api/recipes rejects unknown tag with 400', () => {
+  beforeEach(() => { vi.resetModules() })
+
+  it('returns 400 when tag is not in first-class list or custom_tags', async () => {
+    const mock = makeSupabaseMock({ insertResult: sampleRecipe, customTags: [] })
+    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+
+    const { POST } = await import('../route')
+    const res = await POST(
+      makeReq('http://localhost/api/recipes', 'POST', {
+        title: 'Test Recipe',
+        category: 'main_dish',
+        tags: ['NotARealTag'],
+      }) as Parameters<typeof POST>[0],
+    )
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toMatch(/Unknown tags/)
+  })
+
+  it('accepts a first-class tag without custom_tags lookup hit', async () => {
+    const created = { ...sampleRecipe, tags: ['Chicken'] }
+    const mock = makeSupabaseMock({ insertResult: created, customTags: [] })
+    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+
+    const { POST } = await import('../route')
+    const res = await POST(
+      makeReq('http://localhost/api/recipes', 'POST', {
+        title: 'Test Recipe',
+        category: 'main_dish',
+        tags: ['Chicken'],
+      }) as Parameters<typeof POST>[0],
+    )
+    expect(res.status).toBe(201)
+  })
+})
+
+// ── T14b: PATCH /api/recipes/[id] rejects unknown tag ────────────────────────
+
+describe('T14b - PATCH /api/recipes/[id] rejects unknown tag with 400', () => {
+  beforeEach(() => { vi.resetModules() })
+
+  it('returns 400 when patched tag is not in first-class list or custom_tags', async () => {
+    const mock = makeSupabaseMock({ singleResult: sampleRecipe, customTags: [] })
+    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+
+    const { PATCH } = await import('../[id]/route')
+    const res = await PATCH(
+      makeReq(`http://localhost/api/recipes/${sampleRecipe.id}`, 'PATCH', {
+        tags: ['FakeTag'],
+      }) as Parameters<typeof PATCH>[0],
+      { params: { id: sampleRecipe.id } },
+    )
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toMatch(/Unknown tags/)
   })
 })

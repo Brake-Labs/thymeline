@@ -16,7 +16,6 @@ export default function EditRecipePage({ params }: Props) {
   const [recipe, setRecipe] = useState<Recipe | null>(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
-  const [availableTags, setAvailableTags] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
@@ -36,17 +35,6 @@ export default function EditRecipePage({ params }: Props) {
     }
     fetchRecipe()
   }, [params.id])
-
-  useEffect(() => {
-    async function fetchTags() {
-      try {
-        const r = await fetch('/api/tags', { headers: { Authorization: `Bearer ${await getAccessToken()}` } })
-        const data: { id: string; name: string }[] = await r.json()
-        if (Array.isArray(data)) setAvailableTags(data.map((t) => t.name))
-      } catch {}
-    }
-    fetchTags()
-  }, [])
 
   async function handleSubmit(values: RecipeFormValues) {
     setSaveError(null)
@@ -120,7 +108,6 @@ export default function EditRecipePage({ params }: Props) {
           url: recipe.url ?? '',
           image_url: recipe.image_url ?? '',
         }}
-        availableTags={availableTags}
         onSubmit={handleSubmit}
         isSubmitting={isSubmitting}
       />
