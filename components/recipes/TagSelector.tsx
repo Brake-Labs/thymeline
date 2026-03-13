@@ -1,8 +1,15 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { STYLE_DIETARY_TAGS, PROTEIN_TAGS, FIRST_CLASS_TAGS } from '@/lib/tags'
+import { STYLE_DIETARY_TAGS, CUISINE_TAGS, PROTEIN_TAGS, FIRST_CLASS_TAGS } from '@/lib/tags'
 import { getAccessToken } from '@/lib/supabase/browser'
+
+type Section = 'style' | 'cuisine' | 'protein'
+
+interface CustomTag {
+  name: string
+  section: Section
+}
 
 interface TagSelectorProps {
   selected:     string[]
@@ -16,6 +23,12 @@ function toTitleCase(str: string): string {
   return str.replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
+const SECTION_LABELS: Record<Section, string> = {
+  style:   'Style / Dietary',
+  cuisine: 'Cuisine',
+  protein: 'Protein',
+}
+
 export default function TagSelector({
   selected,
   suggested = [],
@@ -23,15 +36,15 @@ export default function TagSelector({
   onChange,
   onCreateTag,
 }: TagSelectorProps) {
-  const [customTags, setCustomTags] = useState<string[]>([])
+  const [customTags, setCustomTags] = useState<CustomTag[]>([])
   const [interactedSuggested, setInteractedSuggested] = useState<Set<string>>(new Set())
   const [localPendingNew, setLocalPendingNew] = useState<string[]>(pendingNew)
-  const [showInput, setShowInput] = useState<'style' | 'protein' | false>(false)
+  const [showInput, setShowInput] = useState<Section | false>(false)
   const [inputValue, setInputValue] = useState('')
   const [dedupHint, setDedupHint] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Sync localPendingNew when prop changes (use join as stable primitive to avoid new [] ref each render)
+  // Sync localPendingNew when prop changes
   const pendingNewKey = pendingNew.join(',')
   useEffect(() => {
     setLocalPendingNew(pendingNew)
@@ -46,7 +59,7 @@ export default function TagSelector({
           headers: { Authorization: `Bearer ${token}` },
         })
         if (res.ok) {
-          const data: { firstClass: string[]; custom: string[] } = await res.json()
+          const data: { firstClass: string[]; custom: CustomTag[] } = await res.json()
           setCustomTags(data.custom ?? [])
         }
       } catch { /* non-fatal */ }
@@ -58,46 +71,7 @@ export default function TagSelector({
     if (showInput) inputRef.current?.focus()
   }, [showInput])
 
-  function renderAddChip(section: 'style' | 'protein') {
-    if (showInput === section) {
-      return (
-        <div className="flex items-center gap-1">
-          <input
-            ref={inputRef}
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') { e.preventDefault(); handleCreateFromInput() }
-              if (e.key === 'Escape') { setShowInput(false); setInputValue('') }
-            }}
-            onBlur={() => { setShowInput(false); setInputValue('') }}
-            placeholder="Tag name"
-            className="border border-stone-300 rounded-full px-2.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-stone-400 w-28"
-          />
-          <button
-            type="button"
-            onMouseDown={(e) => { e.preventDefault(); handleCreateFromInput() }}
-            className="text-xs text-stone-600 hover:text-stone-900"
-          >
-            Add
-          </button>
-        </div>
-      )
-    }
-    // Other section's + stays visible; clicking it switches the active input
-    return (
-      <button
-        type="button"
-        onClick={() => { setShowInput(section); setDedupHint(null) }}
-        className="inline-flex items-center rounded-full text-xs px-2.5 py-1 border border-stone-300 text-stone-600 bg-white hover:bg-stone-50 transition-colors"
-        aria-label="Add custom tag"
-      >
-        +
-      </button>
-    )
-  }
-
-  const allKnown = [...FIRST_CLASS_TAGS, ...customTags]
+  const allKnownNames = [...FIRST_CLASS_TAGS, ...customTags.map((t) => t.name)]
 
   function toggleTag(tag: string) {
     if (suggested.includes(tag)) {
@@ -125,11 +99,11 @@ export default function TagSelector({
       const res = await fetch('/api/tags', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, section: 'cuisine' }),
       })
       if (res.ok) {
-        const created: { name: string } = await res.json()
-        setCustomTags((prev) => [...prev, created.name])
+        const created: CustomTag = await res.json()
+        setCustomTags((prev) => [...prev, { name: created.name, section: created.section ?? 'cuisine' }])
         onChange([...selected, created.name])
         setLocalPendingNew((prev) => prev.filter((t) => t !== name))
         onCreateTag?.(created.name)
@@ -146,7 +120,7 @@ export default function TagSelector({
     if (!trimmed) { setShowInput(false); return }
 
     const lc = trimmed.toLowerCase()
-    const existing = allKnown.find((t) => t.toLowerCase() === lc)
+    const existing = allKnownNames.find((t) => t.toLowerCase() === lc)
     if (existing) {
       if (!selected.includes(existing)) onChange([...selected, existing])
       setDedupHint(`'${existing}' already exists — selected it for you.`)
@@ -157,16 +131,17 @@ export default function TagSelector({
     }
 
     const normalized = toTitleCase(trimmed)
+    const section = showInput || 'cuisine'
     try {
       const token = await getAccessToken()
       const res = await fetch('/api/tags', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name: normalized }),
+        body: JSON.stringify({ name: normalized, section }),
       })
       if (res.ok) {
-        const created: { name: string } = await res.json()
-        setCustomTags((prev) => [...prev, created.name])
+        const created: CustomTag = await res.json()
+        setCustomTags((prev) => [...prev, { name: created.name, section: created.section ?? section }])
         onChange([...selected, created.name])
         onCreateTag?.(created.name)
       }
@@ -193,35 +168,71 @@ export default function TagSelector({
     )
   }
 
-  const hasPendingOrCustom = customTags.length > 0 || localPendingNew.length > 0
+  function renderAddChip(section: Section) {
+    if (showInput === section) {
+      return (
+        <div className="flex items-center gap-1">
+          <input
+            ref={inputRef}
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); handleCreateFromInput() }
+              if (e.key === 'Escape') { setShowInput(false); setInputValue('') }
+            }}
+            onBlur={() => { setShowInput(false); setInputValue('') }}
+            placeholder="Tag name"
+            className="border border-stone-300 rounded-full px-2.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-stone-400 w-28"
+          />
+          <button
+            type="button"
+            onMouseDown={(e) => { e.preventDefault(); handleCreateFromInput() }}
+            className="text-xs text-stone-600 hover:text-stone-900"
+          >
+            Add
+          </button>
+        </div>
+      )
+    }
+    return (
+      <button
+        type="button"
+        onClick={() => { setShowInput(section); setDedupHint(null) }}
+        className="inline-flex items-center rounded-full text-xs px-2.5 py-1 border border-stone-300 text-stone-600 bg-white hover:bg-stone-50 transition-colors"
+        aria-label="Add custom tag"
+      >
+        +
+      </button>
+    )
+  }
+
+  const sections: { key: Section; firstClass: readonly string[] }[] = [
+    { key: 'style',   firstClass: STYLE_DIETARY_TAGS },
+    { key: 'cuisine', firstClass: CUISINE_TAGS },
+    { key: 'protein', firstClass: PROTEIN_TAGS },
+  ]
 
   return (
     <div className="space-y-3">
-      {/* Style / Dietary section */}
-      <div>
-        <p className="text-xs text-stone-400 mb-1.5">Style / Dietary</p>
-        <div className="flex flex-wrap gap-1.5 items-center">
-          {(STYLE_DIETARY_TAGS as readonly string[]).map(renderChip)}
-          {renderAddChip('style')}
-        </div>
-      </div>
+      {sections.map(({ key, firstClass }) => {
+        const sectionCustom = customTags.filter((t) => t.section === key)
+        return (
+          <div key={key}>
+            <p className="text-xs text-stone-400 mb-1.5">{SECTION_LABELS[key]}</p>
+            <div className="flex flex-wrap gap-1.5 items-center">
+              {(firstClass as readonly string[]).map(renderChip)}
+              {sectionCustom.map((t) => renderChip(t.name))}
+              {renderAddChip(key)}
+            </div>
+          </div>
+        )
+      })}
 
-      {/* Protein section */}
-      <div>
-        <p className="text-xs text-stone-400 mb-1.5">Protein</p>
-        <div className="flex flex-wrap gap-1.5 items-center">
-          {(PROTEIN_TAGS as readonly string[]).map(renderChip)}
-          {renderAddChip('protein')}
-        </div>
-      </div>
-
-      {/* Custom + pending-new section */}
-      {hasPendingOrCustom && (
+      {/* Pending-new (AI-suggested, not yet created) */}
+      {localPendingNew.length > 0 && (
         <div>
-          <p className="text-xs text-stone-400 mb-1.5">Custom</p>
+          <p className="text-xs text-stone-400 mb-1.5">Suggested new</p>
           <div className="flex flex-wrap gap-1.5">
-            {customTags.map(renderChip)}
-
             {localPendingNew.map((name) => (
               <span
                 key={name}

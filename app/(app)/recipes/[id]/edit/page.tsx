@@ -19,6 +19,11 @@ export default function EditRecipePage({ params }: Props) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
+  // Dates made state
+  const [datesMade, setDatesMade] = useState<string[]>([])
+  const [addDateValue, setAddDateValue] = useState('')
+  const [dateError, setDateError] = useState<string | null>(null)
+
   useEffect(() => {
     async function fetchRecipe() {
       try {
@@ -27,7 +32,10 @@ export default function EditRecipePage({ params }: Props) {
         })
         if (r.status === 404) { setNotFound(true); setLoading(false); return }
         const data: Recipe = await r.json()
-        if (data) setRecipe(data)
+        if (data) {
+          setRecipe(data)
+          setDatesMade(data.dates_made ?? [])
+        }
         setLoading(false)
       } catch {
         setLoading(false)
@@ -59,17 +67,6 @@ export default function EditRecipePage({ params }: Props) {
         }),
       })
       if (res.ok) {
-        // Optionally log a "last made" date if the user set one
-        if (values.lastMade) {
-          await fetch(`/api/recipes/${params.id}/log`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ made_on: values.lastMade }),
-          })
-        }
         router.push(`/recipes/${params.id}`)
       } else {
         const err: { error?: string } = await res.json()
@@ -78,6 +75,36 @@ export default function EditRecipePage({ params }: Props) {
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  async function handleAddDate() {
+    if (!addDateValue) return
+    setDateError(null)
+    const token = await getAccessToken()
+    const res = await fetch(`/api/recipes/${params.id}/log`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ made_on: addDateValue }),
+    })
+    if (res.ok) {
+      const data: { made_on: string; already_logged: boolean } = await res.json()
+      if (data.already_logged) {
+        setDateError('Already logged for that day')
+      } else {
+        setDatesMade((prev) => [...prev, data.made_on].sort().reverse())
+        setAddDateValue('')
+      }
+    }
+  }
+
+  async function handleRemoveDate(date: string) {
+    const token = await getAccessToken()
+    await fetch(`/api/recipes/${params.id}/log`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ made_on: date }),
+    })
+    setDatesMade((prev) => prev.filter((d) => d !== date))
   }
 
   if (loading) {
@@ -119,10 +146,55 @@ export default function EditRecipePage({ params }: Props) {
           notes: recipe.notes ?? '',
           url: recipe.url ?? '',
           image_url: recipe.image_url ?? '',
+          lastMade: '',
         }}
         onSubmit={handleSubmit}
         isSubmitting={isSubmitting}
       />
+
+      {/* Dates made */}
+      <div className="mt-8 border-t border-gray-200 pt-6">
+        <h2 className="text-sm font-medium text-gray-700 mb-3">Dates Made</h2>
+
+        <div className="flex items-center gap-2 mb-3">
+          <input
+            type="date"
+            value={addDateValue}
+            onChange={(e) => { setAddDateValue(e.target.value); setDateError(null) }}
+            max={new Date().toISOString().split('T')[0]}
+            className="border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <button
+            type="button"
+            onClick={handleAddDate}
+            disabled={!addDateValue}
+            className="px-3 py-1.5 rounded text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Add
+          </button>
+        </div>
+        {dateError && <p className="text-xs text-yellow-600 mb-2">{dateError}</p>}
+
+        {datesMade.length === 0 ? (
+          <p className="text-sm text-gray-400">No dates logged yet.</p>
+        ) : (
+          <ul className="space-y-1">
+            {datesMade.map((date) => (
+              <li key={date} className="flex items-center justify-between text-sm text-gray-700">
+                <span>{date}</span>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveDate(date)}
+                  className="text-xs text-red-400 hover:text-red-600"
+                  aria-label={`Remove date ${date}`}
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   )
 }

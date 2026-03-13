@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await supabase
     .from('custom_tags')
-    .select('name')
+    .select('name, section')
     .eq('user_id', user.id)
     .order('created_at', { ascending: true })
 
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     firstClass: FIRST_CLASS_TAGS,
-    custom: (data ?? []).map((t: { name: string }) => t.name),
+    custom: (data ?? []).map((t: { name: string; section: string }) => ({ name: t.name, section: t.section })),
   })
 }
 
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  let body: { name?: string }
+  let body: { name?: string; section?: string }
   try {
     body = await req.json()
   } catch {
@@ -44,6 +44,8 @@ export async function POST(req: NextRequest) {
   }
 
   const raw = body.name?.trim()
+  const validSections = ['style', 'cuisine', 'protein']
+  const section = validSections.includes(body.section ?? '') ? body.section! : 'cuisine'
   if (!raw) {
     return NextResponse.json({ error: 'name is required' }, { status: 400 })
   }
@@ -73,8 +75,8 @@ export async function POST(req: NextRequest) {
 
   const { data: created, error: insertError } = await supabase
     .from('custom_tags')
-    .insert({ user_id: user.id, name: normalized })
-    .select('id, name')
+    .insert({ user_id: user.id, name: normalized, section })
+    .select('id, name, section')
     .single()
 
   if (insertError) {

@@ -11,7 +11,7 @@ vi.mock('@/lib/supabase/browser', () => ({
 const mockFetch = vi.fn()
 vi.stubGlobal('fetch', mockFetch)
 
-function makeTagsResponse(custom: string[] = []) {
+function makeTagsResponse(custom: { name: string; section: string }[] = []) {
   return Promise.resolve({
     ok: true,
     json: async () => ({
@@ -161,10 +161,10 @@ describe('T05 - Tapping × on pending-new chip removes it without creating', () 
 // ── T08: + chip expands to inline text input ──────────────────────────────────
 
 describe('T08 - + chip expands to inline text input', () => {
-  it('+ chips appear in both Style/Dietary and Protein sections', () => {
+  it('+ chips appear in Style/Dietary, Cuisine, and Protein sections', () => {
     render(<TagSelector selected={[]} onChange={vi.fn()} />)
     const chips = screen.getAllByLabelText('Add custom tag')
-    expect(chips).toHaveLength(2)
+    expect(chips).toHaveLength(3)
   })
 
   it('clicking Style/Dietary + shows a text input', () => {
@@ -177,17 +177,17 @@ describe('T08 - + chip expands to inline text input', () => {
   it('clicking Protein + shows a text input', () => {
     render(<TagSelector selected={[]} onChange={vi.fn()} />)
     const chips = screen.getAllByLabelText('Add custom tag')
-    fireEvent.click(chips[1])
+    fireEvent.click(chips[2])
     expect(screen.getByPlaceholderText('Tag name')).toBeInTheDocument()
   })
 
-  it('opening Style/Dietary + shows input there while Protein + stays visible', () => {
+  it('opening Style/Dietary + shows input there while other + chips stay visible', () => {
     render(<TagSelector selected={[]} onChange={vi.fn()} />)
     const [styleChip] = screen.getAllByLabelText('Add custom tag')
     fireEvent.click(styleChip)
-    // Input replaces the Style/Dietary + chip; Protein + chip stays
+    // Input replaces the Style/Dietary + chip; Cuisine and Protein + chips stay
     expect(screen.getByPlaceholderText('Tag name')).toBeInTheDocument()
-    expect(screen.getAllByLabelText('Add custom tag')).toHaveLength(1)
+    expect(screen.getAllByLabelText('Add custom tag')).toHaveLength(2)
   })
 })
 

@@ -21,8 +21,9 @@ async function withHistory(
     if (!max) return r.made_on as string
     return (r.made_on as string) > max ? (r.made_on as string) : max
   }, null)
+  const dates_made = rows.map((r) => r.made_on as string).sort().reverse()
 
-  return { ...recipe, last_made, times_made: rows.length }
+  return { ...recipe, last_made, times_made: rows.length, dates_made }
 }
 
 export async function GET(req: NextRequest, { params }: RouteContext) {
