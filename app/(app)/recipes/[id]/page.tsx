@@ -6,7 +6,7 @@ import { Recipe } from '@/types'
 import { CATEGORY_LABELS } from '@/lib/category-labels'
 import TagPill from '@/components/recipes/TagPill'
 import InlineTagEditor from '@/components/recipes/InlineTagEditor'
-import LogMadeTodayButton from '@/components/recipes/LogMadeTodayButton'
+import LogDateSection from '@/components/recipes/LogDateSection'
 import DeleteConfirmDialog from '@/components/recipes/DeleteConfirmDialog'
 import ShareToggle from '@/components/recipes/ShareToggle'
 import { getAccessToken } from '@/lib/supabase/browser'
@@ -142,16 +142,15 @@ export default function RecipeDetailPage({ params }: Props) {
 
       {/* Actions */}
       <div className="flex flex-wrap gap-3 mb-8">
-        <LogMadeTodayButton
+        <LogDateSection
           recipeId={recipe.id}
           getToken={getAccessToken}
-          onLogged={() =>
+          onLogged={(date) =>
             setRecipe((r) => {
               if (!r) return r
-              const today = new Date().toISOString().split('T')[0]
               return {
                 ...r,
-                last_made: today,
+                last_made: date > (r.last_made ?? '') ? date : r.last_made,
                 times_made: r.times_made + 1,
               }
             })

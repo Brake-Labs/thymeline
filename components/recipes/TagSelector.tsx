@@ -26,7 +26,7 @@ export default function TagSelector({
   const [customTags, setCustomTags] = useState<string[]>([])
   const [interactedSuggested, setInteractedSuggested] = useState<Set<string>>(new Set())
   const [localPendingNew, setLocalPendingNew] = useState<string[]>(pendingNew)
-  const [showInput, setShowInput] = useState(false)
+  const [showInput, setShowInput] = useState<'style' | 'protein' | false>(false)
   const [inputValue, setInputValue] = useState('')
   const [dedupHint, setDedupHint] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -57,6 +57,45 @@ export default function TagSelector({
   useEffect(() => {
     if (showInput) inputRef.current?.focus()
   }, [showInput])
+
+  function renderAddChip(section: 'style' | 'protein') {
+    if (showInput === section) {
+      return (
+        <div className="flex items-center gap-1">
+          <input
+            ref={inputRef}
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); handleCreateFromInput() }
+              if (e.key === 'Escape') { setShowInput(false); setInputValue('') }
+            }}
+            onBlur={() => { setShowInput(false); setInputValue('') }}
+            placeholder="Tag name"
+            className="border border-stone-300 rounded-full px-2.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-stone-400 w-28"
+          />
+          <button
+            type="button"
+            onMouseDown={(e) => { e.preventDefault(); handleCreateFromInput() }}
+            className="text-xs text-stone-600 hover:text-stone-900"
+          >
+            Add
+          </button>
+        </div>
+      )
+    }
+    // Other section's + stays visible; clicking it switches the active input
+    return (
+      <button
+        type="button"
+        onClick={() => { setShowInput(section); setDedupHint(null) }}
+        className="inline-flex items-center rounded-full text-xs px-2.5 py-1 border border-stone-300 text-stone-600 bg-white hover:bg-stone-50 transition-colors"
+        aria-label="Add custom tag"
+      >
+        +
+      </button>
+    )
+  }
 
   const allKnown = [...FIRST_CLASS_TAGS, ...customTags]
 
@@ -161,16 +200,18 @@ export default function TagSelector({
       {/* Style / Dietary section */}
       <div>
         <p className="text-xs text-stone-400 mb-1.5">Style / Dietary</p>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-1.5 items-center">
           {(STYLE_DIETARY_TAGS as readonly string[]).map(renderChip)}
+          {renderAddChip('style')}
         </div>
       </div>
 
       {/* Protein section */}
       <div>
         <p className="text-xs text-stone-400 mb-1.5">Protein</p>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-1.5 items-center">
           {(PROTEIN_TAGS as readonly string[]).map(renderChip)}
+          {renderAddChip('protein')}
         </div>
       </div>
 
@@ -208,42 +249,6 @@ export default function TagSelector({
           </div>
         </div>
       )}
-
-      {/* + chip / inline input */}
-      <div className="flex flex-wrap gap-1.5 items-center">
-        {!showInput ? (
-          <button
-            type="button"
-            onClick={() => { setShowInput(true); setDedupHint(null) }}
-            className="inline-flex items-center rounded-full text-xs px-2.5 py-1 border border-stone-300 text-stone-600 bg-white hover:bg-stone-50 transition-colors"
-            aria-label="Add custom tag"
-          >
-            +
-          </button>
-        ) : (
-          <div className="flex items-center gap-1">
-            <input
-              ref={inputRef}
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') { e.preventDefault(); handleCreateFromInput() }
-                if (e.key === 'Escape') { setShowInput(false); setInputValue('') }
-              }}
-              onBlur={() => { setShowInput(false); setInputValue('') }}
-              placeholder="Tag name"
-              className="border border-stone-300 rounded-full px-2.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-stone-400 w-28"
-            />
-            <button
-              type="button"
-              onMouseDown={(e) => { e.preventDefault(); handleCreateFromInput() }}
-              className="text-xs text-stone-600 hover:text-stone-900"
-            >
-              Add
-            </button>
-          </div>
-        )}
-      </div>
 
       {dedupHint && (
         <p className="text-xs text-stone-500">{dedupHint}</p>

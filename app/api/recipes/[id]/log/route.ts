@@ -23,11 +23,19 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
+  // Accept optional made_on from body; default to today
   const today = new Date().toISOString().split('T')[0]
+  let madeOn = today
+  try {
+    const body = await req.json()
+    if (body.made_on && typeof body.made_on === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.made_on)) {
+      madeOn = body.made_on
+    }
+  } catch { /* no body — use today */ }
 
   const { error: insertError } = await supabase
     .from('recipe_history')
-    .insert({ recipe_id: params.id, user_id: user.id, made_on: today })
+    .insert({ recipe_id: params.id, user_id: user.id, made_on: madeOn })
 
   // Unique constraint violation = already logged today — treat as idempotent
   const alreadyLogged =
@@ -38,5 +46,5 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: insertError.message }, { status: 500 })
   }
 
-  return NextResponse.json({ made_on: today, already_logged: alreadyLogged })
+  return NextResponse.json({ made_on: madeOn, already_logged: alreadyLogged })
 }

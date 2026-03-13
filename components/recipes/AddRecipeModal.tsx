@@ -62,11 +62,12 @@ export default function AddRecipeModal({
   async function handleSubmit(values: RecipeFormValues) {
     setIsSubmitting(true)
     try {
+      const token = await getToken()
       const res = await fetch('/api/recipes', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${await getToken()}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           title: values.title,
@@ -82,6 +83,18 @@ export default function AddRecipeModal({
       if (!res.ok) {
         const err: { error?: string } = await res.json()
         throw new Error(err.error ?? 'Save failed')
+      }
+      const created: { id: string } = await res.json()
+      // Optionally log a "last made" date if the user set one
+      if (values.lastMade && created.id) {
+        await fetch(`/api/recipes/${created.id}/log`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ made_on: values.lastMade }),
+        })
       }
       onSaved()
       onClose()

@@ -12,6 +12,7 @@ export interface RecipeFormValues {
   notes: string
   url: string
   image_url: string
+  lastMade: string  // ISO date string, optional — '' means not set
 }
 
 interface RecipeFormProps {
@@ -51,6 +52,7 @@ export default function RecipeForm({
     notes: initialValues.notes ?? '',
     url: initialValues.url ?? '',
     image_url: initialValues.image_url ?? '',
+    lastMade: initialValues.lastMade ?? '',
   })
   const [errors, setErrors] = useState<{ title?: string; category?: string }>({})
 
@@ -163,6 +165,20 @@ export default function RecipeForm({
           value={values.url}
           onChange={(e) => set('url', e.target.value)}
           placeholder="https://..."
+          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+
+      {/* Last made (optional) */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Last made <span className="text-gray-400 font-normal">(optional)</span>
+        </label>
+        <input
+          type="date"
+          value={values.lastMade}
+          onChange={(e) => set('lastMade', e.target.value)}
+          max={new Date().toISOString().split('T')[0]}
           className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
