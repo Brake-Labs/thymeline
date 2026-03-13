@@ -126,6 +126,54 @@ describe('POST /api/recipes/[id]/log', () => {
     const json = await res.json()
     expect(json.already_logged).toBe(true)
   })
+
+  it('logs a specific date when made_on is provided in body', async () => {
+    const mock = makeSupabaseMock()
+    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+
+    const { POST } = await import('@/app/api/recipes/[id]/log/route')
+    const req = makeReq(
+      `http://localhost/api/recipes/${sampleRecipe.id}/log`,
+      'POST',
+      { made_on: '2025-12-25' },
+    )
+    const res = await POST(req as Parameters<typeof POST>[0], { params: { id: sampleRecipe.id } })
+
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.made_on).toBe('2025-12-25')
+    expect(json.already_logged).toBe(false)
+  })
+
+  it('defaults to today when made_on body is absent', async () => {
+    const mock = makeSupabaseMock()
+    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+
+    const { POST } = await import('@/app/api/recipes/[id]/log/route')
+    const req = makeReq(`http://localhost/api/recipes/${sampleRecipe.id}/log`)
+    const res = await POST(req as Parameters<typeof POST>[0], { params: { id: sampleRecipe.id } })
+
+    const json = await res.json()
+    const today = new Date().toISOString().split('T')[0]
+    expect(json.made_on).toBe(today)
+  })
+
+  it('ignores invalid made_on format and defaults to today', async () => {
+    const mock = makeSupabaseMock()
+    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+
+    const { POST } = await import('@/app/api/recipes/[id]/log/route')
+    const req = makeReq(
+      `http://localhost/api/recipes/${sampleRecipe.id}/log`,
+      'POST',
+      { made_on: 'not-a-date' },
+    )
+    const res = await POST(req as Parameters<typeof POST>[0], { params: { id: sampleRecipe.id } })
+
+    const json = await res.json()
+    const today = new Date().toISOString().split('T')[0]
+    expect(json.made_on).toBe(today)
+  })
 })
 
 // ── Scrape tests ──────────────────────────────────────────────────────────────

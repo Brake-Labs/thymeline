@@ -40,11 +40,12 @@ export default function EditRecipePage({ params }: Props) {
     setSaveError(null)
     setIsSubmitting(true)
     try {
+      const token = await getAccessToken()
       const res = await fetch(`/api/recipes/${params.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${await getAccessToken()}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           title: values.title,
@@ -58,6 +59,17 @@ export default function EditRecipePage({ params }: Props) {
         }),
       })
       if (res.ok) {
+        // Optionally log a "last made" date if the user set one
+        if (values.lastMade) {
+          await fetch(`/api/recipes/${params.id}/log`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ made_on: values.lastMade }),
+          })
+        }
         router.push(`/recipes/${params.id}`)
       } else {
         const err: { error?: string } = await res.json()
