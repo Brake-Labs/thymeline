@@ -4,7 +4,6 @@ import { useState } from 'react'
 import RecipeForm, { RecipeFormValues } from './RecipeForm'
 
 interface AddRecipeModalProps {
-  availableTags: string[]
   onClose: () => void
   onSaved: () => void
   getToken: () => Promise<string> | string
@@ -19,10 +18,11 @@ interface ScrapeResult {
   imageUrl: string | null
   sourceUrl: string
   partial: boolean
+  suggestedTags:    string[]
+  suggestedNewTags: string[]
 }
 
 export default function AddRecipeModal({
-  availableTags,
   onClose,
   onSaved,
   getToken,
@@ -130,7 +130,7 @@ export default function AddRecipeModal({
           {(['url', 'manual'] as Tab[]).map((t) => (
             <button
               key={t}
-              onClick={() => { setTab(t); setScrapeResult(null); setScrapeError(null) }}
+              onClick={() => setTab(t)}
               className={`px-6 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
                 tab === t
                   ? 'border-blue-600 text-blue-600'
@@ -178,7 +178,8 @@ export default function AddRecipeModal({
             <RecipeForm
               initialValues={formInitialValues ?? {}}
               nullFields={nullFields}
-              availableTags={availableTags}
+              suggestedTags={scrapeResult?.suggestedTags}
+              pendingNewTags={scrapeResult?.suggestedNewTags}
               onSubmit={handleSubmit}
               isSubmitting={isSubmitting}
             />

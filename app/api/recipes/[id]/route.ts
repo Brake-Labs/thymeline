@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
+import { FIRST_CLASS_TAGS } from '@/lib/tags'
 
 interface RouteContext {
   params: { id: string }
@@ -82,16 +83,18 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  // Validate tags if present
+  // Validate tags against first-class list + user's custom_tags
   if (body.tags !== undefined && body.tags.length > 0) {
-    const { data: userTags } = await supabase
-      .from('user_tags')
+    const { data: customTags } = await supabase
+      .from('custom_tags')
       .select('name')
       .eq('user_id', user.id)
-      .in('name', body.tags)
 
-    const knownNames = new Set((userTags ?? []).map((t) => t.name))
-    const unknownTags = body.tags.filter((t) => !knownNames.has(t))
+    const knownNames = new Set([
+      ...FIRST_CLASS_TAGS.map((t) => t.toLowerCase()),
+      ...(customTags ?? []).map((t: { name: string }) => t.name.toLowerCase()),
+    ])
+    const unknownTags = body.tags.filter((t) => !knownNames.has(t.toLowerCase()))
     if (unknownTags.length > 0) {
       return NextResponse.json(
         { error: `Unknown tags: ${unknownTags.join(', ')}` },
