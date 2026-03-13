@@ -60,6 +60,7 @@ export interface Recipe {
   steps: string | null
   image_url: string | null
   created_at: string
+  dates_made?: string[]  // sorted descending; returned by GET /api/recipes/[id]
 }
 
 export interface RecipeListItem {
