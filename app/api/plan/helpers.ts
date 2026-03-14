@@ -1,7 +1,8 @@
 import { type SupabaseClient } from '@supabase/supabase-js'
-import { llmClient } from '@/lib/llm'
-import { ChatRoles } from 'any-llm'
+import Anthropic from '@anthropic-ai/sdk'
 import type { RecipeSuggestion, UserPreferences, LimitedTag } from '@/types'
+
+const anthropic = new Anthropic({ apiKey: process.env.LLM_API_KEY })
 
 // ── Week helpers ───────────────────────────────────────────────────────────────
 
@@ -238,13 +239,13 @@ export async function callLLMNonStreaming(
   systemMessage: string,
   userMessage: string,
 ): Promise<string> {
-  return await llmClient.createChatCompletionNonStreaming(
-    { model: undefined } as unknown as import('any-llm').LLMSettings,
-    [
-      { role: ChatRoles.System, content: systemMessage },
-      { role: ChatRoles.User,   content: userMessage  },
-    ],
-  ) as string
+  const response = await anthropic.messages.create({
+    model: process.env.LLM_MODEL ?? 'claude-haiku-4-5-20251001',
+    max_tokens: 4096,
+    messages: [{ role: 'user', content: userMessage }],
+    system: systemMessage,
+  })
+  return response.content[0].type === 'text' ? response.content[0].text : ''
 }
 
 export async function callLLMStreaming(
@@ -252,18 +253,13 @@ export async function callLLMStreaming(
   userMessage: string,
 ): Promise<AsyncIterable<string> | null> {
   try {
-    const stream = await llmClient.createChatCompletion(
-      { model: undefined } as unknown as import('any-llm').LLMSettings,
-      [
-        { role: ChatRoles.System, content: systemMessage },
-        { role: ChatRoles.User,   content: userMessage  },
-      ],
-    )
-    // any-llm returns an object with an async iterator if streaming is supported
-    if (stream && typeof (stream as unknown as AsyncIterable<unknown>)[Symbol.asyncIterator] === 'function') {
-      return stream as unknown as AsyncIterable<string>
-    }
-    return null
+    const stream = anthropic.messages.stream({
+      model: process.env.LLM_MODEL ?? 'claude-haiku-4-5-20251001',
+      max_tokens: 4096,
+      messages: [{ role: 'user', content: userMessage }],
+      system: systemMessage,
+    })
+    return stream.textStream
   } catch {
     return null
   }
