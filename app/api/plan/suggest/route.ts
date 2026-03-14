@@ -49,6 +49,11 @@ export async function POST(req: NextRequest) {
   const recipes = await fetchCooldownFilteredRecipes(supabase, user.id, cooldownDays)
   const recentHistory = await fetchRecentHistory(supabase, user.id)
 
+  console.log(`[suggest] user=${user.id} recipes_after_cooldown=${recipes.length} cooldown_days=${cooldownDays}`)
+  if (recipes.length === 0) {
+    console.warn(`[suggest] 0 recipes available — cooldown may be excluding all recipes`)
+  }
+
   const today = new Date()
   const season = getSeason(today.getMonth())
 
@@ -62,6 +67,21 @@ export async function POST(req: NextRequest) {
   )
 
   const validIds = new Set(recipes.map((r) => r.id))
+
+  function logValidation(days: DaySuggestions[]) {
+    for (const day of days) {
+      for (const opt of day.options) {
+        if (!validIds.has(opt.recipe_id)) {
+          console.warn(`[suggest] validation_fail date=${day.date} recipe_id=${opt.recipe_id} title="${opt.recipe_title}" — not in fetched recipe list`)
+        }
+      }
+    }
+    const totalOptions = days.reduce((n, d) => n + d.options.length, 0)
+    const validOptions = days.reduce((n, d) => n + d.options.filter((o) => validIds.has(o.recipe_id)).length, 0)
+    if (validOptions === 0 && totalOptions > 0) {
+      console.error(`[suggest] 0 valid options after validation — all ${totalOptions} LLM options had unknown recipe_ids`)
+    }
+  }
 
   // Try streaming first
   const stream = await callLLMStreaming(systemMessage, userMessage)
@@ -79,6 +99,7 @@ export async function POST(req: NextRequest) {
             while ((match = dayRegex.exec(buffer)) !== null) {
               try {
                 const dayObj = JSON.parse(match[0]) as DaySuggestions
+                logValidation([dayObj])
                 const validated = validateSuggestions([dayObj], validIds)[0]
                 controller.enqueue(encoder.encode(JSON.stringify(validated) + '\n'))
               } catch {
@@ -92,6 +113,7 @@ export async function POST(req: NextRequest) {
           try {
             const parsed = JSON.parse(buffer.trim()) as { days: DaySuggestions[] }
             if (parsed.days) {
+              logValidation(parsed.days)
               const validated = validateSuggestions(parsed.days, validIds)
               for (const day of validated) {
                 controller.enqueue(encoder.encode(JSON.stringify(day) + '\n'))
@@ -120,7 +142,9 @@ export async function POST(req: NextRequest) {
   // Non-streaming fallback
   try {
     const raw = await callLLMNonStreaming(systemMessage, userMessage)
+    console.log(`[suggest] raw_llm_response=${raw.slice(0, 500)}${raw.length > 500 ? '…' : ''}`)
     const parsed = JSON.parse(raw.trim()) as { days: DaySuggestions[] }
+    logValidation(parsed.days ?? [])
     const validated = validateSuggestions(parsed.days ?? [], validIds)
     return NextResponse.json({ days: validated })
   } catch (err) {

@@ -52,8 +52,8 @@ export default function RecipeDetailPage({ params }: Props) {
     async function fetchTags() {
       try {
         const r = await fetch('/api/tags', { headers: { Authorization: `Bearer ${await getAccessToken()}` } })
-        const data: { id: string; name: string }[] = await r.json()
-        if (Array.isArray(data)) setAvailableTags(data.map((t) => t.name))
+        const data: { firstClass: string[]; custom: { name: string }[] } = await r.json()
+        setAvailableTags([...(data.firstClass ?? []), ...(data.custom ?? []).map((t) => t.name)])
       } catch {}
     }
     fetchTags()
