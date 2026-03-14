@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { Pencil, Trash2 } from 'lucide-react'
 import { RecipeListItem } from '@/types'
 import { CATEGORY_LABELS } from '@/lib/category-labels'
 import TagPill from './TagPill'
@@ -109,19 +110,21 @@ export default function RecipeTable({ recipes, sortKey, sortDir, onSort, current
                   {hasActions && (
                     <td className="px-4 py-3">
                       {isOwner && (
-                        <div className="flex gap-3">
+                        <div className="flex gap-3 items-center">
                           <Link
                             href={`/recipes/${recipe.id}/edit`}
-                            className="text-xs text-blue-600 hover:underline"
+                            aria-label="Edit"
+                            className="text-blue-600 hover:text-blue-800"
                           >
-                            Edit
+                            <Pencil size={15} />
                           </Link>
                           <button
                             type="button"
                             onClick={() => setDeleteId(recipe.id)}
-                            className="text-xs text-red-500 hover:underline"
+                            aria-label="Delete"
+                            className="text-red-500 hover:text-red-700"
                           >
-                            Delete
+                            <Trash2 size={15} />
                           </button>
                         </div>
                       )}

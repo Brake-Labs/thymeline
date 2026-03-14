@@ -67,6 +67,19 @@ export default function EditRecipePage({ params }: Props) {
         }),
       })
       if (res.ok) {
+        if (values.lastMade) {
+          const logRes = await fetch(`/api/recipes/${params.id}/log`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ made_on: values.lastMade }),
+          })
+          if (logRes.ok) {
+            const logData: { made_on: string; already_logged: boolean } = await logRes.json()
+            if (!logData.already_logged) {
+              setDatesMade((prev) => [...prev, logData.made_on].sort().reverse())
+            }
+          }
+        }
         router.push(`/recipes/${params.id}`)
       } else {
         const err: { error?: string } = await res.json()
