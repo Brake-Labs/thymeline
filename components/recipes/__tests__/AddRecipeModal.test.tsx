@@ -36,7 +36,7 @@ describe('T15 - Manual tab renders TagSelector with no pre-checked tags', () => 
     // Switch to Manual tab
     fireEvent.click(screen.getByText('Manual'))
     // TagSelector renders Style/Dietary section header
-    expect(screen.getByText('Style / Dietary')).toBeInTheDocument()
+    expect(screen.getByText('Style')).toBeInTheDocument()
   })
 
   it('no chip has selected style initially (no pre-checked tags)', () => {
@@ -55,7 +55,7 @@ describe('T16 - Switching URL→Manual→URL preserves tag selection', () => {
     render(<AddRecipeModal {...defaultProps} />)
     // Switch to Manual, select a tag, switch back to URL
     fireEvent.click(screen.getByText('Manual'))
-    expect(screen.getByText('Style / Dietary')).toBeInTheDocument()
+    expect(screen.getByText('Style')).toBeInTheDocument()
     // Switch back to URL
     fireEvent.click(screen.getByText('From URL'))
     // URL input is visible again

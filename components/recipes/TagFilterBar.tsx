@@ -1,6 +1,6 @@
 'use client'
 
-import { STYLE_DIETARY_TAGS, CUISINE_TAGS, PROTEIN_TAGS } from '@/lib/tags'
+import { STYLE_TAGS, SEASONAL_TAGS, CUISINE_TAGS, PROTEIN_TAGS } from '@/lib/tags'
 
 interface TagFilterBarProps {
   tags:          string[]
@@ -8,28 +8,32 @@ interface TagFilterBarProps {
   onChange:      (filters: string[]) => void
 }
 
-const STYLE_SET = new Set<string>(STYLE_DIETARY_TAGS)
-const CUISINE_SET = new Set<string>(CUISINE_TAGS)
-const PROTEIN_SET = new Set<string>(PROTEIN_TAGS)
+const STYLE_SET    = new Set<string>(STYLE_TAGS)
+const SEASONAL_SET = new Set<string>(SEASONAL_TAGS)
+const CUISINE_SET  = new Set<string>(CUISINE_TAGS)
+const PROTEIN_SET  = new Set<string>(PROTEIN_TAGS)
 
 function groupTags(tags: string[]): { label: string; tags: string[] }[] {
-  const style: string[]   = []
-  const cuisine: string[] = []
-  const protein: string[] = []
-  const custom: string[]  = []
+  const style:    string[] = []
+  const seasonal: string[] = []
+  const cuisine:  string[] = []
+  const protein:  string[] = []
+  const custom:   string[] = []
 
   for (const tag of tags) {
-    if (STYLE_SET.has(tag))   style.push(tag)
-    else if (CUISINE_SET.has(tag)) cuisine.push(tag)
-    else if (PROTEIN_SET.has(tag)) protein.push(tag)
+    if (STYLE_SET.has(tag))         style.push(tag)
+    else if (SEASONAL_SET.has(tag)) seasonal.push(tag)
+    else if (CUISINE_SET.has(tag))  cuisine.push(tag)
+    else if (PROTEIN_SET.has(tag))  protein.push(tag)
     else custom.push(tag)
   }
 
   const groups: { label: string; tags: string[] }[] = []
-  if (style.length)   groups.push({ label: 'Style / Dietary', tags: style })
-  if (cuisine.length) groups.push({ label: 'Cuisine', tags: cuisine })
-  if (protein.length) groups.push({ label: 'Protein', tags: protein })
-  if (custom.length)  groups.push({ label: 'Custom', tags: custom })
+  if (style.length)    groups.push({ label: 'Style',    tags: style })
+  if (seasonal.length) groups.push({ label: 'Seasonal', tags: seasonal })
+  if (cuisine.length)  groups.push({ label: 'Cuisine',  tags: cuisine })
+  if (protein.length)  groups.push({ label: 'Protein',  tags: protein })
+  if (custom.length)   groups.push({ label: 'Custom',   tags: custom })
   return groups
 }
 
