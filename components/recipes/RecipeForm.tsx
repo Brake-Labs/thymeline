@@ -21,6 +21,7 @@ interface RecipeFormProps {
   nullFields?: Set<string>
   suggestedTags?:   string[]
   pendingNewTags?:  string[]
+  availableTags?:   string[]
   onSubmit: (values: RecipeFormValues) => Promise<void>
   isSubmitting: boolean
 }
@@ -40,6 +41,7 @@ export default function RecipeForm({
   nullFields,
   suggestedTags,
   pendingNewTags,
+  availableTags,
   onSubmit,
   isSubmitting,
 }: RecipeFormProps) {
@@ -55,6 +57,8 @@ export default function RecipeForm({
     lastMade: initialValues.lastMade ?? '',
   })
   const [errors, setErrors] = useState<{ title?: string; category?: string }>({})
+  // Guard: availableTags may be undefined while the caller is still loading tags
+  const unselectedTags = (availableTags ?? []).filter((t) => !values.tags.includes(t))
 
   function set<K extends keyof RecipeFormValues>(field: K, value: RecipeFormValues[K]) {
     setValues((prev) => ({ ...prev, [field]: value }))
