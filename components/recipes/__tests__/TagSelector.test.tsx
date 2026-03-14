@@ -161,13 +161,13 @@ describe('T05 - Tapping × on pending-new chip removes it without creating', () 
 // ── T08: + chip expands to inline text input ──────────────────────────────────
 
 describe('T08 - + chip expands to inline text input', () => {
-  it('+ chips appear in Style/Dietary, Cuisine, and Protein sections', () => {
+  it('+ chips appear in Style, Seasonal, Cuisine, and Protein sections', () => {
     render(<TagSelector selected={[]} onChange={vi.fn()} />)
     const chips = screen.getAllByLabelText('Add custom tag')
-    expect(chips).toHaveLength(3)
+    expect(chips).toHaveLength(4)
   })
 
-  it('clicking Style/Dietary + shows a text input', () => {
+  it('clicking Style + shows a text input', () => {
     render(<TagSelector selected={[]} onChange={vi.fn()} />)
     const [styleChip] = screen.getAllByLabelText('Add custom tag')
     fireEvent.click(styleChip)
@@ -177,17 +177,17 @@ describe('T08 - + chip expands to inline text input', () => {
   it('clicking Protein + shows a text input', () => {
     render(<TagSelector selected={[]} onChange={vi.fn()} />)
     const chips = screen.getAllByLabelText('Add custom tag')
-    fireEvent.click(chips[2])
+    fireEvent.click(chips[3])
     expect(screen.getByPlaceholderText('Tag name')).toBeInTheDocument()
   })
 
-  it('opening Style/Dietary + shows input there while other + chips stay visible', () => {
+  it('opening Style + shows input there while other + chips stay visible', () => {
     render(<TagSelector selected={[]} onChange={vi.fn()} />)
     const [styleChip] = screen.getAllByLabelText('Add custom tag')
     fireEvent.click(styleChip)
-    // Input replaces the Style/Dietary + chip; Cuisine and Protein + chips stay
+    // Input replaces the Style + chip; Seasonal, Cuisine, and Protein + chips stay
     expect(screen.getByPlaceholderText('Tag name')).toBeInTheDocument()
-    expect(screen.getAllByLabelText('Add custom tag')).toHaveLength(2)
+    expect(screen.getAllByLabelText('Add custom tag')).toHaveLength(3)
   })
 })
 

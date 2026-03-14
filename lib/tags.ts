@@ -1,7 +1,11 @@
-export const STYLE_DIETARY_TAGS = [
-  'Healthy', 'Comfort', 'Quick', 'Seafood', 'Vegetarian', 'Gluten-Free', 'Soup',
-  'Sheet Pan', 'One Pot', 'Slow Cooker', 'Grill', 'Entertain', 'Spicy',
-  'Favorite', 'Sourdough', 'Garden', 'Pizza', 'Autumn', 'Winter', 'Summer',
+export const STYLE_TAGS = [
+  'Comfort', 'Entertain', 'Favorite', 'Gluten-Free', 'Grill', 'Healthy',
+  'One Pot', 'Pizza', 'Quick', 'Seafood', 'Sheet Pan', 'Slow Cooker',
+  'Soup', 'Sourdough', 'Spicy', 'Vegetarian',
+] as const
+
+export const SEASONAL_TAGS = [
+  'Autumn', 'Spring', 'Summer', 'Winter',
 ] as const
 
 export const CUISINE_TAGS = [
@@ -17,7 +21,8 @@ export const PROTEIN_TAGS = [
 ] as const
 
 export const FIRST_CLASS_TAGS: string[] = [
-  ...STYLE_DIETARY_TAGS,
+  ...STYLE_TAGS,
+  ...SEASONAL_TAGS,
   ...CUISINE_TAGS,
   ...PROTEIN_TAGS,
 ]
