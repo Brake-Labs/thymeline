@@ -133,6 +133,105 @@ describe('TagBucketPicker - limited bucket', () => {
   })
 })
 
+// ── Grouped rendering ────────────────────────────────────────────────────────
+
+describe('TagBucketPicker - grouped rendering', () => {
+  it('preferred bucket shows group labels when tags span multiple sections', () => {
+    render(
+      <TagBucketPicker
+        bucket="preferred"
+        selected={[]}
+        available={['Healthy', 'Chicken']}
+        onChange={vi.fn()}
+      />
+    )
+    expect(screen.getByText('Style')).toBeInTheDocument()
+    expect(screen.getByText('Protein')).toBeInTheDocument()
+  })
+
+  it('limited bucket shows group labels for unselected available tags', () => {
+    render(
+      <TagBucketPicker
+        bucket="limited"
+        selected={[]}
+        selectedLimited={[]}
+        available={['Quick', 'Chicken']}
+        onChange={vi.fn()}
+      />
+    )
+    expect(screen.getByText('Style')).toBeInTheDocument()
+    expect(screen.getByText('Protein')).toBeInTheDocument()
+  })
+})
+
+// ── Limited: Selected section behaviour ──────────────────────────────────────
+
+describe('TagBucketPicker - limited Selected section', () => {
+  it('selected tag appears in Selected section with StepperInput', () => {
+    const limitedTags: LimitedTag[] = [{ tag: 'Healthy', cap: 2 }]
+    render(
+      <TagBucketPicker
+        bucket="limited"
+        selected={['Healthy']}
+        selectedLimited={limitedTags}
+        available={[]}
+        onChange={vi.fn()}
+      />
+    )
+    expect(screen.getByText('Selected')).toBeInTheDocument()
+    expect(screen.getByText('Healthy')).toBeInTheDocument()
+    expect(screen.getByLabelText('Increase')).toBeInTheDocument()
+  })
+
+  it('selected tag is not shown in its group while in Selected section', () => {
+    const limitedTags: LimitedTag[] = [{ tag: 'Healthy', cap: 2 }]
+    render(
+      <TagBucketPicker
+        bucket="limited"
+        selected={['Healthy']}
+        selectedLimited={limitedTags}
+        available={['Quick']}
+        onChange={vi.fn()}
+      />
+    )
+    // Healthy is in Selected, not duplicated in Style group
+    expect(screen.getAllByText('Healthy')).toHaveLength(1)
+    // Quick still shows in Style group
+    expect(screen.getByText('Quick')).toBeInTheDocument()
+  })
+
+  it('deselecting from Selected section calls onChange without that tag', () => {
+    const onChange = vi.fn()
+    const limitedTags: LimitedTag[] = [{ tag: 'Healthy', cap: 2 }]
+    render(
+      <TagBucketPicker
+        bucket="limited"
+        selected={['Healthy']}
+        selectedLimited={limitedTags}
+        available={[]}
+        onChange={onChange}
+      />
+    )
+    fireEvent.click(screen.getByText('Healthy'))
+    expect(onChange).toHaveBeenCalledWith([])
+  })
+
+  it('after deselect, tag returns to its group when re-rendered with empty selectedLimited', () => {
+    render(
+      <TagBucketPicker
+        bucket="limited"
+        selected={[]}
+        selectedLimited={[]}
+        available={['Healthy']}
+        onChange={vi.fn()}
+      />
+    )
+    expect(screen.queryByText('Selected')).not.toBeInTheDocument()
+    expect(screen.getByText('Style')).toBeInTheDocument()
+    expect(screen.getByText('Healthy')).toBeInTheDocument()
+  })
+})
+
 describe('TagBucketPicker - avoided bucket', () => {
   it('renders available tags', () => {
     render(
