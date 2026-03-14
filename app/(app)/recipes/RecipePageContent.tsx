@@ -7,7 +7,7 @@ import RecipeTable, { SortKey, SortDir } from '@/components/recipes/RecipeTable'
 import RecipeFilters from '@/components/recipes/RecipeFilters'
 import AddRecipeModal from '@/components/recipes/AddRecipeModal'
 import TagFilterBar from '@/components/recipes/TagFilterBar'
-import { getAccessToken } from '@/lib/supabase/browser'
+import { getAccessToken, getSupabaseClient } from '@/lib/supabase/browser'
 
 function sortRecipes(
   recipes: RecipeListItem[],
@@ -37,6 +37,7 @@ export default function RecipePageContent() {
   const [activeTagFilters, setActiveTagFilters] = useState<string[]>([])
   const [sortKey, setSortKey] = useState<SortKey>('title')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
+  const [currentUserId, setCurrentUserId] = useState<string | undefined>(undefined)
 
   const category = searchParams.get('category') ?? ''
   const tag = searchParams.get('tag') ?? ''
@@ -60,6 +61,12 @@ export default function RecipePageContent() {
   useEffect(() => {
     fetchRecipes()
   }, [fetchRecipes])
+
+  useEffect(() => {
+    getSupabaseClient().auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) setCurrentUserId(session.user.id)
+    })
+  }, [])
 
   function handleSort(key: SortKey) {
     if (key === sortKey) {
@@ -118,6 +125,7 @@ export default function RecipePageContent() {
           sortKey={sortKey}
           sortDir={sortDir}
           onSort={handleSort}
+          currentUserId={currentUserId}
         />
       )}
 
