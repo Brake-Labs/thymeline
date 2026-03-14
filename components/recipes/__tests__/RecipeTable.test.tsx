@@ -10,8 +10,8 @@ import RecipeTable from '../RecipeTable'
 import { RecipeListItem } from '@/types'
 
 vi.mock('next/link', () => ({
-  default: ({ href, children }: { href: string; children: React.ReactNode }) => (
-    <a href={href}>{children}</a>
+  default: ({ href, children, ...props }: { href: string; children: React.ReactNode; [key: string]: unknown }) => (
+    <a href={href} {...props}>{children}</a>
   ),
 }))
 
@@ -201,5 +201,34 @@ describe('RecipeTable — owner actions', () => {
     expect(screen.queryByRole('link', { name: 'Edit' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument()
     expect(screen.queryByText('Actions')).not.toBeInTheDocument()
+  })
+
+  it('Edit link uses aria-label (icon button, no visible text)', () => {
+    render(
+      <RecipeTable
+        recipes={ownedRecipes}
+        sortKey="title"
+        sortDir="asc"
+        onSort={vi.fn()}
+        currentUserId="me"
+      />,
+    )
+    const editLink = screen.getByRole('link', { name: 'Edit' })
+    expect(editLink).toHaveAttribute('aria-label', 'Edit')
+    expect(editLink).toHaveAttribute('href', '/recipes/r1/edit')
+  })
+
+  it('Delete button uses aria-label (icon button, no visible text)', () => {
+    render(
+      <RecipeTable
+        recipes={ownedRecipes}
+        sortKey="title"
+        sortDir="asc"
+        onSort={vi.fn()}
+        currentUserId="me"
+      />,
+    )
+    const deleteBtn = screen.getByRole('button', { name: 'Delete' })
+    expect(deleteBtn).toHaveAttribute('aria-label', 'Delete')
   })
 })

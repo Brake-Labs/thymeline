@@ -9,14 +9,9 @@ import InlineTagEditor from '@/components/recipes/InlineTagEditor'
 import LogDateSection from '@/components/recipes/LogDateSection'
 import DeleteConfirmDialog from '@/components/recipes/DeleteConfirmDialog'
 import ShareToggle from '@/components/recipes/ShareToggle'
-import { getAccessToken } from '@/lib/supabase/browser'
+import { getAccessToken, getSupabaseClient } from '@/lib/supabase/browser'
 
 type RecipeWithHistory = Recipe & { last_made: string | null; times_made: number }
-
-function getCurrentUserId(): string {
-  if (typeof window === 'undefined') return ''
-  return (window as Window & { __supabaseUserId?: string }).__supabaseUserId ?? ''
-}
 
 interface Props {
   params: { id: string }
@@ -28,8 +23,16 @@ export default function RecipeDetailPage({ params }: Props) {
   const [notFound, setNotFound] = useState(false)
   const [availableTags, setAvailableTags] = useState<string[]>([])
   const [showDelete, setShowDelete] = useState(false)
+  const [currentUserId, setCurrentUserId] = useState('')
+  const [datesMade, setDatesMade] = useState<string[]>([])
 
-  const isOwner = recipe?.user_id === getCurrentUserId()
+  const isOwner = !!currentUserId && recipe?.user_id === currentUserId
+
+  useEffect(() => {
+    getSupabaseClient().auth.getSession().then(({ data }) => {
+      setCurrentUserId(data.session?.user?.id ?? '')
+    })
+  }, [])
 
   useEffect(() => {
     async function fetchRecipe() {
@@ -39,7 +42,10 @@ export default function RecipeDetailPage({ params }: Props) {
         })
         if (r.status === 404) { setNotFound(true); setLoading(false); return }
         const data: RecipeWithHistory = await r.json()
-        if (data) setRecipe(data)
+        if (data) {
+          setRecipe(data)
+          setDatesMade((data.dates_made ?? []).slice().sort().reverse())
+        }
         setLoading(false)
       } catch {
         setLoading(false)
@@ -129,32 +135,16 @@ export default function RecipeDetailPage({ params }: Props) {
         )}
       </div>
 
-      {/* Cook history */}
-      <div className="mb-6 flex flex-wrap items-center gap-4">
-        <div className="text-sm text-gray-600">
-          <span className="font-medium">Last made:</span>{' '}
-          {recipe.last_made ?? 'Never'}
-        </div>
-        <div className="text-sm text-gray-600">
-          <span className="font-medium">Times made:</span> {recipe.times_made}
-        </div>
-      </div>
-
       {/* Actions */}
       <div className="flex flex-wrap gap-3 mb-8">
         <LogDateSection
           recipeId={recipe.id}
           getToken={getAccessToken}
-          onLogged={(date) =>
-            setRecipe((r) => {
-              if (!r) return r
-              return {
-                ...r,
-                last_made: date > (r.last_made ?? '') ? date : r.last_made,
-                times_made: r.times_made + 1,
-              }
-            })
-          }
+          onLogged={(date) => {
+            setDatesMade((prev) =>
+              prev.includes(date) ? prev : [date, ...prev].sort().reverse()
+            )
+          }}
         />
         {isOwner && (
           <>
@@ -171,6 +161,20 @@ export default function RecipeDetailPage({ params }: Props) {
               Delete
             </button>
           </>
+        )}
+      </div>
+
+      {/* Dates made */}
+      <div className="mb-6">
+        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Dates Made</h2>
+        {datesMade.length === 0 ? (
+          <p className="text-sm text-gray-400">Never made</p>
+        ) : (
+          <ul className="space-y-1">
+            {datesMade.map((date) => (
+              <li key={date} className="text-sm text-gray-700">{date}</li>
+            ))}
+          </ul>
         )}
       </div>
 
