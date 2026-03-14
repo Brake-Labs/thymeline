@@ -102,10 +102,15 @@ vi.mock('@/lib/supabase-server', () => ({
   }),
 }))
 
-vi.mock('@/lib/llm', () => ({
-  llmClient: {
-    createChatCompletionNonStreaming: async () => mockState.llmResponse,
-    createChatCompletion: async () => null, // no streaming in tests
+vi.mock('@anthropic-ai/sdk', () => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  default: function MockAnthropic(this: any) {
+    this.messages = {
+      create: async () => ({
+        content: [{ type: 'text', text: mockState.llmResponse }],
+      }),
+      stream: () => { throw new Error('streaming not available in tests') },
+    }
   },
 }))
 
