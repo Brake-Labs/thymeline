@@ -1,5 +1,6 @@
 'use client'
 
+import { STYLE_TAGS, SEASONAL_TAGS, CUISINE_TAGS, PROTEIN_TAGS } from '@/lib/tags'
 import { LimitedTag } from '@/types'
 import StepperInput from './StepperInput'
 
@@ -11,6 +12,37 @@ interface TagBucketPickerProps {
   onChange: (selected: string[] | LimitedTag[]) => void
 }
 
+const STYLE_SET = new Set<string>(STYLE_TAGS)
+const SEASONAL_SET = new Set<string>(SEASONAL_TAGS)
+const CUISINE_SET = new Set<string>(CUISINE_TAGS)
+const PROTEIN_SET = new Set<string>(PROTEIN_TAGS)
+
+const SECTION_DEFS = [
+  { label: 'Style',    set: STYLE_SET },
+  { label: 'Seasonal', set: SEASONAL_SET },
+  { label: 'Cuisine',  set: CUISINE_SET },
+  { label: 'Protein',  set: PROTEIN_SET },
+]
+
+function groupTagsIntoSections(tags: string[]): { label: string; tags: string[] }[] {
+  const buckets = new Map<string, string[]>(SECTION_DEFS.map((s) => [s.label, []]))
+  const custom: string[] = []
+  for (const tag of tags) {
+    let placed = false
+    for (const { label, set } of SECTION_DEFS) {
+      if (set.has(tag)) { buckets.get(label)!.push(tag); placed = true; break }
+    }
+    if (!placed) custom.push(tag)
+  }
+  const result: { label: string; tags: string[] }[] = []
+  for (const { label } of SECTION_DEFS) {
+    const t = buckets.get(label)!
+    if (t.length > 0) result.push({ label, tags: t })
+  }
+  if (custom.length > 0) result.push({ label: 'Custom', tags: custom })
+  return result
+}
+
 export default function TagBucketPicker({
   bucket,
   selected,
@@ -20,6 +52,9 @@ export default function TagBucketPicker({
 }: TagBucketPickerProps) {
   if (bucket === 'limited') {
     const limitedTags = selectedLimited ?? []
+    const selectedTagNames = limitedTags.map((lt) => lt.tag)
+    const unselectedAvailable = available.filter((t) => !selectedTagNames.includes(t))
+    const groups = groupTagsIntoSections(unselectedAvailable)
 
     const toggleLimitedTag = (tag: string) => {
       const exists = limitedTags.find((lt) => lt.tag === tag)
@@ -31,46 +66,53 @@ export default function TagBucketPicker({
     }
 
     const updateCap = (tag: string, cap: number) => {
-      onChange(limitedTags.map((lt) => lt.tag === tag ? { ...lt, cap } : lt))
+      onChange(limitedTags.map((lt) => (lt.tag === tag ? { ...lt, cap } : lt)))
     }
 
-    const selectedTags = limitedTags.map((lt) => lt.tag)
-    // Show selected tags first, then available unselected tags
-    const unselectedAvailable = available.filter((t) => !selectedTags.includes(t))
-    const allTags = [...selectedTags, ...unselectedAvailable]
-
     return (
-      <div className="space-y-2">
-        <div className="flex flex-wrap gap-2">
-          {allTags.map((tag) => {
-            const isSelected = selectedTags.includes(tag)
-            const limitedTag = limitedTags.find((lt) => lt.tag === tag)
-            return (
-              <div key={tag} className="flex items-center gap-2">
+      <div className="space-y-3">
+        {limitedTags.length > 0 && (
+          <div>
+            <p className="text-xs text-stone-400 mb-1.5">Selected</p>
+            <div className="flex flex-wrap gap-2">
+              {limitedTags.map((lt) => (
+                <div key={lt.tag} className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleLimitedTag(lt.tag)}
+                    className="px-3 py-1.5 rounded-full text-sm font-medium border transition-colors bg-amber-100 border-amber-400 text-amber-800"
+                  >
+                    {lt.tag}
+                  </button>
+                  <StepperInput
+                    value={lt.cap}
+                    min={1}
+                    max={7}
+                    onChange={(v) => updateCap(lt.tag, v)}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {groups.map(({ label, tags }) => (
+          <div key={label}>
+            <p className="text-xs text-stone-400 mb-1.5">{label}</p>
+            <div className="flex flex-wrap gap-2">
+              {tags.map((tag) => (
                 <button
+                  key={tag}
                   type="button"
                   onClick={() => toggleLimitedTag(tag)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-                    isSelected
-                      ? 'bg-amber-100 border-amber-400 text-amber-800'
-                      : 'bg-white border-gray-300 text-gray-600 hover:border-amber-300'
-                  }`}
+                  className="px-3 py-1.5 rounded-full text-sm font-medium border transition-colors bg-white border-gray-300 text-gray-600 hover:border-amber-300"
                 >
                   {tag}
                 </button>
-                {isSelected && limitedTag && (
-                  <StepperInput
-                    value={limitedTag.cap}
-                    min={1}
-                    max={7}
-                    onChange={(v) => updateCap(tag, v)}
-                  />
-                )}
-              </div>
-            )
-          })}
-        </div>
-        {allTags.length === 0 && (
+              ))}
+            </div>
+          </div>
+        ))}
+        {limitedTags.length === 0 && groups.length === 0 && (
           <p className="text-sm text-gray-400">No tags available</p>
         )}
       </div>
@@ -86,9 +128,8 @@ export default function TagBucketPicker({
     }
   }
 
-  // Show selected tags first, then unselected available tags
-  const unselectedAvailable = available.filter((t) => !selected.includes(t))
-  const allTags = [...selected, ...unselectedAvailable]
+  const allTags = [...selected, ...available.filter((t) => !selected.includes(t))]
+  const groups = groupTagsIntoSections(allTags)
 
   const selectedColor =
     bucket === 'preferred'
@@ -96,25 +137,32 @@ export default function TagBucketPicker({
       : 'bg-red-100 border-red-400 text-red-800'
 
   return (
-    <div className="flex flex-wrap gap-2">
-      {allTags.map((tag) => {
-        const isSelected = selected.includes(tag)
-        return (
-          <button
-            key={tag}
-            type="button"
-            onClick={() => toggle(tag)}
-            className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-              isSelected
-                ? selectedColor
-                : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'
-            }`}
-          >
-            {tag}
-          </button>
-        )
-      })}
-      {allTags.length === 0 && (
+    <div className="space-y-3">
+      {groups.map(({ label, tags }) => (
+        <div key={label}>
+          <p className="text-xs text-stone-400 mb-1.5">{label}</p>
+          <div className="flex flex-wrap gap-2">
+            {tags.map((tag) => {
+              const isSelected = selected.includes(tag)
+              return (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => toggle(tag)}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                    isSelected
+                      ? selectedColor
+                      : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'
+                  }`}
+                >
+                  {tag}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      ))}
+      {groups.length === 0 && (
         <p className="text-sm text-gray-400">No tags available</p>
       )}
     </div>
