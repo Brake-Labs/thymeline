@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
 import { callLLMNonStreaming } from '../helpers'
-import { ChatRoles } from 'any-llm'
 
 export async function POST(req: NextRequest) {
   const supabase = createServerClient(req)
