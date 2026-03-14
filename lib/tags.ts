@@ -1,5 +1,5 @@
 export const STYLE_TAGS = [
-  'Comfort', 'Entertain', 'Favorite', 'Gluten-Free', 'Grill', 'Healthy',
+  'Comfort', 'Entertain', 'Favorite', 'Garden', 'Gluten-Free', 'Grill', 'Healthy',
   'One Pot', 'Pizza', 'Quick', 'Seafood', 'Sheet Pan', 'Slow Cooker',
   'Soup', 'Sourdough', 'Spicy', 'Vegetarian',
 ] as const
