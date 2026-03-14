@@ -15,6 +15,14 @@ vi.mock('next/link', () => ({
   ),
 }))
 
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}))
+
+vi.mock('@/lib/supabase/browser', () => ({
+  getAccessToken: async () => 'mock-token',
+}))
+
 const baseRecipe: RecipeListItem = {
   id: '1',
   user_id: 'u1',
@@ -139,5 +147,59 @@ describe('RecipeTable', () => {
     expect(rows[0]).toHaveTextContent('Apple Pie')
     expect(rows[1]).toHaveTextContent('Bacon Eggs')
     expect(rows[2]).toHaveTextContent('Zucchini Soup')
+  })
+})
+
+// ── Owner actions (Edit / Delete per row) ─────────────────────────────────────
+
+const ownedRecipes: RecipeListItem[] = [
+  { ...baseRecipe, id: 'r1', user_id: 'me', title: 'My Pasta' },
+  { ...baseRecipe, id: 'r2', user_id: 'other', title: 'Their Soup' },
+]
+
+describe('RecipeTable — owner actions', () => {
+  it('renders Edit link and Delete button only for owned rows', () => {
+    render(
+      <RecipeTable
+        recipes={ownedRecipes}
+        sortKey="title"
+        sortDir="asc"
+        onSort={vi.fn()}
+        currentUserId="me"
+      />,
+    )
+    // Own recipe row has Edit link to /recipes/r1/edit
+    expect(screen.getByRole('link', { name: 'Edit' })).toHaveAttribute('href', '/recipes/r1/edit')
+    // Own recipe row has Delete button
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument()
+  })
+
+  it('does not render Edit/Delete for recipes owned by another user', () => {
+    render(
+      <RecipeTable
+        recipes={ownedRecipes}
+        sortKey="title"
+        sortDir="asc"
+        onSort={vi.fn()}
+        currentUserId="me"
+      />,
+    )
+    // Only one Edit link (for "me"'s recipe), not for "other"'s recipe
+    expect(screen.getAllByRole('link', { name: 'Edit' })).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: 'Delete' })).toHaveLength(1)
+  })
+
+  it('renders no actions column when currentUserId is not provided', () => {
+    render(
+      <RecipeTable
+        recipes={ownedRecipes}
+        sortKey="title"
+        sortDir="asc"
+        onSort={vi.fn()}
+      />,
+    )
+    expect(screen.queryByRole('link', { name: 'Edit' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Actions')).not.toBeInTheDocument()
   })
 })

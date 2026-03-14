@@ -6,7 +6,7 @@ import TagPill from './TagPill'
 interface InlineTagEditorProps {
   recipeId: string
   currentTags: string[]
-  availableTags: string[]
+  availableTags?: string[]
   getToken: () => Promise<string> | string
   onUpdate: (updatedTags: string[]) => void
 }
@@ -41,7 +41,7 @@ export default function InlineTagEditor({
     }
   }
 
-  const unselected = availableTags.filter((t) => !tags.includes(t))
+  const unselected = (availableTags ?? []).filter((t) => !tags.includes(t))
 
   return (
     <div className={`space-y-2 ${busy ? 'opacity-60 pointer-events-none' : ''}`}>
