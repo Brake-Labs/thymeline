@@ -14,6 +14,7 @@
     "@supabase/supabase-js": "^2.49.1",
     "any-llm": "^0.1.26",
     "firecrawl": "^4.15.1",
+    "lucide-react": "^0.577.0",
     "next": "14.2.35",
     "react": "^18",
     "react-dom": "^18"
