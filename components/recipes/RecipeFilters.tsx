@@ -4,11 +4,6 @@ import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getAccessToken } from '@/lib/supabase/browser'
 
-interface UserTag {
-  id: string
-  name: string
-}
-
 const CATEGORY_OPTIONS = [
   { value: '', label: 'All Categories' },
   { value: 'main_dish', label: 'Main Dish' },
@@ -20,7 +15,7 @@ const CATEGORY_OPTIONS = [
 export default function RecipeFilters() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [tags, setTags] = useState<UserTag[]>([])
+  const [tags, setTags] = useState<string[]>([])
 
   useEffect(() => {
     async function fetchTags() {
@@ -28,8 +23,8 @@ export default function RecipeFilters() {
         const r = await fetch('/api/tags', {
           headers: { Authorization: `Bearer ${await getAccessToken()}` },
         })
-        const data: UserTag[] = await r.json()
-        if (Array.isArray(data)) setTags(data)
+        const data: { firstClass: string[]; custom: { name: string }[] } = await r.json()
+        setTags([...(data.firstClass ?? []), ...(data.custom ?? []).map((t) => t.name)])
       } catch {}
     }
     fetchTags()
@@ -66,7 +61,7 @@ export default function RecipeFilters() {
       >
         <option value="">All Tags</option>
         {tags.map((t) => (
-          <option key={t.id} value={t.name}>{t.name}</option>
+          <option key={t} value={t}>{t}</option>
         ))}
       </select>
     </div>

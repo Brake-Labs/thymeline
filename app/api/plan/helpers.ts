@@ -175,10 +175,12 @@ export function buildFullWeekUserMessage(
   freeText: string,
   specificRequests: string,
 ): string {
+  // Use recipe_id as the field name so it matches the expected output format exactly
+  const recipesForPrompt = recipes.map((r) => ({ recipe_id: r.id, title: r.title, tags: r.tags }))
   return `Plan meals for these dates: ${activeDates.join(', ')}
 
 Available recipes (main dish only, cooldown-filtered):
-${JSON.stringify(recipes)}
+${JSON.stringify(recipesForPrompt)}
 
 Recent meal history (avoid repeating recent meals):
 ${JSON.stringify(recentHistory)}
@@ -203,10 +205,11 @@ export function buildSwapUserMessage(
     .filter(Boolean)
     .join(', ')
 
+  const recipesForPrompt = recipes.map((r) => ({ recipe_id: r.id, title: r.title, tags: r.tags }))
   return `Plan meals for these dates: ${date}
 
 Available recipes (main dish only, cooldown-filtered):
-${JSON.stringify(recipes)}
+${JSON.stringify(recipesForPrompt)}
 
 Recent meal history (avoid repeating recent meals):
 ${JSON.stringify(recentHistory)}
