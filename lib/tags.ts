@@ -5,8 +5,9 @@ export const STYLE_DIETARY_TAGS = [
 ] as const
 
 export const CUISINE_TAGS = [
-  'Hungarian', 'Mediterranean', 'Italian', 'Mexican', 'Thai', 'Indian',
-  'Greek', 'French', 'Middle Eastern', 'American', 'Asian', 'Chinese', 'Japanese', 'Irish',
+  'American', 'Asian', 'Chinese', 'French', 'Greek', 'Hungarian',
+  'Indian', 'Irish', 'Italian', 'Japanese', 'Mediterranean', 'Mexican',
+  'Middle Eastern', 'Thai',
 ] as const
 
 export const PROTEIN_TAGS = [
