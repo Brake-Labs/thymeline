@@ -247,20 +247,3 @@ export async function callLLMNonStreaming(
   })
   return response.content[0].type === 'text' ? response.content[0].text : ''
 }
-
-export async function callLLMStreaming(
-  systemMessage: string,
-  userMessage: string,
-): Promise<AsyncIterable<string> | null> {
-  try {
-    const stream = anthropic.messages.stream({
-      model: process.env.LLM_MODEL ?? 'claude-haiku-4-5-20251001',
-      max_tokens: 4096,
-      messages: [{ role: 'user', content: userMessage }],
-      system: systemMessage,
-    })
-    return stream.textStream
-  } catch {
-    return null
-  }
-}
