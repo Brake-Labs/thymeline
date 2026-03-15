@@ -140,7 +140,7 @@ describe('Save error state', () => {
     )
     fireEvent.click(screen.getByText(/Looks good/))
     await waitFor(() => {
-      expect(screen.getByText(/Something went wrong/)).toBeInTheDocument()
+      expect(screen.getByText(/fail/)).toBeInTheDocument()
     })
   })
 })

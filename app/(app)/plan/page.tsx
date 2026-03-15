@@ -224,10 +224,15 @@ function PlanPageInner() {
   // ── Selections ────────────────────────────────────────────────────────────────
 
   const handleSelect = (date: string, recipe: RecipeSuggestion) => {
-    setSelections((prev) => ({
-      ...prev,
-      [date]: { date, recipe_id: recipe.recipe_id, recipe_title: recipe.recipe_title, from_vault: false },
-    }))
+    setSelections((prev) => {
+      if (prev[date]?.recipe_id === recipe.recipe_id) {
+        // Toggle off: remove the selection
+        const next = { ...prev }
+        delete next[date]
+        return next
+      }
+      return { ...prev, [date]: { date, recipe_id: recipe.recipe_id, recipe_title: recipe.recipe_title, from_vault: false } }
+    })
   }
 
   const handleSkipDay = (date: string) => {
@@ -295,21 +300,28 @@ function PlanPageInner() {
 
   async function handleSave() {
     setIsSaving(true)
-    const entries = Object.entries(selections)
-      .filter(([, sel]) => sel !== null && sel !== undefined)
-      .map(([, sel]) => ({ date: (sel as DaySelection).date, recipe_id: (sel as DaySelection).recipe_id }))
+    try {
+      const entries = Object.entries(selections)
+        .filter(([, sel]) => sel !== null && sel !== undefined)
+        .map(([, sel]) => ({ date: (sel as DaySelection).date, recipe_id: (sel as DaySelection).recipe_id }))
 
-    const token = await getAccessToken()
-    const res = await fetch('/api/plan', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ week_start: setup.weekStart, entries }),
-    })
-    setIsSaving(false)
+      const token = await getAccessToken()
+      const res = await fetch('/api/plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ week_start: setup.weekStart, entries }),
+      })
 
-    if (!res.ok) throw new Error('Save failed')
-    setSavedWeekStart(setup.weekStart)
-    router.push('/plan?step=summary')
+      if (!res.ok) {
+        let msg = 'Save failed'
+        try { const body = await res.json(); if (body.error) msg = body.error } catch { /* ignore */ }
+        throw new Error(msg)
+      }
+      setSavedWeekStart(setup.weekStart)
+      router.push('/plan?step=summary')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   // ── Render ────────────────────────────────────────────────────────────────────
