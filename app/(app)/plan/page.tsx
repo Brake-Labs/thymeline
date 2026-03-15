@@ -37,7 +37,11 @@ type SelectionsMap = Record<string, DaySelection | null>
 function getMostRecentSunday(): string {
   const d = new Date()
   d.setDate(d.getDate() - d.getDay())
-  return d.toISOString().split('T')[0]
+  // Use local date parts — toISOString() converts to UTC which can shift the date
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 function getDefaultActiveDates(weekStart: string): string[] {
@@ -337,6 +341,7 @@ function PlanPageInner() {
             onFreeTextMatch={handleFreeTextMatch}
             onRegenerate={handleRegenerate}
             onConfirm={() => router.push('/plan?step=summary')}
+            onBack={() => router.push('/plan?step=setup')}
           />
         )}
 

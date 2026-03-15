@@ -30,7 +30,7 @@ export default function VaultSearchSheet({ forDate, onAssign, onClose }: VaultSe
       const res = await fetch('/api/recipes', { headers: { Authorization: `Bearer ${token}` } })
       if (res.ok) {
         const data = await res.json()
-        setRecipes(data.recipes ?? [])
+        setRecipes(Array.isArray(data) ? data : [])
       }
       setLoading(false)
     }
