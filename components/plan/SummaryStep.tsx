@@ -51,8 +51,8 @@ export default function SummaryStep({ setup, selections, onSave, isSaving, onBac
     setSaveError('')
     try {
       await onSave()
-    } catch {
-      setSaveError('Something went wrong. Please try again.')
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
     }
   }
 

@@ -27,7 +27,9 @@ export async function POST(req: NextRequest) {
   const recipeList = (recipes ?? []) as { id: string; title: string; tags: string[] }[]
 
   const systemMessage = `You are helping find a recipe from a user's personal recipe vault.
-Given a search phrase and a list of recipes, return the recipe_id of the best match, or null if there is no confident match.
+Given a search phrase and a list of recipes, return the recipe_id of the best match.
+Match on recipe title words, tags, or general category (e.g. "something with chicken" matches recipes with a Chicken tag or chicken in the title).
+Only return null if the query has absolutely no connection to any recipe in the list.
 Return ONLY valid JSON: { "recipe_id": "uuid" } or { "recipe_id": null }`
 
   const userMessage = `Search phrase: "${query}"

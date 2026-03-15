@@ -28,17 +28,33 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'week_start must be a Sunday' }, { status: 400 })
   }
 
-  // Upsert meal_plans on (user_id, week_start)
-  const { data: plan, error: planError } = await supabase
+  // Find existing plan for this week, or create a new one
+  const { data: existing } = await supabase
     .from('meal_plans')
-    .upsert({ user_id: user.id, week_start }, { onConflict: 'user_id,week_start' })
     .select('id')
-    .single()
+    .eq('user_id', user.id)
+    .eq('week_start', week_start)
+    .maybeSingle()
 
-  if (planError || !plan) {
-    console.error('meal_plans upsert error:', planError)
-    return NextResponse.json({ error: 'Failed to save plan' }, { status: 500 })
+  let planId: string
+  if (existing?.id) {
+    planId = existing.id
+  } else {
+    const { data: created, error: createError } = await supabase
+      .from('meal_plans')
+      .insert({ user_id: user.id, week_start })
+      .select('id')
+      .single()
+
+    if (createError || !created) {
+      console.error('meal_plans insert error:', createError)
+      return NextResponse.json({ error: `Failed to create plan: ${createError?.message ?? 'unknown'}` }, { status: 500 })
+    }
+    planId = created.id
   }
+
+  // Keep shape consistent with previous code
+  const plan = { id: planId }
 
   // Delete existing entries for this plan
   await supabase.from('meal_plan_entries').delete().eq('meal_plan_id', plan.id)
