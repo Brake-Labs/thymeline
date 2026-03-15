@@ -37,6 +37,7 @@ interface SuggestionsStepProps {
   onFreeTextMatch:(query: string, date: string) => Promise<{ matched: boolean }>
   onRegenerate:   (onlyUnselected?: boolean) => void
   onConfirm:      () => void
+  onBack:         () => void
 }
 
 function formatWeekRange(weekStart: string): string {
@@ -53,7 +54,7 @@ type RegeneratePromptState = 'none' | 'prompt'
 export default function SuggestionsStep({
   setup, suggestions, selections,
   onSelect, onSkipDay, onSwapDay, onAssignToDay, onVaultPick, onFreeTextMatch,
-  onRegenerate, onConfirm,
+  onRegenerate, onConfirm, onBack,
 }: SuggestionsStepProps) {
   const [regenPrompt, setRegenPrompt] = useState<RegeneratePromptState>('none')
 
@@ -134,6 +135,13 @@ export default function SuggestionsStep({
           onFreeTextMatch={onFreeTextMatch}
         />
       ))}
+
+      <button
+        onClick={onBack}
+        className="text-sm text-stone-500 hover:text-stone-700 underline transition-colors"
+      >
+        ← Back to setup
+      </button>
     </div>
   )
 }
