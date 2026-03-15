@@ -10,7 +10,6 @@ import {
   buildFullWeekUserMessage,
   validateSuggestions,
   callLLMNonStreaming,
-  callLLMStreaming,
 } from '../helpers'
 import type { DaySuggestions } from '@/types'
 
@@ -83,67 +82,12 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Try streaming first
-  const stream = await callLLMStreaming(systemMessage, userMessage)
-  if (stream) {
-    const encoder = new TextEncoder()
-    const readable = new ReadableStream({
-      async start(controller) {
-        try {
-          let buffer = ''
-          for await (const chunk of stream) {
-            buffer += typeof chunk === 'string' ? chunk : (chunk as { text?: string }).text ?? ''
-            // Try to extract complete day objects from the buffer
-            const dayRegex = /\{[^{}]*"date"\s*:\s*"[^"]+"\s*,[^{}]*"options"\s*:\s*\[[^\]]*\][^{}]*\}/g
-            let match: RegExpExecArray | null
-            while ((match = dayRegex.exec(buffer)) !== null) {
-              try {
-                const dayObj = JSON.parse(match[0]) as DaySuggestions
-                logValidation([dayObj])
-                const validated = validateSuggestions([dayObj], validIds)[0]
-                controller.enqueue(encoder.encode(JSON.stringify(validated) + '\n'))
-              } catch {
-                // skip malformed chunk
-              }
-              buffer = buffer.slice(dayRegex.lastIndex)
-              dayRegex.lastIndex = 0
-            }
-          }
-          // Parse remaining buffer for any complete days
-          try {
-            const parsed = JSON.parse(buffer.trim()) as { days: DaySuggestions[] }
-            if (parsed.days) {
-              logValidation(parsed.days)
-              const validated = validateSuggestions(parsed.days, validIds)
-              for (const day of validated) {
-                controller.enqueue(encoder.encode(JSON.stringify(day) + '\n'))
-              }
-            }
-          } catch {
-            // buffer was already consumed
-          }
-        } catch (err) {
-          console.error('Streaming error:', err)
-        } finally {
-          controller.close()
-        }
-      },
-    })
-
-    return new Response(readable, {
-      headers: {
-        'Content-Type': 'application/x-ndjson',
-        'Transfer-Encoding': 'chunked',
-        'X-Content-Type-Options': 'nosniff',
-      },
-    })
-  }
-
-  // Non-streaming fallback
   try {
     const raw = await callLLMNonStreaming(systemMessage, userMessage)
     console.log(`[suggest] raw_llm_response=${raw.slice(0, 500)}${raw.length > 500 ? '…' : ''}`)
-    const parsed = JSON.parse(raw.trim()) as { days: DaySuggestions[] }
+    // Strip markdown code fences the model occasionally wraps around the JSON
+    const stripped = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '')
+    const parsed = JSON.parse(stripped) as { days: DaySuggestions[] }
     logValidation(parsed.days ?? [])
     const validated = validateSuggestions(parsed.days ?? [], validIds)
     return NextResponse.json({ days: validated })
