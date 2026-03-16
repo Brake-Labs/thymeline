@@ -64,7 +64,13 @@ vi.mock('@/lib/supabase-server', () => ({
             eq: (col: string, val: string) => ({
               eq: (col2: string, val2: string) => ({
                 single: async () => ({ data: mockState.plan, error: mockState.plan ? null : { message: 'not found' } }),
+                maybeSingle: async () => ({ data: mockState.plan, error: null }),
               }),
+            }),
+          }),
+          insert: () => ({
+            select: () => ({
+              single: async () => ({ data: { id: mockState.upsertPlanId }, error: null }),
             }),
           }),
           upsert: () => ({

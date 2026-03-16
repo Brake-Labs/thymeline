@@ -17,6 +17,10 @@ interface VaultSearchSheetProps {
   onClose: () => void
 }
 
+function formatCategory(cat: string): string {
+  return cat.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+}
+
 export default function VaultSearchSheet({ forDate, onAssign, onClose }: VaultSearchSheetProps) {
   const [recipes, setRecipes] = useState<VaultRecipe[]>([])
   const [loading, setLoading] = useState(true)
@@ -97,7 +101,7 @@ export default function VaultSearchSheet({ forDate, onAssign, onClose }: VaultSe
               className="flex-1 border border-stone-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
             >
               <option value="">All categories</option>
-              {allCategories.map((c) => <option key={c} value={c}>{c}</option>)}
+              {allCategories.map((c) => <option key={c} value={c}>{formatCategory(c)}</option>)}
             </select>
           </div>
         </div>

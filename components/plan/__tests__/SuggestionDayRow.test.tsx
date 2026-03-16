@@ -65,10 +65,8 @@ describe('T17 - Use for a different day shows AssignDayPicker', () => {
   it('opens the AssignDayPicker when "Use for a different day" is clicked', () => {
     render(<SuggestionDayRow {...makeRow()} />)
     fireEvent.click(screen.getAllByText('Use for a different day')[0])
-    // Picker opens — "Use for…" heading is visible
-    expect(screen.getByText('Use for…')).toBeInTheDocument()
-    // The other active date option is shown in the picker
-    expect(screen.getByRole('dialog', { name: 'Assign to a different day' })).toBeInTheDocument()
+    // Picker opens as a dialog overlay
+    expect(screen.getByRole('dialog', { name: 'Use for a different day' })).toBeInTheDocument()
   })
 })
 

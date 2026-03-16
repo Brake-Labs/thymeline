@@ -25,9 +25,12 @@ const SECTION_DEFS = [
 ]
 
 function groupTagsIntoSections(tags: string[]): { label: string; tags: string[] }[] {
+  const seen = new Set<string>()
   const buckets = new Map<string, string[]>(SECTION_DEFS.map((s) => [s.label, []]))
   const custom: string[] = []
   for (const tag of tags) {
+    if (seen.has(tag)) continue
+    seen.add(tag)
     let placed = false
     for (const { label, set } of SECTION_DEFS) {
       if (set.has(tag)) { buckets.get(label)!.push(tag); placed = true; break }
