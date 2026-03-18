@@ -23,10 +23,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  return NextResponse.json({
-    firstClass: FIRST_CLASS_TAGS,
-    custom: (data ?? []).map((t: { name: string; section: string }) => ({ name: t.name, section: t.section })),
-  })
+  const firstClassLower = new Set(FIRST_CLASS_TAGS.map((t) => t.toLowerCase()))
+  // Filter out any custom tags that duplicate a first-class tag (stale DB entries)
+  const custom = (data ?? [])
+    .filter((t: { name: string }) => !firstClassLower.has(t.name.toLowerCase()))
+    .map((t: { name: string; section: string }) => ({ name: t.name, section: t.section }))
+
+  return NextResponse.json({ firstClass: FIRST_CLASS_TAGS, custom })
 }
 
 export async function POST(req: NextRequest) {

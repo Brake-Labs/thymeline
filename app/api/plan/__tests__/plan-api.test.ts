@@ -256,6 +256,22 @@ describe('T21 - POST /api/plan/match returns matched recipe', () => {
   })
 })
 
+// ── T21b: Keyword match bypasses LLM ─────────────────────────────────────────
+
+describe('T21b - keyword match resolves without LLM when exactly one recipe matches', () => {
+  it('returns the keyword-matched recipe even if LLM would return null', async () => {
+    // LLM would return null, but keyword match should find r1 ("Pasta") for "pasta"
+    mockState.llmResponse = JSON.stringify({ recipe_id: null })
+    const res = await matchPOST(makeReq('POST', 'http://localhost/api/plan/match', {
+      query: 'something with pasta',
+      date: '2026-03-01',
+    }))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.match.recipe_id).toBe('r1')
+  })
+})
+
 // ── T22: Free text no match ───────────────────────────────────────────────────
 
 describe('T22 - POST /api/plan/match returns null when no match', () => {
