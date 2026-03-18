@@ -23,6 +23,80 @@ const mockState = {
   entries: [] as { planned_date: string; recipe_id: string; position: number; confirmed: boolean; recipes: { title: string } }[],
   llmResponse: '{"days":[]}',
   upsertPlanId: 'plan-1',
+  // Simulate DB errors for save tests
+  planInsertError: null as { message: string } | null,
+  entryInsertError: null as { message: string } | null,
+}
+
+// Shared from() builder used by both createServerClient and createAdminClient
+function makeMockFrom(table: string) {
+  if (table === 'recipes') {
+    const result = { data: mockState.recipes, error: null }
+    const secondEq = { eq: async () => result }
+    const firstEq = Object.assign(Promise.resolve(result), secondEq)
+    return { select: () => ({ eq: () => firstEq }) }
+  }
+  if (table === 'recipe_history') {
+    return {
+      select: () => ({
+        eq: () => ({
+          gte: async () => ({ data: [], error: null }),
+          order: () => ({ limit: async () => ({ data: mockState.recentHistory, error: null }) }),
+        }),
+      }),
+    }
+  }
+  if (table === 'user_preferences') {
+    return {
+      select: () => ({
+        eq: () => ({ single: async () => ({ data: mockState.prefs, error: null }) }),
+      }),
+    }
+  }
+  if (table === 'meal_plans') {
+    return {
+      select: () => ({
+        eq: () => ({
+          eq: () => ({
+            single: async () => ({ data: mockState.plan, error: mockState.plan ? null : { message: 'not found' } }),
+            maybeSingle: async () => ({ data: mockState.plan, error: null }),
+          }),
+        }),
+      }),
+      insert: () => ({
+        select: () => ({
+          single: async () => ({
+            data: mockState.planInsertError ? null : { id: mockState.upsertPlanId },
+            error: mockState.planInsertError,
+          }),
+        }),
+      }),
+    }
+  }
+  if (table === 'meal_plan_entries') {
+    return {
+      delete: () => ({ eq: async () => ({ error: null }) }),
+      insert: () => ({
+        select: async () => ({
+          data: mockState.entryInsertError ? null : mockState.entries.map((e, i) => ({
+            id: `entry-${i}`,
+            meal_plan_id: mockState.upsertPlanId,
+            recipe_id: e.recipe_id,
+            planned_date: e.planned_date,
+            position: e.position,
+            confirmed: e.confirmed,
+          })),
+          error: mockState.entryInsertError,
+        }),
+      }),
+      select: () => ({
+        eq: () => ({
+          order: async () => ({ data: mockState.entries, error: null }),
+        }),
+      }),
+    }
+  }
+  return {}
 }
 
 vi.mock('@/lib/supabase-server', () => ({
@@ -33,79 +107,10 @@ vi.mock('@/lib/supabase-server', () => ({
         error: mockState.user ? null : { message: 'no user' },
       }),
     },
-    from: (table: string) => {
-      if (table === 'recipes') {
-        // Support both .select().eq() (match route) and .select().eq().eq() (suggest routes)
-        const result = { data: mockState.recipes, error: null }
-        const secondEq = { eq: async () => result }
-        const firstEq = Object.assign(Promise.resolve(result), secondEq)
-        return { select: () => ({ eq: () => firstEq }) }
-      }
-      if (table === 'recipe_history') {
-        return {
-          select: () => ({
-            eq: () => ({
-              gte: async () => ({ data: [], error: null }),
-              order: () => ({ limit: async () => ({ data: mockState.recentHistory, error: null }) }),
-            }),
-          }),
-        }
-      }
-      if (table === 'user_preferences') {
-        return {
-          select: () => ({
-            eq: () => ({ single: async () => ({ data: mockState.prefs, error: null }) }),
-          }),
-        }
-      }
-      if (table === 'meal_plans') {
-        return {
-          select: () => ({
-            eq: (col: string, val: string) => ({
-              eq: (col2: string, val2: string) => ({
-                single: async () => ({ data: mockState.plan, error: mockState.plan ? null : { message: 'not found' } }),
-                maybeSingle: async () => ({ data: mockState.plan, error: null }),
-              }),
-            }),
-          }),
-          insert: () => ({
-            select: () => ({
-              single: async () => ({ data: { id: mockState.upsertPlanId }, error: null }),
-            }),
-          }),
-          upsert: () => ({
-            select: () => ({
-              single: async () => ({ data: { id: mockState.upsertPlanId }, error: null }),
-            }),
-          }),
-        }
-      }
-      if (table === 'meal_plan_entries') {
-        return {
-          delete: () => ({ eq: async () => ({ error: null }) }),
-          insert: () => ({
-            select: async () => ({
-              data: mockState.entries.map((e, i) => ({
-                id: `entry-${i}`,
-                meal_plan_id: mockState.upsertPlanId,
-                recipe_id: e.recipe_id,
-                planned_date: e.planned_date,
-                position: e.position,
-                confirmed: e.confirmed,
-              })),
-              error: null,
-            }),
-          }),
-          select: () => ({
-            eq: () => ({
-              order: async () => ({ data: mockState.entries, error: null }),
-            }),
-          }),
-        }
-      }
-      return {}
-    },
+    from: makeMockFrom,
   }),
+  // Admin client: same DB mock, no auth — simulates service role behaviour
+  createAdminClient: () => ({ from: makeMockFrom }),
 }))
 
 vi.mock('@anthropic-ai/sdk', () => ({
@@ -144,6 +149,8 @@ beforeEach(() => {
   mockState.recentHistory = []
   mockState.plan = null
   mockState.entries = []
+  mockState.planInsertError = null
+  mockState.entryInsertError = null
   mockState.llmResponse = JSON.stringify({
     days: [
       { date: '2026-03-01', options: [{ recipe_id: 'r1', recipe_title: 'Pasta', reason: 'Quick' }] },
@@ -286,10 +293,16 @@ describe('T22 - POST /api/plan/match returns null when no match', () => {
   })
 })
 
-// ── T30: Save plan (upsert replaces entries) ──────────────────────────────────
+// ── T30: Save plan — creates new plan when none exists ────────────────────────
 
-describe('T30 - POST /api/plan saves plan and replaces entries', () => {
-  it('returns plan_id and saved entries', async () => {
+describe('T30 - POST /api/plan creates plan and saves entries via admin client', () => {
+  it('creates a new plan and returns plan_id + entries when no existing plan', async () => {
+    // No existing plan — mock will do INSERT on meal_plans
+    mockState.plan = null
+    mockState.entries = [
+      { planned_date: '2026-03-01', recipe_id: 'r1', position: 1, confirmed: true, recipes: { title: 'Pasta' } },
+      { planned_date: '2026-03-03', recipe_id: 'r2', position: 1, confirmed: true, recipes: { title: 'Tacos' } },
+    ]
     const res = await planPOST(makeReq('POST', 'http://localhost/api/plan', {
       week_start: '2026-03-01',
       entries: [
@@ -300,7 +313,50 @@ describe('T30 - POST /api/plan saves plan and replaces entries', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.plan_id).toBe('plan-1')
-    expect(body.entries).toBeDefined()
+    expect(body.entries).toHaveLength(2)
+    expect(body.entries[0].recipe_id).toBe('r1')
+    expect(body.entries[1].recipe_id).toBe('r2')
+  })
+
+  it('reuses existing plan_id when a plan already exists for the week', async () => {
+    // Existing plan — mock returns it from maybeSingle, no INSERT needed
+    mockState.plan = { id: 'existing-plan-99', week_start: '2026-03-01' }
+    mockState.entries = [
+      { planned_date: '2026-03-01', recipe_id: 'r3', position: 1, confirmed: true, recipes: { title: 'Soup' } },
+    ]
+    const res = await planPOST(makeReq('POST', 'http://localhost/api/plan', {
+      week_start: '2026-03-01',
+      entries: [{ date: '2026-03-01', recipe_id: 'r3' }],
+    }))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    // plan_id comes from the existing plan, not the insert mock
+    expect(body.plan_id).toBe('existing-plan-99')
+    expect(body.entries[0].recipe_id).toBe('r3')
+  })
+
+  it('returns 500 with a descriptive message when meal_plan_entries insert fails', async () => {
+    mockState.plan = null
+    mockState.entryInsertError = { message: 'new row violates row-level security policy for table "meal_plan_entries"' }
+    const res = await planPOST(makeReq('POST', 'http://localhost/api/plan', {
+      week_start: '2026-03-01',
+      entries: [{ date: '2026-03-01', recipe_id: 'r1' }],
+    }))
+    expect(res.status).toBe(500)
+    const body = await res.json()
+    expect(body.error).toMatch(/Failed to save entries/)
+  })
+
+  it('returns 500 with a descriptive message when meal_plans insert fails', async () => {
+    mockState.plan = null
+    mockState.planInsertError = { message: 'new row violates row-level security policy for table "meal_plans"' }
+    const res = await planPOST(makeReq('POST', 'http://localhost/api/plan', {
+      week_start: '2026-03-01',
+      entries: [{ date: '2026-03-01', recipe_id: 'r1' }],
+    }))
+    expect(res.status).toBe(500)
+    const body = await res.json()
+    expect(body.error).toMatch(/Failed to create plan/)
   })
 })
 
