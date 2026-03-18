@@ -26,9 +26,44 @@ export async function POST(req: NextRequest) {
 
   const recipeList = (recipes ?? []) as { id: string; title: string; tags: string[] }[]
 
+  // ── Step 1: keyword match (fast, no LLM) ───────────────────────────────────
+  const STOP_WORDS = new Set([
+    'something', 'with', 'a', 'an', 'the', 'and', 'or', 'for',
+    'some', 'any', 'of', 'in', 'like', 'make', 'want', 'need',
+  ])
+  const words = query.toLowerCase().split(/\s+/).filter((w) => w.length >= 3 && !STOP_WORDS.has(w))
+
+  if (words.length > 0) {
+    const keywordMatches = recipeList.filter((r) =>
+      words.some(
+        (w) => r.title.toLowerCase().includes(w) || r.tags.some((t) => t.toLowerCase().includes(w)),
+      ),
+    )
+    if (keywordMatches.length === 1) {
+      return NextResponse.json({ match: { recipe_id: keywordMatches[0].id, recipe_title: keywordMatches[0].title } })
+    }
+    // Multiple keyword matches: pass only those to the LLM to narrow down
+    if (keywordMatches.length > 1) {
+      try {
+        const systemMessage = `You are helping find a recipe from a user's personal recipe vault.
+Pick the single best match from the list for the search phrase. Return ONLY valid JSON: { "recipe_id": "uuid" }`
+        const userMessage = `Search phrase: "${query}"\nCandidates: ${JSON.stringify(keywordMatches.map((r) => ({ recipe_id: r.id, title: r.title, tags: r.tags })))}`
+        const raw = await callLLMNonStreaming(systemMessage, userMessage)
+        const parsed = JSON.parse(raw.trim()) as { recipe_id: string | null }
+        const found = keywordMatches.find((r) => r.id === parsed.recipe_id)
+        if (found) return NextResponse.json({ match: { recipe_id: found.id, recipe_title: found.title } })
+        // Fall through to return first keyword match if LLM fails
+        return NextResponse.json({ match: { recipe_id: keywordMatches[0].id, recipe_title: keywordMatches[0].title } })
+      } catch {
+        return NextResponse.json({ match: { recipe_id: keywordMatches[0].id, recipe_title: keywordMatches[0].title } })
+      }
+    }
+  }
+
+  // ── Step 2: LLM fallback for queries with no keyword match ──────────────────
   const systemMessage = `You are helping find a recipe from a user's personal recipe vault.
 Given a search phrase and a list of recipes, return the recipe_id of the best match.
-Match on recipe title words, tags, or general category (e.g. "something with chicken" matches recipes with a Chicken tag or chicken in the title).
+Match on recipe title words, tags, or general category.
 Only return null if the query has absolutely no connection to any recipe in the list.
 Return ONLY valid JSON: { "recipe_id": "uuid" } or { "recipe_id": null }`
 
