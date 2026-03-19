@@ -12,6 +12,14 @@ function getCurrentWeekStart(): string {
   return monday.toISOString().slice(0, 10)
 }
 
+/** Returns the ISO date string for the most recent Sunday (plan week_start). */
+function getMostRecentSunday(): string {
+  const now = new Date()
+  const sunday = new Date(now)
+  sunday.setUTCDate(now.getUTCDate() - now.getUTCDay())
+  return sunday.toISOString().slice(0, 10)
+}
+
 /** Format ISO date string as "Mon Mar 2" */
 function formatDate(iso: string): string {
   const d = new Date(`${iso}T00:00:00Z`)
@@ -75,6 +83,7 @@ async function getHomeData(): Promise<HomeData> {
 
 export default async function HomePage() {
   const { currentWeekPlan, recentlyMade } = await getHomeData()
+  const currentSunday = getMostRecentSunday()
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 space-y-10">
@@ -83,7 +92,7 @@ export default async function HomePage() {
       <section>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-stone-800">This Week</h2>
-          <Link href="/plan" className="text-sm text-emerald-700 hover:underline">
+          <Link href={`/plan/${currentSunday}`} className="text-sm text-emerald-700 hover:underline">
             View full plan
           </Link>
         </div>
