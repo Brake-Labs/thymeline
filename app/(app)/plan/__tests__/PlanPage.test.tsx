@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen } from '@testing-library/react'
 import React from 'react'
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
@@ -17,7 +17,6 @@ vi.mock('@/lib/supabase/browser', () => ({
   getAccessToken: async () => 'test-token',
 }))
 
-// Stub heavy child components to keep test fast
 vi.mock('@/components/plan/SetupStep', () => ({
   default: () => React.createElement('div', { 'data-testid': 'setup-step' }, 'SetupStep'),
 }))
@@ -31,52 +30,18 @@ vi.mock('@/components/plan/PostSaveModal', () => ({
   default: () => null,
 }))
 
-// ── T38: /plan redirects to /plan/[week_start] when saved plan exists ─────────
+// ── T38: /plan always shows the wizard without redirecting ────────────────────
 
-describe('T38 - /plan redirects to read-only view when a saved plan exists', () => {
-  beforeEach(() => {
-    mockReplace.mockClear()
-    mockPush.mockClear()
-  })
-
-  afterEach(() => {
-    vi.restoreAllMocks()
-  })
-
-  it('calls router.replace with /plan/[week_start] when plan exists', async () => {
-    // Mock fetch to return a saved plan
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ plan: { id: 'plan-1', week_start: '2026-03-16' } }),
-    } as Response)
-
-    // Fix Date so getMostRecentSunday returns a predictable value
-    // 2026-03-19 is a Thursday; most recent Sunday is 2026-03-15
-    vi.setSystemTime(new Date('2026-03-19T12:00:00Z'))
-
+describe('T38 - /plan always renders the wizard directly', () => {
+  it('shows the setup step immediately without a loading state or redirect', async () => {
     const { default: PlanPage } = await import('../page')
     render(React.createElement(PlanPage))
 
-    await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith('/plan/2026-03-15')
-    })
-  })
-
-  it('shows the wizard when no saved plan exists for the current week', async () => {
-    // Mock fetch to return no plan
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ plan: null }),
-    } as Response)
-
-    vi.setSystemTime(new Date('2026-03-19T12:00:00Z'))
-
-    const { default: PlanPage } = await import('../page')
-    render(React.createElement(PlanPage))
-
-    await waitFor(() => {
-      expect(screen.getByTestId('setup-step')).toBeInTheDocument()
-    })
+    // Setup step must be immediately visible
+    expect(screen.getByTestId('setup-step')).toBeInTheDocument()
+    // No loading spinner
+    expect(screen.queryByText(/Loading/)).not.toBeInTheDocument()
+    // No redirect — wizard owns this route entirely
     expect(mockReplace).not.toHaveBeenCalled()
   })
 })
