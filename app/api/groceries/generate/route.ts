@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import FirecrawlApp from 'firecrawl'
-import { createServerClient } from '@/lib/supabase-server'
+import { createServerClient, createAdminClient } from '@/lib/supabase-server'
 import { anthropic } from '@/lib/llm'
 import {
   parseIngredientLine,
@@ -44,7 +44,8 @@ export async function POST(req: NextRequest) {
   }
 
   // 1. Look up meal plan
-  const { data: plan, error: planError } = await supabase
+  const db = createAdminClient()
+  const { data: plan, error: planError } = await db
     .from('meal_plans')
     .select('id, people_count')
     .eq('user_id', user.id)
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
   const planPeopleCount: number = (plan as { id: string; people_count?: number }).people_count ?? 2
 
   // 2. Fetch meal plan entries joined with recipes
-  const { data: entriesRaw, error: entriesError } = await supabase
+  const { data: entriesRaw, error: entriesError } = await db
     .from('meal_plan_entries')
     .select('recipe_id, planned_date, recipes(id, title, ingredients, url)')
     .eq('meal_plan_id', plan.id)
@@ -224,7 +225,7 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
 
   // 7. Upsert grocery_lists
   const now = new Date().toISOString()
-  const { data: upserted, error: upsertError } = await supabase
+  const { data: upserted, error: upsertError } = await db
     .from('grocery_lists')
     .upsert(
       {

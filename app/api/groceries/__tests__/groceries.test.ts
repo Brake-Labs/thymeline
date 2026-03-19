@@ -28,14 +28,14 @@ const sampleList = {
   updated_at:    '2026-03-15T00:00:00Z',
 }
 
-// ── Supabase mock factory ──────────────────────────────────────────────────────
+// ── DB mock factory (used by createAdminClient) ────────────────────────────────
 
-function makeSupabaseMock(opts: {
-  plan?:      unknown
-  planError?:  boolean
-  list?:      unknown
-  listError?:  { code?: string; message?: string } | null
-  entries?:   unknown[]
+function makeDbMock(opts: {
+  plan?:         unknown
+  planError?:    boolean
+  list?:         unknown
+  listError?:    { code?: string; message?: string } | null
+  entries?:      unknown[]
   upsertResult?: unknown
   updateResult?: unknown
 } = {}) {
@@ -49,68 +49,66 @@ function makeSupabaseMock(opts: {
     updateResult = sampleList,
   } = opts
 
-  return {
-    auth: {
-      getUser: vi.fn().mockResolvedValue({ data: { user: mockUser }, error: null }),
-    },
-    from: vi.fn((table: string) => {
-      if (table === 'meal_plans') {
-        return {
-          select: vi.fn().mockReturnValue({
+  const fromFn = vi.fn((table: string) => {
+    if (table === 'meal_plans') {
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                single: vi.fn().mockResolvedValue(
-                  planError
-                    ? { data: null, error: { message: 'not found' } }
-                    : { data: plan, error: null },
-                ),
-              }),
+              single: vi.fn().mockResolvedValue(
+                planError
+                  ? { data: null, error: { message: 'not found' } }
+                  : { data: plan, error: null },
+              ),
             }),
           }),
-          update: vi.fn().mockReturnValue({
-            eq: vi.fn().mockResolvedValue({ data: null, error: null }),
-          }),
-        }
+        }),
+        update: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({ data: null, error: null }),
+        }),
       }
-      if (table === 'meal_plan_entries') {
-        return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              order: vi.fn().mockResolvedValue({ data: entries, error: null }),
-            }),
+    }
+    if (table === 'meal_plan_entries') {
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            order: vi.fn().mockResolvedValue({ data: entries, error: null }),
           }),
-        }
+        }),
       }
-      if (table === 'grocery_lists') {
-        return {
-          select: vi.fn().mockReturnValue({
+    }
+    if (table === 'grocery_lists') {
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                single: vi.fn().mockResolvedValue({ data: list, error: listError }),
-              }),
+              single: vi.fn().mockResolvedValue({ data: list, error: listError }),
             }),
           }),
-          upsert: vi.fn().mockReturnValue({
+        }),
+        upsert: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ data: upsertResult, error: null }),
+          }),
+        }),
+        update: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
             select: vi.fn().mockReturnValue({
-              single: vi.fn().mockResolvedValue({ data: upsertResult, error: null }),
+              single: vi.fn().mockResolvedValue({ data: updateResult, error: null }),
             }),
           }),
-          update: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              select: vi.fn().mockReturnValue({
-                single: vi.fn().mockResolvedValue({ data: updateResult, error: null }),
-              }),
-            }),
-          }),
-        }
+        }),
       }
-      return {}
-    }),
-  }
+    }
+    return {}
+  })
+
+  return { from: fromFn }
 }
 
 vi.mock('@/lib/supabase-server', () => ({
   createServerClient: vi.fn(),
+  createAdminClient:  vi.fn(),
 }))
 
 vi.mock('firecrawl', () => ({
@@ -129,8 +127,22 @@ vi.mock('@/lib/llm', () => ({
   },
 }))
 
-import { createServerClient } from '@/lib/supabase-server'
+import { createServerClient, createAdminClient } from '@/lib/supabase-server'
 import { anthropic } from '@/lib/llm'
+
+// Auth-only mock for createServerClient — routes only call auth.getUser() on it
+const authMock = {
+  auth: {
+    getUser: vi.fn().mockResolvedValue({ data: { user: mockUser }, error: null }),
+  },
+}
+
+function setupMocks(dbOpts: Parameters<typeof makeDbMock>[0] = {}) {
+  const db = makeDbMock(dbOpts)
+  vi.mocked(createServerClient).mockReturnValue(authMock as ReturnType<typeof createServerClient>)
+  vi.mocked(createAdminClient).mockReturnValue(db as ReturnType<typeof createAdminClient>)
+  return db
+}
 
 function makeReq(url: string, method = 'GET', body?: unknown): Request {
   return new Request(url, {
@@ -146,8 +158,7 @@ describe('T28 - GET /api/groceries returns null when no list', () => {
   beforeEach(() => { vi.resetModules() })
 
   it('returns { list: null } when no row found', async () => {
-    const mock = makeSupabaseMock({ list: null, listError: { code: 'PGRST116', message: 'no rows' } })
-    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    setupMocks({ list: null, listError: { code: 'PGRST116', message: 'no rows' } })
 
     const { GET } = await import('../route')
     const res = await GET(makeReq('http://localhost/api/groceries?week_start=2026-03-15') as Parameters<typeof GET>[0])
@@ -158,8 +169,7 @@ describe('T28 - GET /api/groceries returns null when no list', () => {
   })
 
   it('returns existing list when found', async () => {
-    const mock = makeSupabaseMock({ list: sampleList })
-    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    setupMocks({ list: sampleList })
 
     const { GET } = await import('../route')
     const res = await GET(makeReq('http://localhost/api/groceries?week_start=2026-03-15') as Parameters<typeof GET>[0])
@@ -177,8 +187,7 @@ describe('T29 - PATCH /api/groceries returns 404 for non-existent list', () => {
   beforeEach(() => { vi.resetModules() })
 
   it('returns 404 when list does not exist', async () => {
-    const mock = makeSupabaseMock({ list: null, listError: { code: 'PGRST116' } })
-    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    setupMocks({ list: null, listError: { code: 'PGRST116' } })
 
     const { PATCH } = await import('../route')
     const res = await PATCH(
@@ -193,8 +202,7 @@ describe('T29 - PATCH /api/groceries returns 404 for non-existent list', () => {
 
   it('returns 200 with updated list on success', async () => {
     const updatedList = { ...sampleList, people_count: 4 }
-    const mock = makeSupabaseMock({ list: sampleList, updateResult: updatedList })
-    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    setupMocks({ list: sampleList, updateResult: updatedList })
 
     const { PATCH } = await import('../route')
     const res = await PATCH(
@@ -214,8 +222,7 @@ describe('T30 - plan-level people_count written to meal_plans on change', () => 
   beforeEach(() => { vi.resetModules() })
 
   it('calls meal_plans.update when people_count changes', async () => {
-    const mock = makeSupabaseMock({ list: sampleList })
-    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    const db = setupMocks({ list: sampleList })
 
     const { PATCH } = await import('../route')
     await PATCH(
@@ -225,8 +232,8 @@ describe('T30 - plan-level people_count written to meal_plans on change', () => 
       }) as Parameters<typeof PATCH>[0],
     )
 
-    // meal_plans.update should have been called
-    const mealPlansCalls = mock.from.mock.calls.filter(([t]) => t === 'meal_plans')
+    // meal_plans.update should have been called via the admin client
+    const mealPlansCalls = db.from.mock.calls.filter(([t]) => t === 'meal_plans')
     expect(mealPlansCalls.length).toBeGreaterThan(0)
   })
 })
@@ -248,8 +255,7 @@ describe('T04 - Generate uses vault ingredients when available', () => {
       planned_date: '2026-03-15',
       recipes:      recipeWithIngredients,
     }]
-    const mock = makeSupabaseMock({ plan: samplePlan, entries, upsertResult: sampleList })
-    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    setupMocks({ plan: samplePlan, entries, upsertResult: sampleList })
 
     const { POST } = await import('../generate/route')
     const res = await POST(
@@ -257,8 +263,6 @@ describe('T04 - Generate uses vault ingredients when available', () => {
     )
 
     expect(res.status).toBe(200)
-    // Firecrawl should NOT be called since ingredients are in vault
-    // (We can't directly check this in the unit test easily, but if scrape was called it would still succeed)
     const json = await res.json()
     expect(json.list).toBeDefined()
     expect(json.skipped_recipes).toBeInstanceOf(Array)
@@ -283,8 +287,7 @@ describe('T05 - Generate scrapes URL when vault ingredients absent', () => {
       planned_date: '2026-03-15',
       recipes:      recipeNoIngredients,
     }]
-    const mock = makeSupabaseMock({ plan: samplePlan, entries, upsertResult: sampleList })
-    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    setupMocks({ plan: samplePlan, entries, upsertResult: sampleList })
     vi.mocked(anthropic.messages.create).mockResolvedValue({
       content: [{ type: 'text', text: JSON.stringify({ ingredients: '200g pasta\n2 eggs' }) }],
     } as unknown as Awaited<ReturnType<typeof anthropic.messages.create>>)
@@ -318,11 +321,9 @@ describe('T06 - Scrape failure skips recipe, includes in skipped_recipes', () =>
       planned_date: '2026-03-15',
       recipes:      recipeNoIngredients,
     }]
-    const mock = makeSupabaseMock({ plan: samplePlan, entries, upsertResult: { ...sampleList, items: [] } })
-    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    setupMocks({ plan: samplePlan, entries, upsertResult: { ...sampleList, items: [] } })
     vi.mocked(anthropic.messages.create).mockRejectedValue(new Error('LLM failed'))
 
-    // Also make Firecrawl succeed but LLM fail
     const { POST } = await import('../generate/route')
     const res = await POST(
       makeReq('http://localhost/api/groceries/generate', 'POST', { week_start: '2026-03-15' }) as Parameters<typeof POST>[0],
@@ -351,8 +352,7 @@ describe('T07 - Items are grouped by recipe section', () => {
         { id: 'i2', name: 'cream', amount: 100, unit: 'ml', section: 'Dairy & Eggs', is_pantry: false, checked: false, recipes: ['Pasta'] },
       ],
     }
-    const mock = makeSupabaseMock({ plan: samplePlan, entries, upsertResult: expectedList })
-    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    setupMocks({ plan: samplePlan, entries, upsertResult: expectedList })
 
     const { POST } = await import('../generate/route')
     const res = await POST(
@@ -361,7 +361,6 @@ describe('T07 - Items are grouped by recipe section', () => {
 
     expect(res.status).toBe(200)
     const json = await res.json()
-    // Items should be grouped with recipe associations
     expect(json.list.recipe_scales).toBeDefined()
     expect(json.list.recipe_scales[0].recipe_title).toBe('Pasta')
   })
@@ -371,7 +370,6 @@ describe('T07 - Items are grouped by recipe section', () => {
 
 describe('T08 - Duplicate ingredients combined (same unit)', () => {
   it('combines same-unit ingredients from multiple recipes', async () => {
-    // Import the lib directly (no module reset needed for pure functions)
     const { combineIngredients, parseIngredientLine } = await import('@/lib/grocery')
 
     const inputs = [

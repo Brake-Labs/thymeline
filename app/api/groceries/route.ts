@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase-server'
+import { createServerClient, createAdminClient } from '@/lib/supabase-server'
 import { GroceryItem, GroceryList, RecipeScale } from '@/types'
 
 // ── GET /api/groceries?week_start=YYYY-MM-DD ─────────────────────────────────
@@ -16,7 +16,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'week_start is required' }, { status: 400 })
   }
 
-  const { data: list, error } = await supabase
+  const db = createAdminClient()
+  const { data: list, error } = await db
     .from('grocery_lists')
     .select('*')
     .eq('user_id', user.id)
@@ -56,8 +57,10 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'week_start is required' }, { status: 400 })
   }
 
+  const db = createAdminClient()
+
   // Find existing row
-  const { data: existing, error: fetchError } = await supabase
+  const { data: existing, error: fetchError } = await db
     .from('grocery_lists')
     .select('id, meal_plan_id')
     .eq('user_id', user.id)
@@ -74,7 +77,7 @@ export async function PATCH(req: NextRequest) {
   if (people_count !== undefined) update.people_count = people_count
   if (recipe_scales !== undefined) update.recipe_scales = recipe_scales
 
-  const { data: updated, error: updateError } = await supabase
+  const { data: updated, error: updateError } = await db
     .from('grocery_lists')
     .update(update)
     .eq('id', existing.id)
@@ -87,7 +90,7 @@ export async function PATCH(req: NextRequest) {
 
   // If people_count changed, also update meal_plans
   if (people_count !== undefined) {
-    await supabase
+    await db
       .from('meal_plans')
       .update({ people_count })
       .eq('id', existing.meal_plan_id)
