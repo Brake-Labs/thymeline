@@ -63,9 +63,10 @@ export default function RecipePageContent() {
   }, [fetchRecipes])
 
   useEffect(() => {
-    getSupabaseClient().auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) setCurrentUserId(session.user.id)
-    })
+    void (async () => {
+      const { data } = await getSupabaseClient().auth.getSession()
+      if (data.session?.user) setCurrentUserId(data.session.user.id)
+    })()
   }, [])
 
   function handleSort(key: SortKey) {

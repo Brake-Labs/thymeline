@@ -10,6 +10,7 @@ import LogDateSection from '@/components/recipes/LogDateSection'
 import DeleteConfirmDialog from '@/components/recipes/DeleteConfirmDialog'
 import ShareToggle from '@/components/recipes/ShareToggle'
 import { getAccessToken, getSupabaseClient } from '@/lib/supabase/browser'
+import { getCurrentWeekSunday } from '@/lib/grocery'
 
 type RecipeWithHistory = Recipe & { last_made: string | null; times_made: number }
 
@@ -29,9 +30,10 @@ export default function RecipeDetailPage({ params }: Props) {
   const isOwner = !!currentUserId && recipe?.user_id === currentUserId
 
   useEffect(() => {
-    getSupabaseClient().auth.getSession().then(({ data }) => {
+    void (async () => {
+      const { data } = await getSupabaseClient().auth.getSession()
       setCurrentUserId(data.session?.user?.id ?? '')
-    })
+    })()
   }, [])
 
   useEffect(() => {
@@ -162,6 +164,12 @@ export default function RecipeDetailPage({ params }: Props) {
             </button>
           </>
         )}
+        <Link
+          href={`/groceries?week_start=${getCurrentWeekSunday()}`}
+          className="py-3 px-5 rounded-lg border border-stone-300 text-sm font-medium text-stone-700 hover:bg-stone-50"
+        >
+          🛒 Add to grocery list
+        </Link>
       </div>
 
       {/* Dates made */}
