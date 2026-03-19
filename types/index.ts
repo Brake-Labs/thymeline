@@ -129,3 +129,42 @@ export interface SavedPlanEntry {
   position:     number
   confirmed:    boolean
 }
+
+export type GrocerySection =
+  | 'Produce'
+  | 'Proteins'
+  | 'Dairy & Eggs'
+  | 'Pantry'
+  | 'Canned & Jarred'
+  | 'Bakery'
+  | 'Frozen'
+  | 'Other'
+
+export interface GroceryItem {
+  id:        string
+  name:      string
+  amount:    number | null
+  unit:      string | null
+  section:   GrocerySection
+  is_pantry: boolean
+  checked:   boolean
+  recipes:   string[]
+}
+
+export interface RecipeScale {
+  recipe_id:    string
+  recipe_title: string
+  people_count: number | null  // null = use plan-level default
+}
+
+export interface GroceryList {
+  id:            string
+  user_id:       string
+  meal_plan_id:  string
+  week_start:    string
+  people_count:  number
+  recipe_scales: RecipeScale[]
+  items:         GroceryItem[]
+  created_at:    string
+  updated_at:    string
+}

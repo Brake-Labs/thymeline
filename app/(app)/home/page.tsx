@@ -121,10 +121,11 @@ export default async function HomePage() {
       {/* Quick Actions */}
       <section>
         <h2 className="text-lg font-semibold text-stone-800 mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { href: '/plan',                 label: 'Help Me Plan', icon: '✨' },
             { href: '/recipes',              label: 'Recipe Vault', icon: '📖' },
+            { href: '/groceries',            label: 'Groceries',    icon: '🛒' },
             { href: '/settings/preferences', label: 'Settings',     icon: '⚙️' },
           ].map((action) => (
             <Link
