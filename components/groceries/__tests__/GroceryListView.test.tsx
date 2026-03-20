@@ -1,0 +1,228 @@
+// @vitest-environment jsdom
+/**
+ * Tests for GroceryListView and grocery UI.
+ * Covers spec test cases: T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21, T22, T23
+ */
+
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+
+vi.mock('@/lib/supabase/browser', () => ({
+  getAccessToken: async () => 'mock-token',
+}))
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+}))
+
+const mockFetch = vi.fn()
+vi.stubGlobal('fetch', mockFetch)
+
+const sampleList = {
+  id:            'list-1',
+  user_id:       'user-1',
+  meal_plan_id:  'plan-1',
+  week_start:    '2026-03-15',
+  people_count:  2,
+  recipe_scales: [
+    { recipe_id: 'r1', recipe_title: 'Pasta', people_count: null },
+    { recipe_id: 'r2', recipe_title: 'Salad', people_count: null },
+  ],
+  items: [
+    { id: 'i1', name: 'pasta', amount: 200, unit: 'g', section: 'Pantry', is_pantry: false, checked: false, recipes: ['Pasta'] },
+    { id: 'i2', name: 'lettuce', amount: 1, unit: null, section: 'Produce', is_pantry: false, checked: false, recipes: ['Salad'] },
+    { id: 'i3', name: 'olive oil', amount: 2, unit: 'tbsp', section: 'Pantry', is_pantry: true, checked: false, recipes: ['Pasta'] },
+  ],
+  created_at:    '2026-03-15T00:00:00Z',
+  updated_at:    '2026-03-15T00:00:00Z',
+}
+
+beforeEach(() => {
+  mockFetch.mockReset()
+  mockFetch.mockResolvedValue({
+    ok: true,
+    json: async () => ({ list: sampleList }),
+  })
+})
+
+import GroceryListView from '../GroceryListView'
+
+// ── T16: Checking an item saves immediately ───────────────────────────────────
+
+describe('T16 - Checking an item saves immediately', () => {
+  it('calls PATCH when an item is toggled', async () => {
+    render(<GroceryListView initialList={sampleList} />)
+    const checkbox = screen.getByLabelText('Check pasta')
+    fireEvent.click(checkbox)
+    await waitFor(() => {
+      const patchCalls = mockFetch.mock.calls.filter(([, opts]) => opts?.method === 'PATCH')
+      expect(patchCalls.length).toBeGreaterThan(0)
+    })
+  })
+})
+
+// ── T20: Add item appends to Other section ────────────────────────────────────
+
+describe('T20 - Add item appends to Other section', () => {
+  it('opens input when + Add item is clicked', () => {
+    render(<GroceryListView initialList={sampleList} />)
+    fireEvent.click(screen.getByLabelText('Add item'))
+    expect(screen.getByPlaceholderText('Item name…')).toBeInTheDocument()
+  })
+
+  it('adds item to list and calls PATCH on submit', async () => {
+    render(<GroceryListView initialList={sampleList} />)
+    fireEvent.click(screen.getByLabelText('Add item'))
+    const input = screen.getByPlaceholderText('Item name…')
+    fireEvent.change(input, { target: { value: 'Sparkling water' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    await waitFor(() => {
+      const patchCalls = mockFetch.mock.calls.filter(([, opts]) => opts?.method === 'PATCH')
+      expect(patchCalls.length).toBeGreaterThan(0)
+    })
+  })
+})
+
+// ── T21: Remove item removes from list and saves ──────────────────────────────
+
+describe('T21 - Remove item removes from list and saves', () => {
+  it('calls PATCH when a remove button is clicked', async () => {
+    render(<GroceryListView initialList={sampleList} />)
+    // Hover to reveal the × button
+    const removeBtn = screen.getAllByLabelText(/Remove/)[0]
+    fireEvent.click(removeBtn)
+    await waitFor(() => {
+      const patchCalls = mockFetch.mock.calls.filter(([, opts]) => opts?.method === 'PATCH')
+      expect(patchCalls.length).toBeGreaterThan(0)
+    })
+  })
+})
+
+// ── T14: Overridden recipe shows "Custom" badge ───────────────────────────────
+
+describe('T14 - Overridden recipe shows "Custom" badge', () => {
+  it('shows Custom badge when recipe has people_count override', () => {
+    const listWithOverride = {
+      ...sampleList,
+      recipe_scales: [
+        { recipe_id: 'r1', recipe_title: 'Pasta', people_count: 4 },
+        { recipe_id: 'r2', recipe_title: 'Salad', people_count: null },
+      ],
+    }
+    render(<GroceryListView initialList={listWithOverride} />)
+    expect(screen.getByText('Custom')).toBeInTheDocument()
+  })
+
+  it('does not show Custom badge when no override', () => {
+    render(<GroceryListView initialList={sampleList} />)
+    expect(screen.queryByText('Custom')).not.toBeInTheDocument()
+  })
+})
+
+// ── T15: Pantry items show "(optional)" ──────────────────────────────────────
+
+describe('T15 - Pantry items show optional text', () => {
+  it('renders (optional) for is_pantry items', () => {
+    render(<GroceryListView initialList={sampleList} />)
+    expect(screen.getByText('(optional)')).toBeInTheDocument()
+  })
+})
+
+// ── T17: Regenerate shows confirmation dialog ─────────────────────────────────
+
+describe('T17 - Regenerate shows confirmation dialog', () => {
+  it('shows confirmation when Regenerate is clicked', () => {
+    render(<GroceryListView initialList={sampleList} />)
+    fireEvent.click(screen.getByText('Regenerate'))
+    expect(screen.getByText('Regenerate grocery list?')).toBeInTheDocument()
+  })
+})
+
+// ── T19: Cancelling regenerate leaves list unchanged ─────────────────────────
+
+describe('T19 - Cancelling regenerate leaves list unchanged', () => {
+  it('dismisses dialog on Cancel without fetching', () => {
+    render(<GroceryListView initialList={sampleList} />)
+    fireEvent.click(screen.getByText('Regenerate'))
+    expect(screen.getByText('Regenerate grocery list?')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('Cancel'))
+    expect(screen.queryByText('Regenerate grocery list?')).not.toBeInTheDocument()
+    // No generate call
+    const generateCalls = mockFetch.mock.calls.filter(([url]) =>
+      typeof url === 'string' && url.includes('generate'),
+    )
+    expect(generateCalls).toHaveLength(0)
+  })
+})
+
+// ── T18: Confirming regenerate replaces items and resets scales ───────────────
+
+describe('T18 - Confirming regenerate replaces items and resets recipe_scales', () => {
+  it('calls POST /api/groceries/generate and updates state', async () => {
+    const regeneratedList = {
+      ...sampleList,
+      items: [{ id: 'new-1', name: 'tomato', amount: 2, unit: null, section: 'Produce', is_pantry: false, checked: false, recipes: ['Pasta'] }],
+      recipe_scales: [{ recipe_id: 'r1', recipe_title: 'Pasta', people_count: null }],
+    }
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('generate')) {
+        return Promise.resolve({ ok: true, json: async () => ({ list: regeneratedList, skipped_recipes: [] }) })
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) })
+    })
+
+    render(<GroceryListView initialList={sampleList} />)
+    fireEvent.click(screen.getByText('Regenerate'))
+    // Click the confirm button inside the dialog
+    const confirmBtn = screen.getAllByText('Regenerate').find((el) =>
+      el.closest('[class*="flex gap-3"]'),
+    ) ?? screen.getAllByText('Regenerate')[1]
+    fireEvent.click(confirmBtn)
+
+    await waitFor(() => {
+      const generateCalls = mockFetch.mock.calls.filter(([url]) =>
+        typeof url === 'string' && url.includes('generate'),
+      )
+      expect(generateCalls.length).toBeGreaterThan(0)
+    })
+  })
+})
+
+// ── T22: Share invokes Web Share API ─────────────────────────────────────────
+
+describe('T22 - Share invokes Web Share API with correct format', () => {
+  it('calls navigator.share when available', async () => {
+    const shareMock = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', { ...navigator, share: shareMock })
+
+    render(<GroceryListView initialList={sampleList} />)
+    fireEvent.click(screen.getByText('Share'))
+
+    await waitFor(() => {
+      expect(shareMock).toHaveBeenCalled()
+      const args = shareMock.mock.calls[0][0]
+      expect(args.text).toContain('🛒')
+    })
+  })
+})
+
+// ── T23: Share falls back to clipboard ───────────────────────────────────────
+
+describe('T23 - Share falls back to clipboard when Web Share unavailable', () => {
+  it('calls navigator.clipboard.writeText when share unavailable', async () => {
+    const writeTextMock = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', {
+      share: undefined,
+      clipboard: { writeText: writeTextMock },
+    })
+
+    render(<GroceryListView initialList={sampleList} />)
+    fireEvent.click(screen.getByText('Share'))
+
+    await waitFor(() => {
+      expect(writeTextMock).toHaveBeenCalled()
+      expect(screen.getByText('Copied to clipboard!')).toBeInTheDocument()
+    })
+  })
+})

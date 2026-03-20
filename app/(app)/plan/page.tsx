@@ -9,22 +9,6 @@ import PostSaveModal from '@/components/plan/PostSaveModal'
 import { getAccessToken } from '@/lib/supabase/browser'
 import type { RecipeSuggestion, DaySelection, DaySuggestions } from '@/types'
 
-// ── Check for existing plan on mount and redirect ─────────────────────────────
-
-async function checkExistingPlan(weekStart: string): Promise<boolean> {
-  try {
-    const token = await getAccessToken()
-    const res = await fetch(`/api/plan?week_start=${weekStart}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    if (!res.ok) return false
-    const data = await res.json() as { plan: { id: string } | null }
-    return data.plan !== null
-  } catch {
-    return false
-  }
-}
-
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 interface PlanSetup {
@@ -92,24 +76,6 @@ function PlanPageInner() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [savedWeekStart, setSavedWeekStart] = useState<string | null>(null)
-  const [isCheckingPlan, setIsCheckingPlan] = useState(true)
-
-  // On mount: if a saved plan exists for this week, redirect to the read-only view
-  useEffect(() => {
-    // Only check when landing on setup (not when step is already set via query param)
-    if (step !== 'setup') {
-      setIsCheckingPlan(false)
-      return
-    }
-    checkExistingPlan(initialSunday).then((exists) => {
-      if (exists) {
-        router.replace(`/plan/${initialSunday}`)
-      } else {
-        setIsCheckingPlan(false)
-      }
-    })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   // Reset active dates when week changes
   useEffect(() => {
@@ -359,14 +325,6 @@ function PlanPageInner() {
   }
 
   // ── Render ────────────────────────────────────────────────────────────────────
-
-  if (isCheckingPlan) {
-    return (
-      <div className="min-h-screen bg-stone-50 flex items-center justify-center">
-        <p className="text-stone-500 text-sm">Loading…</p>
-      </div>
-    )
-  }
 
   return (
     <div className="min-h-screen bg-stone-50 px-4 py-8 md:px-8">

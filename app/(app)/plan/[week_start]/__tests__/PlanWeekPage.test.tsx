@@ -99,7 +99,7 @@ describe('T36 - /plan/[week_start] renders saved plan entries', () => {
 
     const replanLink = screen.getByText('Re-plan this week')
     expect(replanLink).toBeInTheDocument()
-    expect(replanLink.closest('a')).toHaveAttribute('href', `/plan?week_start=${WEEK_START}`)
+    expect(replanLink.closest('a')).toHaveAttribute('href', `/plan?week_start=${WEEK_START}&replan=true`)
   })
 })
 

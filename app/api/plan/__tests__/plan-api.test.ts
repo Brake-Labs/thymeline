@@ -114,7 +114,6 @@ vi.mock('@/lib/supabase-server', () => ({
 }))
 
 vi.mock('@anthropic-ai/sdk', () => ({
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   default: function MockAnthropic(this: any) {
     this.messages = {
       create: async () => ({
