@@ -53,6 +53,12 @@ vi.mock('next/link', () => ({
     React.createElement('a', { href, ...props }, children),
 }))
 
+// Fixed current Sunday so cap tests are deterministic
+vi.mock('@/lib/grocery', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/grocery')>()
+  return { ...actual, getCurrentWeekSunday: () => '2026-03-15' }
+})
+
 import PlanWeekPage from '../page'
 import * as nextNavigation from 'next/navigation'
 
@@ -127,5 +133,37 @@ describe('T37 - /plan/[week_start] shows no-plan state when plan does not exist'
 
     expect(screen.queryByText('Make grocery list')).not.toBeInTheDocument()
     expect(screen.queryByText('Re-plan this week')).not.toBeInTheDocument()
+  })
+})
+
+// ── T39: Week navigation arrows ───────────────────────────────────────────────
+// getCurrentWeekSunday mocked to '2026-03-15', so maxWeek = '2026-04-12'
+
+describe('T39 - Week navigation arrows render and respect the 4-week future cap', () => {
+  it('renders prev and next arrow links when within the future cap', async () => {
+    // week_start = '2026-03-15', nextWeek = '2026-03-22' < maxWeek '2026-04-12'
+    const element = await PlanWeekPage({ params: { week_start: '2026-03-15' } })
+    render(element as React.ReactElement)
+
+    const prevLink = screen.getByRole('link', { name: 'Previous week' })
+    expect(prevLink).toHaveAttribute('href', '/plan/2026-03-08')
+
+    const nextLink = screen.getByRole('link', { name: 'Next week' })
+    expect(nextLink).toHaveAttribute('href', '/plan/2026-03-22')
+  })
+
+  it('disables the right arrow when nextWeek would exceed the 4-week cap', async () => {
+    // week_start = '2026-04-12' = maxWeek, nextWeek = '2026-04-19' > maxWeek
+    const element = await PlanWeekPage({ params: { week_start: '2026-04-12' } })
+    render(element as React.ReactElement)
+
+    // Prev arrow is still a link
+    const prevLink = screen.getByRole('link', { name: 'Previous week' })
+    expect(prevLink).toHaveAttribute('href', '/plan/2026-04-05')
+
+    // Next arrow is not a link — it is a disabled span
+    expect(screen.queryByRole('link', { name: 'Next week' })).not.toBeInTheDocument()
+    const disabledNext = screen.getByLabelText('Next week')
+    expect(disabledNext).toHaveAttribute('aria-disabled', 'true')
   })
 })
