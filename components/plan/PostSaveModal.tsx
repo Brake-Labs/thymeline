@@ -20,7 +20,7 @@ export default function PostSaveModal({ weekStart, isOpen }: PostSaveModalProps)
         <div className="space-y-3">
           <button
             onClick={() => router.push(`/groceries?week_start=${weekStart}`)}
-            className="w-full px-4 py-3 bg-sage-500 text-white text-sm font-medium rounded-lg hover:bg-sage-500 transition-colors"
+            className="w-full px-4 py-3 bg-sage-500 text-white text-sm font-medium rounded-lg hover:bg-sage-600 transition-colors"
           >
             Make my grocery list
           </button>

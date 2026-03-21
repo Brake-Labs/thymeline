@@ -89,7 +89,7 @@ export default function SummaryStep({ setup, selections, onSave, isSaving, onBac
         <button
           onClick={handleSave}
           disabled={isSaving}
-          className="w-full sm:w-auto px-6 py-3 bg-sage-500 text-white font-medium text-sm rounded-lg hover:bg-sage-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+          className="w-full sm:w-auto px-6 py-3 bg-sage-500 text-white font-medium text-sm rounded-lg hover:bg-sage-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
         >
           {isSaving ? (
             <>
