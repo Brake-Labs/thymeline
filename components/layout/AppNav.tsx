@@ -11,10 +11,11 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { href: '/home',                  label: 'Home',     icon: '🏠' },
-  { href: '/recipes',               label: 'Recipes',  icon: '📖' },
-  { href: '/plan',                  label: 'Plan',     icon: '📅' },
-  { href: '/settings/preferences',  label: 'Settings', icon: '⚙️' },
+  { href: '/home',                  label: 'Home',      icon: '🏠' },
+  { href: '/recipes',               label: 'Recipes',   icon: '📖' },
+  { href: '/plan',                  label: 'Plan',      icon: '📅' },
+  { href: '/groceries',             label: 'Groceries', icon: '🛒' },
+  { href: '/settings/preferences',  label: 'Settings',  icon: '⚙️' },
 ]
 
 export default function AppNav() {
