@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentWeekSunday } from '@/lib/grocery'
 
 function formatDate(iso: string): string {
   const d = new Date(`${iso}T00:00:00Z`)
@@ -15,6 +16,12 @@ function formatWeekRange(weekStart: string): string {
   return `${start.toLocaleDateString('en-US', opts)} – ${end.toLocaleDateString('en-US', opts)}`
 }
 
+function addWeeks(weekStart: string, n: number): string {
+  const d = new Date(`${weekStart}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + n * 7)
+  return d.toISOString().slice(0, 10)
+}
+
 interface Props {
   params: { week_start: string }
 }
@@ -25,6 +32,44 @@ export default async function PlanWeekPage({ params }: Props) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) notFound()
 
+  // Week navigation
+  const prevWeek     = addWeeks(week_start, -1)
+  const nextWeek     = addWeeks(week_start, 1)
+  const maxWeek      = addWeeks(getCurrentWeekSunday(), 4)
+  const nextDisabled = nextWeek > maxWeek
+
+  const weekNav = (
+    <div className="flex items-center gap-3">
+      <Link
+        href={`/plan/${prevWeek}`}
+        aria-label="Previous week"
+        className="p-1.5 rounded-lg hover:bg-stone-100 text-stone-500 transition-colors"
+      >
+        ←
+      </Link>
+      <h1 className="flex-1 text-xl font-bold text-stone-900 text-center">
+        {formatWeekRange(week_start)}
+      </h1>
+      {nextDisabled ? (
+        <span
+          aria-label="Next week"
+          aria-disabled="true"
+          className="p-1.5 rounded-lg text-stone-300 cursor-not-allowed select-none"
+        >
+          →
+        </span>
+      ) : (
+        <Link
+          href={`/plan/${nextWeek}`}
+          aria-label="Next week"
+          className="p-1.5 rounded-lg hover:bg-stone-100 text-stone-500 transition-colors"
+        >
+          →
+        </Link>
+      )}
+    </div>
+  )
+
   const { data: plan } = await supabase
     .from('meal_plans')
     .select('id, week_start')
@@ -34,14 +79,17 @@ export default async function PlanWeekPage({ params }: Props) {
 
   if (!plan) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-12 text-center space-y-4">
-        <p className="text-stone-600 text-lg">No plan for this week.</p>
-        <Link
-          href={`/plan?week_start=${week_start}`}
-          className="inline-block rounded-lg bg-emerald-700 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
-        >
-          Plan this week
-        </Link>
+      <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
+        {weekNav}
+        <div className="text-center space-y-4 py-8">
+          <p className="text-stone-600 text-lg">No plan for this week.</p>
+          <Link
+            href={`/plan?week_start=${week_start}`}
+            className="inline-block rounded-lg bg-emerald-700 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
+          >
+            Plan this week
+          </Link>
+        </div>
       </div>
     )
   }
@@ -61,9 +109,7 @@ export default async function PlanWeekPage({ params }: Props) {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
-      <h1 className="text-2xl font-bold text-stone-900">
-        Week of {formatWeekRange(week_start)}
-      </h1>
+      {weekNav}
 
       {enriched.length === 0 ? (
         <p className="text-stone-500">No recipes planned for this week.</p>
