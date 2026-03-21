@@ -213,7 +213,7 @@ export default function GroceryListView({ initialList }: GroceryListViewProps) {
           <button
             type="button"
             onClick={handleShare}
-            className="text-sm px-4 py-2 bg-emerald-700 text-white rounded-lg hover:bg-emerald-800"
+            className="text-sm px-4 py-2 bg-sage-500 text-white rounded-lg hover:bg-sage-600"
           >
             Share
           </button>
@@ -291,7 +291,7 @@ export default function GroceryListView({ initialList }: GroceryListViewProps) {
               <button
                 type="button"
                 onClick={handleRegenerateConfirm}
-                className="flex-1 px-4 py-2 bg-emerald-700 text-white text-sm font-medium rounded-lg hover:bg-emerald-800"
+                className="flex-1 px-4 py-2 bg-sage-500 text-white text-sm font-medium rounded-lg hover:bg-sage-600"
               >
                 Regenerate
               </button>

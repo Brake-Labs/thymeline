@@ -111,7 +111,7 @@ export default function SuggestionsStep({
           <button
             onClick={onConfirm}
             disabled={confirmedCount === 0}
-            className="text-sm font-medium bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="text-sm font-medium bg-sage-500 text-white px-4 py-2 rounded-lg hover:bg-sage-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Confirm Plan
           </button>

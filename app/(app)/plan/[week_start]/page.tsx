@@ -85,7 +85,7 @@ export default async function PlanWeekPage({ params }: Props) {
           <p className="text-stone-600 text-lg">No plan for this week.</p>
           <Link
             href={`/plan?week_start=${week_start}`}
-            className="inline-block rounded-lg bg-emerald-700 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
+            className="inline-block rounded-lg bg-sage-500 px-5 py-2 text-sm font-semibold text-white hover:bg-sage-600"
           >
             Plan this week
           </Link>
@@ -125,7 +125,7 @@ export default async function PlanWeekPage({ params }: Props) {
                 <p className="text-sm font-medium text-stone-900">{entry.recipe_title}</p>
               </div>
               {entry.confirmed && (
-                <span className="text-xs text-emerald-600 font-medium">✓ Confirmed</span>
+                <span className="text-xs text-sage-500 font-medium">✓ Confirmed</span>
               )}
             </div>
           ))}
@@ -135,7 +135,7 @@ export default async function PlanWeekPage({ params }: Props) {
       <div className="flex flex-col sm:flex-row gap-3 pt-2">
         <Link
           href={`/groceries?week_start=${week_start}`}
-          className="flex-1 text-center rounded-lg bg-emerald-700 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
+          className="flex-1 text-center rounded-lg bg-sage-500 px-5 py-2 text-sm font-semibold text-white hover:bg-sage-600"
         >
           Make grocery list
         </Link>

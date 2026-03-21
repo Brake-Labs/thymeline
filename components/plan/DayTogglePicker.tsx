@@ -45,7 +45,7 @@ export default function DayTogglePicker({ activeDates, weekStart, onChange }: Da
               className={[
                 'px-3 py-1.5 rounded-full text-sm font-medium transition-colors select-none',
                 isActive
-                  ? 'bg-emerald-600 text-white'
+                  ? 'bg-sage-500 text-white'
                   : 'bg-stone-100 text-stone-500',
                 isLastAndActive ? 'cursor-default' : 'cursor-pointer hover:opacity-80',
               ].join(' ')}

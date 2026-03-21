@@ -118,7 +118,7 @@ export default function SuggestionDayRow({
                   key={opt.recipe_id}
                   className={[
                     'border-b border-stone-100 last:border-0 px-4 py-3 transition-colors',
-                    selected ? 'border-l-4 border-l-emerald-600 bg-emerald-50' : 'opacity-100',
+                    selected ? 'border-l-4 border-l-sage-500 bg-sage-50' : 'opacity-100',
                     !selected && selection !== undefined && 'opacity-60',
                   ].filter(Boolean).join(' ')}
                 >
@@ -133,7 +133,7 @@ export default function SuggestionDayRow({
                       <button
                         onClick={() => onSelect(date, opt)}
                         title="Deselect"
-                        className="text-emerald-600 flex-shrink-0 hover:text-stone-400 transition-colors"
+                        className="text-sage-500 flex-shrink-0 hover:text-stone-400 transition-colors"
                       >
                         <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -142,7 +142,7 @@ export default function SuggestionDayRow({
                     ) : (
                       <button
                         onClick={() => onSelect(date, opt)}
-                        className="text-xs font-medium text-emerald-700 border border-emerald-300 px-2.5 py-1 rounded-lg hover:bg-emerald-50 flex-shrink-0 transition-colors"
+                        className="text-xs font-medium text-sage-500 border border-sage-300 px-2.5 py-1 rounded-lg hover:bg-sage-50 flex-shrink-0 transition-colors"
                       >
                         Select
                       </button>
@@ -209,7 +209,7 @@ export default function SuggestionDayRow({
                   onChange={(e) => setFreeTextQuery(e.target.value)}
                   placeholder="e.g. Something with chicken"
                   autoFocus
-                  className="flex-1 min-w-0 border border-stone-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="flex-1 min-w-0 border border-stone-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-sage-500"
                 />
                 <button
                   type="submit"
