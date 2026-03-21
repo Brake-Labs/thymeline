@@ -15,12 +15,12 @@ export default function PostSaveModal({ weekStart, isOpen }: PostSaveModalProps)
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
       <div className="bg-white rounded-2xl shadow-xl p-8 max-w-sm w-full space-y-5">
-        <h2 className="text-lg font-semibold text-emerald-700">Plan saved!</h2>
+        <h2 className="text-lg font-semibold text-sage-500">Plan saved!</h2>
         <p className="text-sm text-stone-600">What would you like to do next?</p>
         <div className="space-y-3">
           <button
             onClick={() => router.push(`/groceries?week_start=${weekStart}`)}
-            className="w-full px-4 py-3 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors"
+            className="w-full px-4 py-3 bg-sage-500 text-white text-sm font-medium rounded-lg hover:bg-sage-600 transition-colors"
           >
             Make my grocery list
           </button>

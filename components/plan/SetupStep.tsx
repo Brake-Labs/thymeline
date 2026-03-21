@@ -73,7 +73,7 @@ export default function SetupStep({ setup, onSetupChange, onGetSuggestions, isGe
             maxLength={300}
             rows={2}
             placeholder="Anything to keep in mind this week?"
-            className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-800 placeholder-stone-300 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-800 placeholder-stone-300 resize-none focus:outline-none focus:ring-2 focus:ring-sage-500"
           />
           <span className="absolute bottom-2 right-2 text-xs text-stone-400">
             {setup.freeText.length}/300
@@ -120,7 +120,7 @@ export default function SetupStep({ setup, onSetupChange, onGetSuggestions, isGe
             maxLength={300}
             rows={2}
             placeholder="e.g. Pizza on Friday, something light on Monday"
-            className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-800 placeholder-stone-300 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-800 placeholder-stone-300 resize-none focus:outline-none focus:ring-2 focus:ring-sage-500"
           />
           <span className="absolute bottom-2 right-2 text-xs text-stone-400">
             {setup.specificRequests.length}/300
@@ -131,7 +131,7 @@ export default function SetupStep({ setup, onSetupChange, onGetSuggestions, isGe
       <button
         onClick={onGetSuggestions}
         disabled={isDisabled}
-        className="w-full sm:w-auto px-6 py-3 rounded-lg bg-emerald-600 text-white font-medium text-sm hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+        className="w-full sm:w-auto px-6 py-3 rounded-lg bg-sage-500 text-white font-medium text-sm hover:bg-sage-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
       >
         {isGenerating ? (
           <>

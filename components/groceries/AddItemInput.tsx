@@ -25,7 +25,7 @@ export default function AddItemInput({ onAdd }: AddItemInputProps) {
       <button
         type="button"
         onClick={() => { setOpen(true); setTimeout(() => inputRef.current?.focus(), 0) }}
-        className="mt-3 text-sm text-emerald-700 hover:text-emerald-800 font-medium"
+        className="mt-3 text-sm text-sage-500 hover:text-sage-700 font-medium"
         aria-label="Add item"
       >
         + Add item
@@ -45,12 +45,12 @@ export default function AddItemInput({ onAdd }: AddItemInputProps) {
         }}
         onBlur={() => { submit() }}
         placeholder="Item name…"
-        className="flex-1 border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        className="flex-1 border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500"
       />
       <button
         type="button"
         onMouseDown={(e) => { e.preventDefault(); submit() }}
-        className="px-3 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800"
+        className="px-3 py-2 text-sm bg-sage-500 text-white rounded-lg hover:bg-sage-600"
       >
         Add
       </button>

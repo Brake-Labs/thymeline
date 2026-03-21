@@ -23,7 +23,7 @@ export default function GroceryItemRow({ item, onToggle, onRemove }: GroceryItem
         aria-label={item.checked ? `Uncheck ${item.name}` : `Check ${item.name}`}
         className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
           item.checked
-            ? 'bg-emerald-600 border-emerald-600'
+            ? 'bg-sage-500 border-sage-500'
             : 'border-stone-300 hover:border-stone-400'
         }`}
       >

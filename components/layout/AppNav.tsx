@@ -51,7 +51,7 @@ export default function AppNav() {
               href={item.href}
               className={`text-sm font-medium transition-colors ${
                 isActive(item.href)
-                  ? 'text-emerald-700'
+                  ? 'text-sage-500'
                   : 'text-stone-600 hover:text-stone-900'
               }`}
               aria-current={isActive(item.href) ? 'page' : undefined}
@@ -80,7 +80,7 @@ export default function AppNav() {
             href={item.href}
             className={`flex-1 flex flex-col items-center gap-0.5 py-2 text-xs font-medium transition-colors ${
               isActive(item.href)
-                ? 'text-emerald-700'
+                ? 'text-sage-500'
                 : 'text-stone-500 hover:text-stone-800'
             }`}
             aria-current={isActive(item.href) ? 'page' : undefined}

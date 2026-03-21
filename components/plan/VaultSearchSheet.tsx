@@ -84,13 +84,13 @@ export default function VaultSearchSheet({ forDate, onAssign, onClose }: VaultSe
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search recipes…"
-            className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500"
           />
           <div className="flex gap-2">
             <select
               value={tagFilter}
               onChange={(e) => setTagFilter(e.target.value)}
-              className="flex-1 border border-stone-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+              className="flex-1 border border-stone-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500 bg-white"
             >
               <option value="">All tags</option>
               {allTags.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -98,7 +98,7 @@ export default function VaultSearchSheet({ forDate, onAssign, onClose }: VaultSe
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="flex-1 border border-stone-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+              className="flex-1 border border-stone-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500 bg-white"
             >
               <option value="">All categories</option>
               {allCategories.map((c) => <option key={c} value={c}>{formatCategory(c)}</option>)}

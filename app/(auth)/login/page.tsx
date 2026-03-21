@@ -79,8 +79,8 @@ function LoginForm() {
 
   if (state === 'sent') {
     return (
-      <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-6 py-5 text-center">
-        <p className="text-emerald-800 font-medium">
+      <div className="rounded-lg bg-sage-50 border border-sage-200 px-6 py-5 text-center">
+        <p className="text-sage-700 font-medium">
           {"Check your email — we sent you a sign-in link."}
         </p>
       </div>
@@ -102,14 +102,14 @@ function LoginForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@example.com"
-          className="w-full rounded-lg border border-stone-300 px-4 py-2.5 text-stone-900 placeholder-stone-400 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+          className="w-full rounded-lg border border-stone-300 px-4 py-2.5 text-stone-900 placeholder-stone-400 focus:border-sage-500 focus:outline-none focus:ring-1 focus:ring-sage-500"
         />
       </div>
 
       <button
         type="submit"
         disabled={busy}
-        className="w-full rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-60 flex items-center justify-center gap-2"
+        className="w-full rounded-lg bg-sage-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sage-600 disabled:opacity-60 flex items-center justify-center gap-2"
       >
         {state === 'loading-magic' && (
           <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />

@@ -61,7 +61,7 @@ export default async function GroceriesPage({ searchParams }: PageProps) {
       <p className="text-stone-600">Plan your meals first, then come back to generate a grocery list.</p>
       <Link
         href="/plan"
-        className="inline-block px-5 py-2 bg-emerald-700 text-white text-sm font-semibold rounded-lg hover:bg-emerald-800"
+        className="inline-block px-5 py-2 bg-sage-500 text-white text-sm font-semibold rounded-lg hover:bg-sage-600"
       >
         Go to Plan
       </Link>
