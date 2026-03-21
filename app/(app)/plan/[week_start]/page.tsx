@@ -94,7 +94,7 @@ export default async function PlanWeekPage({ params }: Props) {
           Make grocery list
         </Link>
         <Link
-          href={`/plan?week_start=${week_start}`}
+          href={`/plan?week_start=${week_start}&replan=true`}
           className="flex-1 text-center rounded-lg border border-stone-300 px-5 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50"
         >
           Re-plan this week

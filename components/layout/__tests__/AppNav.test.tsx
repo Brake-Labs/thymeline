@@ -88,6 +88,24 @@ describe('T23 - Responsive nav visibility', () => {
   })
 })
 
+// ── T27 (spec-07): Groceries appears in desktop and mobile nav ────────────────
+describe('T27 - Groceries appears in nav', () => {
+  it('desktop nav has a Groceries link to /groceries', () => {
+    mockPathname.mockReturnValue('/home')
+    render(<AppNav />)
+    const groceriesLinks = screen.getAllByRole('link', { name: /groceries/i })
+    expect(groceriesLinks.some((l) => l.getAttribute('href') === '/groceries')).toBe(true)
+  })
+
+  it('highlights Groceries when on /groceries path', () => {
+    mockPathname.mockReturnValue('/groceries')
+    render(<AppNav />)
+    const groceriesLinks = screen.getAllByRole('link', { name: /groceries/i })
+    const active = groceriesLinks.find((el) => el.getAttribute('aria-current') === 'page')
+    expect(active).toBeDefined()
+  })
+})
+
 // ── T11: Quick action cards link to correct routes (documented) ───────────────
 describe('T11 - Quick action cards link to correct routes', () => {
   it('home page has links to /plan, /recipes, /settings/preferences', () => {
