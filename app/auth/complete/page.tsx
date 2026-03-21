@@ -80,7 +80,7 @@ export default function AuthCompletePage() {
   return (
     <div className="min-h-screen bg-stone-50 flex items-center justify-center">
       <div className="text-center space-y-3">
-        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-stone-200 border-t-emerald-600" />
+        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-stone-200 border-t-sage-500" />
         <p className="text-stone-500 text-sm">Getting things ready…</p>
       </div>
     </div>

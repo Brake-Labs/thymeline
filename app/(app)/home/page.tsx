@@ -92,7 +92,7 @@ export default async function HomePage() {
       <section>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-stone-800">This Week</h2>
-          <Link href={`/plan/${currentSunday}`} className="text-sm text-emerald-700 hover:underline">
+          <Link href={`/plan/${currentSunday}`} className="text-sm text-sage-500 hover:underline">
             View full plan
           </Link>
         </div>
@@ -109,7 +109,7 @@ export default async function HomePage() {
                   <p className="text-sm font-medium text-stone-900">{entry.recipe_title}</p>
                 </div>
                 {entry.confirmed && (
-                  <span className="text-xs text-emerald-600 font-medium">✓ Confirmed</span>
+                  <span className="text-xs text-sage-500 font-medium">✓ Confirmed</span>
                 )}
               </div>
             ))}
@@ -119,7 +119,7 @@ export default async function HomePage() {
             <p className="text-stone-600">No plan yet this week — want to plan your meals?</p>
             <Link
               href="/plan"
-              className="inline-block rounded-lg bg-emerald-700 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
+              className="inline-block rounded-lg bg-sage-500 px-5 py-2 text-sm font-semibold text-white hover:bg-sage-600"
             >
               Help Me Plan
             </Link>
@@ -154,7 +154,7 @@ export default async function HomePage() {
         <section>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-stone-800">Recently Made</h2>
-            <Link href="/recipes" className="text-sm text-emerald-700 hover:underline">
+            <Link href="/recipes" className="text-sm text-sage-500 hover:underline">
               View all
             </Link>
           </div>

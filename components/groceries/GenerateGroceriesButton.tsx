@@ -42,7 +42,7 @@ export default function GenerateGroceriesButton({ weekStart }: GenerateGroceries
         type="button"
         onClick={handleGenerate}
         disabled={loading}
-        className="px-6 py-3 bg-emerald-700 text-white text-sm font-semibold rounded-lg hover:bg-emerald-800 disabled:opacity-60"
+        className="px-6 py-3 bg-sage-500 text-white text-sm font-semibold rounded-lg hover:bg-sage-600 disabled:opacity-60"
       >
         {loading ? 'Generating…' : 'Generate grocery list'}
       </button>
