@@ -47,16 +47,18 @@ export async function POST(req: NextRequest) {
   const db = createAdminClient()
   const { data: plan, error: planError } = await db
     .from('meal_plans')
-    .select('id, people_count')
+    .select('id')
     .eq('user_id', user.id)
     .eq('week_start', week_start)
     .single()
 
   if (planError || !plan) {
+    console.error('meal plan lookup error:', planError?.message, { user_id: user.id, week_start })
     return NextResponse.json({ error: 'No meal plan found for this week' }, { status: 404 })
   }
 
-  const planPeopleCount: number = (plan as { id: string; people_count?: number }).people_count ?? 2
+  // people_count lives on grocery_lists (default 2); meal_plans.people_count is legacy
+  const planPeopleCount = 2
 
   // 2. Fetch meal plan entries joined with recipes
   const { data: entriesRaw, error: entriesError } = await db
