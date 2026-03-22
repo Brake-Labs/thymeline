@@ -8,6 +8,10 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans:    ['var(--font-manrope)', 'sans-serif'],
+        display: ['var(--font-jakarta)', 'sans-serif'],
+      },
       colors: {
         sage: {
           50:  '#F2F7F4',

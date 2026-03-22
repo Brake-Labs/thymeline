@@ -191,7 +191,7 @@ export default function GroceryListView({ initialList }: GroceryListViewProps) {
 
       {/* Top bar */}
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-xl font-bold text-stone-800">
+        <h1 className="font-display text-xl font-bold text-stone-800">
           Groceries for {formatWeekLabel(weekStart)}
         </h1>
         <div className="flex items-center gap-3">
@@ -253,7 +253,7 @@ export default function GroceryListView({ initialList }: GroceryListViewProps) {
             className="border border-stone-200 rounded-xl bg-white overflow-hidden"
           >
             <div className="px-4 pt-4 pb-3 border-b border-stone-100">
-              <h3 className="font-semibold text-stone-800 text-sm">Other</h3>
+              <h3 className="font-display font-semibold text-stone-800 text-sm">Other</h3>
             </div>
             <div className="px-4 py-2 divide-y divide-stone-50">
               {items
@@ -283,7 +283,7 @@ export default function GroceryListView({ initialList }: GroceryListViewProps) {
       {confirmRegenerate && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
           <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full space-y-4">
-            <h2 className="text-base font-semibold text-stone-800">Regenerate grocery list?</h2>
+            <h2 className="font-display text-base font-semibold text-stone-800">Regenerate grocery list?</h2>
             <p className="text-sm text-stone-600">
               This will replace your current list and reset all per-recipe people counts.
             </p>
@@ -291,7 +291,7 @@ export default function GroceryListView({ initialList }: GroceryListViewProps) {
               <button
                 type="button"
                 onClick={handleRegenerateConfirm}
-                className="flex-1 px-4 py-2 bg-sage-500 text-white text-sm font-medium rounded-lg hover:bg-sage-600"
+                className="font-display flex-1 px-4 py-2 bg-sage-500 text-white text-sm font-medium rounded-lg hover:bg-sage-600"
               >
                 Regenerate
               </button>

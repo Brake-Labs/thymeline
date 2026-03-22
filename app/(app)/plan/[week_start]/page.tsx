@@ -47,7 +47,7 @@ export default async function PlanWeekPage({ params }: Props) {
       >
         ←
       </Link>
-      <h1 className="flex-1 text-xl font-bold text-stone-900 text-center">
+      <h1 className="font-display flex-1 text-xl font-bold text-stone-900 text-center">
         {formatWeekRange(week_start)}
       </h1>
       {nextDisabled ? (
@@ -85,7 +85,7 @@ export default async function PlanWeekPage({ params }: Props) {
           <p className="text-stone-600 text-lg">No plan for this week.</p>
           <Link
             href={`/plan?week_start=${week_start}`}
-            className="inline-block rounded-lg bg-sage-500 px-5 py-2 text-sm font-semibold text-white hover:bg-sage-600"
+            className="font-display inline-block rounded-lg bg-sage-500 px-5 py-2 text-sm font-semibold text-white hover:bg-sage-600"
           >
             Plan this week
           </Link>
@@ -135,13 +135,13 @@ export default async function PlanWeekPage({ params }: Props) {
       <div className="flex flex-col sm:flex-row gap-3 pt-2">
         <Link
           href={`/groceries?week_start=${week_start}`}
-          className="flex-1 text-center rounded-lg bg-sage-500 px-5 py-2 text-sm font-semibold text-white hover:bg-sage-600"
+          className="font-display flex-1 text-center rounded-lg bg-sage-500 px-5 py-2 text-sm font-semibold text-white hover:bg-sage-600"
         >
           Make grocery list
         </Link>
         <Link
           href={`/plan?week_start=${week_start}&replan=true`}
-          className="flex-1 text-center rounded-lg border border-stone-300 px-5 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50"
+          className="font-display flex-1 text-center rounded-lg border border-stone-300 px-5 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50"
         >
           Re-plan this week
         </Link>

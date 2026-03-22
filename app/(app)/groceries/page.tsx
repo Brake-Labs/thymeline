@@ -46,7 +46,7 @@ export default async function GroceriesPage({ searchParams }: PageProps) {
   if (hasPlan) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-8 text-center space-y-4">
-        <h1 className="text-xl font-bold text-stone-800">Generate your grocery list</h1>
+        <h1 className="font-display text-xl font-bold text-stone-800">Generate your grocery list</h1>
         <p className="text-stone-600">
           You have a meal plan for this week. Generate a grocery list from your recipes.
         </p>
@@ -57,11 +57,11 @@ export default async function GroceriesPage({ searchParams }: PageProps) {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 text-center space-y-4">
-      <h1 className="text-xl font-bold text-stone-800">No meal plan for this week</h1>
+      <h1 className="font-display text-xl font-bold text-stone-800">No meal plan for this week</h1>
       <p className="text-stone-600">Plan your meals first, then come back to generate a grocery list.</p>
       <Link
         href="/plan"
-        className="inline-block px-5 py-2 bg-sage-500 text-white text-sm font-semibold rounded-lg hover:bg-sage-600"
+        className="font-display inline-block px-5 py-2 bg-sage-500 text-white text-sm font-semibold rounded-lg hover:bg-sage-600"
       >
         Go to Plan
       </Link>

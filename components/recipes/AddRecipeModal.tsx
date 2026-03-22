@@ -128,7 +128,7 @@ export default function AddRecipeModal({
       <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h2 className="text-lg font-semibold text-gray-900">Add Recipe</h2>
+          <h2 className="font-display text-lg font-semibold text-gray-900">Add Recipe</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 text-2xl leading-none"

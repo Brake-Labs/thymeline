@@ -108,11 +108,11 @@ export default function PreferencesForm({ allTags }: PreferencesFormProps) {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 space-y-10">
-      <h1 className="text-2xl font-bold text-gray-900">Preferences</h1>
+      <h1 className="font-display text-2xl font-bold text-gray-900">Preferences</h1>
 
       {/* Section 1: Planning Defaults */}
       <section className="space-y-4 border-b pb-8">
-        <h2 className="text-lg font-semibold text-gray-800">Planning Defaults</h2>
+        <h2 className="font-display text-lg font-semibold text-gray-800">Planning Defaults</h2>
         <div className="space-y-5">
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">Options per day</label>
@@ -138,7 +138,7 @@ export default function PreferencesForm({ allTags }: PreferencesFormProps) {
 
       {/* Section 2: Preferred Tags */}
       <section className="space-y-4 border-b pb-8">
-        <h2 className="text-lg font-semibold text-gray-800">Preferred Tags</h2>
+        <h2 className="font-display text-lg font-semibold text-gray-800">Preferred Tags</h2>
         <p className="text-sm text-gray-500">{"We'll prioritize these when suggesting meals."}</p>
         <TagBucketPicker
           bucket="preferred"
@@ -151,7 +151,7 @@ export default function PreferencesForm({ allTags }: PreferencesFormProps) {
 
       {/* Section 3: Limited Tags */}
       <section className="space-y-4 border-b pb-8">
-        <h2 className="text-lg font-semibold text-gray-800">Limited Tags</h2>
+        <h2 className="font-display text-lg font-semibold text-gray-800">Limited Tags</h2>
         <p className="text-sm text-gray-500">These can appear in your plan, but only up to a set number per week.</p>
         <TagBucketPicker
           bucket="limited"
@@ -165,7 +165,7 @@ export default function PreferencesForm({ allTags }: PreferencesFormProps) {
 
       {/* Section 4: Avoided Tags */}
       <section className="space-y-4 border-b pb-8">
-        <h2 className="text-lg font-semibold text-gray-800">Avoided Tags</h2>
+        <h2 className="font-display text-lg font-semibold text-gray-800">Avoided Tags</h2>
         <p className="text-sm text-gray-500">{"We'll never suggest recipes with these tags."}</p>
         <TagBucketPicker
           bucket="avoided"
@@ -178,7 +178,7 @@ export default function PreferencesForm({ allTags }: PreferencesFormProps) {
 
       {/* Section 5: Seasonal Mode */}
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold text-gray-800">Seasonal Mode</h2>
+        <h2 className="font-display text-lg font-semibold text-gray-800">Seasonal Mode</h2>
         <div className="flex items-center gap-3">
           <button
             type="button"

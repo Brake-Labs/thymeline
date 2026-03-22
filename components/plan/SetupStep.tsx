@@ -43,7 +43,7 @@ export default function SetupStep({ setup, onSetupChange, onGetSuggestions, isGe
   return (
     <div className="space-y-6 max-w-xl">
       <div>
-        <h2 className="text-sm font-semibold text-stone-500 uppercase tracking-wider mb-2">Week</h2>
+        <h2 className="font-display text-sm font-semibold text-stone-500 uppercase tracking-wider mb-2">Week</h2>
         <WeekPicker
           weekStart={setup.weekStart}
           onChange={(weekStart) => onSetupChange({ weekStart })}
@@ -51,7 +51,7 @@ export default function SetupStep({ setup, onSetupChange, onGetSuggestions, isGe
       </div>
 
       <div>
-        <h2 className="text-sm font-semibold text-stone-500 uppercase tracking-wider mb-2">
+        <h2 className="font-display text-sm font-semibold text-stone-500 uppercase tracking-wider mb-2">
           Which days are you planning?
         </h2>
         <DayTogglePicker
@@ -62,7 +62,7 @@ export default function SetupStep({ setup, onSetupChange, onGetSuggestions, isGe
       </div>
 
       <div>
-        <h2 className="text-sm font-semibold text-stone-500 uppercase tracking-wider mb-1">
+        <h2 className="font-display text-sm font-semibold text-stone-500 uppercase tracking-wider mb-1">
           Context for this week
         </h2>
         <p className="text-xs text-stone-400 mb-2">{"e.g. \"Busy week, keep it quick\" or \"Feeling adventurous\""}</p>
@@ -83,7 +83,7 @@ export default function SetupStep({ setup, onSetupChange, onGetSuggestions, isGe
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <h2 className="text-sm font-semibold text-stone-500 uppercase tracking-wider mb-2">
+          <h2 className="font-display text-sm font-semibold text-stone-500 uppercase tracking-wider mb-2">
             Prefer this week
           </h2>
           <TagBucketPicker
@@ -94,7 +94,7 @@ export default function SetupStep({ setup, onSetupChange, onGetSuggestions, isGe
           />
         </div>
         <div>
-          <h2 className="text-sm font-semibold text-stone-500 uppercase tracking-wider mb-2">
+          <h2 className="font-display text-sm font-semibold text-stone-500 uppercase tracking-wider mb-2">
             Avoid this week
           </h2>
           <TagBucketPicker
@@ -107,7 +107,7 @@ export default function SetupStep({ setup, onSetupChange, onGetSuggestions, isGe
       </div>
 
       <div>
-        <h2 className="text-sm font-semibold text-stone-500 uppercase tracking-wider mb-1">
+        <h2 className="font-display text-sm font-semibold text-stone-500 uppercase tracking-wider mb-1">
           Specific requests
         </h2>
         <p className="text-xs text-stone-400 mb-2">
@@ -131,7 +131,7 @@ export default function SetupStep({ setup, onSetupChange, onGetSuggestions, isGe
       <button
         onClick={onGetSuggestions}
         disabled={isDisabled}
-        className="w-full sm:w-auto px-6 py-3 rounded-lg bg-sage-500 text-white font-medium text-sm hover:bg-sage-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+        className="font-display w-full sm:w-auto px-6 py-3 rounded-lg bg-sage-500 text-white font-medium text-sm hover:bg-sage-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
       >
         {isGenerating ? (
           <>

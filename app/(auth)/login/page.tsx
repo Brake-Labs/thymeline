@@ -109,7 +109,7 @@ function LoginForm() {
       <button
         type="submit"
         disabled={busy}
-        className="w-full rounded-lg bg-sage-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sage-600 disabled:opacity-60 flex items-center justify-center gap-2"
+        className="font-display w-full rounded-lg bg-sage-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sage-600 disabled:opacity-60 flex items-center justify-center gap-2"
       >
         {state === 'loading-magic' && (
           <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -158,7 +158,7 @@ export default function LoginPage() {
         <div className="text-center space-y-1">
           <div className="flex items-center justify-center gap-2">
             <span className="text-2xl" aria-hidden="true">🍴</span>
-            <h1 className="text-3xl font-black tracking-tight text-stone-800">Forkcast</h1>
+            <h1 className="font-display text-3xl font-black tracking-tight text-stone-800">Forkcast</h1>
           </div>
           <p className="text-stone-500 text-sm">Your AI-powered meal planning assistant</p>
         </div>

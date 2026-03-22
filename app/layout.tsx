@@ -1,8 +1,18 @@
 import type { Metadata } from 'next'
-import { Plus_Jakarta_Sans } from 'next/font/google'
+import { Plus_Jakarta_Sans, Manrope } from 'next/font/google'
 import './globals.css'
 
-const jakarta = Plus_Jakarta_Sans({ subsets: ['latin'], weight: ['400', '500', '700'] })
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  weight: ['400', '500', '700'],
+  variable: '--font-jakarta',
+})
+
+const manrope = Manrope({
+  subsets: ['latin'],
+  weight: ['400', '500', '700'],
+  variable: '--font-manrope',
+})
 
 export const metadata: Metadata = {
   title: 'Forkcast',
@@ -16,7 +26,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={jakarta.className}>{children}</body>
+      <body className={`${jakarta.variable} ${manrope.variable}`}>{children}</body>
     </html>
   )
 }
