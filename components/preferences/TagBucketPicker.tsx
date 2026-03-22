@@ -1,6 +1,6 @@
 'use client'
 
-import { STYLE_TAGS, SEASONAL_TAGS, CUISINE_TAGS, PROTEIN_TAGS } from '@/lib/tags'
+import { STYLE_TAGS, DIETARY_TAGS, SEASONAL_TAGS, CUISINE_TAGS, PROTEIN_TAGS } from '@/lib/tags'
 import { LimitedTag } from '@/types'
 import StepperInput from './StepperInput'
 
@@ -12,13 +12,15 @@ interface TagBucketPickerProps {
   onChange: (selected: string[] | LimitedTag[]) => void
 }
 
-const STYLE_SET = new Set<string>(STYLE_TAGS)
+const STYLE_SET    = new Set<string>(STYLE_TAGS)
+const DIETARY_SET  = new Set<string>(DIETARY_TAGS)
 const SEASONAL_SET = new Set<string>(SEASONAL_TAGS)
-const CUISINE_SET = new Set<string>(CUISINE_TAGS)
-const PROTEIN_SET = new Set<string>(PROTEIN_TAGS)
+const CUISINE_SET  = new Set<string>(CUISINE_TAGS)
+const PROTEIN_SET  = new Set<string>(PROTEIN_TAGS)
 
 const SECTION_DEFS = [
   { label: 'Style',    set: STYLE_SET },
+  { label: 'Dietary',  set: DIETARY_SET },
   { label: 'Seasonal', set: SEASONAL_SET },
   { label: 'Cuisine',  set: CUISINE_SET },
   { label: 'Protein',  set: PROTEIN_SET },

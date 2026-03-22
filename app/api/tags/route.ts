@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
   }
 
   const raw = body.name?.trim()
-  const validSections = ['style', 'seasonal', 'cuisine', 'protein']
+  const validSections = ['style', 'dietary', 'seasonal', 'cuisine', 'protein']
   const section = validSections.includes(body.section ?? '') ? body.section! : 'cuisine'
   if (!raw) {
     return NextResponse.json({ error: 'name is required' }, { status: 400 })

@@ -49,8 +49,8 @@ describe('T07 - User can select any existing first-class or custom tag', () => {
 
   it('deselects a tag when clicked while selected', () => {
     const onChange = vi.fn()
-    render(<TagSelector selected={['Healthy']} onChange={onChange} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Healthy' }))
+    render(<TagSelector selected={['Vegetarian']} onChange={onChange} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Vegetarian' }))
     expect(onChange).toHaveBeenCalledWith([])
   })
 })
@@ -161,10 +161,10 @@ describe('T05 - Tapping × on pending-new chip removes it without creating', () 
 // ── T08: + chip expands to inline text input ──────────────────────────────────
 
 describe('T08 - + chip expands to inline text input', () => {
-  it('+ chips appear in Style, Seasonal, Cuisine, and Protein sections', () => {
+  it('+ chips appear in Style, Dietary, Seasonal, Cuisine, and Protein sections', () => {
     render(<TagSelector selected={[]} onChange={vi.fn()} />)
     const chips = screen.getAllByLabelText('Add custom tag')
-    expect(chips).toHaveLength(4)
+    expect(chips).toHaveLength(5)
   })
 
   it('clicking Style + shows a text input', () => {
@@ -177,7 +177,7 @@ describe('T08 - + chip expands to inline text input', () => {
   it('clicking Protein + shows a text input', () => {
     render(<TagSelector selected={[]} onChange={vi.fn()} />)
     const chips = screen.getAllByLabelText('Add custom tag')
-    fireEvent.click(chips[3])
+    fireEvent.click(chips[4])
     expect(screen.getByPlaceholderText('Tag name')).toBeInTheDocument()
   })
 
@@ -185,9 +185,9 @@ describe('T08 - + chip expands to inline text input', () => {
     render(<TagSelector selected={[]} onChange={vi.fn()} />)
     const [styleChip] = screen.getAllByLabelText('Add custom tag')
     fireEvent.click(styleChip)
-    // Input replaces the Style + chip; Seasonal, Cuisine, and Protein + chips stay
+    // Input replaces the Style + chip; Dietary, Seasonal, Cuisine, and Protein + chips stay
     expect(screen.getByPlaceholderText('Tag name')).toBeInTheDocument()
-    expect(screen.getAllByLabelText('Add custom tag')).toHaveLength(3)
+    expect(screen.getAllByLabelText('Add custom tag')).toHaveLength(4)
   })
 })
 
