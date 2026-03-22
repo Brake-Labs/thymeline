@@ -231,20 +231,32 @@ describe('buildPlainTextList', () => {
     { recipe_id: 'r1', recipe_title: 'Pasta', people_count: 4 },
   ]
 
-  it('includes recipe title with people count', () => {
+  it('outputs one line per item with no headers or bullets', () => {
     const text = buildPlainTextList(items, scales, 2, '2026-03-15')
-    expect(text).toContain('Pasta (4 people)')
+    const lines = text.split('\n')
+    expect(lines).toHaveLength(2)
+    expect(lines[0]).toBe('200 g pasta')
+    expect(lines[1]).toBe('2 tbsp olive oil')
   })
 
-  it('includes the grocery emoji and week range', () => {
+  it('includes all items (including pantry) with no section labels', () => {
     const text = buildPlainTextList(items, scales, 2, '2026-03-15')
-    expect(text).toContain('🛒')
-  })
-
-  it('puts pantry items in PANTRY section', () => {
-    const text = buildPlainTextList(items, scales, 2, '2026-03-15')
-    expect(text).toContain('PANTRY (optional)')
     expect(text).toContain('olive oil')
+    expect(text).not.toContain('PANTRY')
+    expect(text).not.toContain('Pasta (')
+  })
+
+  it('omits amount prefix when amount is null', () => {
+    const noAmountItems: GroceryItem[] = [
+      { id: 'i3', name: 'salt', amount: null, unit: null, section: 'Pantry', is_pantry: true, checked: false, recipes: ['Soup'] },
+    ]
+    const text = buildPlainTextList(noAmountItems, [], 2, '2026-03-15')
+    expect(text).toBe('salt')
+  })
+
+  it('has no bullets, dashes, or emoji headers', () => {
+    const text = buildPlainTextList(items, scales, 2, '2026-03-15')
+    expect(text).not.toMatch(/^[•\-–🛒]/m)
   })
 })
 

@@ -317,82 +317,24 @@ export function effectivePeopleCount(
 
 // ── Plain text share format ───────────────────────────────────────────────────
 
-/** Format ISO date range as "Mar 1–7" */
-function formatWeekRange(weekStart: string): string {
-  const start = new Date(`${weekStart}T00:00:00Z`)
-  const end = new Date(start)
-  end.setUTCDate(end.getUTCDate() + 6)
-  const fmt = (d: Date, opts: Intl.DateTimeFormatOptions) =>
-    d.toLocaleDateString('en-US', { ...opts, timeZone: 'UTC' })
-  const startStr = fmt(start, { month: 'short', day: 'numeric' })
-  const endDay = fmt(end, { day: 'numeric' })
-  return `${startStr}–${endDay}`
-}
-
 /**
  * Build the plain-text share payload for the Web Share API.
- * Grouped by recipe, with pantry items in a separate section at the bottom.
+ * One item per line, no headers, no bullets — compatible with iOS Reminders.
+ * Each newline becomes a separate reminder when pasted or shared.
  */
 export function buildPlainTextList(
   items: GroceryItem[],
-  recipeScales: RecipeScale[],
-  planPeopleCount: number,
-  weekStart: string,
+  _recipeScales: RecipeScale[],
+  _planPeopleCount: number,
+  _weekStart: string,
 ): string {
-  const lines: string[] = [`🛒 Grocery list — ${formatWeekRange(weekStart)}`, '']
-
-  // Gather unique recipes in the order they appear
-  const recipeTitles: string[] = []
-  for (const item of items) {
-    for (const title of item.recipes) {
-      if (!recipeTitles.includes(title)) recipeTitles.push(title)
-    }
-  }
-
-  const pantryItems: GroceryItem[] = []
-
-  for (const title of recipeTitles) {
-    const recipeItems = items.filter((i) => i.recipes.includes(title) && !i.is_pantry)
-    if (recipeItems.length === 0) continue
-
-    // Find people count for this recipe
-    const scale = recipeScales.find((s) => s.recipe_title === title)
-    const count = scale?.people_count ?? planPeopleCount
-    lines.push(`${title} (${count} ${count === 1 ? 'person' : 'people'})`)
-    for (const item of recipeItems) {
+  return items
+    .map((item) => {
       const amt = item.amount !== null ? `${item.amount} ` : ''
       const unit = item.unit ? `${item.unit} ` : ''
-      lines.push(`• ${amt}${unit}${item.name}`)
-    }
-    lines.push('')
-
-    // Collect pantry items from this recipe
-    items.filter((i) => i.recipes.includes(title) && i.is_pantry).forEach((i) => {
-      if (!pantryItems.find((p) => p.id === i.id)) pantryItems.push(i)
+      return `${amt}${unit}${item.name}`
     })
-  }
-
-  // User-added items (recipes: [])
-  const userAdded = items.filter((i) => i.recipes.length === 0)
-  if (userAdded.length > 0) {
-    lines.push('Other')
-    for (const item of userAdded) {
-      lines.push(`• ${item.name}`)
-    }
-    lines.push('')
-  }
-
-  // Pantry section
-  if (pantryItems.length > 0) {
-    lines.push('PANTRY (optional)')
-    for (const item of pantryItems) {
-      const amt = item.amount !== null ? `${item.amount} ` : ''
-      const unit = item.unit ? `${item.unit} ` : ''
-      lines.push(`• ${amt}${unit}${item.name}`)
-    }
-  }
-
-  return lines.join('\n').trim()
+    .join('\n')
 }
 
 // ── Week helpers ──────────────────────────────────────────────────────────────
