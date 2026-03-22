@@ -143,7 +143,7 @@ export default function EditRecipePage({ params }: Props) {
       >
         ← Back to recipe
       </Link>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Edit Recipe</h1>
+      <h1 className="font-display text-2xl font-bold text-gray-900 mb-6">Edit Recipe</h1>
 
       {saveError && (
         <p className="mb-4 text-sm text-red-500">{saveError}</p>
@@ -167,7 +167,7 @@ export default function EditRecipePage({ params }: Props) {
 
       {/* Dates made */}
       <div className="mt-8 border-t border-gray-200 pt-6">
-        <h2 className="text-sm font-medium text-gray-700 mb-3">Dates Made</h2>
+        <h2 className="font-display text-sm font-medium text-gray-700 mb-3">Dates Made</h2>
 
         <div className="flex items-center gap-2 mb-3">
           <input

@@ -127,7 +127,7 @@ export default function OnboardingFlow({ allTags }: OnboardingFlowProps) {
         <div className="space-y-4">
           {step === 1 && (
             <>
-              <h2 className="text-xl font-semibold text-gray-900">How many meal options do you want each day?</h2>
+              <h2 className="font-display text-xl font-semibold text-gray-900">How many meal options do you want each day?</h2>
               <p className="text-sm text-gray-500">{"We'll show you this many recipe choices for each day you're planning."}</p>
               <div className="py-2">
                 <StepperInput
@@ -143,7 +143,7 @@ export default function OnboardingFlow({ allTags }: OnboardingFlowProps) {
 
           {step === 2 && (
             <>
-              <h2 className="text-xl font-semibold text-gray-900">How soon can a recipe repeat?</h2>
+              <h2 className="font-display text-xl font-semibold text-gray-900">How soon can a recipe repeat?</h2>
               <p className="text-sm text-gray-500">{"We won't suggest a recipe you've made more recently than this."}</p>
               <div className="py-2">
                 <CooldownSlider
@@ -156,7 +156,7 @@ export default function OnboardingFlow({ allTags }: OnboardingFlowProps) {
 
           {step === 3 && (
             <>
-              <h2 className="text-xl font-semibold text-gray-900">What kinds of meals do you prefer?</h2>
+              <h2 className="font-display text-xl font-semibold text-gray-900">What kinds of meals do you prefer?</h2>
               <p className="text-sm text-gray-500">{"We'll prioritize these when suggesting meals."}</p>
               <div className="py-2">
                 <TagBucketPicker
@@ -171,10 +171,10 @@ export default function OnboardingFlow({ allTags }: OnboardingFlowProps) {
 
           {step === 4 && (
             <>
-              <h2 className="text-xl font-semibold text-gray-900">Any tags to limit or avoid?</h2>
+              <h2 className="font-display text-xl font-semibold text-gray-900">Any tags to limit or avoid?</h2>
               <div className="space-y-6">
                 <div className="space-y-2">
-                  <h3 className="font-medium text-gray-800">Limit</h3>
+                  <h3 className="font-display font-medium text-gray-800">Limit</h3>
                   <p className="text-sm text-gray-500">These can appear in your plan, but only up to a set number per week.</p>
                   <TagBucketPicker
                     bucket="limited"
@@ -185,7 +185,7 @@ export default function OnboardingFlow({ allTags }: OnboardingFlowProps) {
                   />
                 </div>
                 <div className="space-y-2">
-                  <h3 className="font-medium text-gray-800">Avoid</h3>
+                  <h3 className="font-display font-medium text-gray-800">Avoid</h3>
                   <p className="text-sm text-gray-500">{"We'll never suggest recipes with these tags."}</p>
                   <TagBucketPicker
                     bucket="avoided"
