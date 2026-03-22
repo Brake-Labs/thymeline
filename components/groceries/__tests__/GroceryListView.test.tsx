@@ -202,7 +202,12 @@ describe('T22 - Share invokes Web Share API with correct format', () => {
     await waitFor(() => {
       expect(shareMock).toHaveBeenCalled()
       const args = shareMock.mock.calls[0][0]
-      expect(args.text).toContain('🛒')
+      // Each item on its own line, no headers or bullets
+      const lines = args.text.split('\n')
+      expect(lines.length).toBeGreaterThan(0)
+      expect(args.text).toContain('pasta')
+      expect(args.text).not.toContain('🛒')
+      expect(args.text).not.toMatch(/^[•\-–]/m)
     })
   })
 })
