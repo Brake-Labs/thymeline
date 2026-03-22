@@ -75,7 +75,7 @@ export default function SuggestionsStep({
     <div className="space-y-4 max-w-2xl">
       {/* Top bar */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <h2 className="text-base font-semibold text-stone-700">
+        <h2 className="font-display text-base font-semibold text-stone-700">
           Suggestions for {formatWeekRange(setup.weekStart)}
         </h2>
         <div className="flex items-center gap-2">
@@ -111,7 +111,7 @@ export default function SuggestionsStep({
           <button
             onClick={onConfirm}
             disabled={confirmedCount === 0}
-            className="text-sm font-medium bg-sage-500 text-white px-4 py-2 rounded-lg hover:bg-sage-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="font-display text-sm font-medium bg-sage-500 text-white px-4 py-2 rounded-lg hover:bg-sage-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Confirm Plan
           </button>

@@ -41,7 +41,7 @@ export default function AppNav() {
       >
         <Link href="/home" className="flex items-center gap-2">
           <span className="text-lg" aria-hidden="true">🍴</span>
-          <span className="text-xl font-black tracking-tight text-stone-800">Forkcast</span>
+          <span className="font-display text-xl font-black tracking-tight text-stone-800">Forkcast</span>
         </Link>
 
         <div className="flex items-center gap-6">

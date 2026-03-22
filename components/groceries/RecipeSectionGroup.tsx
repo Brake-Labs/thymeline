@@ -35,7 +35,7 @@ export default function RecipeSectionGroup({
       <div className="px-4 pt-4 pb-3 border-b border-stone-100 flex items-center justify-between flex-wrap gap-2">
         <h3
           id={`recipe-heading-${recipeId}`}
-          className="font-semibold text-stone-800 text-sm"
+          className="font-display font-semibold text-stone-800 text-sm"
         >
           {recipeTitle}
         </h3>

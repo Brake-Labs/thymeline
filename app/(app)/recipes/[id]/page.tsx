@@ -101,7 +101,7 @@ export default function RecipeDetailPage({ params }: Props) {
 
       {/* Title + meta */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">{recipe.title}</h1>
+        <h1 className="font-display text-2xl font-bold text-gray-900 mb-1">{recipe.title}</h1>
         <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
           <span>{CATEGORY_LABELS[recipe.category]}</span>
           {recipe.url && (
@@ -119,7 +119,7 @@ export default function RecipeDetailPage({ params }: Props) {
 
       {/* Tags */}
       <div className="mb-6">
-        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Tags</h2>
+        <h2 className="font-display text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Tags</h2>
         {isOwner ? (
           <InlineTagEditor
             recipeId={recipe.id}
@@ -174,7 +174,7 @@ export default function RecipeDetailPage({ params }: Props) {
 
       {/* Dates made */}
       <div className="mb-6">
-        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Dates Made</h2>
+        <h2 className="font-display text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Dates Made</h2>
         {datesMade.length === 0 ? (
           <p className="text-sm text-gray-400">Never made</p>
         ) : (
@@ -201,7 +201,7 @@ export default function RecipeDetailPage({ params }: Props) {
       {/* Ingredients */}
       {recipe.ingredients && (
         <section className="mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-3">Ingredients</h2>
+          <h2 className="font-display text-lg font-semibold text-gray-900 mb-3">Ingredients</h2>
           <ul className="space-y-1">
             {recipe.ingredients.split('\n').filter(Boolean).map((line, i) => (
               <li key={i} className="text-sm text-gray-700 flex gap-2">
@@ -216,7 +216,7 @@ export default function RecipeDetailPage({ params }: Props) {
       {/* Steps */}
       {recipe.steps && (
         <section className="mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-3">Steps</h2>
+          <h2 className="font-display text-lg font-semibold text-gray-900 mb-3">Steps</h2>
           <ol className="space-y-3">
             {recipe.steps.split('\n').filter(Boolean).map((line, i) => (
               <li key={i} className="text-sm text-gray-700 flex gap-3">
@@ -231,7 +231,7 @@ export default function RecipeDetailPage({ params }: Props) {
       {/* Notes */}
       {recipe.notes && (
         <section className="mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">Notes</h2>
+          <h2 className="font-display text-lg font-semibold text-gray-900 mb-2">Notes</h2>
           <p className="text-sm text-gray-700 whitespace-pre-wrap">{recipe.notes}</p>
         </section>
       )}

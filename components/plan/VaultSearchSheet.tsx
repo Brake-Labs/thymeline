@@ -65,7 +65,7 @@ export default function VaultSearchSheet({ forDate, onAssign, onClose }: VaultSe
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b border-stone-100">
-          <h2 className="text-base font-semibold text-stone-800">Pick from your vault</h2>
+          <h2 className="font-display text-base font-semibold text-stone-800">Pick from your vault</h2>
           <button
             onClick={onClose}
             aria-label="Close"

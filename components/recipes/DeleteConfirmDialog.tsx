@@ -37,7 +37,7 @@ export default function DeleteConfirmDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6 space-y-4">
-        <h2 className="text-lg font-semibold text-gray-900">Delete Recipe</h2>
+        <h2 className="font-display text-lg font-semibold text-gray-900">Delete Recipe</h2>
         <p className="text-sm text-gray-600">Are you sure? This can&apos;t be undone.</p>
         <div className="flex gap-3 justify-end">
           <button
