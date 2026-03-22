@@ -3,12 +3,15 @@
 import { useEffect, useState } from 'react'
 import WeekPicker from './WeekPicker'
 import DayTogglePicker from './DayTogglePicker'
+import MealTypePicker from './MealTypePicker'
 import TagBucketPicker from '@/components/preferences/TagBucketPicker'
 import { getAccessToken } from '@/lib/supabase/browser'
+import type { MealType } from '@/types'
 
 interface PlanSetup {
   weekStart:        string
   activeDates:      string[]
+  activeMealTypes:  MealType[]
   preferThisWeek:   string[]
   avoidThisWeek:    string[]
   freeText:         string
@@ -58,6 +61,16 @@ export default function SetupStep({ setup, onSetupChange, onGetSuggestions, isGe
           weekStart={setup.weekStart}
           activeDates={setup.activeDates}
           onChange={(activeDates) => onSetupChange({ activeDates })}
+        />
+      </div>
+
+      <div>
+        <h2 className="font-display text-sm font-semibold text-stone-500 uppercase tracking-wider mb-2">
+          Which meals are you planning?
+        </h2>
+        <MealTypePicker
+          selected={setup.activeMealTypes}
+          onChange={(activeMealTypes) => onSetupChange({ activeMealTypes })}
         />
       </div>
 

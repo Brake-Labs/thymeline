@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { getAccessToken } from '@/lib/supabase/browser'
-import type { DaySelection } from '@/types'
+import type { MealType } from '@/types'
+import { MEAL_TYPE_CATEGORIES_CLIENT } from '@/lib/meal-type-categories'
 
 interface VaultRecipe {
   id: string
@@ -13,7 +14,8 @@ interface VaultRecipe {
 
 interface VaultSearchSheetProps {
   forDate: string
-  onAssign: (recipe: DaySelection) => void
+  mealType?: MealType
+  onAssign: (recipe: { recipe_id: string; recipe_title: string }) => void
   onClose: () => void
 }
 
@@ -21,7 +23,7 @@ function formatCategory(cat: string): string {
   return cat.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
 }
 
-export default function VaultSearchSheet({ forDate, onAssign, onClose }: VaultSearchSheetProps) {
+export default function VaultSearchSheet({ forDate: _forDate, mealType, onAssign, onClose }: VaultSearchSheetProps) {
   const [recipes, setRecipes] = useState<VaultRecipe[]>([])
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
@@ -44,11 +46,14 @@ export default function VaultSearchSheet({ forDate, onAssign, onClose }: VaultSe
   const allTags = Array.from(new Set(recipes.flatMap((r) => r.tags))).sort()
   const allCategories = Array.from(new Set(recipes.map((r) => r.category))).sort()
 
+  const allowedCategories = mealType ? MEAL_TYPE_CATEGORIES_CLIENT[mealType] : null
+
   const filtered = recipes.filter((r) => {
     const q = query.toLowerCase()
     if (q && !r.title.toLowerCase().includes(q)) return false
     if (tagFilter && !r.tags.includes(tagFilter)) return false
     if (categoryFilter && r.category !== categoryFilter) return false
+    if (allowedCategories && !allowedCategories.includes(r.category)) return false
     return true
   })
 
@@ -116,7 +121,7 @@ export default function VaultSearchSheet({ forDate, onAssign, onClose }: VaultSe
             <button
               key={r.id}
               onClick={() => {
-                onAssign({ date: forDate, recipe_id: r.id, recipe_title: r.title, from_vault: true })
+                onAssign({ recipe_id: r.id, recipe_title: r.title })
                 onClose()
               }}
               className="w-full text-left py-3 border-b border-stone-50 last:border-0 hover:bg-stone-50 rounded-lg px-2 transition-colors"

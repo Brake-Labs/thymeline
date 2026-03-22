@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  let body: { week_start: string; entries: { date: string; recipe_id: string }[] }
+  let body: { week_start: string; entries: { date: string; recipe_id: string; meal_type?: string; is_side_dish?: boolean; parent_entry_id?: string }[] }
   try {
     body = await req.json()
   } catch {
@@ -61,17 +61,20 @@ export async function POST(req: NextRequest) {
   await db.from('meal_plan_entries').delete().eq('meal_plan_id', planId)
 
   const newEntries = entries.map((e) => ({
-    meal_plan_id: planId,
-    recipe_id:    e.recipe_id,
-    planned_date: e.date,
-    position:     1,
-    confirmed:    true,
+    meal_plan_id:    planId,
+    recipe_id:       e.recipe_id,
+    planned_date:    e.date,
+    position:        1,
+    confirmed:       true,
+    meal_type:       e.meal_type ?? 'dinner',
+    is_side_dish:    e.is_side_dish ?? false,
+    parent_entry_id: e.parent_entry_id ?? null,
   }))
 
   const { data: savedEntries, error: entryError } = await db
     .from('meal_plan_entries')
     .insert(newEntries)
-    .select('id, meal_plan_id, recipe_id, planned_date, position, confirmed')
+    .select('id, meal_plan_id, recipe_id, planned_date, position, confirmed, meal_type, is_side_dish, parent_entry_id')
 
   if (entryError) {
     console.error('meal_plan_entries insert error:', entryError)
@@ -112,22 +115,30 @@ export async function GET(req: NextRequest) {
 
   const { data: entries } = await db
     .from('meal_plan_entries')
-    .select('planned_date, recipe_id, position, confirmed, recipes(title)')
+    .select('id, planned_date, recipe_id, position, confirmed, meal_type, is_side_dish, parent_entry_id, recipes(title)')
     .eq('meal_plan_id', plan.id)
     .order('planned_date')
 
   const enrichedEntries = (entries ?? []).map((e: {
+    id: string
     planned_date: string
     recipe_id: string
     position: number
     confirmed: boolean
+    meal_type: string
+    is_side_dish: boolean
+    parent_entry_id: string | null
     recipes: unknown
   }) => ({
-    planned_date:  e.planned_date,
-    recipe_id:     e.recipe_id,
-    recipe_title:  ((e.recipes as unknown) as { title: string } | null)?.title ?? '',
-    position:      e.position,
-    confirmed:     e.confirmed,
+    id:              e.id,
+    planned_date:    e.planned_date,
+    recipe_id:       e.recipe_id,
+    recipe_title:    ((e.recipes as unknown) as { title: string } | null)?.title ?? '',
+    position:        e.position,
+    confirmed:       e.confirmed,
+    meal_type:       e.meal_type ?? 'dinner',
+    is_side_dish:    e.is_side_dish ?? false,
+    parent_entry_id: e.parent_entry_id ?? null,
   }))
 
   return NextResponse.json({
