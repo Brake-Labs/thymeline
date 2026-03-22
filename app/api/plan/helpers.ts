@@ -1,6 +1,13 @@
 import { type SupabaseClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
-import type { RecipeSuggestion, UserPreferences, LimitedTag } from '@/types'
+import type { RecipeSuggestion, UserPreferences, LimitedTag, MealType, DaySuggestions } from '@/types'
+
+export const MEAL_TYPE_CATEGORIES: Record<MealType, string[]> = {
+  breakfast: ['breakfast'],
+  lunch:     ['main_dish'],
+  dinner:    ['main_dish'],
+  snack:     ['side_dish', 'dessert'],
+}
 
 const anthropic = new Anthropic({ apiKey: process.env.LLM_API_KEY })
 
@@ -37,13 +44,15 @@ export async function fetchCooldownFilteredRecipes(
   supabase: SupabaseClient,
   userId: string,
   cooldownDays: number,
+  categories?: string[],
 ): Promise<RecipeForLLM[]> {
-  // Fetch main_dish recipes for this user with their most recent made_on date
+  const cats = categories ?? ['main_dish']
+  // Fetch recipes for this user with their most recent made_on date
   const { data: recipes } = await supabase
     .from('recipes')
     .select('id, title, tags')
     .eq('user_id', userId)
-    .eq('category', 'main_dish')
+    .in('category', cats)
 
   if (!recipes || recipes.length === 0) return []
 
@@ -62,6 +71,19 @@ export async function fetchCooldownFilteredRecipes(
   const recentlyMadeIds = new Set((history ?? []).map((h: { recipe_id: string }) => h.recipe_id))
 
   return recipes.filter((r: RecipeForLLM) => !recentlyMadeIds.has(r.id))
+}
+
+export async function fetchRecipesByMealTypes(
+  supabase: SupabaseClient,
+  userId: string,
+  cooldownDays: number,
+  mealTypes: MealType[],
+): Promise<Record<MealType, RecipeForLLM[]>> {
+  const result = {} as Record<MealType, RecipeForLLM[]>
+  for (const mt of mealTypes) {
+    result[mt] = await fetchCooldownFilteredRecipes(supabase, userId, cooldownDays, MEAL_TYPE_CATEGORIES[mt])
+  }
+  return result
 }
 
 export async function fetchRecentHistory(
@@ -157,11 +179,16 @@ Return ONLY valid JSON in this exact format, with no prose, no markdown:
   "days": [
     {
       "date": "YYYY-MM-DD",
-      "options": [
+      "meal_types": [
         {
-          "recipe_id": "uuid",
-          "recipe_title": "Recipe Name",
-          "reason": "One-line reason, e.g. Quick weeknight option"
+          "meal_type": "dinner",
+          "options": [
+            {
+              "recipe_id": "uuid",
+              "recipe_title": "Recipe Name",
+              "reason": "One-line reason, e.g. Quick weeknight option"
+            }
+          ]
         }
       ]
     }
@@ -171,17 +198,22 @@ Return ONLY valid JSON in this exact format, with no prose, no markdown:
 
 export function buildFullWeekUserMessage(
   activeDates: string[],
-  recipes: RecipeForLLM[],
+  recipesByMealType: Record<MealType, RecipeForLLM[]>,
   recentHistory: { title: string; made_on: string }[],
   freeText: string,
   specificRequests: string,
+  activeMealTypes: MealType[],
 ): string {
-  // Use recipe_id as the field name so it matches the expected output format exactly
-  const recipesForPrompt = recipes.map((r) => ({ recipe_id: r.id, title: r.title, tags: r.tags }))
-  return `Plan meals for these dates: ${activeDates.join(', ')}
+  const recipesSection = activeMealTypes.map((mt) => {
+    const list = (recipesByMealType[mt] ?? []).map((r) => ({ recipe_id: r.id, title: r.title, tags: r.tags }))
+    return `${mt}: ${JSON.stringify(list)}`
+  }).join('\n')
 
-Available recipes (main dish only, cooldown-filtered):
-${JSON.stringify(recipesForPrompt)}
+  return `Plan meals for these dates: ${activeDates.join(', ')}
+Meal types to plan: ${activeMealTypes.join(', ')}
+
+Available recipes by meal type (cooldown-filtered):
+${recipesSection}
 
 Recent meal history (avoid repeating recent meals):
 ${JSON.stringify(recentHistory)}
@@ -195,6 +227,7 @@ ${specificRequests || '(none)'}`
 
 export function buildSwapUserMessage(
   date: string,
+  mealType: MealType,
   recipes: RecipeForLLM[],
   recentHistory: { title: string; made_on: string }[],
   alreadySelected: { date: string; recipe_id: string }[],
@@ -208,8 +241,9 @@ export function buildSwapUserMessage(
 
   const recipesForPrompt = recipes.map((r) => ({ recipe_id: r.id, title: r.title, tags: r.tags }))
   return `Plan meals for these dates: ${date}
+Meal type: ${mealType}
 
-Available recipes (main dish only, cooldown-filtered):
+Available recipes (cooldown-filtered):
 ${JSON.stringify(recipesForPrompt)}
 
 Recent meal history (avoid repeating recent meals):
@@ -220,18 +254,24 @@ Recipes already selected for other days (do not repeat these): ${selectedTitles 
 User context for this week:
 ${freeText || '(none)'}
 
-Return suggestions for ${date} only.`
+Return suggestions for ${date} / ${mealType} only.`
 }
 
 // ── LLM call + validation ──────────────────────────────────────────────────────
 
 export function validateSuggestions(
-  days: { date: string; options: RecipeSuggestion[] }[],
-  validIds: Set<string>,
-): { date: string; options: RecipeSuggestion[] }[] {
+  days: DaySuggestions[],
+  validIdsByMealType: Map<MealType, Set<string>>,
+): DaySuggestions[] {
   return days.map((day) => ({
     date: day.date,
-    options: day.options.filter((opt) => validIds.has(opt.recipe_id)),
+    meal_types: (day.meal_types ?? []).map((mts) => ({
+      meal_type: mts.meal_type,
+      options: mts.options.filter((opt) => {
+        const ids = validIdsByMealType.get(mts.meal_type)
+        return ids ? ids.has(opt.recipe_id) : false
+      }),
+    })),
   }))
 }
 

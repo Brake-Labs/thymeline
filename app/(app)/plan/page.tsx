@@ -7,13 +7,15 @@ import SuggestionsStep from '@/components/plan/SuggestionsStep'
 import SummaryStep from '@/components/plan/SummaryStep'
 import PostSaveModal from '@/components/plan/PostSaveModal'
 import { getAccessToken } from '@/lib/supabase/browser'
-import type { RecipeSuggestion, DaySelection, DaySuggestions } from '@/types'
+import type { RecipeSuggestion, DaySelection, DaySuggestions, MealType } from '@/types'
+import type { MealTypeState } from '@/components/plan/SuggestionDayRow'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 interface PlanSetup {
   weekStart:        string
   activeDates:      string[]
+  activeMealTypes:  MealType[]
   preferThisWeek:   string[]
   avoidThisWeek:    string[]
   freeText:         string
@@ -22,14 +24,14 @@ interface PlanSetup {
 
 interface DayState {
   date:       string
-  options:    RecipeSuggestion[]
-  isSwapping: boolean
+  meal_types: MealTypeState[]
 }
 
 interface SuggestionsState {
   days: DayState[]
 }
 
+// Composite keys: "date:mealType"
 type SelectionsMap = Record<string, DaySelection | null>
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -37,7 +39,6 @@ type SelectionsMap = Record<string, DaySelection | null>
 function getMostRecentSunday(): string {
   const d = new Date()
   d.setDate(d.getDate() - d.getDay())
-  // Use local date parts — toISOString() converts to UTC which can shift the date
   const year = d.getFullYear()
   const month = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
@@ -66,6 +67,7 @@ function PlanPageInner() {
   const [setup, setSetup] = useState<PlanSetup>({
     weekStart:        initialSunday,
     activeDates:      getDefaultActiveDates(initialSunday),
+    activeMealTypes:  ['dinner'],
     preferThisWeek:   [],
     avoidThisWeek:    [],
     freeText:         '',
@@ -108,17 +110,20 @@ function PlanPageInner() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          week_start:        setup.weekStart,
-          active_dates:      activeDates,
-          prefer_this_week:  setup.preferThisWeek,
-          avoid_this_week:   setup.avoidThisWeek,
-          free_text:         setup.freeText,
-          specific_requests: setup.specificRequests,
+          week_start:          setup.weekStart,
+          active_dates:        activeDates,
+          active_meal_types:   setup.activeMealTypes,
+          prefer_this_week:    setup.preferThisWeek,
+          avoid_this_week:     setup.avoidThisWeek,
+          free_text:           setup.freeText,
+          specific_requests:   setup.specificRequests,
         }),
       })
 
-      const contentType = res.headers.get('content-type') ?? ''
-      const days: DayState[] = activeDates.map((d) => ({ date: d, options: [], isSwapping: false }))
+      const days: DayState[] = activeDates.map((d) => ({
+        date: d,
+        meal_types: setup.activeMealTypes.map((mt) => ({ meal_type: mt, options: [], isSwapping: false })),
+      }))
 
       const applyDays = (incoming: DayState[]) => {
         if (mergeWithPrev) {
@@ -133,35 +138,17 @@ function PlanPageInner() {
         }
       }
 
-      if (contentType.includes('application/x-ndjson')) {
-        // Streaming path
-        const reader = res.body?.getReader()
-        const decoder = new TextDecoder()
-        let buffer = ''
-        if (reader) {
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-            buffer += decoder.decode(value, { stream: true })
-            const lines = buffer.split('\n')
-            buffer = lines.pop() ?? ''
-            for (const line of lines) {
-              if (!line.trim()) continue
-              try {
-                const dayData = JSON.parse(line) as DaySuggestions
-                const idx = days.findIndex((d) => d.date === dayData.date)
-                if (idx >= 0) days[idx].options = dayData.options
-                applyDays([...days])
-              } catch { /* skip malformed line */ }
-            }
-          }
-        }
-      } else {
-        // JSON fallback
+      if (res.ok) {
         const data = await res.json() as { days: DaySuggestions[] }
         for (const dayData of data.days ?? []) {
           const idx = days.findIndex((d) => d.date === dayData.date)
-          if (idx >= 0) days[idx].options = dayData.options
+          if (idx >= 0) {
+            days[idx].meal_types = (dayData.meal_types ?? []).map((mts) => ({
+              meal_type:  mts.meal_type,
+              options:    mts.options,
+              isSwapping: false,
+            }))
+          }
         }
       }
 
@@ -178,23 +165,29 @@ function PlanPageInner() {
 
   // ── Swap ─────────────────────────────────────────────────────────────────────
 
-  async function handleSwapDay(date: string) {
+  async function handleSwapSlot(date: string, mealType: MealType) {
     if (!suggestions) return
     setSuggestions((prev) => prev ? {
-      days: prev.days.map((d) => d.date === date ? { ...d, isSwapping: true } : d),
+      days: prev.days.map((d) => d.date === date ? {
+        ...d,
+        meal_types: d.meal_types.map((mts) =>
+          mts.meal_type === mealType ? { ...mts, isSwapping: true } : mts
+        ),
+      } : d),
     } : prev)
 
     try {
       const token = await getAccessToken()
       const alreadySelected = Object.entries(selections)
-        .filter(([d, sel]) => d !== date && sel !== null && sel !== undefined)
-        .map(([d, sel]) => ({ date: d, recipe_id: (sel as DaySelection).recipe_id }))
+        .filter(([key, sel]) => !key.startsWith(`${date}:`) && sel !== null && sel !== undefined)
+        .map(([, sel]) => ({ date: (sel as DaySelection).date, recipe_id: (sel as DaySelection).recipe_id }))
 
       const res = await fetch('/api/plan/suggest/swap', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           date,
+          meal_type:        mealType,
           week_start:       setup.weekStart,
           already_selected: alreadySelected,
           prefer_this_week: setup.preferThisWeek,
@@ -203,78 +196,100 @@ function PlanPageInner() {
         }),
       })
       if (res.ok) {
-        const data = await res.json() as { date: string; options: RecipeSuggestion[] }
+        const data = await res.json() as { date: string; meal_type: MealType; options: RecipeSuggestion[] }
         setSuggestions((prev) => prev ? {
-          days: prev.days.map((d) =>
-            d.date === date ? { ...d, options: data.options, isSwapping: false } : d
-          ),
+          days: prev.days.map((d) => d.date === date ? {
+            ...d,
+            meal_types: d.meal_types.map((mts) =>
+              mts.meal_type === mealType ? { ...mts, options: data.options, isSwapping: false } : mts
+            ),
+          } : d),
         } : prev)
       } else {
         setSuggestions((prev) => prev ? {
-          days: prev.days.map((d) => d.date === date ? { ...d, isSwapping: false } : d),
+          days: prev.days.map((d) => d.date === date ? {
+            ...d,
+            meal_types: d.meal_types.map((mts) =>
+              mts.meal_type === mealType ? { ...mts, isSwapping: false } : mts
+            ),
+          } : d),
         } : prev)
       }
     } catch {
       setSuggestions((prev) => prev ? {
-        days: prev.days.map((d) => d.date === date ? { ...d, isSwapping: false } : d),
+        days: prev.days.map((d) => d.date === date ? {
+          ...d,
+          meal_types: d.meal_types.map((mts) =>
+            mts.meal_type === mealType ? { ...mts, isSwapping: false } : mts
+          ),
+        } : d),
       } : prev)
     }
   }
 
   // ── Selections ────────────────────────────────────────────────────────────────
 
-  const handleSelect = (date: string, recipe: RecipeSuggestion) => {
+  const handleSelect = (date: string, mealType: MealType, recipe: RecipeSuggestion) => {
+    const key = `${date}:${mealType}`
     setSelections((prev) => {
-      if (prev[date]?.recipe_id === recipe.recipe_id) {
-        // Toggle off: remove the selection
+      if (prev[key]?.recipe_id === recipe.recipe_id) {
         const next = { ...prev }
-        delete next[date]
+        delete next[key]
         return next
       }
-      return { ...prev, [date]: { date, recipe_id: recipe.recipe_id, recipe_title: recipe.recipe_title, from_vault: false } }
+      return {
+        ...prev,
+        [key]: { date, meal_type: mealType, recipe_id: recipe.recipe_id, recipe_title: recipe.recipe_title, from_vault: false },
+      }
     })
   }
 
-  const handleSkipDay = (date: string) => {
+  const handleSkipSlot = (date: string, mealType: MealType) => {
+    const key = `${date}:${mealType}`
     setSelections((prev) => {
-      const current = prev[date]
-      // Undo skip: remove the key entirely (back to unselected)
+      const current = prev[key]
       if (current === null) {
         const next = { ...prev }
-        delete next[date]
+        delete next[key]
         return next
       }
-      return { ...prev, [date]: null }
+      return { ...prev, [key]: null }
     })
   }
 
-  const handleAssignToDay = (recipe: RecipeSuggestion, targetDate: string) => {
+  const handleAssignToDay = (recipe: RecipeSuggestion, targetDate: string, mealType: MealType) => {
+    const key = `${targetDate}:${mealType}`
     setSelections((prev) => ({
       ...prev,
-      [targetDate]: { date: targetDate, recipe_id: recipe.recipe_id, recipe_title: recipe.recipe_title, from_vault: false },
+      [key]: { date: targetDate, meal_type: mealType, recipe_id: recipe.recipe_id, recipe_title: recipe.recipe_title, from_vault: false },
     }))
   }
 
-  const handleVaultPick = (_date: string, recipe: DaySelection) => {
-    setSelections((prev) => ({ ...prev, [recipe.date]: recipe }))
+  const handleVaultPick = (date: string, mealType: MealType, recipe: { recipe_id: string; recipe_title: string }) => {
+    const key = `${date}:${mealType}`
+    setSelections((prev) => ({
+      ...prev,
+      [key]: { date, meal_type: mealType, recipe_id: recipe.recipe_id, recipe_title: recipe.recipe_title, from_vault: true },
+    }))
   }
 
   // ── Free-text match ───────────────────────────────────────────────────────────
 
-  async function handleFreeTextMatch(query: string, date: string): Promise<{ matched: boolean }> {
+  async function handleFreeTextMatch(query: string, date: string, mealType: MealType): Promise<{ matched: boolean }> {
     try {
       const token = await getAccessToken()
       const res = await fetch('/api/plan/match', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ query, date }),
+        body: JSON.stringify({ query, date, meal_type: mealType }),
       })
       if (!res.ok) return { matched: false }
       const data = await res.json() as { match: { recipe_id: string; recipe_title: string } | null }
       if (!data.match) return { matched: false }
+      const key = `${date}:${mealType}`
       setSelections((prev) => ({
         ...prev,
-        [date]: { date, recipe_id: data.match!.recipe_id, recipe_title: data.match!.recipe_title, from_vault: true },
+        [key]: { date, meal_type: mealType, recipe_id: data.match!.recipe_id, recipe_title: data.match!.recipe_title, from_vault: true },
       }))
       return { matched: true }
     } catch {
@@ -289,8 +304,8 @@ function PlanPageInner() {
       setSelections({})
       fetchSuggestions(setup.activeDates)
     } else {
-      const unselectedDates = setup.activeDates.filter(
-        (d) => selections[d] === undefined,
+      const unselectedDates = setup.activeDates.filter((d) =>
+        setup.activeMealTypes.every((mt) => selections[`${d}:${mt}`] === undefined)
       )
       fetchSuggestions(unselectedDates.length > 0 ? unselectedDates : setup.activeDates, true)
     }
@@ -303,7 +318,14 @@ function PlanPageInner() {
     try {
       const entries = Object.entries(selections)
         .filter(([, sel]) => sel !== null && sel !== undefined)
-        .map(([, sel]) => ({ date: (sel as DaySelection).date, recipe_id: (sel as DaySelection).recipe_id }))
+        .map(([, sel]) => {
+          const s = sel as DaySelection
+          return {
+            date:      s.date,
+            recipe_id: s.recipe_id,
+            meal_type: s.meal_type,
+          }
+        })
 
       const token = await getAccessToken()
       const res = await fetch('/api/plan', {
@@ -346,8 +368,8 @@ function PlanPageInner() {
             suggestions={suggestions}
             selections={selections}
             onSelect={handleSelect}
-            onSkipDay={handleSkipDay}
-            onSwapDay={handleSwapDay}
+            onSkipSlot={handleSkipSlot}
+            onSwapSlot={handleSwapSlot}
             onAssignToDay={handleAssignToDay}
             onVaultPick={handleVaultPick}
             onFreeTextMatch={handleFreeTextMatch}
