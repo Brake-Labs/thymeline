@@ -69,7 +69,7 @@ export default function RecipeDetailPage({ params }: Props) {
 
   if (loading) {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-8 text-stone-400" style={{ fontFamily: 'Manrope, sans-serif' }}>
+      <div className="max-w-3xl mx-auto px-4 py-8 font-sans text-stone-400">
         Loading…
       </div>
     )
@@ -98,28 +98,20 @@ export default function RecipeDetailPage({ params }: Props) {
   ]
 
   return (
-    <div className="min-h-screen py-8 px-4" style={{ backgroundColor: '#F7F4F0' }}>
+    <div className="min-h-screen bg-stone-50 py-8 px-4">
       <div className="max-w-3xl mx-auto">
         {/* Back link */}
         <Link
           href="/recipes"
-          className="text-sm text-stone-500 hover:text-stone-700 mb-5 inline-block"
-          style={{ fontFamily: 'Manrope, sans-serif' }}
+          className="font-sans text-sm text-stone-500 hover:text-stone-700 mb-5 inline-block"
         >
           ← All Recipes
         </Link>
 
         {/* Recipe card */}
-        <div
-          style={{
-            backgroundColor: '#FFFDF9',
-            border: '1px solid #D4C9BA',
-            borderRadius: '4px',
-            overflow: 'hidden',
-          }}
-        >
+        <div className="rounded-[4px] border border-stone-200 bg-white overflow-hidden">
           {/* Top accent bar */}
-          <div style={{ height: '5px', backgroundColor: '#7A9E87' }} />
+          <div className="h-[5px] bg-sage-500" />
 
           {/* Hero image */}
           {recipe.image_url && (
@@ -127,26 +119,19 @@ export default function RecipeDetailPage({ params }: Props) {
             <img
               src={recipe.image_url}
               alt={recipe.title}
-              className="w-full object-cover"
-              style={{ maxHeight: '280px' }}
+              className="w-full object-cover max-h-[280px]"
             />
           )}
 
           {/* Header section */}
           <div className="px-6 pt-5 pb-4">
             {/* Category label */}
-            <p
-              className="text-stone-400 uppercase mb-1"
-              style={{ fontSize: '10px', letterSpacing: '0.12em', fontFamily: 'Plus Jakarta Sans, sans-serif' }}
-            >
+            <p className="font-display text-[10px] uppercase tracking-[0.12em] text-stone-400 mb-1">
               {CATEGORY_LABELS[recipe.category]}
             </p>
 
             {/* Title */}
-            <h1
-              className="font-bold text-stone-800 mb-3"
-              style={{ fontSize: '22px', fontFamily: 'Plus Jakarta Sans, sans-serif' }}
-            >
+            <h1 className="font-display font-bold text-[22px] text-stone-800 mb-3">
               {recipe.title}
             </h1>
 
@@ -154,16 +139,10 @@ export default function RecipeDetailPage({ params }: Props) {
             <div className="flex flex-wrap gap-6">
               {timeItems.map(({ label, value }) => (
                 <div key={label}>
-                  <p
-                    className="uppercase text-stone-400 mb-0.5"
-                    style={{ fontSize: '9px', letterSpacing: '0.10em', fontFamily: 'Manrope, sans-serif' }}
-                  >
+                  <p className="font-sans text-[9px] uppercase tracking-[0.10em] text-stone-400 mb-0.5">
                     {label}
                   </p>
-                  <p
-                    className="text-stone-700"
-                    style={{ fontSize: '13px', fontFamily: 'Manrope, sans-serif' }}
-                  >
+                  <p className="font-sans text-[13px] text-stone-700">
                     {value}
                   </p>
                 </div>
@@ -172,7 +151,7 @@ export default function RecipeDetailPage({ params }: Props) {
           </div>
 
           {/* Dashed divider */}
-          <div style={{ borderTop: '1px dashed #D4C9BA', margin: '0 24px' }} />
+          <div className="mx-6 border-t border-dashed border-stone-200" />
 
           {/* Tags row */}
           <div className="px-6 py-3">
@@ -187,23 +166,20 @@ export default function RecipeDetailPage({ params }: Props) {
             ) : (
               <div className="flex flex-wrap gap-1.5">
                 {recipe.tags.length === 0
-                  ? <span className="text-sm text-stone-400" style={{ fontFamily: 'Manrope, sans-serif' }}>No tags</span>
+                  ? <span className="font-sans text-sm text-stone-400">No tags</span>
                   : recipe.tags.map((t) => <TagPill key={t} label={t} />)}
               </div>
             )}
           </div>
 
           {/* Dashed divider */}
-          <div style={{ borderTop: '1px dashed #D4C9BA', margin: '0 24px' }} />
+          <div className="mx-6 border-t border-dashed border-stone-200" />
 
           {/* Body: two-column grid */}
           <div className="px-6 py-5 grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Left: Ingredients */}
             <div>
-              <h2
-                className="font-semibold text-stone-700 mb-3"
-                style={{ fontSize: '13px', fontFamily: 'Plus Jakarta Sans, sans-serif', letterSpacing: '0.04em' }}
-              >
+              <h2 className="font-display font-semibold text-[13px] tracking-[0.04em] text-stone-700 mb-3">
                 Ingredients
               </h2>
               {recipe.ingredients ? (
@@ -211,60 +187,37 @@ export default function RecipeDetailPage({ params }: Props) {
                   {recipe.ingredients.split('\n').filter(Boolean).map((line, i, arr) => (
                     <li
                       key={i}
-                      className="py-2 text-stone-700"
-                      style={{
-                        fontSize: '13px',
-                        fontFamily: 'Manrope, sans-serif',
-                        borderBottom: i < arr.length - 1 ? '1px solid #EDE6DC' : 'none',
-                      }}
+                      className={`font-sans text-[13px] text-stone-700 py-2 ${i < arr.length - 1 ? 'border-b border-stone-100' : ''}`}
                     >
                       {line}
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-stone-400 text-sm" style={{ fontFamily: 'Manrope, sans-serif' }}>No ingredients listed.</p>
+                <p className="font-sans text-sm text-stone-400">No ingredients listed.</p>
               )}
             </div>
 
             {/* Right: Steps */}
             <div>
-              <h2
-                className="font-semibold text-stone-700 mb-3"
-                style={{ fontSize: '13px', fontFamily: 'Plus Jakarta Sans, sans-serif', letterSpacing: '0.04em' }}
-              >
+              <h2 className="font-display font-semibold text-[13px] tracking-[0.04em] text-stone-700 mb-3">
                 Steps
               </h2>
               {recipe.steps ? (
                 <ol className="space-y-3">
                   {recipe.steps.split('\n').filter(Boolean).map((line, i) => (
                     <li key={i} className="flex gap-3 items-start">
-                      <span
-                        className="flex-shrink-0 flex items-center justify-center text-white font-semibold"
-                        style={{
-                          width: '20px',
-                          height: '20px',
-                          minWidth: '20px',
-                          borderRadius: '50%',
-                          backgroundColor: '#7A9E87',
-                          fontSize: '10px',
-                          fontFamily: 'Plus Jakarta Sans, sans-serif',
-                          marginTop: '1px',
-                        }}
-                      >
+                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-sage-500 flex items-center justify-center font-display font-semibold text-[10px] text-white mt-0.5">
                         {i + 1}
                       </span>
-                      <span
-                        className="text-stone-700"
-                        style={{ fontSize: '13px', fontFamily: 'Manrope, sans-serif' }}
-                      >
+                      <span className="font-sans text-[13px] text-stone-700">
                         {line}
                       </span>
                     </li>
                   ))}
                 </ol>
               ) : (
-                <p className="text-stone-400 text-sm" style={{ fontFamily: 'Manrope, sans-serif' }}>No steps listed.</p>
+                <p className="font-sans text-sm text-stone-400">No steps listed.</p>
               )}
             </div>
           </div>
@@ -272,18 +225,12 @@ export default function RecipeDetailPage({ params }: Props) {
           {/* Notes section */}
           {recipe.notes && (
             <>
-              <div style={{ borderTop: '1px dashed #D4C9BA', margin: '0 24px' }} />
+              <div className="mx-6 border-t border-dashed border-stone-200" />
               <div className="px-6 py-4">
-                <h2
-                  className="font-semibold text-stone-700 mb-2"
-                  style={{ fontSize: '13px', fontFamily: 'Plus Jakarta Sans, sans-serif', letterSpacing: '0.04em' }}
-                >
+                <h2 className="font-display font-semibold text-[13px] tracking-[0.04em] text-stone-700 mb-2">
                   Notes
                 </h2>
-                <p
-                  className="text-stone-500 whitespace-pre-wrap"
-                  style={{ fontSize: '13px', fontFamily: 'Manrope, sans-serif' }}
-                >
+                <p className="font-sans text-[13px] text-stone-500 whitespace-pre-wrap">
                   {recipe.notes}
                 </p>
               </div>
@@ -293,7 +240,7 @@ export default function RecipeDetailPage({ params }: Props) {
           {/* Share toggle — owner only */}
           {isOwner && (
             <>
-              <div style={{ borderTop: '1px dashed #D4C9BA', margin: '0 24px' }} />
+              <div className="mx-6 border-t border-dashed border-stone-200" />
               <div className="px-6 py-3">
                 <ShareToggle
                   recipeId={recipe.id}
@@ -306,16 +253,13 @@ export default function RecipeDetailPage({ params }: Props) {
           )}
 
           {/* Footer dashed divider */}
-          <div style={{ borderTop: '1px dashed #D4C9BA', margin: '0 24px' }} />
+          <div className="mx-6 border-t border-dashed border-stone-200" />
 
           {/* Footer */}
           <div className="px-6 py-4 flex flex-wrap items-center justify-between gap-3">
             {/* Left: last made + source */}
             <div className="flex flex-col gap-0.5">
-              <p
-                className="text-stone-400"
-                style={{ fontSize: '11px', fontFamily: 'Manrope, sans-serif' }}
-              >
+              <p className="font-sans text-[11px] text-stone-400">
                 {lastMadeLabel}
               </p>
               {recipe.url && (
@@ -323,8 +267,7 @@ export default function RecipeDetailPage({ params }: Props) {
                   href={recipe.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-stone-400 hover:text-stone-600 hover:underline"
-                  style={{ fontSize: '11px', fontFamily: 'Manrope, sans-serif' }}
+                  className="font-sans text-[11px] text-stone-400 hover:text-stone-600 hover:underline"
                 >
                   View original recipe ↗
                 </a>
@@ -346,25 +289,13 @@ export default function RecipeDetailPage({ params }: Props) {
                 <>
                   <Link
                     href={`/recipes/${recipe.id}/edit`}
-                    className="py-2 px-4 rounded border text-stone-600 hover:bg-stone-50"
-                    style={{
-                      fontFamily: 'Plus Jakarta Sans, sans-serif',
-                      border: '1px solid #D4C9BA',
-                      fontSize: '13px',
-                      fontWeight: '500',
-                    }}
+                    className="font-display font-medium text-[13px] text-stone-600 border border-stone-200 rounded py-2 px-4 hover:bg-stone-50"
                   >
                     Edit
                   </Link>
                   <button
                     onClick={() => setShowDelete(true)}
-                    className="py-2 px-4 rounded border text-red-500 hover:bg-red-50"
-                    style={{
-                      fontFamily: 'Plus Jakarta Sans, sans-serif',
-                      border: '1px solid #FECACA',
-                      fontSize: '13px',
-                      fontWeight: '500',
-                    }}
+                    className="font-display font-medium text-[13px] text-red-500 border border-red-200 rounded py-2 px-4 hover:bg-red-50"
                   >
                     Delete
                   </button>
