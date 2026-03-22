@@ -79,7 +79,7 @@ describe('T27 - GET /api/tags returns correct shape', () => {
     const body = await res.json()
     expect(Array.isArray(body.firstClass)).toBe(true)
     expect(body.firstClass).toContain('Chicken')
-    expect(body.firstClass).toContain('Healthy')
+    expect(body.firstClass).toContain('Vegetarian')
     expect(body.custom).toEqual([{ name: 'MyTag', section: 'cuisine' }])
   })
 
@@ -107,8 +107,8 @@ describe('T12 - POST /api/tags returns 400 when name matches first-class tag', (
     expect(body.error).toMatch(/built-in tag/)
   })
 
-  it('rejects exact match "Healthy"', async () => {
-    const res = await POST(makeReq('POST', 'http://localhost/api/tags', { name: 'Healthy' }))
+  it('rejects exact match "Vegan"', async () => {
+    const res = await POST(makeReq('POST', 'http://localhost/api/tags', { name: 'Vegan' }))
     expect(res.status).toBe(400)
   })
 })

@@ -36,7 +36,7 @@ const MOCK_RECIPE = {
 function makeTagsResponse() {
   return Promise.resolve({
     ok: true,
-    json: async () => ({ firstClass: ['Chicken', 'Soup', 'Healthy', 'Quick'], custom: [] }),
+    json: async () => ({ firstClass: ['Chicken', 'Soup', 'Gluten-Free', 'Quick'], custom: [] }),
   })
 }
 
@@ -80,8 +80,8 @@ describe('T18 - Edit form renders existing tags as selected', () => {
     })
 
     await waitFor(() => {
-      const healthyChip = screen.getByRole('button', { name: 'Healthy' })
-      expect(healthyChip.className).not.toContain('bg-stone-800')
+      const glutenFreeChip = screen.getByRole('button', { name: 'Gluten-Free' })
+      expect(glutenFreeChip.className).not.toContain('bg-stone-800')
     })
   })
 })
@@ -98,8 +98,8 @@ describe('T19 - Submit sends updated tags in PATCH request', () => {
       expect(screen.getByDisplayValue('Chicken Soup')).toBeInTheDocument()
     })
 
-    // Toggle Healthy on (adding to the two existing tags)
-    fireEvent.click(screen.getByRole('button', { name: 'Healthy' }))
+    // Toggle Gluten-Free on (adding to the two existing tags)
+    fireEvent.click(screen.getByRole('button', { name: 'Gluten-Free' }))
 
     // Submit
     await act(async () => {
@@ -114,7 +114,7 @@ describe('T19 - Submit sends updated tags in PATCH request', () => {
       const body = JSON.parse(patchCall[1].body)
       expect(body.tags).toContain('Chicken')
       expect(body.tags).toContain('Soup')
-      expect(body.tags).toContain('Healthy')
+      expect(body.tags).toContain('Gluten-Free')
     })
   })
 

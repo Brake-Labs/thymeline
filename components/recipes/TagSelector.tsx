@@ -1,10 +1,10 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { STYLE_TAGS, SEASONAL_TAGS, CUISINE_TAGS, PROTEIN_TAGS, FIRST_CLASS_TAGS } from '@/lib/tags'
+import { STYLE_TAGS, DIETARY_TAGS, SEASONAL_TAGS, CUISINE_TAGS, PROTEIN_TAGS, FIRST_CLASS_TAGS } from '@/lib/tags'
 import { getAccessToken } from '@/lib/supabase/browser'
 
-type Section = 'style' | 'seasonal' | 'cuisine' | 'protein'
+type Section = 'style' | 'dietary' | 'seasonal' | 'cuisine' | 'protein'
 
 interface CustomTag {
   name: string
@@ -25,6 +25,7 @@ function toTitleCase(str: string): string {
 
 const SECTION_LABELS: Record<Section, string> = {
   style:    'Style',
+  dietary:  'Dietary',
   seasonal: 'Seasonal',
   cuisine:  'Cuisine',
   protein:  'Protein',
@@ -209,6 +210,7 @@ export default function TagSelector({
 
   const sections: { key: Section; firstClass: readonly string[] }[] = [
     { key: 'style',    firstClass: STYLE_TAGS },
+    { key: 'dietary',  firstClass: DIETARY_TAGS },
     { key: 'seasonal', firstClass: SEASONAL_TAGS },
     { key: 'cuisine',  firstClass: CUISINE_TAGS },
     { key: 'protein',  firstClass: PROTEIN_TAGS },

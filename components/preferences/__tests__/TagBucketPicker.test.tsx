@@ -141,7 +141,7 @@ describe('TagBucketPicker - grouped rendering', () => {
       <TagBucketPicker
         bucket="preferred"
         selected={[]}
-        available={['Healthy', 'Chicken']}
+        available={['Quick', 'Chicken']}
         onChange={vi.fn()}
       />
     )
@@ -222,13 +222,13 @@ describe('TagBucketPicker - limited Selected section', () => {
         bucket="limited"
         selected={[]}
         selectedLimited={[]}
-        available={['Healthy']}
+        available={['Quick']}
         onChange={vi.fn()}
       />
     )
     expect(screen.queryByText('Selected')).not.toBeInTheDocument()
     expect(screen.getByText('Style')).toBeInTheDocument()
-    expect(screen.getByText('Healthy')).toBeInTheDocument()
+    expect(screen.getByText('Quick')).toBeInTheDocument()
   })
 })
 
