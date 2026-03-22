@@ -13,6 +13,10 @@ export interface RecipeFormValues {
   url: string
   image_url: string
   lastMade: string  // ISO date string, optional — '' means not set
+  prep_time_minutes: string   // stored as string in form, converted to int | null on submit
+  cook_time_minutes: string
+  total_time_minutes: string
+  inactive_time_minutes: string
 }
 
 interface RecipeFormProps {
@@ -53,6 +57,10 @@ export default function RecipeForm({
     url: initialValues.url ?? '',
     image_url: initialValues.image_url ?? '',
     lastMade: initialValues.lastMade ?? '',
+    prep_time_minutes: initialValues.prep_time_minutes ?? '',
+    cook_time_minutes: initialValues.cook_time_minutes ?? '',
+    total_time_minutes: initialValues.total_time_minutes ?? '',
+    inactive_time_minutes: initialValues.inactive_time_minutes ?? '',
   })
   const [errors, setErrors] = useState<{ title?: string; category?: string }>({})
 
@@ -108,6 +116,32 @@ export default function RecipeForm({
           ))}
         </select>
         {errors.category && <p className="mt-1 text-xs text-red-500">{errors.category}</p>}
+      </div>
+
+      {/* Time fields */}
+      <div className="grid grid-cols-2 gap-4">
+        {(
+          [
+            { field: 'prep_time_minutes', label: 'Prep time (min)' },
+            { field: 'cook_time_minutes', label: 'Cook time (min)' },
+            { field: 'total_time_minutes', label: 'Total time (min)' },
+            { field: 'inactive_time_minutes', label: 'Inactive time (min)' },
+          ] as const
+        ).map(({ field, label }) => (
+          <div key={field}>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+            <input
+              type="number"
+              min={0}
+              step={1}
+              value={values[field]}
+              onChange={(e) => set(field, e.target.value)}
+              placeholder="—"
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p className="mt-0.5 text-xs text-gray-400">Enter time in minutes</p>
+          </div>
+        ))}
       </div>
 
       {/* Tags */}

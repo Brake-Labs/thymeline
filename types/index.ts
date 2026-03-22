@@ -61,6 +61,10 @@ export interface Recipe {
   image_url: string | null
   created_at: string
   dates_made?: string[]  // sorted descending; returned by GET /api/recipes/[id]
+  prep_time_minutes:     number | null
+  cook_time_minutes:     number | null
+  total_time_minutes:    number | null
+  inactive_time_minutes: number | null
 }
 
 export interface RecipeListItem {
@@ -99,15 +103,22 @@ export interface MealPlanEntry {
   confirmed: boolean
 }
 
+export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack'
+
 export interface RecipeSuggestion {
   recipe_id:    string
   recipe_title: string
   reason?:      string
 }
 
+export interface MealTypeSuggestions {
+  meal_type: MealType
+  options:   RecipeSuggestion[]
+}
+
 export interface DaySuggestions {
-  date:    string
-  options: RecipeSuggestion[]
+  date:       string
+  meal_types: MealTypeSuggestions[]
 }
 
 export interface SuggestionsResponse {
@@ -116,18 +127,35 @@ export interface SuggestionsResponse {
 
 export interface DaySelection {
   date:         string
+  meal_type:    MealType
   recipe_id:    string
   recipe_title: string
   from_vault:   boolean
 }
 
 export interface SavedPlanEntry {
-  id:           string
-  meal_plan_id: string
-  recipe_id:    string
-  planned_date: string
-  position:     number
-  confirmed:    boolean
+  id:               string
+  meal_plan_id:     string
+  recipe_id:        string
+  recipe_title?:    string
+  planned_date:     string
+  position:         number
+  confirmed:        boolean
+  meal_type:        MealType
+  is_side_dish:     boolean
+  parent_entry_id:  string | null
+}
+
+export interface PlanEntry {
+  id:               string
+  recipe_id:        string
+  recipe_title:     string
+  planned_date:     string
+  meal_type:        MealType
+  is_side_dish:     boolean
+  parent_entry_id:  string | null
+  confirmed:        boolean
+  position:         number
 }
 
 export type GrocerySection =
