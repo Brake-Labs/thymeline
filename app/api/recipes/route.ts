@@ -75,6 +75,10 @@ export async function POST(req: NextRequest) {
     notes?: string | null
     url?: string | null
     image_url?: string | null
+    prep_time_minutes?: number | null
+    cook_time_minutes?: number | null
+    total_time_minutes?: number | null
+    inactive_time_minutes?: number | null
   }
 
   try {
@@ -126,6 +130,10 @@ export async function POST(req: NextRequest) {
       url: body.url ?? null,
       image_url: body.image_url ?? null,
       is_shared: false,
+      prep_time_minutes: body.prep_time_minutes ?? null,
+      cook_time_minutes: body.cook_time_minutes ?? null,
+      total_time_minutes: body.total_time_minutes ?? null,
+      inactive_time_minutes: body.inactive_time_minutes ?? null,
     })
     .select()
     .single()

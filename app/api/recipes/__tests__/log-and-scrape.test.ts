@@ -194,6 +194,10 @@ describe('POST /api/recipes/scrape', () => {
         steps: 'Cook pasta\nFry pancetta\nCombine',
         imageUrl: 'https://example.com/pasta.jpg',
         suggestedTags: [],
+        prepTimeMinutes: 10,
+        cookTimeMinutes: 20,
+        totalTimeMinutes: 30,
+        inactiveTimeMinutes: null,
       }) }],
     } as unknown as Awaited<ReturnType<typeof anthropic.messages.create>>)
 

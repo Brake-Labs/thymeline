@@ -61,6 +61,10 @@ export interface Recipe {
   image_url: string | null
   created_at: string
   dates_made?: string[]  // sorted descending; returned by GET /api/recipes/[id]
+  prep_time_minutes:     number | null
+  cook_time_minutes:     number | null
+  total_time_minutes:    number | null
+  inactive_time_minutes: number | null
 }
 
 export interface RecipeListItem {
