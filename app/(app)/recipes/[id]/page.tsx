@@ -6,8 +6,6 @@ import { Recipe } from '@/types'
 import { CATEGORY_LABELS } from '@/lib/category-labels'
 import { formatMinutes } from '@/lib/format-time'
 import TagPill from '@/components/recipes/TagPill'
-import InlineTagEditor from '@/components/recipes/InlineTagEditor'
-import LogDateSection from '@/components/recipes/LogDateSection'
 import DeleteConfirmDialog from '@/components/recipes/DeleteConfirmDialog'
 import ShareToggle from '@/components/recipes/ShareToggle'
 import { getAccessToken, getSupabaseClient } from '@/lib/supabase/browser'
@@ -22,10 +20,10 @@ export default function RecipeDetailPage({ params }: Props) {
   const [recipe, setRecipe] = useState<RecipeWithHistory | null>(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
-  const [availableTags, setAvailableTags] = useState<string[]>([])
   const [showDelete, setShowDelete] = useState(false)
   const [currentUserId, setCurrentUserId] = useState('')
   const [datesMade, setDatesMade] = useState<string[]>([])
+  const [logStatus, setLogStatus] = useState<'idle' | 'loading' | 'success' | 'already_logged'>('idle')
 
   const isOwner = !!currentUserId && recipe?.user_id === currentUserId
 
@@ -56,16 +54,36 @@ export default function RecipeDetailPage({ params }: Props) {
     fetchRecipe()
   }, [params.id])
 
-  useEffect(() => {
-    async function fetchTags() {
-      try {
-        const r = await fetch('/api/tags', { headers: { Authorization: `Bearer ${await getAccessToken()}` } })
-        const data: { firstClass: string[]; custom: { name: string }[] } = await r.json()
-        setAvailableTags([...(data.firstClass ?? []), ...(data.custom ?? []).map((t) => t.name)])
-      } catch {}
+  async function handleLogToday() {
+    setLogStatus('loading')
+    try {
+      const today = new Date().toISOString().split('T')[0]
+      const res = await fetch(`/api/recipes/${params.id}/log`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${await getAccessToken()}`,
+        },
+        body: JSON.stringify({ made_on: today }),
+      })
+      if (res.ok) {
+        const data: { made_on: string; already_logged: boolean } = await res.json()
+        if (data.already_logged) {
+          setLogStatus('already_logged')
+        } else {
+          setLogStatus('success')
+          setDatesMade((prev) =>
+            prev.includes(data.made_on) ? prev : [data.made_on, ...prev].sort().reverse()
+          )
+        }
+        setTimeout(() => setLogStatus('idle'), 2000)
+      } else {
+        setLogStatus('idle')
+      }
+    } catch {
+      setLogStatus('idle')
     }
-    fetchTags()
-  }, [])
+  }
 
   if (loading) {
     return (
@@ -85,10 +103,6 @@ export default function RecipeDetailPage({ params }: Props) {
       </div>
     )
   }
-
-  const lastMadeLabel = datesMade.length > 0
-    ? `Last made ${datesMade[0]} · ${datesMade.length}×`
-    : 'Never made'
 
   const timeItems = [
     { label: 'Prep', value: formatMinutes(recipe.prep_time_minutes ?? null) },
@@ -155,21 +169,11 @@ export default function RecipeDetailPage({ params }: Props) {
 
           {/* Tags row */}
           <div className="px-6 py-3">
-            {isOwner ? (
-              <InlineTagEditor
-                recipeId={recipe.id}
-                currentTags={recipe.tags}
-                availableTags={availableTags}
-                getToken={getAccessToken}
-                onUpdate={(tags) => setRecipe((r) => r ? { ...r, tags } : r)}
-              />
-            ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {recipe.tags.length === 0
-                  ? <span className="font-sans text-sm text-stone-400">No tags</span>
-                  : recipe.tags.map((t) => <TagPill key={t} label={t} />)}
-              </div>
-            )}
+            <div className="flex flex-wrap gap-2">
+              {recipe.tags.length === 0
+                ? <span className="font-sans text-sm text-stone-400">No tags</span>
+                : recipe.tags.map((t) => <TagPill key={t} label={t} />)}
+            </div>
           </div>
 
           {/* Dashed divider */}
@@ -256,52 +260,30 @@ export default function RecipeDetailPage({ params }: Props) {
           <div className="mx-6 border-t border-dashed border-stone-200" />
 
           {/* Footer */}
-          <div className="px-6 py-4 flex flex-wrap items-center justify-between gap-3">
-            {/* Left: last made + source */}
-            <div className="flex flex-col gap-0.5">
-              <p className="font-sans text-[11px] text-stone-400">
-                {lastMadeLabel}
-              </p>
-              {recipe.url && (
-                <a
-                  href={recipe.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-sans text-[11px] text-stone-400 hover:text-stone-600 hover:underline"
-                >
-                  View original recipe ↗
-                </a>
-              )}
-            </div>
-
-            {/* Right: actions */}
-            <div className="flex flex-wrap items-center gap-2">
-              <LogDateSection
-                recipeId={recipe.id}
-                getToken={getAccessToken}
-                onLogged={(date) => {
-                  setDatesMade((prev) =>
-                    prev.includes(date) ? prev : [date, ...prev].sort().reverse()
-                  )
-                }}
-              />
-              {isOwner && (
-                <>
-                  <Link
-                    href={`/recipes/${recipe.id}/edit`}
-                    className="font-display font-medium text-[13px] text-stone-600 border border-stone-200 rounded py-2 px-4 hover:bg-stone-50"
-                  >
-                    Edit
-                  </Link>
-                  <button
-                    onClick={() => setShowDelete(true)}
-                    className="font-display font-medium text-[13px] text-red-500 border border-red-200 rounded py-2 px-4 hover:bg-red-50"
-                  >
-                    Delete
-                  </button>
-                </>
-              )}
-            </div>
+          <div className="px-6 py-4 flex flex-wrap items-center gap-3">
+            {isOwner && (
+              <Link
+                href={`/recipes/${recipe.id}/edit`}
+                className="font-display font-medium text-[13px] text-stone-700 border border-stone-200 rounded-xl py-2 px-4 bg-white hover:bg-stone-50"
+              >
+                Edit
+              </Link>
+            )}
+            <button
+              onClick={handleLogToday}
+              disabled={logStatus === 'loading'}
+              className="font-display font-medium text-[13px] text-stone-700 border border-stone-200 rounded-xl py-2 px-4 bg-white hover:bg-stone-50 disabled:opacity-50"
+            >
+              {logStatus === 'success' ? '✓ Logged!' : logStatus === 'already_logged' ? 'Already logged' : 'Log made today'}
+            </button>
+            {isOwner && (
+              <button
+                onClick={() => setShowDelete(true)}
+                className="font-display font-medium text-[13px] text-stone-700 border border-stone-200 rounded-xl py-2 px-4 bg-white hover:bg-stone-50"
+              >
+                Delete
+              </button>
+            )}
           </div>
         </div>
       </div>

@@ -7,13 +7,13 @@ interface TagPillProps {
 
 export default function TagPill({ label, onRemove }: TagPillProps) {
   return (
-    <span className="inline-flex items-center gap-1 bg-gray-100 text-gray-600 rounded-full text-xs px-2 py-0.5">
+    <span className="inline-flex items-center gap-1 bg-sage-100 text-sage-700 border border-sage-200 rounded-full font-sans text-[12px] px-3 py-1">
       {label}
       {onRemove && (
         <button
           type="button"
           onClick={onRemove}
-          className="ml-0.5 hover:text-gray-900 focus:outline-none"
+          className="ml-0.5 hover:text-sage-900 focus:outline-none"
           aria-label={`Remove ${label}`}
         >
           ×
