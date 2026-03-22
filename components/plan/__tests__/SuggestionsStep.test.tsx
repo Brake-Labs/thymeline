@@ -164,3 +164,24 @@ describe('T24 - Confirm Plan button state', () => {
     expect(screen.getByText('Confirm Plan')).not.toBeDisabled()
   })
 })
+
+// ── T32: Confirm Plan disabled when all slots are skipped (null) ──────────────
+
+describe('T32 - Confirm Plan disabled with zero non-null entries in SelectionsMap', () => {
+  it('is disabled when every slot is skipped (all values are null)', () => {
+    const sel: Record<string, DaySelection | null> = {
+      [`${DATE_1}:dinner`]: null,
+      [`${DATE_2}:dinner`]: null,
+    }
+    render(
+      <SuggestionsStep
+        {...makeDefaultProps({
+          setup: makeSetup([DATE_1, DATE_2]),
+          suggestions: makeSuggestions([DATE_1, DATE_2]),
+          selections: sel,
+        })}
+      />
+    )
+    expect(screen.getByText('Confirm Plan')).toBeDisabled()
+  })
+})
