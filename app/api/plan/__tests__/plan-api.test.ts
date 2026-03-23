@@ -20,7 +20,7 @@ const mockState = {
     is_active: true,
   },
   plan: null as { id: string; week_start: string } | null,
-  entries: [] as { planned_date: string; recipe_id: string; position: number; confirmed: boolean; recipes: { title: string } }[],
+  entries: [] as { id?: string; planned_date: string; recipe_id: string; position: number; confirmed: boolean; meal_type?: string; is_side_dish?: boolean; parent_entry_id?: string | null; recipes: { title: string } }[],
   llmResponse: '{"days":[]}',
   upsertPlanId: 'plan-1',
   // Simulate DB errors for save tests
@@ -31,10 +31,21 @@ const mockState = {
 // Shared from() builder used by both createServerClient and createAdminClient
 function makeMockFrom(table: string) {
   if (table === 'recipes') {
-    const result = { data: mockState.recipes, error: null }
-    const secondEq = { eq: async () => result }
-    const firstEq = Object.assign(Promise.resolve(result), secondEq)
-    return { select: () => ({ eq: () => firstEq }) }
+    return {
+      select: () => ({
+        eq: () => {
+          // Support both terminal .eq() (match route) and .eq().in() (suggest route)
+          const allResult = { data: mockState.recipes, error: null }
+          const withIn = {
+            in: async (_col: string, cats: string[]) => ({
+              data: mockState.recipes.filter((r) => cats.includes(r.category)),
+              error: null,
+            }),
+          }
+          return Object.assign(Promise.resolve(allResult), withIn)
+        },
+      }),
+    }
   }
   if (table === 'recipe_history') {
     return {
@@ -79,12 +90,15 @@ function makeMockFrom(table: string) {
       insert: () => ({
         select: async () => ({
           data: mockState.entryInsertError ? null : mockState.entries.map((e, i) => ({
-            id: `entry-${i}`,
+            id: e.id ?? `entry-${i}`,
             meal_plan_id: mockState.upsertPlanId,
             recipe_id: e.recipe_id,
             planned_date: e.planned_date,
             position: e.position,
             confirmed: e.confirmed,
+            meal_type: e.meal_type ?? 'dinner',
+            is_side_dish: e.is_side_dish ?? false,
+            parent_entry_id: e.parent_entry_id ?? null,
           })),
           error: mockState.entryInsertError,
         }),
@@ -141,9 +155,11 @@ function makeReq(method: string, url: string, body?: unknown): NextRequest {
 beforeEach(() => {
   mockState.user = { id: 'user-1' }
   mockState.recipes = [
-    { id: 'r1', title: 'Pasta', tags: ['Quick'], category: 'main_dish' },
-    { id: 'r2', title: 'Tacos', tags: ['Healthy'], category: 'main_dish' },
-    { id: 'r3', title: 'Soup', tags: ['Comfort'], category: 'main_dish' },
+    { id: 'r1', title: 'Pasta',      tags: ['Quick'],   category: 'main_dish' },
+    { id: 'r2', title: 'Tacos',      tags: ['Healthy'], category: 'main_dish' },
+    { id: 'r3', title: 'Soup',       tags: ['Comfort'], category: 'main_dish' },
+    { id: 'r4', title: 'Hummus',     tags: [],          category: 'side_dish' },
+    { id: 'r5', title: 'Brownie',    tags: [],          category: 'dessert'   },
   ]
   mockState.recentHistory = []
   mockState.plan = null
@@ -152,7 +168,12 @@ beforeEach(() => {
   mockState.entryInsertError = null
   mockState.llmResponse = JSON.stringify({
     days: [
-      { date: '2026-03-01', options: [{ recipe_id: 'r1', recipe_title: 'Pasta', reason: 'Quick' }] },
+      {
+        date: '2026-03-01',
+        meal_types: [
+          { meal_type: 'dinner', options: [{ recipe_id: 'r1', recipe_title: 'Pasta', reason: 'Quick' }] },
+        ],
+      },
     ],
   })
 })
@@ -172,7 +193,7 @@ describe('T08 - POST /api/plan/suggest returns LLM suggestions', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.days).toHaveLength(1)
-    expect(body.days[0].options[0].recipe_id).toBe('r1')
+    expect(body.days[0].meal_types[0].options[0].recipe_id).toBe('r1')
   })
 })
 
@@ -183,10 +204,13 @@ describe('T09 - Invalid recipe_ids are dropped from suggestions', () => {
     mockState.llmResponse = JSON.stringify({
       days: [{
         date: '2026-03-01',
-        options: [
-          { recipe_id: 'r1', recipe_title: 'Pasta' },
-          { recipe_id: 'FAKE-ID', recipe_title: 'Invented Recipe' },
-        ],
+        meal_types: [{
+          meal_type: 'dinner',
+          options: [
+            { recipe_id: 'r1', recipe_title: 'Pasta' },
+            { recipe_id: 'FAKE-ID', recipe_title: 'Invented Recipe' },
+          ],
+        }],
       }],
     })
     const res = await suggestPOST(makeReq('POST', 'http://localhost/api/plan/suggest', {
@@ -198,8 +222,8 @@ describe('T09 - Invalid recipe_ids are dropped from suggestions', () => {
       specific_requests: '',
     }))
     const body = await res.json()
-    expect(body.days[0].options).toHaveLength(1)
-    expect(body.days[0].options[0].recipe_id).toBe('r1')
+    expect(body.days[0].meal_types[0].options).toHaveLength(1)
+    expect(body.days[0].meal_types[0].options[0].recipe_id).toBe('r1')
   })
 })
 
@@ -229,10 +253,11 @@ describe('T10 - Cooldown recipes excluded from LLM input', () => {
 describe('T13 - POST /api/plan/suggest/swap returns new options for one day', () => {
   it('returns options for the specified date only', async () => {
     mockState.llmResponse = JSON.stringify({
-      days: [{ date: '2026-03-03', options: [{ recipe_id: 'r2', recipe_title: 'Tacos' }] }],
+      days: [{ date: '2026-03-03', meal_types: [{ meal_type: 'dinner', options: [{ recipe_id: 'r2', recipe_title: 'Tacos' }] }] }],
     })
     const res = await swapPOST(makeReq('POST', 'http://localhost/api/plan/suggest/swap', {
       date: '2026-03-03',
+      meal_type: 'dinner',
       week_start: '2026-03-01',
       already_selected: [{ date: '2026-03-01', recipe_id: 'r1' }],
       prefer_this_week: [],
@@ -242,6 +267,7 @@ describe('T13 - POST /api/plan/suggest/swap returns new options for one day', ()
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.date).toBe('2026-03-03')
+    expect(body.meal_type).toBe('dinner')
     expect(body.options[0].recipe_id).toBe('r2')
   })
 })
@@ -433,6 +459,42 @@ describe('POST /api/plan validation', () => {
       entries: [{ date: '2026-03-02', recipe_id: 'r1' }],
     }))
     expect(res.status).toBe(400)
+  })
+})
+
+// ── T30: Snack suggestions come only from side_dish + dessert recipes ──────────
+
+describe('T30 - Snack suggestions use only side_dish and dessert recipes', () => {
+  it('does not include main_dish recipes when active_meal_types is [snack]', async () => {
+    mockState.llmResponse = JSON.stringify({
+      days: [{
+        date: '2026-03-01',
+        meal_types: [{
+          meal_type: 'snack',
+          options: [
+            { recipe_id: 'r4', recipe_title: 'Hummus' },
+            { recipe_id: 'r5', recipe_title: 'Brownie' },
+            // LLM hallucination — main_dish id should be stripped by validation
+            { recipe_id: 'r1', recipe_title: 'Pasta' },
+          ],
+        }],
+      }],
+    })
+    const res = await suggestPOST(makeReq('POST', 'http://localhost/api/plan/suggest', {
+      week_start: '2026-03-01',
+      active_dates: ['2026-03-01'],
+      active_meal_types: ['snack'],
+      prefer_this_week: [],
+      avoid_this_week: [],
+      free_text: '',
+      specific_requests: '',
+    }))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    const snackOptions = body.days[0].meal_types[0].options
+    // r4 (side_dish) and r5 (dessert) pass validation; r1 (main_dish) is stripped
+    expect(snackOptions.map((o: { recipe_id: string }) => o.recipe_id).sort()).toEqual(['r4', 'r5'])
+    expect(snackOptions.find((o: { recipe_id: string }) => o.recipe_id === 'r1')).toBeUndefined()
   })
 })
 

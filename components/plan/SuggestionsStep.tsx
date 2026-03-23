@@ -1,12 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import SuggestionDayRow from './SuggestionDayRow'
-import type { RecipeSuggestion, DaySelection } from '@/types'
+import SuggestionDayRow, { type MealTypeState } from './SuggestionDayRow'
+import type { RecipeSuggestion, DaySelection, MealType } from '@/types'
 
 interface PlanSetup {
   weekStart:        string
   activeDates:      string[]
+  activeMealTypes:  MealType[]
   preferThisWeek:   string[]
   avoidThisWeek:    string[]
   freeText:         string
@@ -15,8 +16,7 @@ interface PlanSetup {
 
 interface DayState {
   date:       string
-  options:    RecipeSuggestion[]
-  isSwapping: boolean
+  meal_types: MealTypeState[]
 }
 
 interface SuggestionsState {
@@ -26,18 +26,18 @@ interface SuggestionsState {
 type SelectionsMap = Record<string, DaySelection | null>
 
 interface SuggestionsStepProps {
-  setup:          PlanSetup
-  suggestions:    SuggestionsState
-  selections:     SelectionsMap
-  onSelect:       (date: string, recipe: RecipeSuggestion) => void
-  onSkipDay:      (date: string) => void
-  onSwapDay:      (date: string) => void
-  onAssignToDay:  (recipe: RecipeSuggestion, targetDate: string) => void
-  onVaultPick:    (date: string, recipe: DaySelection) => void
-  onFreeTextMatch:(query: string, date: string) => Promise<{ matched: boolean }>
-  onRegenerate:   (onlyUnselected?: boolean) => void
-  onConfirm:      () => void
-  onBack:         () => void
+  setup:            PlanSetup
+  suggestions:      SuggestionsState
+  selections:       SelectionsMap
+  onSelect:         (date: string, mealType: MealType, recipe: RecipeSuggestion) => void
+  onSkipSlot:       (date: string, mealType: MealType) => void
+  onSwapSlot:       (date: string, mealType: MealType) => void
+  onAssignToDay:    (recipe: RecipeSuggestion, targetDate: string, mealType: MealType) => void
+  onVaultPick:      (date: string, mealType: MealType, recipe: { recipe_id: string; recipe_title: string }) => void
+  onFreeTextMatch:  (query: string, date: string, mealType: MealType) => Promise<{ matched: boolean }>
+  onRegenerate:     (onlyUnselected?: boolean) => void
+  onConfirm:        () => void
+  onBack:           () => void
 }
 
 function formatWeekRange(weekStart: string): string {
@@ -53,7 +53,7 @@ type RegeneratePromptState = 'none' | 'prompt'
 
 export default function SuggestionsStep({
   setup, suggestions, selections,
-  onSelect, onSkipDay, onSwapDay, onAssignToDay, onVaultPick, onFreeTextMatch,
+  onSelect, onSkipSlot, onSwapSlot, onAssignToDay, onVaultPick, onFreeTextMatch,
   onRegenerate, onConfirm, onBack,
 }: SuggestionsStepProps) {
   const [regenPrompt, setRegenPrompt] = useState<RegeneratePromptState>('none')
@@ -101,7 +101,7 @@ export default function SuggestionsStep({
                     onClick={() => { setRegenPrompt('none'); onRegenerate(true) }}
                     className="w-full text-left text-sm px-3 py-2 rounded-lg hover:bg-stone-50 text-stone-700 transition-colors"
                   >
-                    Regenerate unselected days only
+                    Regenerate unselected slots only
                   </button>
                 </div>
               </>
@@ -123,13 +123,13 @@ export default function SuggestionsStep({
         <SuggestionDayRow
           key={day.date}
           date={day.date}
-          options={day.options}
-          selection={selections[day.date]}
-          isSwapping={day.isSwapping}
+          mealTypeSuggestions={day.meal_types}
+          selections={selections}
+          activeMealTypes={setup.activeMealTypes}
           activeDates={setup.activeDates}
           onSelect={onSelect}
-          onSkip={onSkipDay}
-          onSwap={onSwapDay}
+          onSkip={onSkipSlot}
+          onSwap={onSwapSlot}
           onAssignToDay={onAssignToDay}
           onVaultPick={onVaultPick}
           onFreeTextMatch={onFreeTextMatch}

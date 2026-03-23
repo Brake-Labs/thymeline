@@ -3,7 +3,7 @@ import { createServerClient } from '@/lib/supabase-server'
 import {
   getSeason,
   isSunday,
-  fetchCooldownFilteredRecipes,
+  fetchRecipesByMealTypes,
   fetchRecentHistory,
   fetchUserPreferences,
   buildSystemMessage,
@@ -11,7 +11,7 @@ import {
   validateSuggestions,
   callLLMNonStreaming,
 } from '../helpers'
-import type { DaySuggestions } from '@/types'
+import type { DaySuggestions, MealType } from '@/types'
 
 export async function POST(req: NextRequest) {
   const supabase = createServerClient(req)
@@ -23,6 +23,7 @@ export async function POST(req: NextRequest) {
   let body: {
     week_start: string
     active_dates: string[]
+    active_meal_types?: MealType[]
     prefer_this_week: string[]
     avoid_this_week: string[]
     free_text: string
@@ -35,6 +36,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { week_start, active_dates, prefer_this_week, avoid_this_week, free_text, specific_requests } = body
+  const active_meal_types: MealType[] = body.active_meal_types?.length ? body.active_meal_types : ['dinner']
 
   if (!active_dates || active_dates.length === 0) {
     return NextResponse.json({ error: 'active_dates must be non-empty' }, { status: 400 })
@@ -45,11 +47,12 @@ export async function POST(req: NextRequest) {
 
   const prefs = await fetchUserPreferences(supabase, user.id)
   const cooldownDays = prefs?.cooldown_days ?? 28
-  const recipes = await fetchCooldownFilteredRecipes(supabase, user.id, cooldownDays)
+  const recipesByMealType = await fetchRecipesByMealTypes(supabase, user.id, cooldownDays, active_meal_types)
   const recentHistory = await fetchRecentHistory(supabase, user.id)
 
-  console.log(`[suggest] user=${user.id} recipes_after_cooldown=${recipes.length} cooldown_days=${cooldownDays}`)
-  if (recipes.length === 0) {
+  const totalRecipes = Object.values(recipesByMealType).reduce((n, r) => n + r.length, 0)
+  console.log(`[suggest] user=${user.id} total_recipes_after_cooldown=${totalRecipes} cooldown_days=${cooldownDays}`)
+  if (totalRecipes === 0) {
     console.warn(`[suggest] 0 recipes available — cooldown may be excluding all recipes`)
   }
 
@@ -59,37 +62,24 @@ export async function POST(req: NextRequest) {
   const systemMessage = buildSystemMessage(prefs, prefer_this_week ?? [], avoid_this_week ?? [], season)
   const userMessage = buildFullWeekUserMessage(
     active_dates,
-    recipes,
+    recipesByMealType,
     recentHistory,
     free_text ?? '',
     specific_requests ?? '',
+    active_meal_types,
   )
 
-  const validIds = new Set(recipes.map((r) => r.id))
-
-  function logValidation(days: DaySuggestions[]) {
-    for (const day of days) {
-      for (const opt of day.options) {
-        if (!validIds.has(opt.recipe_id)) {
-          console.warn(`[suggest] validation_fail date=${day.date} recipe_id=${opt.recipe_id} title="${opt.recipe_title}" — not in fetched recipe list`)
-        }
-      }
-    }
-    const totalOptions = days.reduce((n, d) => n + d.options.length, 0)
-    const validOptions = days.reduce((n, d) => n + d.options.filter((o) => validIds.has(o.recipe_id)).length, 0)
-    if (validOptions === 0 && totalOptions > 0) {
-      console.error(`[suggest] 0 valid options after validation — all ${totalOptions} LLM options had unknown recipe_ids`)
-    }
+  const validIdsByMealType = new Map<MealType, Set<string>>()
+  for (const [mt, recipes] of Object.entries(recipesByMealType) as [MealType, typeof recipesByMealType[MealType]][]) {
+    validIdsByMealType.set(mt, new Set(recipes.map((r) => r.id)))
   }
 
   try {
     const raw = await callLLMNonStreaming(systemMessage, userMessage)
     console.log(`[suggest] raw_llm_response=${raw.slice(0, 500)}${raw.length > 500 ? '…' : ''}`)
-    // Strip markdown code fences the model occasionally wraps around the JSON
     const stripped = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '')
     const parsed = JSON.parse(stripped) as { days: DaySuggestions[] }
-    logValidation(parsed.days ?? [])
-    const validated = validateSuggestions(parsed.days ?? [], validIds)
+    const validated = validateSuggestions(parsed.days ?? [], validIdsByMealType)
     return NextResponse.json({ days: validated })
   } catch (err) {
     console.error('LLM suggest error:', err)
