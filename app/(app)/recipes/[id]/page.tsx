@@ -104,6 +104,10 @@ export default function RecipeDetailPage({ params }: Props) {
     )
   }
 
+  const lastMadeLabel = datesMade.length > 0
+    ? `Last made ${new Date(datesMade[0] + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} · ${datesMade.length}×`
+    : 'Never made'
+
   const timeItems = [
     { label: 'Prep', value: formatMinutes(recipe.prep_time_minutes ?? null) },
     { label: 'Cook', value: formatMinutes(recipe.cook_time_minutes ?? null) },
@@ -260,7 +264,11 @@ export default function RecipeDetailPage({ params }: Props) {
           <div className="mx-6 border-t border-dashed border-stone-200" />
 
           {/* Footer */}
-          <div className="px-6 py-4 flex flex-wrap items-center gap-3">
+          <div className="px-6 py-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="font-sans text-[12px] text-stone-400">
+              {lastMadeLabel}
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
             {isOwner && (
               <Link
                 href={`/recipes/${recipe.id}/edit`}
@@ -284,6 +292,7 @@ export default function RecipeDetailPage({ params }: Props) {
                 Delete
               </button>
             )}
+            </div>
           </div>
         </div>
       </div>
