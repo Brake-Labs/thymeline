@@ -77,6 +77,16 @@ export interface RecipeListItem {
   last_made: string | null  // "YYYY-MM-DD"
   times_made: number
   created_at: string
+  total_time_minutes: number | null
+}
+
+export interface RecipeFilters {
+  tags: string[]
+  categories: Recipe['category'][]
+  maxTotalMinutes: number | null  // null = inactive (show all)
+  lastMadeFrom: string | null     // "YYYY-MM-DD"
+  lastMadeTo: string | null       // "YYYY-MM-DD"
+  neverMade: boolean
 }
 
 export interface RecipeHistory {
@@ -103,15 +113,22 @@ export interface MealPlanEntry {
   confirmed: boolean
 }
 
+export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack'
+
 export interface RecipeSuggestion {
   recipe_id:    string
   recipe_title: string
   reason?:      string
 }
 
+export interface MealTypeSuggestions {
+  meal_type: MealType
+  options:   RecipeSuggestion[]
+}
+
 export interface DaySuggestions {
-  date:    string
-  options: RecipeSuggestion[]
+  date:       string
+  meal_types: MealTypeSuggestions[]
 }
 
 export interface SuggestionsResponse {
@@ -120,18 +137,35 @@ export interface SuggestionsResponse {
 
 export interface DaySelection {
   date:         string
+  meal_type:    MealType
   recipe_id:    string
   recipe_title: string
   from_vault:   boolean
 }
 
 export interface SavedPlanEntry {
-  id:           string
-  meal_plan_id: string
-  recipe_id:    string
-  planned_date: string
-  position:     number
-  confirmed:    boolean
+  id:              string
+  meal_plan_id:    string
+  recipe_id:       string
+  recipe_title?:   string
+  planned_date:    string
+  position:        number
+  confirmed:       boolean
+  meal_type:       MealType
+  is_side_dish:    boolean
+  parent_entry_id: string | null
+}
+
+export interface PlanEntry {
+  id:              string
+  recipe_id:       string
+  recipe_title:    string
+  planned_date:    string
+  meal_type:       MealType
+  is_side_dish:    boolean
+  parent_entry_id: string | null
+  confirmed:       boolean
+  position:        number
 }
 
 export type GrocerySection =

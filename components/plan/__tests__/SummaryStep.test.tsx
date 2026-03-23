@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import SummaryStep from '../SummaryStep'
-import type { DaySelection } from '@/types'
+import type { DaySelection, MealType } from '@/types'
 
 const WEEK_START = '2026-03-01'
 const SUN = '2026-03-01'
@@ -11,11 +11,11 @@ const TUE = '2026-03-03'
 const WED = '2026-03-04'
 
 function makeSetup(activeDates: string[]) {
-  return { weekStart: WEEK_START, activeDates }
+  return { weekStart: WEEK_START, activeDates, activeMealTypes: ['dinner'] as MealType[] }
 }
 
-const SEL_SUN: DaySelection = { date: SUN, recipe_id: 'r1', recipe_title: 'Pasta', from_vault: false }
-const SEL_MON: DaySelection = { date: MON, recipe_id: 'r2', recipe_title: 'Tacos', from_vault: false }
+const SEL_SUN: DaySelection = { date: SUN, meal_type: 'dinner', recipe_id: 'r1', recipe_title: 'Pasta', from_vault: false }
+const SEL_MON: DaySelection = { date: MON, meal_type: 'dinner', recipe_id: 'r2', recipe_title: 'Tacos', from_vault: false }
 
 // ── T26: Summary shows confirmed days ─────────────────────────────────────────
 
@@ -24,7 +24,7 @@ describe('T26 - Summary shows confirmed days in chronological order', () => {
     render(
       <SummaryStep
         setup={makeSetup([SUN, MON])}
-        selections={{ [SUN]: SEL_SUN, [MON]: SEL_MON }}
+        selections={{ [`${SUN}:dinner`]: SEL_SUN, [`${MON}:dinner`]: SEL_MON }}
         onSave={vi.fn()}
         isSaving={false}
         onBack={vi.fn()}
@@ -35,21 +35,24 @@ describe('T26 - Summary shows confirmed days in chronological order', () => {
   })
 })
 
-// ── T27: Summary shows skipped days ───────────────────────────────────────────
+// ── T27: Summary shows skipped slots ─────────────────────────────────────────
 
-describe('T27 - Summary shows skipped days', () => {
-  it('shows "Skipping:" line with skipped day names', () => {
+describe('T27 - Summary shows skipped slots', () => {
+  it('shows "Skipping:" line with skipped slot names', () => {
     render(
       <SummaryStep
         setup={makeSetup([SUN, MON, TUE])}
-        selections={{ [SUN]: SEL_SUN, [MON]: null, [TUE]: null }}
+        selections={{
+          [`${SUN}:dinner`]: SEL_SUN,
+          [`${MON}:dinner`]: null,
+          [`${TUE}:dinner`]: null,
+        }}
         onSave={vi.fn()}
         isSaving={false}
         onBack={vi.fn()}
       />
     )
     expect(screen.getByText(/Skipping:/)).toBeInTheDocument()
-    // Monday and Tuesday should be in skipped text
     const skippingLine = screen.getByText(/Skipping:/)
     expect(skippingLine.textContent).toContain('Monday')
     expect(skippingLine.textContent).toContain('Tuesday')
@@ -59,17 +62,18 @@ describe('T27 - Summary shows skipped days', () => {
 // ── T28: Excluded days don't appear ──────────────────────────────────────────
 
 describe('T28 - Excluded days do not appear in summary', () => {
-  it('does not show Wednesday when it is not in activeDates', () => {
+  it('does not show Wednesday when it is not in selections', () => {
     render(
       <SummaryStep
-        setup={makeSetup([SUN, MON])}        // WED not included
-        selections={{ [SUN]: SEL_SUN, [WED]: null }}
+        setup={makeSetup([SUN, MON])}
+        selections={{ [`${SUN}:dinner`]: SEL_SUN }}
         onSave={vi.fn()}
         isSaving={false}
         onBack={vi.fn()}
       />
     )
     expect(screen.queryByText(/Wednesday/)).not.toBeInTheDocument()
+    void WED // referenced in test description
   })
 })
 
@@ -81,7 +85,7 @@ describe('T29 - Go back calls onBack', () => {
     render(
       <SummaryStep
         setup={makeSetup([SUN])}
-        selections={{ [SUN]: SEL_SUN }}
+        selections={{ [`${SUN}:dinner`]: SEL_SUN }}
         onSave={vi.fn()}
         isSaving={false}
         onBack={onBack}
@@ -100,7 +104,7 @@ describe('T31 - Save button calls onSave', () => {
     render(
       <SummaryStep
         setup={makeSetup([SUN])}
-        selections={{ [SUN]: SEL_SUN }}
+        selections={{ [`${SUN}:dinner`]: SEL_SUN }}
         onSave={onSave}
         isSaving={false}
         onBack={vi.fn()}
@@ -114,7 +118,7 @@ describe('T31 - Save button calls onSave', () => {
     render(
       <SummaryStep
         setup={makeSetup([SUN])}
-        selections={{ [SUN]: SEL_SUN }}
+        selections={{ [`${SUN}:dinner`]: SEL_SUN }}
         onSave={vi.fn()}
         isSaving={true}
         onBack={vi.fn()}
@@ -132,7 +136,7 @@ describe('Save error state', () => {
     render(
       <SummaryStep
         setup={makeSetup([SUN])}
-        selections={{ [SUN]: SEL_SUN }}
+        selections={{ [`${SUN}:dinner`]: SEL_SUN }}
         onSave={onSave}
         isSaving={false}
         onBack={vi.fn()}
