@@ -18,8 +18,12 @@ interface ScrapeResult {
   imageUrl: string | null
   sourceUrl: string
   partial: boolean
-  suggestedTags:    string[]
-  suggestedNewTags: string[]
+  suggestedTags:       string[]
+  suggestedNewTags:    string[]
+  prepTimeMinutes:     number | null
+  cookTimeMinutes:     number | null
+  totalTimeMinutes:    number | null
+  inactiveTimeMinutes: number | null
 }
 
 export default function AddRecipeModal({
@@ -78,6 +82,10 @@ export default function AddRecipeModal({
           notes: values.notes || null,
           url: values.url || null,
           image_url: values.image_url || null,
+          prep_time_minutes: values.prep_time_minutes !== '' ? Number(values.prep_time_minutes) : null,
+          cook_time_minutes: values.cook_time_minutes !== '' ? Number(values.cook_time_minutes) : null,
+          total_time_minutes: values.total_time_minutes !== '' ? Number(values.total_time_minutes) : null,
+          inactive_time_minutes: values.inactive_time_minutes !== '' ? Number(values.inactive_time_minutes) : null,
         }),
       })
       if (!res.ok) {
@@ -111,6 +119,10 @@ export default function AddRecipeModal({
         steps: scrapeResult.steps ?? undefined,
         image_url: scrapeResult.imageUrl ?? undefined,
         url: scrapeResult.sourceUrl,
+        prep_time_minutes: scrapeResult.prepTimeMinutes !== null ? String(scrapeResult.prepTimeMinutes) : '',
+        cook_time_minutes: scrapeResult.cookTimeMinutes !== null ? String(scrapeResult.cookTimeMinutes) : '',
+        total_time_minutes: scrapeResult.totalTimeMinutes !== null ? String(scrapeResult.totalTimeMinutes) : '',
+        inactive_time_minutes: scrapeResult.inactiveTimeMinutes !== null ? String(scrapeResult.inactiveTimeMinutes) : '',
       }
     : undefined
 

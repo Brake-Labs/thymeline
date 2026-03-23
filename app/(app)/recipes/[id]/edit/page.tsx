@@ -64,6 +64,10 @@ export default function EditRecipePage({ params }: Props) {
           notes: values.notes || null,
           url: values.url || null,
           image_url: values.image_url || null,
+          prep_time_minutes: values.prep_time_minutes !== '' ? Number(values.prep_time_minutes) : null,
+          cook_time_minutes: values.cook_time_minutes !== '' ? Number(values.cook_time_minutes) : null,
+          total_time_minutes: values.total_time_minutes !== '' ? Number(values.total_time_minutes) : null,
+          inactive_time_minutes: values.inactive_time_minutes !== '' ? Number(values.inactive_time_minutes) : null,
         }),
       })
       if (res.ok) {
@@ -160,6 +164,10 @@ export default function EditRecipePage({ params }: Props) {
           url: recipe.url ?? '',
           image_url: recipe.image_url ?? '',
           lastMade: '',
+          prep_time_minutes: recipe.prep_time_minutes !== null && recipe.prep_time_minutes !== undefined ? String(recipe.prep_time_minutes) : '',
+          cook_time_minutes: recipe.cook_time_minutes !== null && recipe.cook_time_minutes !== undefined ? String(recipe.cook_time_minutes) : '',
+          total_time_minutes: recipe.total_time_minutes !== null && recipe.total_time_minutes !== undefined ? String(recipe.total_time_minutes) : '',
+          inactive_time_minutes: recipe.inactive_time_minutes !== null && recipe.inactive_time_minutes !== undefined ? String(recipe.inactive_time_minutes) : '',
         }}
         onSubmit={handleSubmit}
         isSubmitting={isSubmitting}
