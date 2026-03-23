@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   // Fetch own recipes + shared recipes (RLS returns both via the two policies)
   let query = supabase
     .from('recipes')
-    .select('id, user_id, title, category, tags, is_shared, created_at')
+    .select('id, user_id, title, category, tags, is_shared, created_at, total_time_minutes')
     .order('created_at', { ascending: false })
 
   if (category) query = query.eq('category', category)
