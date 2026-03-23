@@ -116,7 +116,7 @@ describe('PATCH /api/recipes/bulk', () => {
 
   it('T22: returns 200 with updated recipes on success', async () => {
     const updatedRecipe = { ...ownedRecipe, tags: ['Chicken', 'Quick', 'Favorite'] }
-    const mock = makeSupabaseMock({ updateResult: updatedRecipe })
+    const mock = makeSupabaseMock({ customTags: [{ name: 'Favorite' }], updateResult: updatedRecipe })
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
 
     const { PATCH } = await import('../route')
@@ -128,16 +128,23 @@ describe('PATCH /api/recipes/bulk', () => {
     expect(Array.isArray(json)).toBe(true)
   })
 
-  it('T23: accepts first-class tags without custom_tags hit', async () => {
-    const updatedRecipe = { ...ownedRecipe, tags: ['Chicken', 'Quick', 'Italian'] }
-    const mock = makeSupabaseMock({ customTags: [], updateResult: updatedRecipe })
+  it('T23: merges add_tags additively with existing recipe tags', async () => {
+    // ownedRecipe already has ['Chicken', 'Quick']; adding 'Healthy' (in library) should merge
+    const updatedRecipe = { ...ownedRecipe, tags: ['Chicken', 'Quick', 'Healthy'] }
+    const mock = makeSupabaseMock({ customTags: [{ name: 'Healthy' }], updateResult: updatedRecipe })
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
 
     const { PATCH } = await import('../route')
     const res = await PATCH(
-      makeReq({ recipe_ids: ['recipe-1'], add_tags: ['Italian'] }) as Parameters<typeof PATCH>[0]
+      makeReq({ recipe_ids: ['recipe-1'], add_tags: ['Healthy'] }) as Parameters<typeof PATCH>[0]
     )
     expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(Array.isArray(json)).toBe(true)
+    // The updated recipe should contain all original tags plus the new one
+    expect(updatedRecipe.tags).toContain('Chicken')
+    expect(updatedRecipe.tags).toContain('Quick')
+    expect(updatedRecipe.tags).toContain('Healthy')
   })
 
   it('returns 400 when recipe_ids is empty', async () => {

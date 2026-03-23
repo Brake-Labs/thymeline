@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
-import { FIRST_CLASS_TAGS } from '@/lib/tags'
 
 export async function PATCH(req: NextRequest) {
   const supabase = createServerClient(req)
@@ -48,10 +47,9 @@ export async function PATCH(req: NextRequest) {
       .select('name')
       .eq('user_id', user.id)
 
-    const knownNames = new Set([
-      ...FIRST_CLASS_TAGS.map((t) => t.toLowerCase()),
-      ...(customTags ?? []).map((t: { name: string }) => t.name.toLowerCase()),
-    ])
+    const knownNames = new Set(
+      (customTags ?? []).map((t: { name: string }) => t.name.toLowerCase()),
+    )
     const unknownTags = addTags.filter((t) => !knownNames.has(t.toLowerCase()))
     if (unknownTags.length > 0) {
       return NextResponse.json({ error: `Unknown tags: ${unknownTags.join(', ')}` }, { status: 400 })

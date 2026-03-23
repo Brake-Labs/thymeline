@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import type { RecipeListItem, RecipeFilters } from '@/types'
 import RecipeGrid from '@/components/recipes/RecipeGrid'
 import RecipeListView, { ListSortKey } from '@/components/recipes/RecipeListView'
@@ -72,7 +73,22 @@ function sortListView(
   })
 }
 
+const VALID_SORT_KEYS = new Set(['title', 'category', 'total_time_minutes', 'last_made'])
+const VALID_SORT_DIRS = new Set(['asc', 'desc'])
+
+function parseSortParams(params: URLSearchParams): { key: ListSortKey; dir: 'asc' | 'desc' | null } {
+  const sort = params.get('sort')
+  const dir = params.get('dir')
+  if (sort && VALID_SORT_KEYS.has(sort) && dir && VALID_SORT_DIRS.has(dir)) {
+    return { key: sort as ListSortKey, dir: dir as 'asc' | 'desc' }
+  }
+  return { key: null, dir: null }
+}
+
 export default function RecipePageContent() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+
   const [recipes, setRecipes] = useState<RecipeListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
@@ -98,9 +114,8 @@ export default function RecipePageContent() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [bulkDeleting, setBulkDeleting] = useState(false)
 
-  // List sort (3-click cycle: null → asc → desc → null)
-  const [listSortKey, setListSortKey] = useState<ListSortKey>(null)
-  const [listSortDir, setListSortDir] = useState<'asc' | 'desc' | null>(null)
+  // List sort — persisted in URL as ?sort=<key>&dir=<asc|desc>
+  const { key: listSortKey, dir: listSortDir } = parseSortParams(searchParams)
 
   // Init view mode from localStorage
   useEffect(() => {
@@ -222,15 +237,18 @@ export default function RecipePageContent() {
 
   function handleListSort(key: ListSortKey) {
     if (key === null) return
+    const params = new URLSearchParams(searchParams.toString())
     if (listSortKey !== key) {
-      setListSortKey(key)
-      setListSortDir('asc')
+      params.set('sort', key)
+      params.set('dir', 'asc')
     } else if (listSortDir === 'asc') {
-      setListSortDir('desc')
+      params.set('sort', key)
+      params.set('dir', 'desc')
     } else {
-      setListSortKey(null)
-      setListSortDir(null)
+      params.delete('sort')
+      params.delete('dir')
     }
+    router.replace(`?${params.toString()}`)
   }
 
   async function handleBulkAddTags(tags: string[]) {
