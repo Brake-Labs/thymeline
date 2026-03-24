@@ -10,6 +10,7 @@ const MEAL_TYPE_LABELS: Record<MealType, string> = {
   lunch:     'Lunch',
   dinner:    'Dinner',
   snack:     'Snacks',
+  dessert:   'Dessert',
 }
 
 interface SuggestionMealSlotRowProps {
@@ -25,11 +26,14 @@ interface SuggestionMealSlotRowProps {
   onAssignToDay:(recipe: RecipeSuggestion, sourceDate: string, targetDate: string, mealType: MealType) => void
   onVaultPick:  (date: string, mealType: MealType, recipe: { recipe_id: string; recipe_title: string }) => void
   onFreeTextMatch:(query: string, date: string, mealType: MealType) => Promise<{ matched: boolean }>
+  onDessertPick?:   (date: string, mealType: MealType, recipe: { recipe_id: string; recipe_title: string }) => void
+  onDessertRemove?: (date: string, mealType: MealType) => void
 }
 
 export default function SuggestionMealSlotRow({
   date, mealType, options, selection, isSwapping, activeDates,
   onSelect, onSkip, onSwap, onAssignToDay, onVaultPick, onFreeTextMatch,
+  onDessertPick, onDessertRemove,
 }: SuggestionMealSlotRowProps) {
   const [assignOpen, setAssignOpen] = useState<string | null>(null)
   const [assignRecipe, setAssignRecipe] = useState<RecipeSuggestion | null>(null)
@@ -38,10 +42,14 @@ export default function SuggestionMealSlotRow({
   const [freeTextQuery, setFreeTextQuery] = useState('')
   const [freeTextLoading, setFreeTextLoading] = useState(false)
   const [freeTextError, setFreeTextError] = useState('')
+  const [dessertVaultOpen, setDessertVaultOpen] = useState(false)
+  const [dessertEntry, setDessertEntry] = useState<{ recipe_id: string; recipe_title: string } | null>(null)
   const assignRef = useRef<HTMLDivElement>(null)
 
   const isSkipped = selection === null
   const isSelected = (recipeId: string) => selection?.recipe_id === recipeId
+  const canHaveDessert = mealType === 'dinner' || mealType === 'lunch'
+  const hasSelection = selection !== null && selection !== undefined
 
   const handleFreeTextSubmit = async () => {
     if (!freeTextQuery.trim()) return
@@ -184,6 +192,35 @@ export default function SuggestionMealSlotRow({
             })
           )}
 
+          {/* Dessert add-on — shown when a main recipe is selected for dinner/lunch */}
+          {canHaveDessert && hasSelection && (
+            <div className="px-3 py-2 border-t border-stone-50">
+              {dessertEntry ? (
+                <div className="flex items-center gap-2 pl-4">
+                  <span className="text-xs font-medium text-stone-400 flex-shrink-0">Dessert</span>
+                  <span className="text-xs text-stone-600 flex-1 truncate">{dessertEntry.recipe_title}</span>
+                  <button
+                    onClick={() => {
+                      setDessertEntry(null)
+                      onDessertRemove?.(date, mealType)
+                    }}
+                    aria-label="Remove dessert"
+                    className="text-stone-300 hover:text-red-400 transition-colors text-base leading-none"
+                  >
+                    ×
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setDessertVaultOpen(true)}
+                  className="text-xs text-stone-400 hover:text-stone-600 pl-4 underline transition-colors"
+                >
+                  Add dessert
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Footer actions */}
           <div className="flex flex-wrap gap-2 px-3 py-2.5 bg-stone-50/50 border-t border-stone-100">
             <button
@@ -230,7 +267,7 @@ export default function SuggestionMealSlotRow({
         </div>
       )}
 
-      {/* Vault search sheet */}
+      {/* Vault search sheet for main slot */}
       {vaultOpen && (
         <VaultSearchSheet
           forDate={date}
@@ -240,6 +277,20 @@ export default function SuggestionMealSlotRow({
             setVaultOpen(false)
           }}
           onClose={() => setVaultOpen(false)}
+        />
+      )}
+
+      {/* Vault search sheet for dessert */}
+      {dessertVaultOpen && (
+        <VaultSearchSheet
+          forDate={date}
+          mealType="dessert"
+          onAssign={(recipe) => {
+            setDessertEntry(recipe)
+            onDessertPick?.(date, mealType, recipe)
+            setDessertVaultOpen(false)
+          }}
+          onClose={() => setDessertVaultOpen(false)}
         />
       )}
     </div>
