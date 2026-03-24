@@ -297,6 +297,38 @@ describe('T10 - × button on a recipe calls onDelete', () => {
   })
 })
 
+// ── T-TIME: MealSlot shows total_time_minutes when present ────────────────────
+
+describe('MealSlot - recipe time display', () => {
+  it('renders formatted time next to recipe name when total_time_minutes is present', () => {
+    const entry = makeEntry({ total_time_minutes: 45 })
+    render(
+      <MealSlot
+        mealType="dinner"
+        entries={[entry]}
+        onAdd={vi.fn()}
+        onDelete={vi.fn()}
+        onAddSideDish={vi.fn()}
+      />
+    )
+    expect(screen.getByText('· 45 min')).toBeInTheDocument()
+  })
+
+  it('renders nothing for time when total_time_minutes is null', () => {
+    const entry = makeEntry({ total_time_minutes: null })
+    render(
+      <MealSlot
+        mealType="dinner"
+        entries={[entry]}
+        onAdd={vi.fn()}
+        onDelete={vi.fn()}
+        onAddSideDish={vi.fn()}
+      />
+    )
+    expect(screen.queryByText(/min/)).not.toBeInTheDocument()
+  })
+})
+
 // ── T21: Existing dinner-only plan renders correctly ──────────────────────────
 
 describe('T21 - Existing dinner-only plans render correctly in Dinner slot', () => {
