@@ -19,7 +19,7 @@ interface ScrapeResult {
   sourceUrl: string
   partial: boolean
   suggestedTags:       string[]
-  suggestedNewTags:    string[]
+  suggestedNewTags:    { name: string; section: string }[]
   prepTimeMinutes:     number | null
   cookTimeMinutes:     number | null
   totalTimeMinutes:    number | null

@@ -11,10 +11,15 @@ interface CustomTag {
   section: Section
 }
 
+export interface PendingNewTag {
+  name:    string
+  section: Section
+}
+
 interface TagSelectorProps {
   selected:     string[]
   suggested?:   string[]
-  pendingNew?:  string[]
+  pendingNew?:  PendingNewTag[]
   onChange:     (tags: string[]) => void
   onCreateTag?: (tag: string) => void
 }
@@ -34,20 +39,20 @@ const SECTION_LABELS: Record<Section, string> = {
 export default function TagSelector({
   selected,
   suggested = [],
-  pendingNew = [],
+  pendingNew = [] as PendingNewTag[],
   onChange,
   onCreateTag,
 }: TagSelectorProps) {
   const [customTags, setCustomTags] = useState<CustomTag[]>([])
   const [interactedSuggested, setInteractedSuggested] = useState<Set<string>>(new Set())
-  const [localPendingNew, setLocalPendingNew] = useState<string[]>(pendingNew)
+  const [localPendingNew, setLocalPendingNew] = useState<PendingNewTag[]>(pendingNew)
   const [showInput, setShowInput] = useState<Section | false>(false)
   const [inputValue, setInputValue] = useState('')
   const [dedupHint, setDedupHint] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Sync localPendingNew when prop changes
-  const pendingNewKey = pendingNew.join(',')
+  const pendingNewKey = pendingNew.map((t) => t.name).join(',')
   useEffect(() => {
     setLocalPendingNew(pendingNew)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -95,26 +100,26 @@ export default function TagSelector({
     return 'border border-stone-300 text-stone-600 bg-white hover:bg-stone-50'
   }
 
-  async function handleConfirmPendingNew(name: string) {
+  async function handleConfirmPendingNew(tag: PendingNewTag) {
     try {
       const token = await getAccessToken()
       const res = await fetch('/api/tags', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name, section: 'cuisine' }),
+        body: JSON.stringify({ name: tag.name, section: tag.section }),
       })
       if (res.ok) {
         const created: CustomTag = await res.json()
-        setCustomTags((prev) => [...prev, { name: created.name, section: created.section ?? 'cuisine' }])
+        setCustomTags((prev) => [...prev, { name: created.name, section: created.section ?? tag.section }])
         onChange([...selected, created.name])
-        setLocalPendingNew((prev) => prev.filter((t) => t !== name))
+        setLocalPendingNew((prev) => prev.filter((t) => t.name !== tag.name))
         onCreateTag?.(created.name)
       }
     } catch { /* non-fatal */ }
   }
 
   function handleDismissPendingNew(name: string) {
-    setLocalPendingNew((prev) => prev.filter((t) => t !== name))
+    setLocalPendingNew((prev) => prev.filter((t) => t.name !== name))
   }
 
   async function handleCreateFromInput() {
@@ -237,25 +242,25 @@ export default function TagSelector({
         <div>
           <p className="text-xs text-stone-400 mb-1.5">Suggested new</p>
           <div className="flex flex-wrap gap-1.5">
-            {localPendingNew.map((name) => (
+            {localPendingNew.map((tag) => (
               <span
-                key={name}
+                key={tag.name}
                 className="relative inline-flex items-center rounded-full text-xs border border-dashed border-amber-400 bg-amber-50 text-amber-800"
               >
                 <button
                   type="button"
-                  onClick={() => handleConfirmPendingNew(name)}
+                  onClick={() => handleConfirmPendingNew(tag)}
                   className="pl-2.5 pr-1 py-1 leading-none"
-                  aria-label={`Confirm tag ${name}`}
+                  aria-label={`Confirm tag ${tag.name}`}
                 >
-                  {name}
+                  {tag.name}
                 </button>
                 <span aria-hidden="true" className="absolute -top-1 -right-1 text-[8px] leading-none pointer-events-none">✦</span>
                 <button
                   type="button"
-                  onClick={() => handleDismissPendingNew(name)}
+                  onClick={() => handleDismissPendingNew(tag.name)}
                   className="pr-2 py-1 text-amber-600 hover:text-amber-900 focus:outline-none"
-                  aria-label={`Dismiss ${name}`}
+                  aria-label={`Dismiss ${tag.name}`}
                 >
                   ×
                 </button>

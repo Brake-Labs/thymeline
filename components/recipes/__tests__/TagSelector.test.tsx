@@ -109,7 +109,7 @@ describe('T03 - pendingNew chips have dashed amber border', () => {
     render(
       <TagSelector
         selected={[]}
-        pendingNew={['FancyDish']}
+        pendingNew={[{ name: 'FancyDish', section: 'cuisine' as const }]}
         onChange={vi.fn()}
       />,
     )
@@ -129,11 +129,27 @@ describe('T04 - Tapping pending-new chip body creates tag and selects it', () =>
     })
 
     const onChange = vi.fn()
-    render(<TagSelector selected={[]} pendingNew={['FancyDish']} onChange={onChange} />)
+    render(<TagSelector selected={[]} pendingNew={[{ name: 'FancyDish', section: 'cuisine' as const }]} onChange={onChange} />)
     fireEvent.click(screen.getByLabelText('Confirm tag FancyDish'))
 
     await waitFor(() => {
       expect(onChange).toHaveBeenCalledWith(['FancyDish'])
+    })
+  })
+
+  it('POSTs the tag with the section from the pendingNew object, not hardcoded cuisine', async () => {
+    let postedBody: { name: string; section: string } | null = null
+    mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
+      if (!opts?.method || opts.method === 'GET') return makeTagsResponse()
+      postedBody = JSON.parse(opts.body as string)
+      return makeCreateResponse('BaconBits')
+    })
+
+    render(<TagSelector selected={[]} pendingNew={[{ name: 'BaconBits', section: 'protein' as const }]} onChange={vi.fn()} />)
+    fireEvent.click(screen.getByLabelText('Confirm tag BaconBits'))
+
+    await waitFor(() => {
+      expect(postedBody).toMatchObject({ name: 'BaconBits', section: 'protein' })
     })
   })
 })
@@ -142,14 +158,14 @@ describe('T04 - Tapping pending-new chip body creates tag and selects it', () =>
 
 describe('T05 - Tapping × on pending-new chip removes it without creating', () => {
   it('removes chip from pending-new on × click', () => {
-    render(<TagSelector selected={[]} pendingNew={['FancyDish']} onChange={vi.fn()} />)
+    render(<TagSelector selected={[]} pendingNew={[{ name: 'FancyDish', section: 'cuisine' as const }]} onChange={vi.fn()} />)
     expect(screen.getByLabelText('Confirm tag FancyDish')).toBeInTheDocument()
     fireEvent.click(screen.getByLabelText('Dismiss FancyDish'))
     expect(screen.queryByLabelText('Confirm tag FancyDish')).not.toBeInTheDocument()
   })
 
   it('does not call POST /api/tags when × is clicked', () => {
-    render(<TagSelector selected={[]} pendingNew={['FancyDish']} onChange={vi.fn()} />)
+    render(<TagSelector selected={[]} pendingNew={[{ name: 'FancyDish', section: 'cuisine' as const }]} onChange={vi.fn()} />)
     fireEvent.click(screen.getByLabelText('Dismiss FancyDish'))
     const postCalls = mockFetch.mock.calls.filter(
       ([, opts]) => opts?.method === 'POST',
