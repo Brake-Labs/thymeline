@@ -265,9 +265,21 @@ export default function RecipeDetailPage({ params }: Props) {
 
           {/* Footer */}
           <div className="px-6 py-4 flex flex-wrap items-center justify-between gap-3">
-            <p className="font-sans text-[12px] text-stone-400">
-              {lastMadeLabel}
-            </p>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
+              {recipe.url && (
+                <a
+                  href={recipe.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-sans text-[11px] text-sage-600 no-underline hover:underline"
+                >
+                  View original recipe →
+                </a>
+              )}
+              <p className="font-sans text-[12px] text-stone-400">
+                {lastMadeLabel}
+              </p>
+            </div>
             <div className="flex flex-wrap items-center gap-3">
             {isOwner && (
               <Link

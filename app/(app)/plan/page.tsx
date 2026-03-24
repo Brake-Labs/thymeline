@@ -7,7 +7,7 @@ import SuggestionsStep from '@/components/plan/SuggestionsStep'
 import SummaryStep from '@/components/plan/SummaryStep'
 import PostSaveModal from '@/components/plan/PostSaveModal'
 import { getAccessToken } from '@/lib/supabase/browser'
-import type { RecipeSuggestion, DaySelection, DaySuggestions, MealType } from '@/types'
+import type { RecipeSuggestion, DaySelection, DaySuggestions, MealType, SavedPlanEntry } from '@/types'
 import type { MealTypeState } from '@/components/plan/SuggestionDayRow'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -75,6 +75,7 @@ function PlanPageInner() {
   })
   const [suggestions, setSuggestions] = useState<SuggestionsState | null>(null)
   const [selections, setSelections] = useState<SelectionsMap>({})
+  const [dessertSelections, setDessertSelections] = useState<Record<string, { recipe_id: string; recipe_title: string }>>({})
   const [isGenerating, setIsGenerating] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [savedWeekStart, setSavedWeekStart] = useState<string | null>(null)
@@ -332,11 +333,26 @@ function PlanPageInner() {
     }
   }
 
+  // ── Dessert picks ─────────────────────────────────────────────────────────────
+
+  const handleDessertPick = (date: string, mealType: MealType, recipe: { recipe_id: string; recipe_title: string }) => {
+    setDessertSelections((prev) => ({ ...prev, [`${date}:${mealType}`]: recipe }))
+  }
+
+  const handleDessertRemove = (date: string, mealType: MealType) => {
+    setDessertSelections((prev) => {
+      const next = { ...prev }
+      delete next[`${date}:${mealType}`]
+      return next
+    })
+  }
+
   // ── Regenerate ────────────────────────────────────────────────────────────────
 
   const handleRegenerate = (onlyUnselected?: boolean) => {
     if (!onlyUnselected) {
       setSelections({})
+      setDessertSelections({})
       fetchSuggestions(setup.activeDates)
     } else {
       const unselectedDates = setup.activeDates.filter((d) =>
@@ -374,6 +390,32 @@ function PlanPageInner() {
         try { const body = await res.json(); if (body.error) msg = body.error } catch { /* ignore */ }
         throw new Error(msg)
       }
+
+      const savedData = await res.json() as { plan_id: string; entries: SavedPlanEntry[] }
+
+      // Save desserts: match each dessert to its parent entry by date + meal_type
+      for (const [key, dessert] of Object.entries(dessertSelections)) {
+        const colonIdx = key.indexOf(':')
+        const date = key.slice(0, colonIdx)
+        const parentMealType = key.slice(colonIdx + 1) as MealType
+        const parent = savedData.entries.find(
+          (e) => e.planned_date === date && e.meal_type === parentMealType && !e.is_side_dish
+        )
+        if (!parent) continue
+        await fetch('/api/plan/entries', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            week_start:      setup.weekStart,
+            date,
+            recipe_id:       dessert.recipe_id,
+            meal_type:       'dessert',
+            is_side_dish:    true,
+            parent_entry_id: parent.id,
+          }),
+        })
+      }
+
       setSavedWeekStart(setup.weekStart)
       router.push('/plan?step=summary')
     } finally {
@@ -408,6 +450,8 @@ function PlanPageInner() {
             onAssignToDay={handleAssignToDay}
             onVaultPick={handleVaultPick}
             onFreeTextMatch={handleFreeTextMatch}
+            onDessertPick={handleDessertPick}
+            onDessertRemove={handleDessertRemove}
             onRegenerate={handleRegenerate}
             onConfirm={() => router.push('/plan?step=summary')}
             onBack={() => router.push('/plan?step=setup')}
