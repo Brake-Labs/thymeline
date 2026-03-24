@@ -347,6 +347,20 @@ function PlanPageInner() {
     })
   }
 
+  // ── Dessert picks ─────────────────────────────────────────────────────────────
+
+  const handleDessertPick = (date: string, mealType: MealType, recipe: { recipe_id: string; recipe_title: string }) => {
+    setDessertSelections((prev) => ({ ...prev, [`${date}:${mealType}`]: recipe }))
+  }
+
+  const handleDessertRemove = (date: string, mealType: MealType) => {
+    setDessertSelections((prev) => {
+      const next = { ...prev }
+      delete next[`${date}:${mealType}`]
+      return next
+    })
+  }
+
   // ── Regenerate ────────────────────────────────────────────────────────────────
 
   const handleRegenerate = (onlyUnselected?: boolean) => {
