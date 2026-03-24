@@ -266,10 +266,11 @@ describe('POST /api/recipes/scrape', () => {
 
   // ── Spec-06 T01: suggestedTags / suggestedNewTags ───────────────────────────
 
-  it('T01 (spec-06): returns suggestedTags (canonical casing) and suggestedNewTags (Title Case)', async () => {
+  it('T01 (spec-06): returns suggestedTags (canonical casing) and suggestedNewTags ({name,section})', async () => {
     // 'chicken' → matches first-class 'Chicken' → goes to suggestedTags
     // 'my-custom-sauce' → matches user custom tag 'My-Custom-Sauce' → goes to suggestedTags
-    // 'weird-technique' → no match → Title Case → goes to suggestedNewTags
+    // 'weird-technique' → not in suggestedTags → silently dropped
+    // LLM-supplied suggestedNewTags with section → passed through (Title Case normalised)
     const mock = makeSupabaseMock({
       customTags: [{ name: 'My-Custom-Sauce' }],
     })
@@ -281,6 +282,7 @@ describe('POST /api/recipes/scrape', () => {
         steps: 'Cook it',
         imageUrl: null,
         suggestedTags: ['chicken', 'my-custom-sauce', 'weird-technique'],
+        suggestedNewTags: [{ name: 'weird-technique', section: 'style' }],
       }) }],
     } as unknown as Awaited<ReturnType<typeof anthropic.messages.create>>)
 
@@ -290,10 +292,36 @@ describe('POST /api/recipes/scrape', () => {
     )
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.suggestedTags).toContain('Chicken')        // canonical casing
+    expect(body.suggestedTags).toContain('Chicken')         // canonical casing
     expect(body.suggestedTags).toContain('My-Custom-Sauce') // matched custom
-    expect(body.suggestedNewTags).toContain('Weird-Technique') // Title Case normalized
-    // Matched tags not in suggestedNewTags
-    expect(body.suggestedNewTags).not.toContain('Chicken')
+    expect(body.suggestedTags).not.toContain('weird-technique') // unmatched dropped from suggestedTags
+    // suggestedNewTags carries {name, section} objects from the LLM
+    expect(body.suggestedNewTags).toHaveLength(1)
+    expect(body.suggestedNewTags[0]).toMatchObject({ name: 'Weird-Technique', section: 'style' })
+  })
+
+  it('T01b (spec-06): suggestedNewTags with invalid section are filtered out', async () => {
+    vi.mocked(createServerClient).mockReturnValue(makeSupabaseMock({}) as ReturnType<typeof createServerClient>)
+    vi.mocked(anthropic.messages.create).mockResolvedValue({
+      content: [{ type: 'text', text: JSON.stringify({
+        title: 'Pasta',
+        ingredients: '200g pasta',
+        steps: 'Cook it',
+        imageUrl: null,
+        suggestedTags: [],
+        suggestedNewTags: [
+          { name: 'ValidTag', section: 'protein' },
+          { name: 'BadTag', section: 'invalid-bucket' },
+        ],
+      }) }],
+    } as unknown as Awaited<ReturnType<typeof anthropic.messages.create>>)
+
+    const { POST } = await import('@/app/api/recipes/scrape/route')
+    const res = await POST(
+      makeReq('http://localhost/api/recipes/scrape', 'POST', { url: 'https://example.com/recipe' }),
+    )
+    const body = await res.json()
+    expect(body.suggestedNewTags).toHaveLength(1)
+    expect(body.suggestedNewTags[0]).toMatchObject({ name: 'ValidTag', section: 'protein' })
   })
 })
