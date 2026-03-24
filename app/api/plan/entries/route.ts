@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
       is_side_dish,
       parent_entry_id: parent_entry_id ?? null,
     })
-    .select('id, recipe_id, planned_date, position, confirmed, meal_type, is_side_dish, parent_entry_id, recipes(title)')
+    .select('id, recipe_id, planned_date, position, confirmed, meal_type, is_side_dish, parent_entry_id, recipes(title, total_time_minutes)')
     .single()
 
   if (entryError || !entry) {
@@ -103,7 +103,8 @@ export async function POST(req: NextRequest) {
     is_side_dish:    entry.is_side_dish,
     parent_entry_id: entry.parent_entry_id,
     confirmed:       entry.confirmed,
-    position:        entry.position,
+    position:           entry.position,
+    total_time_minutes: ((entry.recipes as unknown) as { total_time_minutes: number | null } | null)?.total_time_minutes ?? null,
   }
 
   return NextResponse.json(planEntry, { status: 201 })

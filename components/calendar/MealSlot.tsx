@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import VaultSearchSheet from '@/components/plan/VaultSearchSheet'
+import { formatMinutes } from '@/lib/format-time'
 import type { PlanEntry, MealType } from '@/types'
 
 const MEAL_TYPE_LABELS: Record<MealType, string> = {
@@ -52,9 +53,12 @@ export default function MealSlot({ mealType, entries, onAdd, onDelete, onAddSide
             <div className="flex items-center justify-between gap-2 py-1 px-2 rounded-lg hover:bg-stone-50 group">
               <Link
                 href={`/recipes/${entry.recipe_id}`}
-                className="text-sm text-stone-800 hover:text-sage-600 flex-1 truncate transition-colors"
+                className="text-sm text-stone-800 hover:text-sage-600 flex-1 min-w-0 transition-colors"
               >
-                {entry.recipe_title}
+                <span className="truncate">{entry.recipe_title}</span>
+                {entry.total_time_minutes != null && (
+                  <span className="text-stone-400 text-xs ml-1.5">· {formatMinutes(entry.total_time_minutes)}</span>
+                )}
               </Link>
               <button
                 onClick={() => onDelete(entry.id)}
@@ -70,9 +74,12 @@ export default function MealSlot({ mealType, entries, onAdd, onDelete, onAddSide
               <div key={sd.id} className="flex items-center justify-between gap-2 py-0.5 pl-6 pr-2 rounded-lg hover:bg-stone-50 group">
                 <Link
                   href={`/recipes/${sd.recipe_id}`}
-                  className="text-xs text-stone-500 hover:text-sage-600 flex-1 truncate transition-colors"
+                  className="text-xs text-stone-500 hover:text-sage-600 flex-1 min-w-0 transition-colors"
                 >
-                  {sd.recipe_title}
+                  <span className="truncate">{sd.recipe_title}</span>
+                  {sd.total_time_minutes != null && (
+                    <span className="text-stone-400 text-xs ml-1.5">· {formatMinutes(sd.total_time_minutes)}</span>
+                  )}
                 </Link>
                 <button
                   onClick={() => onDelete(sd.id)}

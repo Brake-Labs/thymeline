@@ -68,7 +68,8 @@ export async function POST(req: NextRequest) {
     confirmed:       true,
     meal_type:       e.meal_type ?? 'dinner',
     is_side_dish:    e.is_side_dish ?? false,
-    parent_entry_id: e.parent_entry_id ?? null,
+    parent_entry_id:    e.parent_entry_id ?? null,
+    total_time_minutes: ((e.recipes as unknown) as { total_time_minutes: number | null } | null)?.total_time_minutes ?? null,
   }))
 
   const { data: savedEntries, error: entryError } = await db
@@ -115,7 +116,7 @@ export async function GET(req: NextRequest) {
 
   const { data: entries } = await db
     .from('meal_plan_entries')
-    .select('id, planned_date, recipe_id, position, confirmed, meal_type, is_side_dish, parent_entry_id, recipes(title)')
+    .select('id, planned_date, recipe_id, position, confirmed, meal_type, is_side_dish, parent_entry_id, recipes(title, total_time_minutes)')
     .eq('meal_plan_id', plan.id)
     .order('planned_date')
 
