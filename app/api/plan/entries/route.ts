@@ -24,7 +24,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
 
-  const { week_start, date, recipe_id, meal_type, is_side_dish = false, parent_entry_id } = body
+  const { week_start, date, recipe_id, meal_type, parent_entry_id } = body
+  const is_side_dish = meal_type === 'dessert' ? true : (body.is_side_dish ?? false)
 
   // Validate week_start is a Sunday
   if (!isSunday(week_start)) {
@@ -39,17 +40,32 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'date must fall within the week of week_start' }, { status: 400 })
   }
 
-  // Side dishes only allowed for Dinner and Lunch
-  if (is_side_dish && meal_type !== 'dinner' && meal_type !== 'lunch') {
+  // Non-dessert side dishes only allowed for Dinner and Lunch
+  if (is_side_dish && meal_type !== 'dessert' && meal_type !== 'dinner' && meal_type !== 'lunch') {
     return NextResponse.json({ error: 'Side dishes are only allowed for Dinner and Lunch slots.' }, { status: 400 })
   }
 
-  // Side dish requires parent_entry_id
-  if (is_side_dish && !parent_entry_id) {
+  // Non-dessert side dish requires parent_entry_id
+  if (is_side_dish && meal_type !== 'dessert' && !parent_entry_id) {
     return NextResponse.json({ error: 'parent_entry_id is required for side dish entries' }, { status: 400 })
   }
 
   const db = createAdminClient()
+
+  // Dessert: require parent_entry_id and validate parent is a Dinner or Lunch slot
+  if (meal_type === 'dessert') {
+    if (!parent_entry_id) {
+      return NextResponse.json({ error: 'parent_entry_id is required for dessert entries' }, { status: 400 })
+    }
+    const { data: parentEntry } = await db
+      .from('meal_plan_entries')
+      .select('meal_type')
+      .eq('id', parent_entry_id)
+      .maybeSingle()
+    if (!parentEntry || (parentEntry.meal_type !== 'dinner' && parentEntry.meal_type !== 'lunch')) {
+      return NextResponse.json({ error: 'Dessert entries are only allowed for Dinner and Lunch slots.' }, { status: 400 })
+    }
+  }
 
   // Upsert meal_plans on (user_id, week_start)
   const { data: existingPlan } = await db
