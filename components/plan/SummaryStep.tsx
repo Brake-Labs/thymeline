@@ -43,6 +43,7 @@ const MEAL_TYPE_LABELS: Record<MealType, string> = {
   lunch:     'Lunch',
   dinner:    'Dinner',
   snack:     'Snacks',
+  dessert:   'Dessert',
 }
 
 export default function SummaryStep({ setup, selections, onSave, isSaving, onBack }: SummaryStepProps) {
