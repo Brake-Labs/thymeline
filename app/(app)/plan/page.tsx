@@ -393,6 +393,7 @@ function PlanPageInner() {
 
       const savedData = await res.json() as { plan_id: string; entries: SavedPlanEntry[] }
 
+      // Save desserts: match each dessert to its parent entry by date + meal_type
       for (const [key, dessert] of Object.entries(dessertSelections)) {
         const colonIdx = key.indexOf(':')
         const date = key.slice(0, colonIdx)
@@ -404,7 +405,14 @@ function PlanPageInner() {
         await fetch('/api/plan/entries', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ week_start: setup.weekStart, date, recipe_id: dessert.recipe_id, meal_type: 'dessert', is_side_dish: true, parent_entry_id: parent.id }),
+          body: JSON.stringify({
+            week_start:      setup.weekStart,
+            date,
+            recipe_id:       dessert.recipe_id,
+            meal_type:       'dessert',
+            is_side_dish:    true,
+            parent_entry_id: parent.id,
+          }),
         })
       }
 
