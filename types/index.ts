@@ -65,6 +65,7 @@ export interface Recipe {
   cook_time_minutes:     number | null
   total_time_minutes:    number | null
   inactive_time_minutes: number | null
+  servings:              number | null
 }
 
 export interface RecipeListItem {
@@ -192,7 +193,7 @@ export interface GroceryItem {
 export interface RecipeScale {
   recipe_id:    string
   recipe_title: string
-  people_count: number | null  // null = use plan-level default
+  servings:     number | null  // null = use plan-level default
 }
 
 export interface GroceryList {
@@ -200,7 +201,7 @@ export interface GroceryList {
   user_id:       string
   meal_plan_id:  string
   week_start:    string
-  people_count:  number
+  servings:      number
   recipe_scales: RecipeScale[]
   items:         GroceryItem[]
   created_at:    string

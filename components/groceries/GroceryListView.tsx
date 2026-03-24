@@ -7,7 +7,7 @@ import GroceryItemRow from './GroceryItemRow'
 import RecipeSectionGroup from './RecipeSectionGroup'
 import AddItemInput from './AddItemInput'
 import { getAccessToken } from '@/lib/supabase/browser'
-import { effectivePeopleCount, formatWeekLabel, buildPlainTextList, scaleItem } from '@/lib/grocery'
+import { effectiveServings, formatWeekLabel, buildPlainTextList, scaleItem } from '@/lib/grocery'
 
 interface GroceryListViewProps {
   initialList: GroceryList
@@ -15,7 +15,7 @@ interface GroceryListViewProps {
 
 export default function GroceryListView({ initialList }: GroceryListViewProps) {
   const [items, setItems] = useState<GroceryItem[]>(initialList.items)
-  const [planPeople, setPlanPeople] = useState(initialList.people_count)
+  const [planServings, setPlanServings] = useState(initialList.servings)
   const [recipeScales, setRecipeScales] = useState<RecipeScale[]>(initialList.recipe_scales)
   const [saving, setSaving] = useState(false)
   const [confirmRegenerate, setConfirmRegenerate] = useState(false)
@@ -28,7 +28,7 @@ export default function GroceryListView({ initialList }: GroceryListViewProps) {
 
   async function patch(payload: {
     items?:         GroceryItem[]
-    people_count?:  number
+    servings?:  number
     recipe_scales?: RecipeScale[]
   }) {
     setSaving(true)
@@ -76,29 +76,29 @@ export default function GroceryListView({ initialList }: GroceryListViewProps) {
     await patch({ items: updated })
   }, [items, weekStart]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── People count ────────────────────────────────────────────────────────────
+  // ── Servings ────────────────────────────────────────────────────────────────
 
-  const handlePlanPeopleChange = useCallback(async (newCount: number) => {
+  const handlePlanServingsChange = useCallback(async (newCount: number) => {
     // Rescale items for recipes that don't have an override
-    const oldCount = planPeople
+    const oldCount = planServings
     const updated = items.map((item) => {
       if (item.checked || item.amount === null) return item
       // Find what recipe this item belongs to (use first recipe title)
       const firstTitle = item.recipes[0]
       if (!firstTitle) return item
       const scale = recipeScales.find((s) => s.recipe_title === firstTitle)
-      if (scale?.people_count !== null && scale?.people_count !== undefined) return item // has override
+      if (scale?.servings !== null && scale?.servings !== undefined) return item // has override
       // Rescale: divide by old, multiply by new
       const newAmount = Math.round(item.amount * (newCount / oldCount) * 100) / 100
       return { ...item, amount: newAmount }
     })
     setItems(updated)
     setPlanPeople(newCount)
-    await patch({ items: updated, people_count: newCount })
-  }, [items, planPeople, recipeScales, weekStart]) // eslint-disable-line react-hooks/exhaustive-deps
+    await patch({ items: updated, servings: newCount })
+  }, [items, planServings, recipeScales, weekStart]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleRecipePeopleChange = useCallback(async (recipeId: string, recipeTitle: string, newCount: number) => {
-    const currentEffective = effectivePeopleCount(recipeId, recipeScales, planPeople)
+  const handleRecipeServingsChange = useCallback(async (recipeId: string, recipeTitle: string, newCount: number) => {
+    const currentEffective = effectiveServings(recipeId, recipeScales, planServings)
     // Rescale items belonging to this recipe
     const updated = items.map((item) => {
       if (item.checked || item.amount === null) return item
@@ -107,31 +107,31 @@ export default function GroceryListView({ initialList }: GroceryListViewProps) {
       return { ...item, amount: newAmount }
     })
     const updatedScales = recipeScales.map((s) =>
-      s.recipe_id === recipeId ? { ...s, people_count: newCount } : s,
+      s.recipe_id === recipeId ? { ...s, servings: newCount } : s,
     )
     setItems(updated)
     setRecipeScales(updatedScales)
     await patch({ items: updated, recipe_scales: updatedScales })
-  }, [items, recipeScales, planPeople, weekStart]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [items, recipeScales, planServings, weekStart]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleResetOverride = useCallback(async (recipeId: string, recipeTitle: string) => {
     const scale = recipeScales.find((s) => s.recipe_id === recipeId)
-    if (!scale?.people_count) return
-    const currentOverride = scale.people_count
+    if (!scale?.servings) return
+    const currentOverride = scale.servings
     // Rescale back to plan default
     const updated = items.map((item) => {
       if (item.checked || item.amount === null) return item
       if (!item.recipes.includes(recipeTitle)) return item
-      const newAmount = Math.round(item.amount * (planPeople / currentOverride) * 100) / 100
+      const newAmount = Math.round(item.amount * (planServings / currentOverride) * 100) / 100
       return { ...item, amount: newAmount }
     })
     const updatedScales = recipeScales.map((s) =>
-      s.recipe_id === recipeId ? { ...s, people_count: null } : s,
+      s.recipe_id === recipeId ? { ...s, servings: null } : s,
     )
     setItems(updated)
     setRecipeScales(updatedScales)
     await patch({ items: updated, recipe_scales: updatedScales })
-  }, [items, recipeScales, planPeople, weekStart]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [items, recipeScales, planServings, weekStart]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Regenerate ──────────────────────────────────────────────────────────────
 
@@ -148,7 +148,7 @@ export default function GroceryListView({ initialList }: GroceryListViewProps) {
       if (res.ok) {
         const { list } = await res.json()
         setItems(list.items)
-        setPlanPeople(list.people_count)
+        setPlanServings(list.servings)
         setRecipeScales(list.recipe_scales)
       }
     } finally {
@@ -159,7 +159,7 @@ export default function GroceryListView({ initialList }: GroceryListViewProps) {
   // ── Share ───────────────────────────────────────────────────────────────────
 
   async function handleShare() {
-    const text = buildPlainTextList(items, recipeScales, planPeople, weekStart)
+    const text = buildPlainTextList(items, recipeScales, planServings, weekStart)
     const title = `Grocery list — week of ${weekStart}`
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
@@ -196,11 +196,11 @@ export default function GroceryListView({ initialList }: GroceryListViewProps) {
         </h1>
         <div className="flex items-center gap-3">
           <StepperInput
-            value={planPeople}
+            value={planServings}
             min={1}
             max={20}
-            onChange={handlePlanPeopleChange}
-            label="People"
+            onChange={handlePlanServingsChange}
+            label="Servings"
           />
           <button
             type="button"
@@ -229,7 +229,7 @@ export default function GroceryListView({ initialList }: GroceryListViewProps) {
         {orderedTitles.map((title) => {
           const scale = recipeScales.find((s) => s.recipe_title === title)!
           const recipeItems = items.filter((i) => i.recipes.includes(title))
-          const effective = effectivePeopleCount(scale.recipe_id, recipeScales, planPeople)
+          const effective = effectiveServings(scale.recipe_id, recipeScales, planServings)
           return (
             <RecipeSectionGroup
               key={scale.recipe_id}
@@ -237,8 +237,8 @@ export default function GroceryListView({ initialList }: GroceryListViewProps) {
               recipeId={scale.recipe_id}
               items={recipeItems}
               effectiveCount={effective}
-              isOverridden={scale.people_count !== null}
-              onPeopleCountChange={(count) => handleRecipePeopleChange(scale.recipe_id, title, count)}
+              isOverridden={scale.servings !== null}
+              onServingsChange={(count) => handleRecipeServingsChange(scale.recipe_id, title, count)}
               onResetOverride={() => handleResetOverride(scale.recipe_id, title)}
               onToggle={handleToggle}
               onRemove={handleRemove}
@@ -285,7 +285,7 @@ export default function GroceryListView({ initialList }: GroceryListViewProps) {
           <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full space-y-4">
             <h2 className="font-display text-base font-semibold text-stone-800">Regenerate grocery list?</h2>
             <p className="text-sm text-stone-600">
-              This will replace your current list and reset all per-recipe people counts.
+              This will replace your current list and reset all per-recipe servings.
             </p>
             <div className="flex gap-3">
               <button

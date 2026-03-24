@@ -10,7 +10,7 @@ interface RecipeSectionGroupProps {
   items:             GroceryItem[]
   effectiveCount:    number
   isOverridden:      boolean
-  onPeopleCountChange: (count: number) => void
+  onServingsChange: (count: number) => void
   onResetOverride:   () => void
   onToggle:          (itemId: string) => void
   onRemove:          (itemId: string) => void
@@ -22,7 +22,7 @@ export default function RecipeSectionGroup({
   items,
   effectiveCount,
   isOverridden,
-  onPeopleCountChange,
+  onServingsChange,
   onResetOverride,
   onToggle,
   onRemove,
@@ -58,8 +58,8 @@ export default function RecipeSectionGroup({
             value={effectiveCount}
             min={1}
             max={20}
-            onChange={onPeopleCountChange}
-            label="People"
+            onChange={onServingsChange}
+            label="Servings"
           />
         </div>
       </div>

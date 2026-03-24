@@ -49,7 +49,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'parent_entry_id is required for side dish entries' }, { status: 400 })
   }
 
+  // Dessert requires parent_entry_id
+  if (meal_type === 'dessert' && !parent_entry_id) {
+    return NextResponse.json({ error: 'parent_entry_id is required for dessert entries' }, { status: 400 })
+  }
+
   const db = createAdminClient()
+
+  // Dessert parent must be a Dinner or Lunch slot
+  if (meal_type === 'dessert' && parent_entry_id) {
+    const { data: parentEntry } = await db
+      .from('meal_plan_entries')
+      .select('meal_type')
+      .eq('id', parent_entry_id)
+      .maybeSingle()
+    if (!parentEntry || (parentEntry.meal_type !== 'dinner' && parentEntry.meal_type !== 'lunch')) {
+      return NextResponse.json({ error: 'Desserts can only be added to Dinner and Lunch slots.' }, { status: 400 })
+    }
+  }
 
   // Upsert meal_plans on (user_id, week_start)
   const { data: existingPlan } = await db

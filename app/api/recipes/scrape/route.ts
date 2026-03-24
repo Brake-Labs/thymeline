@@ -63,6 +63,7 @@ The JSON must have exactly these fields:
 - "steps": string or null (cooking steps, one per line, plain text without numbering — numbering is a display concern)
 - "imageUrl": string or null (URL of the main recipe image if present)
 - "suggestedTags": array of strings. Suggest relevant tags for this recipe. Prioritize tags from this list: ${firstClassList}. Keep total suggestions to 6 or fewer. Never suggest protein tags that don't apply to this recipe. Tag definitions: "Quick" = total prep + cook time is 30 minutes or less. Cuisine tags (Italian, Mexican, Thai, Indian, Greek, French, Middle Eastern, American, Chinese, Japanese, Irish, Hungarian, Mediterranean) — apply only when the recipe's cuisine is clearly identifiable. Dietary tags (Vegetarian, Vegan, Gluten-Free, Dairy-Free, Keto, Paleo, Whole30, etc.) — apply only when the recipe clearly qualifies.
+- "servings": number of servings this recipe makes as an integer, or null
 - "prepTimeMinutes": prep time in minutes as an integer, or null
 - "cookTimeMinutes": cook time in minutes as an integer, or null
 - "totalTimeMinutes": total time in minutes as an integer, or null
@@ -81,6 +82,7 @@ ${pageContent.slice(0, 20000)}`
     steps: string | null
     imageUrl: string | null
     suggestedTags: string[]
+    servings: number | null
     prepTimeMinutes: number | null
     cookTimeMinutes: number | null
     totalTimeMinutes: number | null
@@ -91,6 +93,7 @@ ${pageContent.slice(0, 20000)}`
     steps: null,
     imageUrl: null,
     suggestedTags: [],
+    servings: null,
     prepTimeMinutes: null,
     cookTimeMinutes: null,
     totalTimeMinutes: null,
@@ -118,6 +121,7 @@ ${pageContent.slice(0, 20000)}`
       steps: typeof parsed.steps === 'string' ? parsed.steps : null,
       imageUrl: typeof parsed.imageUrl === 'string' ? parsed.imageUrl : null,
       suggestedTags: rawSuggested,
+      servings: Number.isInteger(parsed.servings) ? parsed.servings : null,
       prepTimeMinutes: Number.isInteger(parsed.prepTimeMinutes) ? parsed.prepTimeMinutes : null,
       cookTimeMinutes: Number.isInteger(parsed.cookTimeMinutes) ? parsed.cookTimeMinutes : null,
       totalTimeMinutes: Number.isInteger(parsed.totalTimeMinutes) ? parsed.totalTimeMinutes : null,
@@ -166,6 +170,7 @@ ${pageContent.slice(0, 20000)}`
     partial,
     suggestedTags,
     suggestedNewTags,
+    servings: extracted.servings,
     prepTimeMinutes: extracted.prepTimeMinutes,
     cookTimeMinutes: extracted.cookTimeMinutes,
     totalTimeMinutes: extracted.totalTimeMinutes,

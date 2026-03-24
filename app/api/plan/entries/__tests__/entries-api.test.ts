@@ -8,6 +8,7 @@ const mockState = {
   plan: null as { id: string; week_start: string } | null,
   entry: null as { id: string; user_id: string } | null,
   entryError: null as { message: string } | null,
+  parentEntryMealType: null as string | null,  // for dessert parent validation
 }
 
 function makeMockFrom(table: string) {
@@ -50,14 +51,26 @@ function makeMockFrom(table: string) {
           }),
         }),
       }),
-      select: () => ({
+      select: (cols?: string) => ({
         eq: () => ({
-          maybeSingle: async () => ({
-            data: mockState.entry
-              ? { id: mockState.entry.id, meal_plan_id: 'plan-1', meal_plans: { user_id: mockState.entry.user_id } }
-              : null,
-            error: null,
-          }),
+          maybeSingle: async () => {
+            if (cols === 'meal_type') {
+              // dessert parent validation lookup
+              return {
+                data: mockState.parentEntryMealType !== null
+                  ? { meal_type: mockState.parentEntryMealType }
+                  : null,
+                error: null,
+              }
+            }
+            // ownership check (DELETE route)
+            return {
+              data: mockState.entry
+                ? { id: mockState.entry.id, meal_plan_id: 'plan-1', meal_plans: { user_id: mockState.entry.user_id } }
+                : null,
+              error: null,
+            }
+          },
         }),
       }),
       delete: () => ({
@@ -105,6 +118,7 @@ beforeEach(() => {
   mockState.plan = null
   mockState.entry = null
   mockState.entryError = null
+  mockState.parentEntryMealType = null
 })
 
 // ── T17: POST /api/plan/entries — side dish + breakfast returns 400 ────────────
@@ -232,5 +246,76 @@ describe('POST /api/plan/entries - creates entry', () => {
       meal_type: 'dinner',
     }))
     expect(res.status).toBe(401)
+  })
+})
+
+// ── Dessert entry tests ────────────────────────────────────────────────────────
+
+describe('Dessert entries — meal_type=dessert', () => {
+  it('saves with correct meal_type when parent is a dinner slot', async () => {
+    mockState.plan = { id: 'plan-1', week_start: '2026-03-01' }
+    mockState.parentEntryMealType = 'dinner'
+    const res = await entriesPOST(makeReq('POST', 'http://localhost/api/plan/entries', {
+      week_start: '2026-03-01',
+      date: '2026-03-01',
+      recipe_id: 'r1',
+      meal_type: 'dessert',
+      parent_entry_id: 'parent-1',
+    }))
+    expect(res.status).toBe(201)
+  })
+
+  it('saves with correct meal_type when parent is a lunch slot', async () => {
+    mockState.plan = { id: 'plan-1', week_start: '2026-03-01' }
+    mockState.parentEntryMealType = 'lunch'
+    const res = await entriesPOST(makeReq('POST', 'http://localhost/api/plan/entries', {
+      week_start: '2026-03-01',
+      date: '2026-03-01',
+      recipe_id: 'r1',
+      meal_type: 'dessert',
+      parent_entry_id: 'parent-1',
+    }))
+    expect(res.status).toBe(201)
+  })
+
+  it('returns 400 when attached to a breakfast parent slot', async () => {
+    mockState.plan = { id: 'plan-1', week_start: '2026-03-01' }
+    mockState.parentEntryMealType = 'breakfast'
+    const res = await entriesPOST(makeReq('POST', 'http://localhost/api/plan/entries', {
+      week_start: '2026-03-01',
+      date: '2026-03-01',
+      recipe_id: 'r1',
+      meal_type: 'dessert',
+      parent_entry_id: 'parent-1',
+    }))
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toContain('Dinner and Lunch')
+  })
+
+  it('returns 400 when attached to a snack parent slot', async () => {
+    mockState.plan = { id: 'plan-1', week_start: '2026-03-01' }
+    mockState.parentEntryMealType = 'snack'
+    const res = await entriesPOST(makeReq('POST', 'http://localhost/api/plan/entries', {
+      week_start: '2026-03-01',
+      date: '2026-03-01',
+      recipe_id: 'r1',
+      meal_type: 'dessert',
+      parent_entry_id: 'parent-1',
+    }))
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 400 when parent_entry_id is missing', async () => {
+    mockState.plan = { id: 'plan-1', week_start: '2026-03-01' }
+    const res = await entriesPOST(makeReq('POST', 'http://localhost/api/plan/entries', {
+      week_start: '2026-03-01',
+      date: '2026-03-01',
+      recipe_id: 'r1',
+      meal_type: 'dessert',
+    }))
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toContain('parent_entry_id')
   })
 })

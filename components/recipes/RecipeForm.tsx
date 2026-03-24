@@ -17,6 +17,7 @@ export interface RecipeFormValues {
   cook_time_minutes: string
   total_time_minutes: string
   inactive_time_minutes: string
+  servings: string
 }
 
 interface RecipeFormProps {
@@ -61,6 +62,7 @@ export default function RecipeForm({
     cook_time_minutes: initialValues.cook_time_minutes ?? '',
     total_time_minutes: initialValues.total_time_minutes ?? '',
     inactive_time_minutes: initialValues.inactive_time_minutes ?? '',
+    servings: initialValues.servings ?? '',
   })
   const [errors, setErrors] = useState<{ title?: string; category?: string }>({})
 
@@ -142,6 +144,21 @@ export default function RecipeForm({
             <p className="mt-0.5 text-xs text-gray-400">Enter time in minutes</p>
           </div>
         ))}
+      </div>
+
+      {/* Servings */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Servings</label>
+        <input
+          type="number"
+          min={1}
+          step={1}
+          value={values.servings}
+          onChange={(e) => set('servings', e.target.value)}
+          placeholder="e.g. 4"
+          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <p className="mt-0.5 text-xs text-gray-400">Number of servings this recipe makes</p>
       </div>
 
       {/* Tags */}
