@@ -306,13 +306,13 @@ export function scaleItem(item: GroceryItem, factor: number): GroceryItem {
  * Effective people count for a recipe.
  * Uses recipe override if set; falls back to plan-level default.
  */
-export function effectivePeopleCount(
+export function effectiveServings(
   recipeId: string,
   recipeScales: RecipeScale[],
-  planPeopleCount: number,
+  planServings: number,
 ): number {
   const scale = recipeScales.find((s) => s.recipe_id === recipeId)
-  return scale?.people_count ?? planPeopleCount
+  return scale?.servings ?? planServings
 }
 
 // ── Plain text share format ───────────────────────────────────────────────────
@@ -325,7 +325,7 @@ export function effectivePeopleCount(
 export function buildPlainTextList(
   items: GroceryItem[],
   _recipeScales: RecipeScale[],
-  _planPeopleCount: number,
+  _planServings: number,
   _weekStart: string,
 ): string {
   return items

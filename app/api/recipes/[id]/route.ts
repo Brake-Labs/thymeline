@@ -80,6 +80,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     cook_time_minutes?: number | null
     total_time_minutes?: number | null
     inactive_time_minutes?: number | null
+    servings?: number | null
   }
 
   try {
@@ -130,6 +131,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
   if ('cook_time_minutes' in body) update.cook_time_minutes = body.cook_time_minutes
   if ('total_time_minutes' in body) update.total_time_minutes = body.total_time_minutes
   if ('inactive_time_minutes' in body) update.inactive_time_minutes = body.inactive_time_minutes
+  if ('servings' in body) update.servings = body.servings
 
   const { data: updated, error: updateError } = await supabase
     .from('recipes')
