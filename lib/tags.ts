@@ -18,7 +18,7 @@ export const CUISINE_TAGS = [
 ] as const
 
 export const PROTEIN_TAGS = [
-  'Beans', 'Beef', 'Chicken', 'Chickpeas', 'Eggs', 'Fish',
+  'Bacon', 'Beans', 'Beef', 'Chicken', 'Chickpeas', 'Eggs', 'Fish',
   'Lamb', 'Lentils', 'Pork', 'Salmon', 'Sausage', 'Seitan',
   'Shrimp', 'Tempeh', 'Tofu', 'Turkey',
 ] as const
