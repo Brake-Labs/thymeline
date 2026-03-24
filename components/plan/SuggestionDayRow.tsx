@@ -18,10 +18,12 @@ interface SuggestionDayRowProps {
   onSelect:           (date: string, mealType: MealType, recipe: RecipeSuggestion) => void
   onSkip:             (date: string, mealType: MealType) => void
   onSwap:             (date: string, mealType: MealType) => void
-  onAssignToDay:      (recipe: RecipeSuggestion, targetDate: string, mealType: MealType) => void
+  onAssignToDay:      (recipe: RecipeSuggestion, sourceDate: string, targetDate: string, mealType: MealType) => void
   onVaultPick:        (date: string, mealType: MealType, recipe: { recipe_id: string; recipe_title: string }) => void
   onFreeTextMatch:    (query: string, date: string, mealType: MealType) => Promise<{ matched: boolean }>
 }
+
+const MEAL_TYPE_ORDER: Record<string, number> = { breakfast: 0, lunch: 1, dinner: 2, snack: 3 }
 
 function formatDayHeader(dateStr: string): string {
   return new Date(dateStr + 'T12:00:00Z').toLocaleDateString('en-US', {
@@ -40,9 +42,9 @@ export default function SuggestionDayRow({
         <span className="text-sm font-semibold text-stone-700">{formatDayHeader(date)}</span>
       </div>
 
-      {/* One slot per active meal type */}
+      {/* One slot per active meal type, ordered breakfast → lunch → dinner → snacks */}
       <div className="px-4 py-3 space-y-2">
-        {activeMealTypes.map((mt) => {
+        {[...activeMealTypes].sort((a, b) => (MEAL_TYPE_ORDER[a] ?? 99) - (MEAL_TYPE_ORDER[b] ?? 99)).map((mt) => {
           const slotState = mealTypeSuggestions.find((s) => s.meal_type === mt)
           const compositeKey = `${date}:${mt}`
           return (
