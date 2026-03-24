@@ -113,7 +113,7 @@ export interface MealPlanEntry {
   confirmed: boolean
 }
 
-export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'dessert' | 'dessert'
+export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'dessert'
 
 export interface RecipeSuggestion {
   recipe_id:    string
