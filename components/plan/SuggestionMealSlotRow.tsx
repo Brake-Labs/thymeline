@@ -50,6 +50,8 @@ export default function SuggestionMealSlotRow({
   const isSelected = (recipeId: string) => selection?.recipe_id === recipeId
   const canHaveDessert = mealType === 'dinner' || mealType === 'lunch'
   const hasSelection = selection !== null && selection !== undefined
+  const canHaveDessert = mealType === 'dinner' || mealType === 'lunch'
+  const hasSelection = selection !== null && selection !== undefined
 
   const handleFreeTextSubmit = async () => {
     if (!freeTextQuery.trim()) return
@@ -203,6 +205,28 @@ export default function SuggestionMealSlotRow({
                 </div>
               ) : (
                 <button onClick={() => setDessertVaultOpen(true)} className="text-xs text-stone-400 hover:text-stone-600 pl-4 underline transition-colors">Add dessert</button>
+              )}
+            </div>
+          )}
+
+          {/* Dessert add-on — dinner/lunch only, when a main recipe is selected */}
+          {canHaveDessert && hasSelection && (
+            <div className="px-3 py-2 border-t border-stone-50">
+              {dessertEntry ? (
+                <div className="flex items-center gap-2 pl-4">
+                  <span className="text-xs font-medium text-stone-400 flex-shrink-0">Dessert</span>
+                  <span className="text-xs text-stone-600 flex-1 truncate">{dessertEntry.recipe_title}</span>
+                  <button
+                    onClick={() => { setDessertEntry(null); onDessertRemove?.(date, mealType) }}
+                    aria-label="Remove dessert"
+                    className="text-stone-300 hover:text-red-400 transition-colors text-base leading-none"
+                  >×</button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setDessertVaultOpen(true)}
+                  className="text-xs text-stone-400 hover:text-stone-600 pl-4 underline transition-colors"
+                >Add dessert</button>
               )}
             </div>
           )}
