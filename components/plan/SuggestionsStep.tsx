@@ -32,7 +32,7 @@ interface SuggestionsStepProps {
   onSelect:         (date: string, mealType: MealType, recipe: RecipeSuggestion) => void
   onSkipSlot:       (date: string, mealType: MealType) => void
   onSwapSlot:       (date: string, mealType: MealType) => void
-  onAssignToDay:    (recipe: RecipeSuggestion, targetDate: string, mealType: MealType) => void
+  onAssignToDay:    (recipe: RecipeSuggestion, sourceDate: string, targetDate: string, mealType: MealType) => void
   onVaultPick:      (date: string, mealType: MealType, recipe: { recipe_id: string; recipe_title: string }) => void
   onFreeTextMatch:  (query: string, date: string, mealType: MealType) => Promise<{ matched: boolean }>
   onRegenerate:     (onlyUnselected?: boolean) => void
@@ -72,24 +72,54 @@ export default function SuggestionsStep({
   const sortedDays = [...suggestions.days].sort((a, b) => a.date.localeCompare(b.date))
 
   return (
-    <div className="space-y-4 max-w-2xl">
-      {/* Top bar */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
+    <>
+      <div className="space-y-4 max-w-2xl pb-20">
+        {/* Top bar — week label only */}
         <h2 className="font-display text-base font-semibold text-stone-700">
           Suggestions for {formatWeekRange(setup.weekStart)}
         </h2>
-        <div className="flex items-center gap-2">
+
+        {/* Day rows */}
+        {sortedDays.map((day) => (
+          <SuggestionDayRow
+            key={day.date}
+            date={day.date}
+            mealTypeSuggestions={day.meal_types}
+            selections={selections}
+            activeMealTypes={setup.activeMealTypes}
+            activeDates={setup.activeDates}
+            onSelect={onSelect}
+            onSkip={onSkipSlot}
+            onSwap={onSwapSlot}
+            onAssignToDay={onAssignToDay}
+            onVaultPick={onVaultPick}
+            onFreeTextMatch={onFreeTextMatch}
+          />
+        ))}
+
+        <button
+          onClick={onBack}
+          className="text-sm font-medium border border-sage-300 text-sage-700 bg-transparent px-4 py-2 rounded-lg hover:bg-sage-50 transition-colors"
+        >
+          ← Back to setup
+        </button>
+      </div>
+
+      {/* Sticky footer */}
+      <div className="sticky bottom-0 bg-[#F7F4F0] border-t border-[#D4C9BA] px-4 py-4 z-10 -mx-4 md:-mx-8">
+        <div className="max-w-2xl mx-auto flex items-center justify-between gap-3">
+          {/* Regenerate — ghost sage, left side */}
           <div className="relative">
             <button
               onClick={handleRegenerateClick}
-              className="text-sm font-medium text-stone-600 border border-stone-300 px-3 py-2 rounded-lg hover:bg-stone-50 transition-colors"
+              className="text-sm font-medium border border-sage-300 text-sage-700 bg-transparent px-4 py-2 rounded-lg hover:bg-sage-50 transition-colors"
             >
               Regenerate
             </button>
             {regenPrompt === 'prompt' && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setRegenPrompt('none')} aria-hidden="true" />
-                <div className="absolute right-0 top-full mt-1 z-20 bg-white border border-stone-200 rounded-xl shadow-lg p-3 min-w-[220px]">
+                <div className="absolute left-0 bottom-full mb-1 z-20 bg-white border border-stone-200 rounded-xl shadow-lg p-3 min-w-[220px]">
                   <p className="text-xs text-stone-500 mb-2">You have existing selections.</p>
                   <button
                     onClick={() => { setRegenPrompt('none'); onRegenerate(false) }}
@@ -108,6 +138,7 @@ export default function SuggestionsStep({
             )}
           </div>
 
+          {/* Confirm Plan — sage primary, right side */}
           <button
             onClick={onConfirm}
             disabled={confirmedCount === 0}
@@ -117,31 +148,6 @@ export default function SuggestionsStep({
           </button>
         </div>
       </div>
-
-      {/* Day rows */}
-      {sortedDays.map((day) => (
-        <SuggestionDayRow
-          key={day.date}
-          date={day.date}
-          mealTypeSuggestions={day.meal_types}
-          selections={selections}
-          activeMealTypes={setup.activeMealTypes}
-          activeDates={setup.activeDates}
-          onSelect={onSelect}
-          onSkip={onSkipSlot}
-          onSwap={onSwapSlot}
-          onAssignToDay={onAssignToDay}
-          onVaultPick={onVaultPick}
-          onFreeTextMatch={onFreeTextMatch}
-        />
-      ))}
-
-      <button
-        onClick={onBack}
-        className="text-sm text-stone-500 hover:text-stone-700 underline transition-colors"
-      >
-        ← Back to setup
-      </button>
-    </div>
+    </>
   )
 }
