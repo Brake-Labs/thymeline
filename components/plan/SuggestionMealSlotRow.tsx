@@ -22,7 +22,7 @@ interface SuggestionMealSlotRowProps {
   onSelect:     (date: string, mealType: MealType, recipe: RecipeSuggestion) => void
   onSkip:       (date: string, mealType: MealType) => void
   onSwap:       (date: string, mealType: MealType) => void
-  onAssignToDay:(recipe: RecipeSuggestion, targetDate: string, mealType: MealType) => void
+  onAssignToDay:(recipe: RecipeSuggestion, sourceDate: string, targetDate: string, mealType: MealType) => void
   onVaultPick:  (date: string, mealType: MealType, recipe: { recipe_id: string; recipe_title: string }) => void
   onFreeTextMatch:(query: string, date: string, mealType: MealType) => Promise<{ matched: boolean }>
 }
@@ -167,7 +167,7 @@ export default function SuggestionMealSlotRow({
                         activeDates={activeDates}
                         excludeDate={date}
                         onSelect={(targetDate) => {
-                          onAssignToDay(assignRecipe, targetDate, mealType)
+                          onAssignToDay(assignRecipe, date, targetDate, mealType)
                           setAssignOpen(null)
                         }}
                         onClose={() => setAssignOpen(null)}

@@ -257,7 +257,42 @@ function PlanPageInner() {
     })
   }
 
-  const handleAssignToDay = (recipe: RecipeSuggestion, targetDate: string, mealType: MealType) => {
+  const handleAssignToDay = (recipe: RecipeSuggestion, sourceDate: string, targetDate: string, mealType: MealType) => {
+    // Remove from source day, add to target day options
+    setSuggestions((prev) => {
+      if (!prev) return prev
+      return {
+        days: prev.days.map((day) => {
+          if (day.date === sourceDate) {
+            return {
+              ...day,
+              meal_types: day.meal_types.map((mts) =>
+                mts.meal_type === mealType
+                  ? { ...mts, options: mts.options.filter((o) => o.recipe_id !== recipe.recipe_id) }
+                  : mts
+              ),
+            }
+          }
+          if (day.date === targetDate) {
+            return {
+              ...day,
+              meal_types: day.meal_types.map((mts) =>
+                mts.meal_type === mealType
+                  ? {
+                      ...mts,
+                      options: mts.options.some((o) => o.recipe_id === recipe.recipe_id)
+                        ? mts.options
+                        : [...mts.options, recipe],
+                    }
+                  : mts
+              ),
+            }
+          }
+          return day
+        }),
+      }
+    })
+    // Set as target day's selection (replaces any previous)
     const key = `${targetDate}:${mealType}`
     setSelections((prev) => ({
       ...prev,

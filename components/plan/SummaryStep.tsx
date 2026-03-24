@@ -141,7 +141,7 @@ export default function SummaryStep({ setup, selections, onSave, isSaving, onBac
 
         <button
           onClick={onBack}
-          className="text-sm text-stone-500 hover:text-stone-700 underline block transition-colors"
+          className="text-sm font-medium border border-sage-300 text-sage-700 bg-transparent px-4 py-2 rounded-lg hover:bg-sage-50 transition-colors"
         >
           Go back
         </button>
