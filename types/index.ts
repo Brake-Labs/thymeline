@@ -157,15 +157,16 @@ export interface SavedPlanEntry {
 }
 
 export interface PlanEntry {
-  id:              string
-  recipe_id:       string
-  recipe_title:    string
-  planned_date:    string
-  meal_type:       MealType
-  is_side_dish:    boolean
-  parent_entry_id: string | null
-  confirmed:       boolean
-  position:        number
+  id:                  string
+  recipe_id:           string
+  recipe_title:        string
+  planned_date:        string
+  meal_type:           MealType
+  is_side_dish:        boolean
+  parent_entry_id:     string | null
+  confirmed:           boolean
+  position:            number
+  total_time_minutes?: number | null
 }
 
 export type GrocerySection =
