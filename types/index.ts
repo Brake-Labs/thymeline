@@ -114,7 +114,7 @@ export interface MealPlanEntry {
   confirmed: boolean
 }
 
-export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack'
+export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'dessert'
 
 export interface RecipeSuggestion {
   recipe_id:    string
@@ -158,15 +158,16 @@ export interface SavedPlanEntry {
 }
 
 export interface PlanEntry {
-  id:              string
-  recipe_id:       string
-  recipe_title:    string
-  planned_date:    string
-  meal_type:       MealType
-  is_side_dish:    boolean
-  parent_entry_id: string | null
-  confirmed:       boolean
-  position:        number
+  id:                  string
+  recipe_id:           string
+  recipe_title:        string
+  planned_date:        string
+  meal_type:           MealType
+  is_side_dish:        boolean
+  parent_entry_id:     string | null
+  confirmed:           boolean
+  position:            number
+  total_time_minutes?: number | null
 }
 
 export type GrocerySection =
@@ -193,7 +194,7 @@ export interface GroceryItem {
 export interface RecipeScale {
   recipe_id:    string
   recipe_title: string
-  people_count: number | null  // null = use plan-level default
+  servings:     number | null  // null = use plan-level default
 }
 
 export interface GroceryList {
@@ -201,7 +202,7 @@ export interface GroceryList {
   user_id:       string
   meal_plan_id:  string
   week_start:    string
-  people_count:  number
+  servings:      number
   recipe_scales: RecipeScale[]
   items:         GroceryItem[]
   created_at:    string

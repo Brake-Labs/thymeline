@@ -79,6 +79,7 @@ export async function POST(req: NextRequest) {
     cook_time_minutes?: number | null
     total_time_minutes?: number | null
     inactive_time_minutes?: number | null
+    servings?: number | null
   }
 
   try {
@@ -134,6 +135,7 @@ export async function POST(req: NextRequest) {
       cook_time_minutes: body.cook_time_minutes ?? null,
       total_time_minutes: body.total_time_minutes ?? null,
       inactive_time_minutes: body.inactive_time_minutes ?? null,
+      servings: body.servings ?? null,
     })
     .select()
     .single()

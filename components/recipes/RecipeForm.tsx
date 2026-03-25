@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import TagSelector from './TagSelector'
+import TagSelector, { type PendingNewTag } from './TagSelector'
 
 export interface RecipeFormValues {
   title: string
@@ -25,7 +25,7 @@ interface RecipeFormProps {
   /** Fields from a scrape that returned null — show "Couldn't find this" placeholder */
   nullFields?: Set<string>
   suggestedTags?:   string[]
-  pendingNewTags?:  string[]
+  pendingNewTags?:  PendingNewTag[]
   onSubmit: (values: RecipeFormValues) => Promise<void>
   isSubmitting: boolean
 }
@@ -157,6 +157,21 @@ export default function RecipeForm({
           />
           <p className="mt-0.5 text-xs text-gray-400">Number of servings this recipe makes</p>
         </div>
+      </div>
+
+      {/* Servings */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Servings</label>
+        <input
+          type="number"
+          min={1}
+          step={1}
+          value={values.servings}
+          onChange={(e) => set('servings', e.target.value)}
+          placeholder="e.g. 4"
+          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <p className="mt-0.5 text-xs text-gray-400">Number of servings this recipe makes</p>
       </div>
 
       {/* Tags */}

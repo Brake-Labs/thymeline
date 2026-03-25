@@ -62,7 +62,9 @@ The JSON must have exactly these fields:
 - "ingredients": string or null (all ingredients, one per line, newline-separated)
 - "steps": string or null (cooking steps, one per line, plain text without numbering — numbering is a display concern)
 - "imageUrl": string or null (URL of the main recipe image if present)
-- "suggestedTags": array of strings. Suggest relevant tags for this recipe. Prioritize tags from this list: ${firstClassList}. Keep total suggestions to 6 or fewer. Never suggest protein tags that don't apply to this recipe. Tag definitions: "Quick" = total prep + cook time is 30 minutes or less. Cuisine tags (Italian, Mexican, Thai, Indian, Greek, French, Middle Eastern, American, Chinese, Japanese, Irish, Hungarian, Mediterranean) — apply only when the recipe's cuisine is clearly identifiable. Dietary tags (Vegetarian, Vegan, Gluten-Free, Dairy-Free, Keto, Paleo, Whole30, etc.) — apply only when the recipe clearly qualifies.
+- "suggestedTags": array of strings. ONLY use tags from this exact list: ${firstClassList}. Keep total to 6 or fewer. Never suggest protein tags that don't apply to this recipe. Tag definitions: "Quick" = total prep + cook time is 30 minutes or less. Cuisine tags (Italian, Mexican, Thai, Indian, Greek, French, Middle Eastern, American, Chinese, Japanese, Irish, Hungarian, Mediterranean) — apply only when the recipe's cuisine is clearly identifiable. Dietary tags (Vegetarian, Vegan, Gluten-Free, Dairy-Free, Keto, Paleo, Whole30, etc.) — apply only when the recipe clearly qualifies. Do NOT invent tags outside this list — use suggestedNewTags for that.
+- "suggestedNewTags": array of objects {name: string, section: string}. ONLY include a tag here if it is strongly relevant and does not exist in the list above. section must be one of: style, dietary, seasonal, cuisine, protein. Keep to 1 or fewer new tags. If nothing is needed, return an empty array.
+- "servings": number of servings this recipe makes as an integer, or null
 - "prepTimeMinutes": prep time in minutes as an integer, or null
 - "cookTimeMinutes": cook time in minutes as an integer, or null
 - "totalTimeMinutes": total time in minutes as an integer, or null
@@ -75,12 +77,16 @@ Note: cooking steps may appear after a long ingredients list or narrative conten
 Page content:
 ${pageContent.slice(0, 20000)}`
 
+  type RawNewTag = { name: string; section: string }
+
   let extracted: {
     title: string | null
     ingredients: string | null
     steps: string | null
     imageUrl: string | null
     suggestedTags: string[]
+    suggestedNewTags: RawNewTag[]
+    servings: number | null
     prepTimeMinutes: number | null
     cookTimeMinutes: number | null
     totalTimeMinutes: number | null
@@ -91,6 +97,8 @@ ${pageContent.slice(0, 20000)}`
     steps: null,
     imageUrl: null,
     suggestedTags: [],
+    suggestedNewTags: [],
+    servings: null,
     prepTimeMinutes: null,
     cookTimeMinutes: null,
     totalTimeMinutes: null,
@@ -112,12 +120,22 @@ ${pageContent.slice(0, 20000)}`
     const rawSuggested: string[] = Array.isArray(parsed.suggestedTags)
       ? parsed.suggestedTags.filter((t: unknown) => typeof t === 'string')
       : []
+    const rawNewTags: RawNewTag[] = Array.isArray(parsed.suggestedNewTags)
+      ? parsed.suggestedNewTags.filter(
+          (t: unknown): t is RawNewTag =>
+            typeof t === 'object' && t !== null &&
+            typeof (t as RawNewTag).name === 'string' &&
+            typeof (t as RawNewTag).section === 'string',
+        )
+      : []
     extracted = {
       title: typeof parsed.title === 'string' ? parsed.title : null,
       ingredients: typeof parsed.ingredients === 'string' ? parsed.ingredients : null,
       steps: typeof parsed.steps === 'string' ? parsed.steps : null,
       imageUrl: typeof parsed.imageUrl === 'string' ? parsed.imageUrl : null,
       suggestedTags: rawSuggested,
+      suggestedNewTags: rawNewTags,
+      servings: Number.isInteger(parsed.servings) ? parsed.servings : null,
       prepTimeMinutes: Number.isInteger(parsed.prepTimeMinutes) ? parsed.prepTimeMinutes : null,
       cookTimeMinutes: Number.isInteger(parsed.cookTimeMinutes) ? parsed.cookTimeMinutes : null,
       totalTimeMinutes: Number.isInteger(parsed.totalTimeMinutes) ? parsed.totalTimeMinutes : null,
@@ -140,22 +158,24 @@ ${pageContent.slice(0, 20000)}`
     extracted.steps === null ||
     (allTimeNull && extracted.ingredients !== null)
 
-  // Split LLM suggestions into matched (canonical casing) and unmatched (Title Case)
+  // Match suggestedTags against the known pool; discard unrecognised entries
   const fullPool = [...FIRST_CLASS_TAGS, ...userCustomTags]
-  const suggestedTags: string[] = []
-  const suggestedNewTags: string[] = []
+  const VALID_SECTIONS = new Set(['style', 'dietary', 'seasonal', 'cuisine', 'protein'])
 
+  const suggestedTags: string[] = []
   for (const tag of extracted.suggestedTags) {
-    const lc = tag.toLowerCase()
-    const canonical = fullPool.find((t) => t.toLowerCase() === lc)
-    if (canonical) {
-      suggestedTags.push(canonical)
-    } else {
-      // Normalize to Title Case
-      const titleCased = tag.replace(/\b\w/g, (c) => c.toUpperCase())
-      suggestedNewTags.push(titleCased)
-    }
+    const canonical = fullPool.find((t) => t.toLowerCase() === tag.toLowerCase())
+    if (canonical) suggestedTags.push(canonical)
+    // Unrecognised tags are silently dropped — LLM should use suggestedNewTags for new ones
   }
+
+  // Pass through LLM-supplied new tags; normalise name to Title Case, validate section
+  const suggestedNewTags: { name: string; section: string }[] = extracted.suggestedNewTags
+    .filter((t) => VALID_SECTIONS.has(t.section))
+    .map((t) => ({
+      name: t.name.replace(/\b\w/g, (c) => c.toUpperCase()),
+      section: t.section,
+    }))
 
   return NextResponse.json({
     title: extracted.title,
@@ -166,6 +186,7 @@ ${pageContent.slice(0, 20000)}`
     partial,
     suggestedTags,
     suggestedNewTags,
+    servings: extracted.servings,
     prepTimeMinutes: extracted.prepTimeMinutes,
     cookTimeMinutes: extracted.cookTimeMinutes,
     totalTimeMinutes: extracted.totalTimeMinutes,

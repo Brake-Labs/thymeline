@@ -5,4 +5,5 @@ export const MEAL_TYPE_CATEGORIES_CLIENT: Record<MealType, string[]> = {
   lunch:     ['main_dish'],
   dinner:    ['main_dish'],
   snack:     ['side_dish', 'dessert'],
+  dessert:   ['dessert'],
 }

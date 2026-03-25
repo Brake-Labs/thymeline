@@ -20,6 +20,7 @@ interface RecipeEntry {
   ingredients:  string | null
   url:          string | null
   planned_date: string
+  servings:     number | null
 }
 
 // ── POST /api/groceries/generate ─────────────────────────────────────────────
@@ -57,13 +58,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No meal plan found for this week' }, { status: 404 })
   }
 
-  // people_count lives on grocery_lists (default 2); meal_plans.people_count is legacy
-  const planPeopleCount = 2
+  // Default plan-level servings; per-recipe override stored in recipe_scales
+  const planServings = 4
 
   // 2. Fetch meal plan entries joined with recipes
   const { data: entriesRaw, error: entriesError } = await db
     .from('meal_plan_entries')
-    .select('recipe_id, planned_date, recipes(id, title, ingredients, url)')
+    .select('recipe_id, planned_date, recipes(id, title, ingredients, url, servings)')
     .eq('meal_plan_id', plan.id)
     .order('planned_date')
 
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest) {
   const seenRecipeIds = new Set<string>()
   const recipes: RecipeEntry[] = []
   for (const entry of (entriesRaw ?? [])) {
-    const r = (entry.recipes as unknown) as { id: string; title: string; ingredients: string | null; url: string | null } | null
+    const r = (entry.recipes as unknown) as { id: string; title: string; ingredients: string | null; url: string | null; servings: number | null } | null
     if (!r) continue
     if (seenRecipeIds.has(r.id)) continue
     seenRecipeIds.add(r.id)
@@ -85,6 +86,7 @@ export async function POST(req: NextRequest) {
       ingredients:  r.ingredients,
       url:          r.url,
       planned_date: entry.planned_date,
+      servings:     r.servings,
     })
   }
 
@@ -92,8 +94,6 @@ export async function POST(req: NextRequest) {
   const firecrawlKey = process.env.FIRECRAWL_API_KEY
   const skipped_recipes: string[] = []
   const combineInputs: Parameters<typeof combineIngredients>[0] = []
-
-  const scaleFactor = (recipeId: string) => planPeopleCount / 2  // per-recipe override not yet set on generate
 
   for (const recipe of recipes) {
     let ingredientsText: string | null = null
@@ -133,8 +133,8 @@ export async function POST(req: NextRequest) {
       continue
     }
 
-    // Parse ingredient lines
-    const sf = scaleFactor(recipe.recipe_id)
+    // Parse ingredient lines — scale factor is always 1 (amounts stored at recipe native servings)
+    const sf = 1
     const lines = ingredientsText.split('\n').map((l) => l.trim()).filter(Boolean)
     for (const line of lines) {
       const parsed = parseIngredientLine(line)
@@ -222,7 +222,7 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
   const recipe_scales: RecipeScale[] = recipes.map((r) => ({
     recipe_id:    r.recipe_id,
     recipe_title: r.recipe_title,
-    people_count: null,
+    servings:     r.servings ?? planServings,
   }))
 
   // 7. Upsert grocery_lists
@@ -234,7 +234,7 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
         user_id:       user.id,
         meal_plan_id:  plan.id,
         week_start,
-        people_count:  planPeopleCount,
+        servings:      planServings,
         recipe_scales,
         items:         allItems,
         updated_at:    now,

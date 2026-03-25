@@ -23,10 +23,10 @@ const sampleList = {
   user_id:       'user-1',
   meal_plan_id:  'plan-1',
   week_start:    '2026-03-15',
-  people_count:  2,
+  servings: 4,
   recipe_scales: [
-    { recipe_id: 'r1', recipe_title: 'Pasta', people_count: null },
-    { recipe_id: 'r2', recipe_title: 'Salad', people_count: null },
+    { recipe_id: 'r1', recipe_title: 'Pasta', servings: null },
+    { recipe_id: 'r2', recipe_title: 'Salad', servings: null },
   ],
   items: [
     { id: 'i1', name: 'pasta', amount: 200, unit: 'g', section: 'Pantry', is_pantry: false, checked: false, recipes: ['Pasta'] },
@@ -102,12 +102,12 @@ describe('T21 - Remove item removes from list and saves', () => {
 // ── T14: Overridden recipe shows "Custom" badge ───────────────────────────────
 
 describe('T14 - Overridden recipe shows "Custom" badge', () => {
-  it('shows Custom badge when recipe has people_count override', () => {
+  it('shows Custom badge when recipe has servings override', () => {
     const listWithOverride = {
       ...sampleList,
       recipe_scales: [
-        { recipe_id: 'r1', recipe_title: 'Pasta', people_count: 4 },
-        { recipe_id: 'r2', recipe_title: 'Salad', people_count: null },
+        { recipe_id: 'r1', recipe_title: 'Pasta', servings: 4 },
+        { recipe_id: 'r2', recipe_title: 'Salad', servings: null },
       ],
     }
     render(<GroceryListView initialList={listWithOverride} />)
@@ -163,7 +163,7 @@ describe('T18 - Confirming regenerate replaces items and resets recipe_scales', 
     const regeneratedList = {
       ...sampleList,
       items: [{ id: 'new-1', name: 'tomato', amount: 2, unit: null, section: 'Produce', is_pantry: false, checked: false, recipes: ['Pasta'] }],
-      recipe_scales: [{ recipe_id: 'r1', recipe_title: 'Pasta', people_count: null }],
+      recipe_scales: [{ recipe_id: 'r1', recipe_title: 'Pasta', servings: null }],
     }
     mockFetch.mockImplementation((url: string) => {
       if (url.includes('generate')) {

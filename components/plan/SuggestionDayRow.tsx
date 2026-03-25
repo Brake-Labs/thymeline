@@ -21,6 +21,8 @@ interface SuggestionDayRowProps {
   onAssignToDay:      (recipe: RecipeSuggestion, sourceDate: string, targetDate: string, mealType: MealType) => void
   onVaultPick:        (date: string, mealType: MealType, recipe: { recipe_id: string; recipe_title: string }) => void
   onFreeTextMatch:    (query: string, date: string, mealType: MealType) => Promise<{ matched: boolean }>
+  onDessertPick?:     (date: string, mealType: MealType, recipe: { recipe_id: string; recipe_title: string }) => void
+  onDessertRemove?:   (date: string, mealType: MealType) => void
 }
 
 const MEAL_TYPE_ORDER: Record<string, number> = { breakfast: 0, lunch: 1, dinner: 2, snack: 3 }
@@ -34,6 +36,7 @@ function formatDayHeader(dateStr: string): string {
 export default function SuggestionDayRow({
   date, mealTypeSuggestions, selections, activeMealTypes, activeDates,
   onSelect, onSkip, onSwap, onAssignToDay, onVaultPick, onFreeTextMatch,
+  onDessertPick, onDessertRemove,
 }: SuggestionDayRowProps) {
   return (
     <div className="border border-stone-200 rounded-xl overflow-hidden bg-white">
@@ -62,6 +65,8 @@ export default function SuggestionDayRow({
               onAssignToDay={onAssignToDay}
               onVaultPick={onVaultPick}
               onFreeTextMatch={onFreeTextMatch}
+              onDessertPick={onDessertPick}
+              onDessertRemove={onDessertRemove}
             />
           )
         })}
