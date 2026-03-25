@@ -203,8 +203,6 @@ export interface GroceryList {
   user_id:       string
   meal_plan_id:  string
   week_start:    string
-  date_from?:    string
-  date_to?:      string
   date_from?:    string | null
   date_to?:      string | null
   servings:      number

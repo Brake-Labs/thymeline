@@ -124,7 +124,7 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
       return { ...item, amount: newAmount }
     })
     setItems(updated)
-    setPlanPeople(newCount)
+    setPlanServings(newCount)
     await patch({ items: updated, servings: newCount })
   }, [items, planServings, recipeScales, weekStart]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -357,5 +357,3 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
   )
 }
 
-// Keep TypeScript happy — setPlanPeople is the setter for planServings
-function setPlanPeople(n: number) { void n }  // overridden by the actual setter above

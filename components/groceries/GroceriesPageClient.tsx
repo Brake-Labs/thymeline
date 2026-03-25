@@ -4,17 +4,12 @@ import { useState, useEffect, useCallback } from 'react'
 import { GroceryList } from '@/types'
 import GroceryListView from './GroceryListView'
 import { getAccessToken } from '@/lib/supabase/browser'
+import { addDays } from '@/lib/grocery'
 
 function getSunday(d: Date): string {
   const copy = new Date(d)
   copy.setDate(copy.getDate() - copy.getDay())
   return copy.toISOString().slice(0, 10)
-}
-
-function addDays(dateStr: string, n: number): string {
-  const d = new Date(dateStr + 'T12:00:00Z')
-  d.setDate(d.getDate() + n)
-  return d.toISOString().slice(0, 10)
 }
 
 function formatDate(s: string) {
