@@ -1,37 +1,51 @@
 import Link from 'next/link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { HomeData } from '@/types'
+import { getMostRecentSunday, getTodayISO, getGreetingPhrase, isToday } from './utils'
 
-/** Returns the ISO date string for the most recent Monday (start of week). */
-function getCurrentWeekStart(): string {
-  const now = new Date()
-  const day = now.getUTCDay() // 0=Sun, 1=Mon, ..., 6=Sat
-  const diff = day === 0 ? 6 : day - 1 // days back to Monday
-  const monday = new Date(now)
-  monday.setUTCDate(now.getUTCDate() - diff)
-  return monday.toISOString().slice(0, 10)
+/** Format ISO date as day name abbrev, e.g. "Mon". */
+function getDayAbbrev(iso: string): string {
+  const d = new Date(`${iso}T00:00:00Z`)
+  return d.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' })
 }
 
-/** Returns the ISO date string for the most recent Sunday (plan week_start). */
-function getMostRecentSunday(): string {
-  const now = new Date()
-  const sunday = new Date(now)
-  sunday.setUTCDate(now.getUTCDate() - now.getUTCDay())
-  return sunday.toISOString().slice(0, 10)
+/** Format ISO date as "Mar 3". */
+function formatShortDate(iso: string): string {
+  const d = new Date(`${iso}T00:00:00Z`)
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
 }
 
-/** Format ISO date string as "Mon Mar 2" */
+/** Format ISO date as "Mon Mar 3" for recently made list. */
 function formatDate(iso: string): string {
   const d = new Date(`${iso}T00:00:00Z`)
   return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
 }
 
-async function getHomeData(): Promise<HomeData> {
+/** Build the 7-day array starting from weekStart. */
+function buildWeekDays(weekStart: string): string[] {
+  const days: string[] = []
+  const base = new Date(`${weekStart}T00:00:00Z`)
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(base)
+    d.setUTCDate(base.getUTCDate() + i)
+    days.push(d.toISOString().slice(0, 10))
+  }
+  return days
+}
+
+async function getHomeData(): Promise<HomeData & { weekStart: string }> {
   const supabase = createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { currentWeekPlan: null, recentlyMade: [] }
+  if (!user) return { userName: null, currentWeekPlan: null, recentlyMade: [], weekStart: getMostRecentSunday() }
 
-  const weekStart = getCurrentWeekStart()
+  const weekStart = getMostRecentSunday()
+
+  // User display name from metadata or email
+  const fullName: string | null =
+    (user.user_metadata?.full_name as string | undefined) ?? null
+  const userName = fullName
+    ? fullName.split(' ')[0]
+    : (user.email?.split('@')[0] ?? null)
 
   // Fetch current week's meal plan
   const { data: plan } = await supabase
@@ -78,44 +92,89 @@ async function getHomeData(): Promise<HomeData> {
     made_on:      h.made_on,
   }))
 
-  return { currentWeekPlan, recentlyMade }
+  return { userName, currentWeekPlan, recentlyMade, weekStart }
 }
 
 export default async function HomePage() {
-  const { currentWeekPlan, recentlyMade } = await getHomeData()
-  const currentSunday = getMostRecentSunday()
+  const { userName, currentWeekPlan, recentlyMade, weekStart } = await getHomeData()
+  const today = getTodayISO()
+  const hourUTC = new Date().getUTCHours()
+  const phrase = getGreetingPhrase(hourUTC)
+  const weekDays = buildWeekDays(weekStart)
+
+  // Group entries by planned_date
+  const entriesByDay = new Map<string, { recipe_id: string; recipe_title: string; confirmed: boolean }[]>()
+  if (currentWeekPlan) {
+    for (const entry of currentWeekPlan.entries) {
+      const list = entriesByDay.get(entry.planned_date) ?? []
+      list.push({ recipe_id: entry.recipe_id, recipe_title: entry.recipe_title, confirmed: entry.confirmed })
+      entriesByDay.set(entry.planned_date, list)
+    }
+  }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8 space-y-10">
+    <div className="max-w-5xl mx-auto px-4 py-8 space-y-10">
+
+      {/* Greeting */}
+      <section>
+        <h1 className="font-display text-2xl font-bold text-[#1F2D26]">
+          Good {phrase}{userName ? `, ${userName}` : ''}!
+        </h1>
+      </section>
 
       {/* This Week */}
       <section>
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-display text-lg font-semibold text-stone-800">This Week</h2>
-          <Link href={`/plan/${currentSunday}`} className="text-sm text-sage-500 hover:underline">
-            View full plan
+          <Link href={`/plan/${weekStart}`} className="text-sm text-sage-500 hover:underline">
+            View full plan →
           </Link>
         </div>
 
         {currentWeekPlan ? (
-          <div className="space-y-2">
-            {currentWeekPlan.entries.map((entry) => (
-              <div
-                key={`${entry.planned_date}-${entry.position}`}
-                className="flex items-center justify-between rounded-lg border border-stone-200 px-4 py-3 bg-white"
-              >
-                <div>
-                  <p className="text-xs text-stone-500">{formatDate(entry.planned_date)}</p>
-                  <p className="text-sm font-medium text-stone-900">{entry.recipe_title}</p>
-                </div>
-                {entry.confirmed && (
-                  <span className="text-xs text-sage-500 font-medium">✓ Confirmed</span>
-                )}
-              </div>
-            ))}
+          <div className="overflow-x-auto">
+            <div className="grid grid-cols-7 gap-2 min-w-[560px]">
+              {weekDays.map((day) => {
+                const entries = entriesByDay.get(day) ?? []
+                const todayDay = isToday(day, today)
+                return (
+                  <div
+                    key={day}
+                    data-today={todayDay ? 'true' : undefined}
+                    className={`rounded-lg border p-2 min-h-[80px] ${
+                      todayDay
+                        ? 'border-sage-500 bg-sage-50 ring-1 ring-sage-400'
+                        : 'border-stone-200 bg-white'
+                    }`}
+                  >
+                    <p className={`text-xs font-semibold mb-0.5 ${todayDay ? 'text-sage-600' : 'text-stone-500'}`}>
+                      {getDayAbbrev(day)}
+                    </p>
+                    <p className={`text-xs mb-1.5 ${todayDay ? 'text-sage-600' : 'text-stone-400'}`}>
+                      {formatShortDate(day).split(' ')[1]}
+                    </p>
+                    <div className="space-y-1">
+                      {entries.map((e) => (
+                        <Link
+                          key={e.recipe_id}
+                          href={`/recipes/${e.recipe_id}`}
+                          className="block text-[11px] leading-tight text-stone-700 hover:text-sage-600 truncate"
+                          title={e.recipe_title}
+                        >
+                          {e.recipe_title}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         ) : (
-          <div className="rounded-xl border border-stone-200 bg-white p-6 text-center space-y-3">
+          <div
+            data-testid="empty-plan"
+            className="rounded-xl border border-stone-200 bg-white p-6 text-center space-y-3"
+          >
             <p className="text-stone-600">No plan yet this week — want to plan your meals?</p>
             <Link
               href="/plan"
@@ -130,12 +189,11 @@ export default async function HomePage() {
       {/* Quick Actions */}
       <section>
         <h2 className="font-display text-lg font-semibold text-stone-800 mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           {[
-            { href: '/plan',                 label: 'Help Me Plan', icon: '✨' },
-            { href: '/recipes',              label: 'Recipe Vault', icon: '📖' },
-            { href: '/groceries',            label: 'Groceries',    icon: '🛒' },
-            { href: '/settings/preferences', label: 'Settings',     icon: '⚙️' },
+            { href: '/plan',      label: 'Help Me Plan', icon: '✨' },
+            { href: '/recipes',   label: 'Recipe Box',   icon: '📖' },
+            { href: '/groceries', label: 'Groceries',    icon: '🛒' },
           ].map((action) => (
             <Link
               key={action.href}
@@ -160,13 +218,14 @@ export default async function HomePage() {
           </div>
           <div className="space-y-2">
             {recentlyMade.map((item) => (
-              <div
+              <Link
                 key={`${item.recipe_id}-${item.made_on}`}
-                className="flex items-center justify-between rounded-lg border border-stone-200 px-4 py-3 bg-white"
+                href={`/recipes/${item.recipe_id}`}
+                className="flex items-center justify-between rounded-lg border border-stone-200 px-4 py-3 bg-white hover:bg-stone-50 transition-colors"
               >
                 <span className="text-sm font-medium text-stone-900">{item.recipe_title}</span>
                 <span className="text-xs text-stone-500">{formatDate(item.made_on)}</span>
-              </div>
+              </Link>
             ))}
           </div>
         </section>

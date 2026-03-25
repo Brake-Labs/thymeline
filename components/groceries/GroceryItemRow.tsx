@@ -3,12 +3,13 @@
 import { GroceryItem } from '@/types'
 
 interface GroceryItemRowProps {
-  item:     GroceryItem
-  onToggle: () => void
-  onRemove: () => void
+  item:      GroceryItem
+  onToggle:  () => void
+  onRemove:  () => void
+  onGotIt?:  () => void
 }
 
-export default function GroceryItemRow({ item, onToggle, onRemove }: GroceryItemRowProps) {
+export default function GroceryItemRow({ item, onToggle, onRemove, onGotIt }: GroceryItemRowProps) {
   const label = [
     item.amount !== null ? item.amount : null,
     item.unit ?? null,
@@ -48,6 +49,17 @@ export default function GroceryItemRow({ item, onToggle, onRemove }: GroceryItem
           <span className="ml-1 text-xs text-stone-400">(optional)</span>
         )}
       </span>
+
+      {onGotIt && (
+        <button
+          type="button"
+          onClick={onGotIt}
+          aria-label={`Got it ${item.name}`}
+          className="opacity-0 group-hover:opacity-100 focus:opacity-100 font-sans text-[11px] text-sage-600 hover:text-sage-800 transition-opacity"
+        >
+          ✓ Got it
+        </button>
+      )}
 
       <button
         type="button"
