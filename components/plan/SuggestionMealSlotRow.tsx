@@ -50,8 +50,6 @@ export default function SuggestionMealSlotRow({
   const isSelected = (recipeId: string) => selection?.recipe_id === recipeId
   const canHaveDessert = mealType === 'dinner' || mealType === 'lunch'
   const hasSelection = selection !== null && selection !== undefined
-  const canHaveDessert = mealType === 'dinner' || mealType === 'lunch'
-  const hasSelection = selection !== null && selection !== undefined
 
   const handleFreeTextSubmit = async () => {
     if (!freeTextQuery.trim()) return
