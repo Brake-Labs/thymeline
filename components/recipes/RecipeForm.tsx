@@ -120,7 +120,7 @@ export default function RecipeForm({
         {errors.category && <p className="mt-1 text-xs text-red-500">{errors.category}</p>}
       </div>
 
-      {/* Time fields */}
+      {/* Time fields + Servings */}
       <div className="grid grid-cols-2 gap-4">
         {(
           [
@@ -144,21 +144,19 @@ export default function RecipeForm({
             <p className="mt-0.5 text-xs text-gray-400">Enter time in minutes</p>
           </div>
         ))}
-      </div>
-
-      {/* Servings */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Servings</label>
-        <input
-          type="number"
-          min={1}
-          step={1}
-          value={values.servings}
-          onChange={(e) => set('servings', e.target.value)}
-          placeholder="e.g. 4"
-          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        <p className="mt-0.5 text-xs text-gray-400">Number of servings this recipe makes</p>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Servings</label>
+          <input
+            type="number"
+            min={1}
+            step={1}
+            value={values.servings}
+            onChange={(e) => set('servings', e.target.value)}
+            placeholder="—"
+            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <p className="mt-0.5 text-xs text-gray-400">Number of servings this recipe makes</p>
+        </div>
       </div>
 
       {/* Tags */}
