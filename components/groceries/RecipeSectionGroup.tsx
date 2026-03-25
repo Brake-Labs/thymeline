@@ -1,6 +1,6 @@
 'use client'
 
-import { GroceryItem, RecipeScale } from '@/types'
+import { GroceryItem } from '@/types'
 import StepperInput from '@/components/preferences/StepperInput'
 import GroceryItemRow from './GroceryItemRow'
 
@@ -10,10 +10,12 @@ interface RecipeSectionGroupProps {
   items:             GroceryItem[]
   effectiveCount:    number
   isOverridden:      boolean
-  onServingsChange: (count: number) => void
+  onServingsChange:  (count: number) => void
   onResetOverride:   () => void
   onToggle:          (itemId: string) => void
   onRemove:          (itemId: string) => void
+  onMarkAllBought:   () => void
+  onGotIt:           (itemId: string) => void
 }
 
 export default function RecipeSectionGroup({
@@ -26,7 +28,13 @@ export default function RecipeSectionGroup({
   onResetOverride,
   onToggle,
   onRemove,
+  onMarkAllBought,
+  onGotIt,
 }: RecipeSectionGroupProps) {
+  // "items" here contains only unchecked items (bought are in Got it section)
+  // allBought means no active items remain → show Unmark all
+  const hasItems = items.length > 0
+
   return (
     <section
       aria-labelledby={`recipe-heading-${recipeId}`}
@@ -40,6 +48,15 @@ export default function RecipeSectionGroup({
           {recipeTitle}
         </h3>
         <div className="flex items-center gap-2">
+          {hasItems && (
+            <button
+              type="button"
+              onClick={onMarkAllBought}
+              className="text-xs text-stone-500 hover:text-sage-600 underline transition-colors"
+            >
+              Mark all as bought
+            </button>
+          )}
           {isOverridden && (
             <>
               <span className="text-xs font-medium bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
@@ -66,7 +83,7 @@ export default function RecipeSectionGroup({
 
       <div className="px-4 py-2 divide-y divide-stone-50">
         {items.length === 0 ? (
-          <p className="text-sm text-stone-400 py-2">No ingredients</p>
+          <p className="text-sm text-stone-400 py-2">All items marked as bought</p>
         ) : (
           items.map((item) => (
             <GroceryItemRow
@@ -74,6 +91,7 @@ export default function RecipeSectionGroup({
               item={item}
               onToggle={() => onToggle(item.id)}
               onRemove={() => onRemove(item.id)}
+              onGotIt={() => onGotIt(item.id)}
             />
           ))
         )}

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient, createAdminClient } from '@/lib/supabase-server'
 import { GroceryItem, GroceryList, RecipeScale } from '@/types'
 
-// ── GET /api/groceries?week_start=YYYY-MM-DD ─────────────────────────────────
+// ── GET /api/groceries?week_start=YYYY-MM-DD  (or ?date_from=YYYY-MM-DD) ─────
 
 export async function GET(req: NextRequest) {
   const supabase = createServerClient(req)
@@ -11,9 +11,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const weekStart = new URL(req.url).searchParams.get('week_start')
+  const url = new URL(req.url)
+  // Accept date_from as alias for week_start (generate stores week_start = date_from)
+  const weekStart = url.searchParams.get('week_start') ?? url.searchParams.get('date_from')
   if (!weekStart) {
-    return NextResponse.json({ error: 'week_start is required' }, { status: 400 })
+    return NextResponse.json({ error: 'week_start or date_from is required' }, { status: 400 })
   }
 
   const db = createAdminClient()
@@ -41,9 +43,10 @@ export async function PATCH(req: NextRequest) {
   }
 
   let body: {
-    week_start:     string
+    week_start?:    string
+    list_id?:       string
     items?:         GroceryItem[]
-    servings?:  number
+    servings?:      number
     recipe_scales?: RecipeScale[]
   }
   try {
@@ -52,23 +55,37 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const { week_start, items, servings, recipe_scales } = body
-  if (!week_start) {
-    return NextResponse.json({ error: 'week_start is required' }, { status: 400 })
+  const { week_start, list_id, items, servings, recipe_scales } = body
+  if (!week_start && !list_id) {
+    return NextResponse.json({ error: 'week_start or list_id is required' }, { status: 400 })
   }
 
   const db = createAdminClient()
 
-  // Find existing row
-  const { data: existing, error: fetchError } = await db
-    .from('grocery_lists')
-    .select('id, meal_plan_id')
-    .eq('user_id', user.id)
-    .eq('week_start', week_start)
-    .single()
-
-  if (fetchError || !existing) {
-    return NextResponse.json({ error: 'Grocery list not found' }, { status: 404 })
+  // Find existing row — prefer list_id for direct lookup, fall back to week_start
+  let existing: { id: string; meal_plan_id: string } | null = null
+  if (list_id) {
+    const { data, error } = await db
+      .from('grocery_lists')
+      .select('id, meal_plan_id')
+      .eq('id', list_id)
+      .eq('user_id', user.id)
+      .single()
+    if (error || !data) {
+      return NextResponse.json({ error: 'Grocery list not found' }, { status: 404 })
+    }
+    existing = data as { id: string; meal_plan_id: string }
+  } else {
+    const { data, error } = await db
+      .from('grocery_lists')
+      .select('id, meal_plan_id')
+      .eq('user_id', user.id)
+      .eq('week_start', week_start!)
+      .single()
+    if (error || !data) {
+      return NextResponse.json({ error: 'Grocery list not found' }, { status: 404 })
+    }
+    existing = data as { id: string; meal_plan_id: string }
   }
 
   // Build update payload

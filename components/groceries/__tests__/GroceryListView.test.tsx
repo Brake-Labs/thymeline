@@ -189,6 +189,56 @@ describe('T18 - Confirming regenerate replaces items and resets recipe_scales', 
   })
 })
 
+// ── T33: "Got it" — per-item and "Mark all as bought" ────────────────────────
+
+describe('T33 - Got it button marks item as bought', () => {
+  it('moves item to Got it section and calls PATCH with bought:true', async () => {
+    render(<GroceryListView initialList={sampleList} />)
+
+    const gotItBtn = screen.getAllByLabelText(/Got it pasta/i)[0]
+    fireEvent.click(gotItBtn)
+
+    await waitFor(() => {
+      const patchCalls = mockFetch.mock.calls.filter(([, opts]) => opts?.method === 'PATCH')
+      expect(patchCalls.length).toBeGreaterThan(0)
+      const body = JSON.parse(patchCalls[0][1].body)
+      const pastaItem = body.items.find((i: { name: string }) => i.name === 'pasta')
+      expect(pastaItem?.bought).toBe(true)
+    })
+  })
+
+  it('moves all recipe items to Got it on "Mark all as bought"', async () => {
+    render(<GroceryListView initialList={sampleList} />)
+
+    // Find the "Mark all as bought" button for Pasta
+    const markAllBtns = screen.getAllByText('Mark all as bought')
+    fireEvent.click(markAllBtns[0])
+
+    await waitFor(() => {
+      const patchCalls = mockFetch.mock.calls.filter(([, opts]) => opts?.method === 'PATCH')
+      expect(patchCalls.length).toBeGreaterThan(0)
+      const body = JSON.parse(patchCalls[0][1].body)
+      const pastaItems = body.items.filter((i: { recipes: string[] }) => i.recipes.includes('Pasta'))
+      expect(pastaItems.every((i: { bought: boolean }) => i.bought)).toBe(true)
+    })
+  })
+
+  it('shows Got it section with bought items and Undo button', () => {
+    const listWithBought = {
+      ...sampleList,
+      items: [
+        { ...sampleList.items[0], bought: true },
+        sampleList.items[1],
+        sampleList.items[2],
+      ],
+    }
+    render(<GroceryListView initialList={listWithBought} />)
+
+    expect(screen.getByText(/Got it \(1\)/)).toBeInTheDocument()
+    expect(screen.getByLabelText('Undo pasta')).toBeInTheDocument()
+  })
+})
+
 // ── T22: Share invokes Web Share API ─────────────────────────────────────────
 
 describe('T22 - Share invokes Web Share API with correct format', () => {
