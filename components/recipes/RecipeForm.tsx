@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import TagSelector from './TagSelector'
+import TagSelector, { type PendingNewTag } from './TagSelector'
 
 export interface RecipeFormValues {
   title: string
@@ -25,7 +25,7 @@ interface RecipeFormProps {
   /** Fields from a scrape that returned null — show "Couldn't find this" placeholder */
   nullFields?: Set<string>
   suggestedTags?:   string[]
-  pendingNewTags?:  string[]
+  pendingNewTags?:  PendingNewTag[]
   onSubmit: (values: RecipeFormValues) => Promise<void>
   isSubmitting: boolean
 }

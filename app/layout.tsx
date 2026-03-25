@@ -27,7 +27,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${jakarta.variable} ${manrope.variable}`}>{children}</body>
+      <body className={`${jakarta.variable} ${manrope.variable} font-sans`}>{children}</body>
     </html>
   )
 }

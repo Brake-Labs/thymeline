@@ -58,8 +58,8 @@ export default function DayCard({ date, entries, isExpanded, onToggle, onAddEntr
                 e.meal_type === mealType ||
                 (e.is_side_dish && entries.find((p) => p.id === e.parent_entry_id)?.meal_type === mealType)
               )}
-              onAdd={(recipeId, recipeTitle, isSideDish, parentEntryId) =>
-                onAddEntry(date, mealType, recipeId, recipeTitle, isSideDish, parentEntryId)
+              onAdd={(recipeId, recipeTitle, isSideDish, parentEntryId, mealTypeOverride) =>
+                onAddEntry(date, mealTypeOverride ?? mealType, recipeId, recipeTitle, isSideDish, parentEntryId)
               }
               onDelete={onDeleteEntry}
               onAddSideDish={(parentEntryId) => {
