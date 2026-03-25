@@ -65,6 +65,7 @@ export interface Recipe {
   cook_time_minutes:     number | null
   total_time_minutes:    number | null
   inactive_time_minutes: number | null
+  servings:              number | null
 }
 
 export interface RecipeListItem {

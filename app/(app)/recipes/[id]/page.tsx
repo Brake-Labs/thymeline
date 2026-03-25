@@ -113,6 +113,7 @@ export default function RecipeDetailPage({ params }: Props) {
     { label: 'Cook', value: formatMinutes(recipe.cook_time_minutes ?? null) },
     { label: 'Total', value: formatMinutes(recipe.total_time_minutes ?? null) },
     { label: 'Inactive', value: formatMinutes(recipe.inactive_time_minutes ?? null) },
+    { label: 'Servings', value: recipe.servings != null ? String(recipe.servings) : '—' },
   ]
 
   return (
