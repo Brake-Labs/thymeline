@@ -50,13 +50,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'parent_entry_id is required for side dish entries' }, { status: 400 })
   }
 
+  // Dessert requires parent_entry_id
+  if (meal_type === 'dessert' && !parent_entry_id) {
+    return NextResponse.json({ error: 'parent_entry_id is required for dessert entries' }, { status: 400 })
+  }
+
   const db = createAdminClient()
 
-  // Dessert: require parent_entry_id and validate parent is a Dinner or Lunch slot
-  if (meal_type === 'dessert') {
-    if (!parent_entry_id) {
-      return NextResponse.json({ error: 'parent_entry_id is required for dessert entries' }, { status: 400 })
-    }
+  // Dessert parent must be a Dinner or Lunch slot
+  if (meal_type === 'dessert' && parent_entry_id) {
     const { data: parentEntry } = await db
       .from('meal_plan_entries')
       .select('meal_type')

@@ -9,15 +9,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const mockUser = { id: 'user-1' }
 
-const samplePlan = { id: 'plan-1', people_count: 2 }
+const samplePlan = { id: 'plan-1', servings: 4 }
 
 const sampleList = {
   id:            'list-1',
   user_id:       'user-1',
   meal_plan_id:  'plan-1',
   week_start:    '2026-03-15',
-  people_count:  2,
-  recipe_scales: [{ recipe_id: 'recipe-1', recipe_title: 'Pasta', people_count: null }],
+  servings:      4,
+  recipe_scales: [{ recipe_id: 'recipe-1', recipe_title: 'Pasta', servings: null }],
   items:         [
     {
       id: 'item-1', name: 'pasta', amount: 200, unit: 'g',
@@ -201,14 +201,14 @@ describe('T29 - PATCH /api/groceries returns 404 for non-existent list', () => {
   })
 
   it('returns 200 with updated list on success', async () => {
-    const updatedList = { ...sampleList, people_count: 4 }
+    const updatedList = { ...sampleList, servings: 8 }
     setupMocks({ list: sampleList, updateResult: updatedList })
 
     const { PATCH } = await import('../route')
     const res = await PATCH(
       makeReq('http://localhost/api/groceries', 'PATCH', {
         week_start: '2026-03-15',
-        people_count: 4,
+        servings: 8,
       }) as Parameters<typeof PATCH>[0],
     )
 
@@ -216,19 +216,19 @@ describe('T29 - PATCH /api/groceries returns 404 for non-existent list', () => {
   })
 })
 
-// ── T30: PATCH writes people_count to meal_plans ─────────────────────────────
+// ── T30: PATCH writes servings to meal_plans ─────────────────────────────────
 
-describe('T30 - plan-level people_count written to meal_plans on change', () => {
+describe('T30 - plan-level servings written to meal_plans on change', () => {
   beforeEach(() => { vi.resetModules() })
 
-  it('calls meal_plans.update when people_count changes', async () => {
+  it('calls meal_plans.update when servings changes', async () => {
     const db = setupMocks({ list: sampleList })
 
     const { PATCH } = await import('../route')
     await PATCH(
       makeReq('http://localhost/api/groceries', 'PATCH', {
         week_start: '2026-03-15',
-        people_count: 4,
+        servings: 8,
       }) as Parameters<typeof PATCH>[0],
     )
 
@@ -415,5 +415,36 @@ describe('T10 - Plan-level scaling: 4 people doubles amounts from base 2', () =>
     const { resolved } = combineIngredients(inputs)
     const pasta = resolved[0]
     expect(pasta.amount).toBe(400)
+  })
+})
+
+
+// ── T_servings: Generate uses recipe.servings for recipe_scales ───────────────
+
+describe('T_servings - Generate seeds recipe_scales.servings from recipe', () => {
+  beforeEach(() => { vi.resetModules() })
+
+  it('defaults to planServings (4) when recipe.servings is null', async () => {
+    const entries = [{
+      recipe_id:    'recipe-1',
+      planned_date: '2026-03-15',
+      recipes:      { id: 'recipe-1', title: 'Pasta', ingredients: '200g pasta\n1 cup sauce', url: null, servings: null },
+    }]
+    const db = setupMocks({ plan: samplePlan, entries })
+    const { POST } = await import('../generate/route')
+    const res = await POST(
+      makeReq('http://localhost/api/groceries/generate', 'POST', { week_start: '2026-03-15' }),
+    )
+    expect(res.status).toBe(200)
+
+    // Find the grocery_lists upsert calls by correlating from.mock.calls and .results
+    type FromResult = { select?: unknown; upsert?: ReturnType<typeof vi.fn>; update?: unknown }
+    const groceryListObjs = db.from.mock.calls
+      .map((args: string[], i: number) => ({ table: args[0], obj: (db.from.mock.results[i] as { value: FromResult }).value }))
+      .filter(({ table }) => table === 'grocery_lists')
+    const upsertArgs = groceryListObjs.flatMap(({ obj }) => obj.upsert?.mock?.calls ?? [])
+    const upsertData = upsertArgs[0]?.[0] as { recipe_scales: Array<{ recipe_id: string; servings: number }> }
+    const scale = upsertData?.recipe_scales?.find((s) => s.recipe_id === 'recipe-1')
+    expect(scale?.servings).toBe(4)
   })
 })

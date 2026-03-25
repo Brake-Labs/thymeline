@@ -64,6 +64,7 @@ The JSON must have exactly these fields:
 - "imageUrl": string or null (URL of the main recipe image if present)
 - "suggestedTags": array of strings. ONLY use tags from this exact list: ${firstClassList}. Keep total to 6 or fewer. Never suggest protein tags that don't apply to this recipe. Tag definitions: "Quick" = total prep + cook time is 30 minutes or less. Cuisine tags (Italian, Mexican, Thai, Indian, Greek, French, Middle Eastern, American, Chinese, Japanese, Irish, Hungarian, Mediterranean) — apply only when the recipe's cuisine is clearly identifiable. Dietary tags (Vegetarian, Vegan, Gluten-Free, Dairy-Free, Keto, Paleo, Whole30, etc.) — apply only when the recipe clearly qualifies. Do NOT invent tags outside this list — use suggestedNewTags for that.
 - "suggestedNewTags": array of objects {name: string, section: string}. ONLY include a tag here if it is strongly relevant and does not exist in the list above. section must be one of: style, dietary, seasonal, cuisine, protein. Keep to 1 or fewer new tags. If nothing is needed, return an empty array.
+- "servings": number of servings this recipe makes as an integer, or null
 - "prepTimeMinutes": prep time in minutes as an integer, or null
 - "cookTimeMinutes": cook time in minutes as an integer, or null
 - "totalTimeMinutes": total time in minutes as an integer, or null
@@ -85,6 +86,7 @@ ${pageContent.slice(0, 20000)}`
     imageUrl: string | null
     suggestedTags: string[]
     suggestedNewTags: RawNewTag[]
+    servings: number | null
     prepTimeMinutes: number | null
     cookTimeMinutes: number | null
     totalTimeMinutes: number | null
@@ -96,6 +98,7 @@ ${pageContent.slice(0, 20000)}`
     imageUrl: null,
     suggestedTags: [],
     suggestedNewTags: [],
+    servings: null,
     prepTimeMinutes: null,
     cookTimeMinutes: null,
     totalTimeMinutes: null,
@@ -132,6 +135,7 @@ ${pageContent.slice(0, 20000)}`
       imageUrl: typeof parsed.imageUrl === 'string' ? parsed.imageUrl : null,
       suggestedTags: rawSuggested,
       suggestedNewTags: rawNewTags,
+      servings: Number.isInteger(parsed.servings) ? parsed.servings : null,
       prepTimeMinutes: Number.isInteger(parsed.prepTimeMinutes) ? parsed.prepTimeMinutes : null,
       cookTimeMinutes: Number.isInteger(parsed.cookTimeMinutes) ? parsed.cookTimeMinutes : null,
       totalTimeMinutes: Number.isInteger(parsed.totalTimeMinutes) ? parsed.totalTimeMinutes : null,
@@ -182,6 +186,7 @@ ${pageContent.slice(0, 20000)}`
     partial,
     suggestedTags,
     suggestedNewTags,
+    servings: extracted.servings,
     prepTimeMinutes: extracted.prepTimeMinutes,
     cookTimeMinutes: extracted.cookTimeMinutes,
     totalTimeMinutes: extracted.totalTimeMinutes,

@@ -325,3 +325,64 @@ describe('POST /api/recipes/scrape', () => {
     expect(body.suggestedNewTags[0]).toMatchObject({ name: 'ValidTag', section: 'protein' })
   })
 })
+
+
+// ── T_servings: Scrape route returns servings from LLM ──────────────────────
+
+describe('T_servings - Scrape route returns servings from LLM', () => {
+  beforeEach(() => { vi.resetModules() })
+
+  it('returns servings when LLM provides it', async () => {
+    const mock = makeSupabaseMock({ customTags: [] })
+    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(anthropic.messages.create).mockResolvedValue({
+      content: [{ type: 'text', text: JSON.stringify({
+        title: 'Pasta',
+        ingredients: '200g pasta',
+        steps: 'Cook it',
+        imageUrl: null,
+        suggestedTags: [],
+        servings: 4,
+        prepTimeMinutes: null,
+        cookTimeMinutes: null,
+        totalTimeMinutes: null,
+        inactiveTimeMinutes: null,
+      }) }],
+    } as unknown as Awaited<ReturnType<typeof anthropic.messages.create>>)
+
+    const { POST } = await import('@/app/api/recipes/scrape/route')
+    const res = await POST(
+      makeReq('http://localhost/api/recipes/scrape', 'POST', { url: 'https://example.com/recipe' }),
+    )
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.servings).toBe(4)
+  })
+
+  it('returns null servings when LLM cannot find it', async () => {
+    const mock = makeSupabaseMock({ customTags: [] })
+    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(anthropic.messages.create).mockResolvedValue({
+      content: [{ type: 'text', text: JSON.stringify({
+        title: 'Pasta',
+        ingredients: '200g pasta',
+        steps: 'Cook it',
+        imageUrl: null,
+        suggestedTags: [],
+        servings: null,
+        prepTimeMinutes: null,
+        cookTimeMinutes: null,
+        totalTimeMinutes: null,
+        inactiveTimeMinutes: null,
+      }) }],
+    } as unknown as Awaited<ReturnType<typeof anthropic.messages.create>>)
+
+    const { POST } = await import('@/app/api/recipes/scrape/route')
+    const res = await POST(
+      makeReq('http://localhost/api/recipes/scrape', 'POST', { url: 'https://example.com/recipe' }),
+    )
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.servings).toBeNull()
+  })
+})
