@@ -1,6 +1,6 @@
 'use client'
 
-import { GroceryItem, RecipeScale } from '@/types'
+import { GroceryItem } from '@/types'
 import StepperInput from '@/components/preferences/StepperInput'
 import GroceryItemRow from './GroceryItemRow'
 
@@ -15,6 +15,7 @@ interface RecipeSectionGroupProps {
   onToggle:          (itemId: string) => void
   onRemove:          (itemId: string) => void
   onMarkAllBought:   () => void
+  onGotIt:           (itemId: string) => void
 }
 
 export default function RecipeSectionGroup({
@@ -28,6 +29,7 @@ export default function RecipeSectionGroup({
   onToggle,
   onRemove,
   onMarkAllBought,
+  onGotIt,
 }: RecipeSectionGroupProps) {
   // "items" here contains only unchecked items (bought are in Got it section)
   // allBought means no active items remain → show Unmark all
@@ -89,6 +91,7 @@ export default function RecipeSectionGroup({
               item={item}
               onToggle={() => onToggle(item.id)}
               onRemove={() => onRemove(item.id)}
+              onGotIt={() => onGotIt(item.id)}
             />
           ))
         )}

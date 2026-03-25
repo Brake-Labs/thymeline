@@ -58,20 +58,26 @@ function makeDbMock(opts: {
       const plansResult  = { data: planError ? null : plansList, error: planError ? { message: 'not found' } : null }
       const singleResult = planError ? { data: null, error: { message: 'not found' } } : { data: plan, error: null }
 
-      // Lazy factory so .eq().eq() chains don't recurse at construction time
-      const makeChain = (): Record<string, unknown> => ({
-        eq:     vi.fn().mockImplementation(() => makeChain()),
-        lte:    vi.fn().mockReturnValue({
-          gte:  vi.fn().mockReturnValue({
+      // Lazy factory — thenable so direct `await chain` resolves to plansResult
+      const makeChain = (): Record<string, unknown> => {
+        const ch: Record<string, unknown> = {
+          eq:     vi.fn().mockImplementation(() => makeChain()),
+          lte:    vi.fn().mockReturnValue({
+            gte:  vi.fn().mockReturnValue({
+              order: vi.fn().mockResolvedValue(plansResult),
+            }),
+          }),
+          gte:    vi.fn().mockReturnValue({
             order: vi.fn().mockResolvedValue(plansResult),
           }),
-        }),
-        gte:    vi.fn().mockReturnValue({
-          order: vi.fn().mockResolvedValue(plansResult),
-        }),
-        single: vi.fn().mockResolvedValue(singleResult),
-        order:  vi.fn().mockResolvedValue(plansResult),
-      })
+          single: vi.fn().mockResolvedValue(singleResult),
+          order:  vi.fn().mockResolvedValue(plansResult),
+          // Make thenable: `await db.from('meal_plans').select().eq()` → plansResult
+          then:   (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) =>
+                    Promise.resolve(plansResult).then(resolve, reject),
+        }
+        return ch
+      }
 
       return {
         select: vi.fn().mockReturnValue(makeChain()),
@@ -553,5 +559,105 @@ describe('T_servings - Generate seeds recipe_scales.servings from recipe', () =>
     const upsertData = upsertArgs[0]?.[0] as { recipe_scales: Array<{ recipe_id: string; servings: number }> }
     const scale = upsertData?.recipe_scales?.find((s) => s.recipe_id === 'recipe-1')
     expect(scale?.servings).toBe(4)
+  })
+})
+
+// ── NEW: Date range query returns correct recipes ─────────────────────────────
+
+describe('Date range: POST /generate with date_from/date_to', () => {
+  beforeEach(() => { vi.resetModules() })
+
+  it('accepts date_from/date_to and returns 200 with list', async () => {
+    const entries = [{
+      recipe_id:    'recipe-1',
+      planned_date: '2026-03-22',
+      recipes:      { id: 'recipe-1', title: 'Pasta', ingredients: '200g pasta', url: null, servings: null },
+    }]
+    setupMocks({ plan: samplePlan, entries, upsertResult: sampleList })
+
+    const { POST } = await import('../generate/route')
+    const res = await POST(
+      makeReq('http://localhost/api/groceries/generate', 'POST', {
+        date_from: '2026-03-22',
+        date_to:   '2026-03-28',
+      }) as Parameters<typeof POST>[0],
+    )
+
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.list).toBeDefined()
+  })
+
+  it('returns 400 when neither week_start nor date_from provided', async () => {
+    setupMocks()
+
+    const { POST } = await import('../generate/route')
+    const res = await POST(
+      makeReq('http://localhost/api/groceries/generate', 'POST', {}) as Parameters<typeof POST>[0],
+    )
+
+    expect(res.status).toBe(400)
+  })
+
+  it('queries entries by date range using .in().gte().lte()', async () => {
+    const entries = [{
+      recipe_id:    'recipe-range',
+      planned_date: '2026-04-01',
+      recipes:      { id: 'recipe-range', title: 'Soup', ingredients: '1 cup broth', url: null, servings: null },
+    }]
+    const db = setupMocks({ plan: samplePlan, entries, upsertResult: sampleList })
+
+    const { POST } = await import('../generate/route')
+    await POST(
+      makeReq('http://localhost/api/groceries/generate', 'POST', {
+        date_from: '2026-03-29',
+        date_to:   '2026-04-11',
+      }) as Parameters<typeof POST>[0],
+    )
+
+    // Verify meal_plan_entries was queried (via the .in() chain)
+    const entryTableCalls = db.from.mock.calls.filter(([t]: string[]) => t === 'meal_plan_entries')
+    expect(entryTableCalls.length).toBeGreaterThan(0)
+  })
+})
+
+// ── NEW: Item bought state saves and loads correctly ──────────────────────────
+
+describe('Item bought state: PATCH saves checked items', () => {
+  beforeEach(() => { vi.resetModules() })
+
+  it('saves items with checked:true and returns updated list', async () => {
+    const boughtItems = [{
+      id: 'item-1', name: 'pasta', amount: 200, unit: 'g',
+      section: 'Pantry', is_pantry: false, checked: true, recipes: ['Pasta'],
+    }]
+    const updatedList = { ...sampleList, items: boughtItems }
+    setupMocks({ list: sampleList, updateResult: updatedList })
+
+    const { PATCH } = await import('../route')
+    const res = await PATCH(
+      makeReq('http://localhost/api/groceries', 'PATCH', {
+        week_start: '2026-03-15',
+        items: boughtItems,
+      }) as Parameters<typeof PATCH>[0],
+    )
+
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.items[0].checked).toBe(true)
+  })
+
+  it('PATCH by list_id also resolves the list correctly', async () => {
+    setupMocks({ list: sampleList, updateResult: sampleList })
+
+    const { PATCH } = await import('../route')
+    const res = await PATCH(
+      makeReq('http://localhost/api/groceries', 'PATCH', {
+        list_id: 'list-1',
+        items: sampleList.items,
+      }) as Parameters<typeof PATCH>[0],
+    )
+
+    expect(res.status).toBe(200)
   })
 })

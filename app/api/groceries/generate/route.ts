@@ -56,11 +56,12 @@ export async function POST(req: NextRequest) {
 
   const db = createAdminClient()
 
-  // 1. Get all meal plan IDs for the user
+  // 1. Get all meal plan IDs for the user (ordered so primaryPlanId is deterministic)
   const { data: plans, error: plansError } = await db
     .from('meal_plans')
     .select('id')
     .eq('user_id', user.id)
+    .order('week_start')
 
   if (plansError || !plans || plans.length === 0) {
     return NextResponse.json({ error: 'No meal plans found for this date range' }, { status: 404 })

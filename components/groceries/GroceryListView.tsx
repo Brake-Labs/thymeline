@@ -5,6 +5,7 @@ import { GroceryItem, GroceryList, RecipeScale } from '@/types'
 import StepperInput from '@/components/preferences/StepperInput'
 import GroceryItemRow from './GroceryItemRow'
 import RecipeSectionGroup from './RecipeSectionGroup'
+import GotItSection from './GotItSection'
 import AddItemInput from './AddItemInput'
 import { getAccessToken } from '@/lib/supabase/browser'
 import { effectiveServings, formatWeekLabel, buildPlainTextList, scaleItem } from '@/lib/grocery'
@@ -82,15 +83,27 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
 
   // ── Mark all bought for a recipe ─────────────────────────────────────────────
 
-  const handleMarkAllBought = useCallback(async (recipeTitle: string) => {
-    const recipeItems = items.filter((i) => i.recipes.includes(recipeTitle))
-    const allBought = recipeItems.length > 0 && recipeItems.every((i) => i.checked)
+  const handleGotIt = useCallback(async (itemId: string) => {
     const updated = items.map((i) =>
-      i.recipes.includes(recipeTitle) ? { ...i, checked: !allBought } : i,
+      i.id === itemId ? { ...i, bought: true } : i,
     )
     setItems(updated)
-    // Show Got it section when marking bought
-    if (!allBought) setGotItCollapsed(false)
+    await patch({ items: updated })
+  }, [items, weekStart]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleUndoBought = useCallback(async (itemId: string) => {
+    const updated = items.map((i) =>
+      i.id === itemId ? { ...i, bought: false } : i,
+    )
+    setItems(updated)
+    await patch({ items: updated })
+  }, [items, weekStart]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleMarkAllBought = useCallback(async (recipeTitle: string) => {
+    const updated = items.map((i) =>
+      i.recipes.includes(recipeTitle) ? { ...i, bought: true } : i,
+    )
+    setItems(updated)
     await patch({ items: updated })
   }, [items, weekStart]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -202,7 +215,7 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
   // ── Render ──────────────────────────────────────────────────────────────────
 
   const totalCount   = items.length
-  const boughtItems  = items.filter((i) => i.checked)
+  const boughtItems  = items.filter((i) => i.bought)
   const checkedCount = boughtItems.length
 
   // Build ordered list of unique recipe titles (from recipeScales, ordered by planned_date)
@@ -250,7 +263,7 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
       <div className="space-y-4">
         {orderedTitles.map((title) => {
           const scale = recipeScales.find((s) => s.recipe_title === title)!
-          const recipeItems = items.filter((i) => i.recipes.includes(title) && !i.checked)
+          const recipeItems = items.filter((i) => i.recipes.includes(title) && !i.bought)
           const effective = effectiveServings(scale.recipe_id, recipeScales, planServings)
           return (
             <RecipeSectionGroup
@@ -265,12 +278,13 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
               onToggle={handleToggle}
               onRemove={handleRemove}
               onMarkAllBought={() => handleMarkAllBought(title)}
+              onGotIt={handleGotIt}
             />
           )
         })}
 
         {/* User-added items (recipes: []) — exclude bought */}
-        {items.some((i) => i.recipes.length === 0 && !i.checked) && (
+        {items.some((i) => i.recipes.length === 0 && !i.bought) && (
           <section
             aria-label="Other items"
             className="border border-stone-200 rounded-xl bg-white overflow-hidden"
@@ -280,7 +294,7 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
             </div>
             <div className="px-4 py-2 divide-y divide-stone-50">
               {items
-                .filter((i) => i.recipes.length === 0 && !i.checked)
+                .filter((i) => i.recipes.length === 0 && !i.bought)
                 .map((item) => (
                   <GroceryItemRow
                     key={item.id}
@@ -298,32 +312,7 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
       <AddItemInput onAdd={handleAddItem} />
 
       {/* Got it section */}
-      {boughtItems.length > 0 && (
-        <section aria-label="Got it" className="border border-stone-200 rounded-xl bg-white overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setGotItCollapsed((c) => !c)}
-            className="w-full flex items-center justify-between px-4 pt-4 pb-3 border-b border-stone-100 hover:bg-stone-50 transition-colors"
-          >
-            <h3 className="font-display font-semibold text-sage-600 text-sm">
-              Got it ({checkedCount})
-            </h3>
-            <span className="text-stone-400 text-xs">{gotItCollapsed ? '▸' : '▾'}</span>
-          </button>
-          {!gotItCollapsed && (
-            <div className="px-4 py-2 divide-y divide-stone-50">
-              {boughtItems.map((item) => (
-                <GroceryItemRow
-                  key={item.id}
-                  item={item}
-                  onToggle={() => handleToggle(item.id)}
-                  onRemove={() => handleRemove(item.id)}
-                />
-              ))}
-            </div>
-          )}
-        </section>
-      )}
+      <GotItSection items={boughtItems} onUndo={handleUndoBought} />
 
       {/* Progress counter */}
       <p className="text-sm text-stone-400 text-right">
