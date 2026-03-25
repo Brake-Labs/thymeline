@@ -125,5 +125,6 @@ export async function POST(req: NextRequest) {
     total_time_minutes: ((entry.recipes as unknown) as { total_time_minutes: number | null } | null)?.total_time_minutes ?? null,
   }
 
+  console.log('[POST /api/plan/entries] total_time_minutes:', planEntry.total_time_minutes)
   return NextResponse.json(planEntry, { status: 201 })
 }
