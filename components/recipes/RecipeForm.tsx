@@ -159,21 +159,6 @@ export default function RecipeForm({
         </div>
       </div>
 
-      {/* Servings */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Servings</label>
-        <input
-          type="number"
-          min={1}
-          step={1}
-          value={values.servings}
-          onChange={(e) => set('servings', e.target.value)}
-          placeholder="e.g. 4"
-          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        <p className="mt-0.5 text-xs text-gray-400">Number of servings this recipe makes</p>
-      </div>
-
       {/* Tags */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
