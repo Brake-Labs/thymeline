@@ -43,7 +43,7 @@ export async function PATCH(req: NextRequest) {
   let body: {
     week_start:     string
     items?:         GroceryItem[]
-    people_count?:  number
+    servings?:  number
     recipe_scales?: RecipeScale[]
   }
   try {
@@ -52,7 +52,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const { week_start, items, people_count, recipe_scales } = body
+  const { week_start, items, servings, recipe_scales } = body
   if (!week_start) {
     return NextResponse.json({ error: 'week_start is required' }, { status: 400 })
   }
@@ -74,7 +74,7 @@ export async function PATCH(req: NextRequest) {
   // Build update payload
   const update: Record<string, unknown> = { updated_at: new Date().toISOString() }
   if (items !== undefined) update.items = items
-  if (people_count !== undefined) update.people_count = people_count
+  if (servings !== undefined) update.servings = servings
   if (recipe_scales !== undefined) update.recipe_scales = recipe_scales
 
   const { data: updated, error: updateError } = await db
@@ -88,11 +88,11 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to update grocery list' }, { status: 500 })
   }
 
-  // If people_count changed, also update meal_plans
-  if (people_count !== undefined) {
+  // If servings changed, also update meal_plans
+  if (servings !== undefined) {
     await db
       .from('meal_plans')
-      .update({ people_count })
+      .update({ servings })
       .eq('id', existing.meal_plan_id)
   }
 

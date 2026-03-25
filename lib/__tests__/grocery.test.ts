@@ -11,7 +11,7 @@ import {
   isPantryStaple,
   combineIngredients,
   scaleItem,
-  effectivePeopleCount,
+  effectiveServings,
   buildPlainTextList,
   getCurrentWeekSunday,
   formatWeekLabel,
@@ -188,23 +188,23 @@ describe('scaleItem', () => {
 
 // ── T11 & T12: Per-recipe override / plan-level change ──────────────────────
 
-describe('T11 & T12 - effectivePeopleCount', () => {
+describe('T11 & T12 - effectiveServings', () => {
   const scales: RecipeScale[] = [
-    { recipe_id: 'r1', recipe_title: 'Pasta', people_count: null },    // inherits plan
-    { recipe_id: 'r2', recipe_title: 'Salad', people_count: 4 },       // override
+    { recipe_id: 'r1', recipe_title: 'Pasta', servings: null },    // inherits plan
+    { recipe_id: 'r2', recipe_title: 'Salad', servings: 4 },       // override
   ]
 
   it('T11: returns override when set', () => {
-    expect(effectivePeopleCount('r2', scales, 2)).toBe(4)
+    expect(effectiveServings('r2', scales, 2)).toBe(4)
   })
 
   it('T12: returns plan default when no override', () => {
-    expect(effectivePeopleCount('r1', scales, 2)).toBe(2)
+    expect(effectiveServings('r1', scales, 2)).toBe(2)
   })
 
   it('T12: changing plan default does not affect overridden recipe', () => {
-    // effectivePeopleCount always returns the override for r2 regardless of planPeopleCount
-    expect(effectivePeopleCount('r2', scales, 6)).toBe(4)
+    // effectiveServings always returns the override for r2 regardless of planServings
+    expect(effectiveServings('r2', scales, 6)).toBe(4)
   })
 })
 
@@ -213,10 +213,10 @@ describe('T11 & T12 - effectivePeopleCount', () => {
 describe('T13 - Reset to default removes override', () => {
   it('returns plan default after override set to null', () => {
     const scales: RecipeScale[] = [
-      { recipe_id: 'r1', recipe_title: 'Pasta', people_count: null },
+      { recipe_id: 'r1', recipe_title: 'Pasta', servings: null },
     ]
-    // After reset, people_count is null → falls back to plan default
-    expect(effectivePeopleCount('r1', scales, 3)).toBe(3)
+    // After reset, servings is null → falls back to plan default
+    expect(effectiveServings('r1', scales, 3)).toBe(3)
   })
 })
 
@@ -228,7 +228,7 @@ describe('buildPlainTextList', () => {
     { id: 'i2', name: 'olive oil', amount: 2, unit: 'tbsp', section: 'Pantry', is_pantry: true, checked: false, recipes: ['Pasta'] },
   ]
   const scales: RecipeScale[] = [
-    { recipe_id: 'r1', recipe_title: 'Pasta', people_count: 4 },
+    { recipe_id: 'r1', recipe_title: 'Pasta', servings: 4 },
   ]
 
   it('outputs one line per item with no headers or bullets', () => {
