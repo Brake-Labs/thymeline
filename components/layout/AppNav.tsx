@@ -2,21 +2,24 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { Settings } from 'lucide-react'
 import { getSupabaseClient } from '@/lib/supabase/browser'
+import ForkcastLogo from './ForkcastLogo'
 
-interface NavItem {
-  href: string
-  label: string
-  icon: string
-}
+const CENTER_NAV = [
+  { href: '/home',      label: 'Home' },
+  { href: '/recipes',   label: 'Recipes' },
+  { href: '/plan',      label: 'Plan' },
+  { href: '/calendar',  label: 'Calendar' },
+  { href: '/groceries', label: 'Groceries' },
+]
 
-const NAV_ITEMS: NavItem[] = [
-  { href: '/home',                  label: 'Home',      icon: '🏠' },
-  { href: '/recipes',               label: 'Recipes',   icon: '📖' },
-  { href: '/plan',                  label: 'Plan',      icon: '📅' },
-  { href: '/calendar',              label: 'Calendar',  icon: '🗓️' },
-  { href: '/groceries',             label: 'Groceries', icon: '🛒' },
-  { href: '/settings/preferences',  label: 'Settings',  icon: '⚙️' },
+const MOBILE_NAV = [
+  { href: '/home',      label: 'Home',      icon: '🏠' },
+  { href: '/recipes',   label: 'Recipes',   icon: '📖' },
+  { href: '/plan',      label: 'Plan',      icon: '📅' },
+  { href: '/calendar',  label: 'Calendar',  icon: '🗓️' },
+  { href: '/groceries', label: 'Groceries', icon: '🛒' },
 ]
 
 export default function AppNav() {
@@ -38,32 +41,41 @@ export default function AppNav() {
       {/* Desktop top nav */}
       <nav
         aria-label="Main navigation"
-        className="hidden md:flex items-center justify-between px-6 py-3 border-b border-stone-200 bg-white"
+        className="hidden md:flex items-center justify-between px-6 py-3 bg-[#1F2D26]"
       >
-        <Link href="/home" className="flex items-center gap-2">
-          <span className="text-lg" aria-hidden="true">🍴</span>
-          <span className="font-display text-xl font-black tracking-tight text-stone-800">Forkcast</span>
+        <Link href="/home" className="flex items-center">
+          <ForkcastLogo variant="light" />
         </Link>
 
         <div className="flex items-center gap-6">
-          {NAV_ITEMS.slice(1).map((item) => (
+          {CENTER_NAV.map((item) => (
             <Link
               key={item.href}
               href={item.href}
               className={`text-sm font-medium transition-colors ${
                 isActive(item.href)
-                  ? 'text-sage-500'
-                  : 'text-stone-600 hover:text-stone-900'
+                  ? 'text-white'
+                  : 'text-stone-300 hover:text-white'
               }`}
               aria-current={isActive(item.href) ? 'page' : undefined}
             >
               {item.label}
             </Link>
           ))}
+        </div>
+
+        <div className="flex items-center gap-4">
+          <Link
+            href="/settings/preferences"
+            aria-label="Settings"
+            className="text-stone-400 hover:text-stone-200 transition-colors"
+          >
+            <Settings size={18} />
+          </Link>
           <button
             type="button"
             onClick={handleSignOut}
-            className="text-sm font-medium text-stone-600 hover:text-stone-900 transition-colors"
+            className="text-sm font-medium text-stone-300 hover:text-white transition-colors"
           >
             Sign out
           </button>
@@ -75,7 +87,7 @@ export default function AppNav() {
         aria-label="Mobile navigation"
         className="flex md:hidden fixed bottom-0 inset-x-0 z-50 border-t border-stone-200 bg-white"
       >
-        {NAV_ITEMS.map((item) => (
+        {MOBILE_NAV.map((item) => (
           <Link
             key={item.href}
             href={item.href}

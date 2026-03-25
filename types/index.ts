@@ -29,6 +29,7 @@ export interface Invite {
 }
 
 export interface HomeData {
+  userName: string | null
   currentWeekPlan: {
     id:         string
     week_start: string
