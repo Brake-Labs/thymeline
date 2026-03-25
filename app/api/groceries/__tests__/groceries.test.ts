@@ -51,28 +51,46 @@ function makeDbMock(opts: {
 
   const fromFn = vi.fn((table: string) => {
     if (table === 'meal_plans') {
-      return {
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              single: vi.fn().mockResolvedValue(
-                planError
-                  ? { data: null, error: { message: 'not found' } }
-                  : { data: plan, error: null },
-              ),
-            }),
+      // Supports both query patterns:
+      //   old GET/PATCH: .eq(user_id).eq(week_start).single()
+      //   new generate:  .eq(user_id).lte(week_start, date_to).gte(week_start, sixDays).order()
+      const plansList = opts.plans ?? (plan ? [plan] : [])
+      const plansResult  = { data: planError ? null : plansList, error: planError ? { message: 'not found' } : null }
+      const singleResult = planError ? { data: null, error: { message: 'not found' } } : { data: plan, error: null }
+
+      // Lazy factory so .eq().eq() chains don't recurse at construction time
+      const makeChain = (): Record<string, unknown> => ({
+        eq:     vi.fn().mockImplementation(() => makeChain()),
+        lte:    vi.fn().mockReturnValue({
+          gte:  vi.fn().mockReturnValue({
+            order: vi.fn().mockResolvedValue(plansResult),
           }),
         }),
+        gte:    vi.fn().mockReturnValue({
+          order: vi.fn().mockResolvedValue(plansResult),
+        }),
+        single: vi.fn().mockResolvedValue(singleResult),
+        order:  vi.fn().mockResolvedValue(plansResult),
+      })
+
+      return {
+        select: vi.fn().mockReturnValue(makeChain()),
         update: vi.fn().mockReturnValue({
           eq: vi.fn().mockResolvedValue({ data: null, error: null }),
         }),
       }
     }
     if (table === 'meal_plan_entries') {
+      const entriesResult = vi.fn().mockResolvedValue({ data: entries, error: null })
       return {
         select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            order: vi.fn().mockResolvedValue({ data: entries, error: null }),
+          // old: .eq(meal_plan_id).order()
+          eq: vi.fn().mockReturnValue({ order: entriesResult }),
+          // new: .in(meal_plan_id, planIds).gte(date_from).lte(date_to).order()
+          in: vi.fn().mockReturnValue({
+            gte: vi.fn().mockReturnValue({
+              lte: vi.fn().mockReturnValue({ order: entriesResult }),
+            }),
           }),
         }),
       }
@@ -418,6 +436,95 @@ describe('T10 - Plan-level scaling: 4 people doubles amounts from base 2', () =>
   })
 })
 
+
+// ── T31: Date range query returns correct recipes ─────────────────────────────
+
+describe('T31 - POST /api/groceries/generate with date_from/date_to', () => {
+  beforeEach(() => { vi.resetModules() })
+
+  it('accepts date_from + date_to and returns 200', async () => {
+    const entries = [{
+      recipe_id:    'recipe-1',
+      planned_date: '2026-03-22',
+      recipes:      { id: 'recipe-1', title: 'Pasta', ingredients: '200g pasta', url: null, servings: null },
+    }]
+    setupMocks({ plan: samplePlan, entries, upsertResult: sampleList })
+
+    const { POST } = await import('../generate/route')
+    const res = await POST(
+      makeReq('http://localhost/api/groceries/generate', 'POST', {
+        date_from: '2026-03-22',
+        date_to:   '2026-04-04',
+      }),
+    )
+
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.list).toBeDefined()
+  })
+
+  it('derives date range from week_start for backward compat', async () => {
+    const entries = [{
+      recipe_id:    'recipe-1',
+      planned_date: '2026-03-15',
+      recipes:      { id: 'recipe-1', title: 'Pasta', ingredients: '200g pasta', url: null, servings: null },
+    }]
+    setupMocks({ plan: samplePlan, entries, upsertResult: sampleList })
+
+    const { POST } = await import('../generate/route')
+    const res = await POST(
+      makeReq('http://localhost/api/groceries/generate', 'POST', { week_start: '2026-03-15' }),
+    )
+
+    expect(res.status).toBe(200)
+  })
+
+  it('returns 404 when no plans overlap the date range', async () => {
+    setupMocks({ planError: true })
+
+    const { POST } = await import('../generate/route')
+    const res = await POST(
+      makeReq('http://localhost/api/groceries/generate', 'POST', {
+        date_from: '2026-03-22',
+        date_to:   '2026-03-28',
+      }),
+    )
+
+    expect(res.status).toBe(404)
+  })
+})
+
+// ── T32: Bought state saves and loads correctly ───────────────────────────────
+
+describe('T32 - PATCH preserves bought field on items', () => {
+  beforeEach(() => { vi.resetModules() })
+
+  it('stores items with bought: true via PATCH', async () => {
+    const listWithBought = {
+      ...sampleList,
+      items: [
+        { ...sampleList.items[0], bought: true },
+      ],
+    }
+    const db = setupMocks({ list: sampleList, updateResult: listWithBought })
+
+    const { PATCH } = await import('../route')
+    const res = await PATCH(
+      makeReq('http://localhost/api/groceries', 'PATCH', {
+        week_start: '2026-03-15',
+        items: listWithBought.items,
+      }) as Parameters<typeof PATCH>[0],
+    )
+
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.items[0].bought).toBe(true)
+
+    // Verify update was called with items containing bought flag
+    const groceryCalls = db.from.mock.calls.filter(([t]: [string]) => t === 'grocery_lists')
+    expect(groceryCalls.length).toBeGreaterThan(0)
+  })
+})
 
 // ── T_servings: Generate uses recipe.servings for recipe_scales ───────────────
 

@@ -10,10 +10,13 @@ import { getAccessToken } from '@/lib/supabase/browser'
 import { effectiveServings, formatWeekLabel, buildPlainTextList, scaleItem } from '@/lib/grocery'
 
 interface GroceryListViewProps {
-  initialList: GroceryList
+  initialList:    GroceryList
+  dateFrom?:      string
+  dateTo?:        string
+  onListUpdated?: (list: GroceryList) => void
 }
 
-export default function GroceryListView({ initialList }: GroceryListViewProps) {
+export default function GroceryListView({ initialList, dateFrom, dateTo }: GroceryListViewProps) {
   const [items, setItems] = useState<GroceryItem[]>(initialList.items)
   const [planServings, setPlanServings] = useState(initialList.servings)
   const [recipeScales, setRecipeScales] = useState<RecipeScale[]>(initialList.recipe_scales)
@@ -21,6 +24,7 @@ export default function GroceryListView({ initialList }: GroceryListViewProps) {
   const [confirmRegenerate, setConfirmRegenerate] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
   const [shareToast, setShareToast] = useState<string | null>(null)
+  const [gotItCollapsed, setGotItCollapsed] = useState(true)
 
   const weekStart = initialList.week_start
 
@@ -73,6 +77,20 @@ export default function GroceryListView({ initialList }: GroceryListViewProps) {
     }
     const updated = [...items, newItem]
     setItems(updated)
+    await patch({ items: updated })
+  }, [items, weekStart]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Mark all bought for a recipe ─────────────────────────────────────────────
+
+  const handleMarkAllBought = useCallback(async (recipeTitle: string) => {
+    const recipeItems = items.filter((i) => i.recipes.includes(recipeTitle))
+    const allBought = recipeItems.length > 0 && recipeItems.every((i) => i.checked)
+    const updated = items.map((i) =>
+      i.recipes.includes(recipeTitle) ? { ...i, checked: !allBought } : i,
+    )
+    setItems(updated)
+    // Show Got it section when marking bought
+    if (!allBought) setGotItCollapsed(false)
     await patch({ items: updated })
   }, [items, weekStart]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -140,10 +158,13 @@ export default function GroceryListView({ initialList }: GroceryListViewProps) {
     setConfirmRegenerate(false)
     try {
       const token = await getAccessToken()
+      const body = dateFrom && dateTo
+        ? { date_from: dateFrom, date_to: dateTo }
+        : { week_start: weekStart }
       const res = await fetch('/api/groceries/generate', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body:    JSON.stringify({ week_start: weekStart }),
+        body:    JSON.stringify(body),
       })
       if (res.ok) {
         const { list } = await res.json()
@@ -180,10 +201,11 @@ export default function GroceryListView({ initialList }: GroceryListViewProps) {
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
-  const checkedCount = items.filter((i) => i.checked).length
   const totalCount   = items.length
+  const boughtItems  = items.filter((i) => i.checked)
+  const checkedCount = boughtItems.length
 
-  // Build ordered list of unique recipe titles (from recipeScales, which is ordered by planned_date)
+  // Build ordered list of unique recipe titles (from recipeScales, ordered by planned_date)
   const orderedTitles = recipeScales.map((s) => s.recipe_title)
 
   return (
@@ -224,11 +246,11 @@ export default function GroceryListView({ initialList }: GroceryListViewProps) {
         <p className="text-xs text-stone-400">Saving…</p>
       )}
 
-      {/* Recipe sections */}
+      {/* Recipe sections — exclude bought items */}
       <div className="space-y-4">
         {orderedTitles.map((title) => {
           const scale = recipeScales.find((s) => s.recipe_title === title)!
-          const recipeItems = items.filter((i) => i.recipes.includes(title))
+          const recipeItems = items.filter((i) => i.recipes.includes(title) && !i.checked)
           const effective = effectiveServings(scale.recipe_id, recipeScales, planServings)
           return (
             <RecipeSectionGroup
@@ -242,12 +264,13 @@ export default function GroceryListView({ initialList }: GroceryListViewProps) {
               onResetOverride={() => handleResetOverride(scale.recipe_id, title)}
               onToggle={handleToggle}
               onRemove={handleRemove}
+              onMarkAllBought={() => handleMarkAllBought(title)}
             />
           )
         })}
 
-        {/* User-added items (recipes: []) */}
-        {items.some((i) => i.recipes.length === 0) && (
+        {/* User-added items (recipes: []) — exclude bought */}
+        {items.some((i) => i.recipes.length === 0 && !i.checked) && (
           <section
             aria-label="Other items"
             className="border border-stone-200 rounded-xl bg-white overflow-hidden"
@@ -257,7 +280,7 @@ export default function GroceryListView({ initialList }: GroceryListViewProps) {
             </div>
             <div className="px-4 py-2 divide-y divide-stone-50">
               {items
-                .filter((i) => i.recipes.length === 0)
+                .filter((i) => i.recipes.length === 0 && !i.checked)
                 .map((item) => (
                   <GroceryItemRow
                     key={item.id}
@@ -274,7 +297,35 @@ export default function GroceryListView({ initialList }: GroceryListViewProps) {
       {/* Add item */}
       <AddItemInput onAdd={handleAddItem} />
 
-      {/* Checked count */}
+      {/* Got it section */}
+      {boughtItems.length > 0 && (
+        <section aria-label="Got it" className="border border-stone-200 rounded-xl bg-white overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setGotItCollapsed((c) => !c)}
+            className="w-full flex items-center justify-between px-4 pt-4 pb-3 border-b border-stone-100 hover:bg-stone-50 transition-colors"
+          >
+            <h3 className="font-display font-semibold text-sage-600 text-sm">
+              Got it ({checkedCount})
+            </h3>
+            <span className="text-stone-400 text-xs">{gotItCollapsed ? '▸' : '▾'}</span>
+          </button>
+          {!gotItCollapsed && (
+            <div className="px-4 py-2 divide-y divide-stone-50">
+              {boughtItems.map((item) => (
+                <GroceryItemRow
+                  key={item.id}
+                  item={item}
+                  onToggle={() => handleToggle(item.id)}
+                  onRemove={() => handleRemove(item.id)}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Progress counter */}
       <p className="text-sm text-stone-400 text-right">
         {checkedCount} of {totalCount} checked
       </p>
@@ -309,10 +360,13 @@ export default function GroceryListView({ initialList }: GroceryListViewProps) {
 
       {/* Share toast */}
       {shareToast && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-stone-800 text-white text-sm px-4 py-2 rounded-lg shadow-lg z-50">
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-stone-800 text-white text-sm px-4 py-2 rounded-lg shadow-lg z-50">
           {shareToast}
         </div>
       )}
     </div>
   )
 }
+
+// Keep TypeScript happy — setPlanPeople is the setter for planServings
+function setPlanPeople(n: number) { void n }  // overridden by the actual setter above

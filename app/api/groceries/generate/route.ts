@@ -32,40 +32,52 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  let body: { week_start?: string }
+  let body: { week_start?: string; date_from?: string; date_to?: string }
   try {
     body = await req.json()
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const { week_start } = body
-  if (!week_start) {
-    return NextResponse.json({ error: 'week_start is required' }, { status: 400 })
+  // Resolve date range — accept date_from/date_to directly, or derive from week_start
+  let date_from: string
+  let date_to: string
+  if (body.week_start) {
+    date_from = body.week_start
+    const d = new Date(body.week_start + 'T12:00:00Z')
+    d.setDate(d.getDate() + 6)
+    date_to = d.toISOString().slice(0, 10)
+  } else if (body.date_from && body.date_to) {
+    date_from = body.date_from
+    date_to   = body.date_to
+  } else {
+    return NextResponse.json({ error: 'date_from and date_to are required' }, { status: 400 })
   }
 
-  // 1. Look up meal plan
   const db = createAdminClient()
-  const { data: plan, error: planError } = await db
+
+  // 1. Get all meal plan IDs for the user
+  const { data: plans, error: plansError } = await db
     .from('meal_plans')
     .select('id')
     .eq('user_id', user.id)
-    .eq('week_start', week_start)
-    .single()
 
-  if (planError || !plan) {
-    console.error('meal plan lookup error:', planError?.message, { user_id: user.id, week_start })
-    return NextResponse.json({ error: 'No meal plan found for this week' }, { status: 404 })
+  if (plansError || !plans || plans.length === 0) {
+    return NextResponse.json({ error: 'No meal plans found for this date range' }, { status: 404 })
   }
+
+  const planIds = (plans as { id: string }[]).map((p) => p.id)
 
   // Default plan-level servings; per-recipe override stored in recipe_scales
   const planServings = 4
 
-  // 2. Fetch meal plan entries joined with recipes
+  // 2. Fetch entries within date range
   const { data: entriesRaw, error: entriesError } = await db
     .from('meal_plan_entries')
     .select('recipe_id, planned_date, recipes(id, title, ingredients, url, servings)')
-    .eq('meal_plan_id', plan.id)
+    .in('meal_plan_id', planIds)
+    .gte('planned_date', date_from)
+    .lte('planned_date', date_to)
     .order('planned_date')
 
   if (entriesError) {
@@ -154,11 +166,11 @@ export async function POST(req: NextRequest) {
   if (ambiguous.length > 0) {
     try {
       const ambiguousPayload = ambiguous.map(({ parsed, recipeTitle, scaleFactor }) => ({
-        raw:          parsed.raw,
-        name:         parsed.rawName || parsed.name,
-        amount:       parsed.amount !== null ? Math.round(parsed.amount * scaleFactor * 100) / 100 : null,
-        unit:         parsed.unit,
-        recipe:       recipeTitle,
+        raw:    parsed.raw,
+        name:   parsed.rawName || parsed.name,
+        amount: parsed.amount !== null ? Math.round(parsed.amount * scaleFactor * 100) / 100 : null,
+        unit:   parsed.unit,
+        recipe: recipeTitle,
       }))
 
       const systemPrompt = `You are a grocery list assistant. Resolve ambiguous ingredient items.
@@ -232,8 +244,10 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
     .upsert(
       {
         user_id:       user.id,
-        meal_plan_id:  plan.id,
-        week_start,
+        meal_plan_id:  planIds[0],  // FK requirement — use first plan
+        week_start:    date_from,   // equals date_from for unique constraint
+        date_from,
+        date_to,
         servings:      planServings,
         recipe_scales,
         items:         allItems,

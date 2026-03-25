@@ -188,6 +188,7 @@ export interface GroceryItem {
   section:   GrocerySection
   is_pantry: boolean
   checked:   boolean
+  bought?:   boolean   // true = item is in the "Got it" section
   recipes:   string[]
 }
 
@@ -202,6 +203,10 @@ export interface GroceryList {
   user_id:       string
   meal_plan_id:  string
   week_start:    string
+  date_from?:    string
+  date_to?:      string
+  date_from?:    string | null
+  date_to?:      string | null
   servings:      number
   recipe_scales: RecipeScale[]
   items:         GroceryItem[]
