@@ -107,6 +107,14 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
     await patch({ items: updated })
   }, [items, weekStart]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const handleDeleteRecipe = useCallback(async (recipeId: string, recipeTitle: string) => {
+    const updated = items.filter((i) => !i.recipes.includes(recipeTitle) || i.recipes.length > 1)
+    const updatedScales = recipeScales.filter((s) => s.recipe_id !== recipeId)
+    setItems(updated)
+    setRecipeScales(updatedScales)
+    await patch({ items: updated, recipe_scales: updatedScales })
+  }, [items, recipeScales, weekStart]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Servings ────────────────────────────────────────────────────────────────
 
   const handlePlanServingsChange = useCallback(async (newCount: number) => {
@@ -278,6 +286,7 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
               onToggle={handleToggle}
               onRemove={handleRemove}
               onMarkAllBought={() => handleMarkAllBought(title)}
+              onDeleteRecipe={() => handleDeleteRecipe(scale.recipe_id, title)}
               onGotIt={handleGotIt}
             />
           )

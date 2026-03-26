@@ -15,6 +15,7 @@ interface RecipeSectionGroupProps {
   onToggle:          (itemId: string) => void
   onRemove:          (itemId: string) => void
   onMarkAllBought:   () => void
+  onDeleteRecipe:    () => void
   onGotIt:           (itemId: string) => void
 }
 
@@ -29,6 +30,7 @@ export default function RecipeSectionGroup({
   onToggle,
   onRemove,
   onMarkAllBought,
+  onDeleteRecipe,
   onGotIt,
 }: RecipeSectionGroupProps) {
   // "items" here contains only unchecked items (bought are in Got it section)
@@ -57,6 +59,14 @@ export default function RecipeSectionGroup({
               Mark all as bought
             </button>
           )}
+          <button
+            type="button"
+            onClick={onDeleteRecipe}
+            aria-label={`Remove ${recipeTitle} from list`}
+            className="text-xs text-stone-400 hover:text-red-500 underline transition-colors"
+          >
+            Remove recipe
+          </button>
           {isOverridden && (
             <>
               <span className="text-xs font-medium bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
