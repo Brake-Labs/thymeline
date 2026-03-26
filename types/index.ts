@@ -29,22 +29,26 @@ export interface Invite {
 }
 
 export interface HomeData {
-  userName: string | null
+  userName:              string | null
+  recipeCount:           number
+  groceryListWeekStart:  string | null
   currentWeekPlan: {
     id:         string
     week_start: string
     entries: {
-      planned_date:  string
-      recipe_id:     string
-      recipe_title:  string
-      position:      number
-      confirmed:     boolean
+      planned_date:       string
+      recipe_id:          string
+      recipe_title:       string
+      position:           number
+      confirmed:          boolean
+      total_time_minutes: number | null
     }[]
   } | null
   recentlyMade: {
     recipe_id:    string
     recipe_title: string
     made_on:      string
+    tags:         string[]
   }[]
 }
 
