@@ -3,31 +3,41 @@ interface ForkcastLogoProps {
 }
 
 export default function ForkcastLogo({ variant = 'dark' }: ForkcastLogoProps) {
+  // On dark nav: sage-300 icon (#8DC1A3), white text
+  // On light bg: sage-600 icon (#3D6849), dark text
+  const iconColor = variant === 'light' ? '#8DC1A3' : '#3D6849'
   const textColor = variant === 'light' ? 'text-white' : 'text-[#1F2D26]'
-  const strokeColor = variant === 'light' ? '#ffffff' : '#1F2D26'
 
   return (
     <div className="flex items-center gap-2">
-      {/* Fork and knife SVG */}
       <svg
-        width="22"
+        width="18"
         height="22"
-        viewBox="0 0 22 22"
+        viewBox="0 0 18 22"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
         aria-hidden="true"
       >
-        {/* Fork — left */}
-        <line x1="5" y1="2" x2="5" y2="10" stroke={strokeColor} strokeWidth="1.5" strokeLinecap="round" />
-        <line x1="3" y1="2" x2="3" y2="6" stroke={strokeColor} strokeWidth="1.5" strokeLinecap="round" />
-        <line x1="7" y1="2" x2="7" y2="6" stroke={strokeColor} strokeWidth="1.5" strokeLinecap="round" />
-        <path d="M3 6 Q3 10 5 10 Q7 10 7 6" stroke={strokeColor} strokeWidth="1.5" fill="none" />
-        <line x1="5" y1="10" x2="5" y2="20" stroke={strokeColor} strokeWidth="1.5" strokeLinecap="round" />
-        {/* Knife — right */}
+        {/* Fork — two tines + U connector + handle */}
         <path
-          d="M17 2 C17 2 19 5 19 9 L17 10 L17 20"
-          stroke={strokeColor}
-          strokeWidth="1.5"
+          d="M4 1 L4 9 Q4 13 6 13 Q8 13 8 9 L8 1"
+          stroke={iconColor}
+          strokeWidth="1.6"
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <line
+          x1="6" y1="13" x2="6" y2="21"
+          stroke={iconColor}
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
+        {/* Knife — blade curves right at top, straight handle */}
+        <path
+          d="M13 1 C15 2 15 7 13 8 L13 21"
+          stroke={iconColor}
+          strokeWidth="1.6"
           fill="none"
           strokeLinecap="round"
           strokeLinejoin="round"
