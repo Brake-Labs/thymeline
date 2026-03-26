@@ -12,6 +12,7 @@ const CENTER_NAV = [
   { href: '/plan',      label: 'Plan' },
   { href: '/calendar',  label: 'Calendar' },
   { href: '/groceries', label: 'Groceries' },
+  { href: '/pantry',    label: 'Pantry' },
 ]
 
 const MOBILE_NAV = [
@@ -20,6 +21,7 @@ const MOBILE_NAV = [
   { href: '/plan',                  label: 'Plan',      icon: '📅' },
   { href: '/calendar',              label: 'Calendar',  icon: '🗓️' },
   { href: '/groceries',             label: 'Groceries', icon: '🛒' },
+  { href: '/pantry',                label: 'Pantry',    icon: '🥫' },
   { href: '/settings/preferences',  label: 'Settings',  icon: '⚙️' },
 ]
 
