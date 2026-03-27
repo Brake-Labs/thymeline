@@ -2,14 +2,20 @@
 
 import { useState } from 'react'
 import RecipeForm, { RecipeFormValues } from './RecipeForm'
+import GenerateRecipeTab from './GenerateRecipeTab'
+import AIGeneratedBadge from './AIGeneratedBadge'
+import type { GeneratedRecipe } from '@/types'
+
+type Tab = 'url' | 'manual' | 'generate'
 
 interface AddRecipeModalProps {
-  onClose: () => void
-  onSaved: () => void
-  getToken: () => Promise<string> | string
+  onClose:                    () => void
+  onSaved:                    () => void
+  getToken:                   () => Promise<string> | string
+  initialTab?:                Tab
+  initialGenerateIngredients?: string
+  initialPantryEnabled?:      boolean
 }
-
-type Tab = 'url' | 'manual'
 
 interface ScrapeResult {
   title: string | null
@@ -31,13 +37,17 @@ export default function AddRecipeModal({
   onClose,
   onSaved,
   getToken,
+  initialTab = 'url',
+  initialGenerateIngredients,
+  initialPantryEnabled,
 }: AddRecipeModalProps) {
-  const [tab, setTab] = useState<Tab>('url')
+  const [tab, setTab] = useState<Tab>(initialTab)
   const [urlInput, setUrlInput] = useState('')
   const [scraping, setScraping] = useState(false)
   const [scrapeResult, setScrapeResult] = useState<ScrapeResult | null>(null)
   const [scrapeError, setScrapeError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [generatedRecipe, setGeneratedRecipe] = useState<GeneratedRecipe | null>(null)
 
   async function handleScrape() {
     setScrapeError(null)
@@ -68,6 +78,12 @@ export default function AddRecipeModal({
     setIsSubmitting(true)
     try {
       const token = await getToken()
+
+      const source: 'scraped' | 'manual' | 'generated' =
+        tab === 'generate' ? 'generated'
+        : tab === 'url'    ? 'scraped'
+        : 'manual'
+
       const res = await fetch('/api/recipes', {
         method: 'POST',
         headers: {
@@ -88,6 +104,7 @@ export default function AddRecipeModal({
           total_time_minutes: values.total_time_minutes !== '' ? Number(values.total_time_minutes) : null,
           inactive_time_minutes: values.inactive_time_minutes !== '' ? Number(values.inactive_time_minutes) : null,
           servings: values.servings !== '' ? Number(values.servings) : null,
+          source,
         }),
       })
       if (!res.ok) {
@@ -95,7 +112,6 @@ export default function AddRecipeModal({
         throw new Error(err.error ?? 'Save failed')
       }
       const created: { id: string } = await res.json()
-      // Optionally log a "last made" date if the user set one
       if (values.lastMade && created.id) {
         await fetch(`/api/recipes/${created.id}/log`, {
           method: 'POST',
@@ -113,8 +129,8 @@ export default function AddRecipeModal({
     }
   }
 
-  // Build clean initial values (nulls → undefined so RecipeFormValues stays string-typed)
-  const formInitialValues: Partial<RecipeFormValues> | undefined = scrapeResult
+  // Build clean initial values from scrape result
+  const scrapeFormInitialValues: Partial<RecipeFormValues> | undefined = scrapeResult
     ? {
         title: scrapeResult.title ?? undefined,
         ingredients: scrapeResult.ingredients ?? undefined,
@@ -129,14 +145,39 @@ export default function AddRecipeModal({
       }
     : undefined
 
-  // Track which fields the scrape couldn't find — used to show "Couldn't find this" placeholder
+  // Build initial values from generated recipe
+  const generateFormInitialValues: Partial<RecipeFormValues> = generatedRecipe
+    ? {
+        title: generatedRecipe.title,
+        category: generatedRecipe.category,
+        tags: generatedRecipe.tags,
+        ingredients: generatedRecipe.ingredients ?? '',
+        steps: generatedRecipe.steps ?? '',
+        notes: generatedRecipe.notes ?? '',
+        prep_time_minutes: generatedRecipe.prep_time_minutes !== null
+          ? String(generatedRecipe.prep_time_minutes) : '',
+        cook_time_minutes: generatedRecipe.cook_time_minutes !== null
+          ? String(generatedRecipe.cook_time_minutes) : '',
+        total_time_minutes: generatedRecipe.total_time_minutes !== null
+          ? String(generatedRecipe.total_time_minutes) : '',
+        inactive_time_minutes: generatedRecipe.inactive_time_minutes !== null
+          ? String(generatedRecipe.inactive_time_minutes) : '',
+        servings: generatedRecipe.servings !== null
+          ? String(generatedRecipe.servings) : '',
+      }
+    : {}
+
   const nullFields: Set<string> | undefined = scrapeResult
     ? new Set(
-        (
-          ['title', 'ingredients', 'steps'] as const
-        ).filter((f) => scrapeResult[f] === null),
+        (['title', 'ingredients', 'steps'] as const).filter((f) => scrapeResult[f] === null)
       )
     : undefined
+
+  const TAB_LABELS: Record<Tab, string> = {
+    url:      'From URL',
+    manual:   'Manual',
+    generate: 'Generate with AI',
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -155,7 +196,7 @@ export default function AddRecipeModal({
 
         {/* Tabs */}
         <div className="flex border-b">
-          {(['url', 'manual'] as Tab[]).map((t) => (
+          {(['url', 'manual', 'generate'] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -165,7 +206,7 @@ export default function AddRecipeModal({
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
-              {t === 'url' ? 'From URL' : 'Manual'}
+              {TAB_LABELS[t]}
             </button>
           ))}
         </div>
@@ -202,15 +243,52 @@ export default function AddRecipeModal({
             </div>
           )}
 
-          {(tab === 'manual' || scrapeResult) && (
+          {tab === 'url' && scrapeResult && (
             <RecipeForm
-              initialValues={formInitialValues ?? {}}
+              initialValues={scrapeFormInitialValues ?? {}}
               nullFields={nullFields}
               suggestedTags={scrapeResult?.suggestedTags}
               pendingNewTags={scrapeResult?.suggestedNewTags}
               onSubmit={handleSubmit}
               isSubmitting={isSubmitting}
             />
+          )}
+
+          {tab === 'manual' && (
+            <RecipeForm
+              initialValues={{}}
+              onSubmit={handleSubmit}
+              isSubmitting={isSubmitting}
+            />
+          )}
+
+          {tab === 'generate' && !generatedRecipe && (
+            <GenerateRecipeTab
+              getToken={getToken}
+              onGenerated={setGeneratedRecipe}
+              initialPantryEnabled={initialPantryEnabled}
+              initialIngredients={initialGenerateIngredients}
+            />
+          )}
+
+          {tab === 'generate' && generatedRecipe && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <AIGeneratedBadge />
+                <button
+                  type="button"
+                  onClick={() => setGeneratedRecipe(null)}
+                  className="text-xs text-stone-500 border border-stone-200 rounded-lg px-3 py-1 hover:bg-stone-50"
+                >
+                  Regenerate
+                </button>
+              </div>
+              <RecipeForm
+                initialValues={generateFormInitialValues}
+                onSubmit={handleSubmit}
+                isSubmitting={isSubmitting}
+              />
+            </div>
           )}
         </div>
       </div>

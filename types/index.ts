@@ -71,6 +71,7 @@ export interface Recipe {
   total_time_minutes:    number | null
   inactive_time_minutes: number | null
   servings:              number | null
+  source: 'scraped' | 'manual' | 'generated'
 }
 
 export interface RecipeListItem {
@@ -234,3 +235,19 @@ export interface PantryMatch {
   match_count:   number
   matched_items: string[]
 }
+
+export interface GeneratedRecipe {
+  title:                 string
+  ingredients:           string
+  steps:                 string
+  tags:                  string[]
+  category:              'main_dish' | 'breakfast' | 'dessert' | 'side_dish'
+  servings:              number | null
+  prep_time_minutes:     number | null
+  cook_time_minutes:     number | null
+  total_time_minutes:    number | null
+  inactive_time_minutes: number | null
+  notes:                 string | null
+}
+
+export type MealTypeInput = 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'dessert'
