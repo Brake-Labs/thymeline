@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { GroceryItem } from '@/types'
+import { getAccessToken } from '@/lib/supabase/browser'
 
 interface GotItSectionProps {
   items:  GroceryItem[]
@@ -10,6 +11,27 @@ interface GotItSectionProps {
 
 export default function GotItSection({ items, onUndo }: GotItSectionProps) {
   const [collapsed, setCollapsed] = useState(items.length > 3)
+  const [showToast, setShowToast] = useState(false)
+
+  const addToPantry = useCallback(async (toAdd: GroceryItem[]) => {
+    const token = await getAccessToken()
+    await fetch('/api/pantry/import', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        items: toAdd.map((item) => ({
+          name: item.name,
+          quantity: [item.amount, item.unit].filter(Boolean).join(' ') || null,
+          section: item.section ?? null,
+        })),
+      }),
+    })
+    setShowToast(true)
+    setTimeout(() => setShowToast(false), 2000)
+  }, [])
 
   if (items.length === 0) return null
 
@@ -41,6 +63,14 @@ export default function GotItSection({ items, onUndo }: GotItSectionProps) {
                 <span className="flex-1 text-sm line-through text-stone-400">{label}</span>
                 <button
                   type="button"
+                  onClick={() => addToPantry([item])}
+                  aria-label={`Add ${item.name} to pantry`}
+                  className="font-sans text-xs text-sage-500 hover:text-sage-700 transition-colors"
+                >
+                  + Pantry
+                </button>
+                <button
+                  type="button"
                   onClick={() => onUndo(item.id)}
                   aria-label={`Undo ${item.name}`}
                   className="font-sans text-xs text-stone-400 hover:text-stone-700 transition-colors"
@@ -50,6 +80,22 @@ export default function GotItSection({ items, onUndo }: GotItSectionProps) {
               </div>
             )
           })}
+
+          <div className="flex justify-end py-2">
+            <button
+              type="button"
+              onClick={() => addToPantry(items)}
+              className="font-sans text-xs text-sage-600 hover:text-sage-800 font-medium transition-colors"
+            >
+              Add all to pantry
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showToast && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-stone-800 text-white text-xs px-4 py-2 rounded-full shadow-lg z-50">
+          Added to pantry
         </div>
       )}
     </section>

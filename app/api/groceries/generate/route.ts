@@ -229,7 +229,26 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
     }
   }
 
-  const allItems: GroceryItem[] = [...resolved, ...llmResolved]
+  let allItems: GroceryItem[] = [...resolved, ...llmResolved]
+
+  // 5b. Cross-reference against pantry — flag matching items as is_pantry: true
+  try {
+    const { data: pantryItems } = await db
+      .from('pantry_items')
+      .select('name')
+      .eq('user_id', user.id)
+
+    if (pantryItems?.length) {
+      const pantryNames = (pantryItems as { name: string }[]).map((p) => p.name.toLowerCase().trim())
+      allItems = allItems.map((item) => {
+        const gName = item.name.toLowerCase().trim()
+        const matched = pantryNames.some(
+          (pName) => pName.includes(gName) || gName.includes(pName),
+        )
+        return matched ? { ...item, is_pantry: true } : item
+      })
+    }
+  } catch { /* non-fatal */ }
 
   // 6. Build recipe_scales (all null → inherit plan default)
   const recipe_scales: RecipeScale[] = recipes.map((r) => ({

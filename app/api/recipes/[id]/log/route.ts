@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase-server'
+import { createServerClient, createAdminClient } from '@/lib/supabase-server'
+import { parseIngredientLine } from '@/lib/grocery'
 
 interface RouteContext {
   params: { id: string }
@@ -46,7 +47,60 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: insertError.message }, { status: 500 })
   }
 
+  // Silent pantry deduction — fire and forget, never affects the HTTP response
+  void deductPantryIngredients(params.id, user.id).catch(() => {})
+
   return NextResponse.json({ made_on: madeOn, already_logged: alreadyLogged })
+}
+
+// Pattern for clearly singular quantities (null quantity is also deductible)
+const SINGULAR_QTY_PATTERN = /^\d+\s*(can|cans|lb|lbs|oz|piece|pieces|item|items|pack|packs)$/i
+
+async function deductPantryIngredients(recipeId: string, userId: string): Promise<void> {
+  const db = createAdminClient()
+
+  // Fetch recipe ingredients text
+  const { data: recipe } = await db
+    .from('recipes')
+    .select('ingredients')
+    .eq('id', recipeId)
+    .single()
+
+  if (!recipe?.ingredients) return
+
+  // Parse ingredient names from each line
+  const ingredientNames = (recipe.ingredients as string)
+    .split('\n')
+    .map((line: string) => line.trim())
+    .filter(Boolean)
+    .map((line: string) => parseIngredientLine(line).rawName.toLowerCase().trim())
+    .filter(Boolean)
+
+  // Fetch all pantry items for this user
+  const { data: pantryItems } = await db
+    .from('pantry_items')
+    .select('id, name, quantity, user_id')
+    .eq('user_id', userId)
+
+  if (!pantryItems?.length) return
+
+  const idsToDelete: string[] = []
+  for (const pantryItem of pantryItems) {
+    const pantryName = (pantryItem.name as string).toLowerCase().trim()
+    const matched = ingredientNames.some(
+      (ing) => pantryName.includes(ing) || ing.includes(pantryName),
+    )
+    if (!matched) continue
+
+    const qty = pantryItem.quantity as string | null
+    if (qty === null || SINGULAR_QTY_PATTERN.test(qty)) {
+      idsToDelete.push(pantryItem.id as string)
+    }
+  }
+
+  if (idsToDelete.length > 0) {
+    await db.from('pantry_items').delete().in('id', idsToDelete)
+  }
 }
 
 export async function DELETE(req: NextRequest, { params }: RouteContext) {
