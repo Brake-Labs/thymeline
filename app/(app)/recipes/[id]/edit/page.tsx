@@ -68,6 +68,7 @@ export default function EditRecipePage({ params }: Props) {
           cook_time_minutes: values.cook_time_minutes !== '' ? Number(values.cook_time_minutes) : null,
           total_time_minutes: values.total_time_minutes !== '' ? Number(values.total_time_minutes) : null,
           inactive_time_minutes: values.inactive_time_minutes !== '' ? Number(values.inactive_time_minutes) : null,
+          servings: values.servings !== '' ? Number(values.servings) : null,
         }),
       })
       if (res.ok) {
@@ -168,6 +169,7 @@ export default function EditRecipePage({ params }: Props) {
           cook_time_minutes: recipe.cook_time_minutes !== null && recipe.cook_time_minutes !== undefined ? String(recipe.cook_time_minutes) : '',
           total_time_minutes: recipe.total_time_minutes !== null && recipe.total_time_minutes !== undefined ? String(recipe.total_time_minutes) : '',
           inactive_time_minutes: recipe.inactive_time_minutes !== null && recipe.inactive_time_minutes !== undefined ? String(recipe.inactive_time_minutes) : '',
+          servings: recipe.servings !== null && recipe.servings !== undefined ? String(recipe.servings) : '',
         }}
         onSubmit={handleSubmit}
         isSubmitting={isSubmitting}
