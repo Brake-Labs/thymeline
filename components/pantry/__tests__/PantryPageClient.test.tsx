@@ -2,6 +2,7 @@
 /**
  * Tests for PantryPageClient component.
  * Covers spec-12 test cases: T10, T14
+ * Covers spec-13 test case: T28
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -14,10 +15,68 @@ afterEach(() => cleanup())
 
 vi.mock('@/lib/supabase/browser', () => ({
   getAccessToken: async () => 'mock-token',
+  getSupabaseClient: () => ({
+    auth: { getUser: async () => ({ data: { user: { id: 'user-1' } } }) },
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          single: async () => ({ data: { avoided_tags: [] }, error: null }),
+        }),
+      }),
+    }),
+  }),
 }))
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
+}))
+
+vi.mock('@/components/recipes/AddRecipeModal', () => ({
+  default: ({
+    initialTab,
+    initialPantryEnabled,
+    onClose,
+  }: {
+    initialTab: string
+    initialPantryEnabled: boolean
+    onClose: () => void
+  }) => (
+    <div data-testid="add-recipe-modal">
+      <span data-testid="modal-tab">{initialTab}</span>
+      <span data-testid="modal-pantry-enabled">{String(initialPantryEnabled)}</span>
+      <button onClick={onClose}>Close</button>
+    </div>
+  ),
+}))
+
+// Stub child components that require complex internals
+vi.mock('../PantrySection', () => ({
+  default: ({ section, items }: { section: string; items: { name: string }[] }) => (
+    <div data-testid={`section-${section}`}>
+      <h3>{section}</h3>
+      {items.map((i) => <div key={i.name}>{i.name}</div>)}
+    </div>
+  ),
+}))
+
+vi.mock('../AddPantryItemInput', () => ({
+  default: ({ onAdd }: { onAdd: (item: unknown) => void }) => (
+    <button onClick={() => onAdd({ id: 'new', name: 'test item', section: 'Produce' })}>
+      Add item form
+    </button>
+  ),
+}))
+
+vi.mock('../ScanPantrySheet', () => ({
+  default: ({ onClose }: { onClose: () => void }) => (
+    <div data-testid="scan-sheet"><button onClick={onClose}>Close scan</button></div>
+  ),
+}))
+
+vi.mock('../PantryMatchSheet', () => ({
+  default: ({ onClose }: { onClose: () => void }) => (
+    <div data-testid="match-sheet"><button onClick={onClose}>Close match</button></div>
+  ),
 }))
 
 const TODAY = '2026-03-26'
@@ -114,6 +173,71 @@ describe('T14 - "Clear expired" removes only expired items', () => {
       expect(body.ids).toContain('p3')
       expect(body.ids).not.toContain('p1')
       expect(body.ids).not.toContain('p2')
+    })
+  })
+})
+
+// ── T28: Pantry page "Generate new recipe" button opens modal at generate tab ──
+
+describe('T28 - Pantry page "Generate new recipe" button opens modal at generate tab with pantry toggle pre-on', () => {
+  it('renders the "Generate new recipe" button', async () => {
+    render(<PantryPageClient />)
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /generate new recipe/i })).toBeInTheDocument()
+    })
+  })
+
+  it('opens AddRecipeModal when button is clicked', async () => {
+    render(<PantryPageClient />)
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /generate new recipe/i })).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /generate new recipe/i }))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('add-recipe-modal')).toBeInTheDocument()
+    })
+  })
+
+  it('opens modal with initialTab="generate"', async () => {
+    render(<PantryPageClient />)
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /generate new recipe/i })).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /generate new recipe/i }))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('modal-tab').textContent).toBe('generate')
+    })
+  })
+
+  it('opens modal with initialPantryEnabled=true', async () => {
+    render(<PantryPageClient />)
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /generate new recipe/i })).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /generate new recipe/i }))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('modal-pantry-enabled').textContent).toBe('true')
+    })
+  })
+
+  it('closes the modal when onClose is called', async () => {
+    render(<PantryPageClient />)
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /generate new recipe/i })).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /generate new recipe/i }))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('add-recipe-modal')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('add-recipe-modal')).not.toBeInTheDocument()
     })
   })
 })
