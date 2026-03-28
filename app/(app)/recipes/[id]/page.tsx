@@ -292,6 +292,14 @@ export default function RecipeDetailPage({ params }: Props) {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
+            {recipe.steps && recipe.steps.split('\n').filter(Boolean).length > 0 && (
+              <Link
+                href={`/recipes/${recipe.id}/cook`}
+                className="font-display font-medium text-[13px] text-white bg-sage-500 hover:bg-sage-600 rounded-xl py-2 px-4"
+              >
+                Start Cooking
+              </Link>
+            )}
             {isOwner && (
               <Link
                 href={`/recipes/${recipe.id}/edit`}
