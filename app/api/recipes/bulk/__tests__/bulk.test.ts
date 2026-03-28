@@ -64,9 +64,15 @@ function makeSupabaseMock(opts: {
 
 vi.mock('@/lib/supabase-server', () => ({
   createServerClient: vi.fn(),
+  createAdminClient:  vi.fn(),
 }))
 
-import { createServerClient } from '@/lib/supabase-server'
+vi.mock('@/lib/household', () => ({
+  resolveHouseholdScope: async () => null,
+  canManage: (role: string) => role === 'owner' || role === 'co_owner',
+}))
+
+import { createServerClient, createAdminClient } from '@/lib/supabase-server'
 
 function makeReq(body?: unknown): Request {
   return new Request('http://localhost/api/recipes/bulk', {
@@ -84,6 +90,7 @@ describe('PATCH /api/recipes/bulk', () => {
   it('returns 401 for unauthenticated request', async () => {
     const mock = makeSupabaseMock({ user: null })
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
 
     const { PATCH } = await import('../route')
     const res = await PATCH(makeReq({ recipe_ids: ['recipe-1'], add_tags: ['Chicken'] }) as Parameters<typeof PATCH>[0])
@@ -93,6 +100,7 @@ describe('PATCH /api/recipes/bulk', () => {
   it('T42: returns 403 when any recipe_id belongs to a different user', async () => {
     const mock = makeSupabaseMock({ recipes: [ownedRecipe, foreignRecipe] })
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
 
     const { PATCH } = await import('../route')
     const res = await PATCH(
@@ -104,6 +112,7 @@ describe('PATCH /api/recipes/bulk', () => {
   it('T43: returns 400 when add_tags contains an unknown tag', async () => {
     const mock = makeSupabaseMock({ customTags: [] })
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
 
     const { PATCH } = await import('../route')
     const res = await PATCH(
@@ -118,6 +127,7 @@ describe('PATCH /api/recipes/bulk', () => {
     const updatedRecipe = { ...ownedRecipe, tags: ['Chicken', 'Quick', 'Favorite'] }
     const mock = makeSupabaseMock({ customTags: [{ name: 'Favorite' }], updateResult: updatedRecipe })
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
 
     const { PATCH } = await import('../route')
     const res = await PATCH(
@@ -133,6 +143,7 @@ describe('PATCH /api/recipes/bulk', () => {
     const updatedRecipe = { ...ownedRecipe, tags: ['Chicken', 'Quick', 'Healthy'] }
     const mock = makeSupabaseMock({ customTags: [{ name: 'Healthy' }], updateResult: updatedRecipe })
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
 
     const { PATCH } = await import('../route')
     const res = await PATCH(
@@ -150,6 +161,7 @@ describe('PATCH /api/recipes/bulk', () => {
   it('returns 400 when recipe_ids is empty', async () => {
     const mock = makeSupabaseMock({})
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
 
     const { PATCH } = await import('../route')
     const res = await PATCH(

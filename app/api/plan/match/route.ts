@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase-server'
+import { createServerClient, createAdminClient } from '@/lib/supabase-server'
+import { resolveHouseholdScope } from '@/lib/household'
 import { callLLMNonStreaming } from '../helpers'
 
 export async function POST(req: NextRequest) {
@@ -18,11 +19,17 @@ export async function POST(req: NextRequest) {
 
   const { query } = body
 
-  // Fetch all recipes for this user (all categories)
-  const { data: recipes } = await supabase
-    .from('recipes')
-    .select('id, title, tags')
-    .eq('user_id', user.id)
+  const db = createAdminClient()
+  const ctx = await resolveHouseholdScope(db, user.id)
+
+  // Fetch all recipes scoped by household or user (all categories)
+  let recipesQ = db.from('recipes').select('id, title, tags')
+  if (ctx) {
+    recipesQ = recipesQ.eq('household_id', ctx.householdId)
+  } else {
+    recipesQ = recipesQ.eq('user_id', user.id)
+  }
+  const { data: recipes } = await recipesQ
 
   const recipeList = (recipes ?? []) as { id: string; title: string; tags: string[] }[]
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase-server'
+import { createServerClient, createAdminClient } from '@/lib/supabase-server'
+import { resolveHouseholdScope } from '@/lib/household'
 import {
   getSeason,
   isSunday,
@@ -46,9 +47,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'week_start must be a Sunday' }, { status: 400 })
   }
 
-  const prefs = await fetchUserPreferences(supabase, user.id)
+  const db = createAdminClient()
+  const ctx = await resolveHouseholdScope(db, user.id)
+
+  const prefs = await fetchUserPreferences(supabase, user.id, ctx)
   const cooldownDays = prefs?.cooldown_days ?? 28
-  const recipesByMealType = await fetchRecipesByMealTypes(supabase, user.id, cooldownDays, active_meal_types)
+  const recipesByMealType = await fetchRecipesByMealTypes(supabase, user.id, cooldownDays, active_meal_types, ctx)
   const recentHistory = await fetchRecentHistory(supabase, user.id)
 
   const totalRecipes = Object.values(recipesByMealType).reduce((n, r) => n + r.length, 0)
@@ -61,7 +65,7 @@ export async function POST(req: NextRequest) {
   const season = getSeason(today.getMonth())
 
   const systemMessage = buildSystemMessage(prefs, prefer_this_week ?? [], avoid_this_week ?? [], season)
-  const pantryContext = await fetchPantryContext(supabase, user.id)
+  const pantryContext = await fetchPantryContext(supabase, user.id, ctx)
   const userMessage = buildFullWeekUserMessage(
     active_dates,
     recipesByMealType,

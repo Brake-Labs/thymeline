@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import FirecrawlApp from 'firecrawl'
 import { createServerClient, createAdminClient } from '@/lib/supabase-server'
+import { resolveHouseholdScope } from '@/lib/household'
 import { anthropic } from '@/lib/llm'
 import {
   parseIngredientLine,
@@ -55,13 +56,16 @@ export async function POST(req: NextRequest) {
   }
 
   const db = createAdminClient()
+  const ctx = await resolveHouseholdScope(db, user.id)
 
-  // 1. Get all meal plan IDs for the user (ordered so primaryPlanId is deterministic)
-  const { data: plans, error: plansError } = await db
-    .from('meal_plans')
-    .select('id')
-    .eq('user_id', user.id)
-    .order('week_start')
+  // 1. Get all meal plan IDs for the user/household (ordered so primaryPlanId is deterministic)
+  let plansQ = db.from('meal_plans').select('id').order('week_start')
+  if (ctx) {
+    plansQ = plansQ.eq('household_id', ctx.householdId)
+  } else {
+    plansQ = plansQ.eq('user_id', user.id)
+  }
+  const { data: plans, error: plansError } = await plansQ
 
   if (plansError || !plans || plans.length === 0) {
     return NextResponse.json({ error: 'No meal plans found for this date range' }, { status: 404 })
@@ -233,10 +237,13 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
 
   // 5b. Cross-reference against pantry — flag matching items as is_pantry: true
   try {
-    const { data: pantryItems } = await db
-      .from('pantry_items')
-      .select('name')
-      .eq('user_id', user.id)
+    let pantryQ = db.from('pantry_items').select('name')
+    if (ctx) {
+      pantryQ = pantryQ.eq('household_id', ctx.householdId)
+    } else {
+      pantryQ = pantryQ.eq('user_id', user.id)
+    }
+    const { data: pantryItems } = await pantryQ
 
     if (pantryItems?.length) {
       const pantryNames = (pantryItems as { name: string }[]).map((p) => p.name.toLowerCase().trim())
@@ -259,22 +266,34 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
 
   // 7. Upsert grocery_lists
   const now = new Date().toISOString()
-  const { data: upserted, error: upsertError } = await db
-    .from('grocery_lists')
-    .upsert(
-      {
+  const upsertPayload = ctx
+    ? {
+        household_id:  ctx.householdId,
         user_id:       user.id,
-        meal_plan_id:  planIds[0],  // FK requirement — use first plan
-        week_start:    date_from,   // equals date_from for unique constraint
+        meal_plan_id:  planIds[0],
+        week_start:    date_from,
         date_from,
         date_to,
         servings:      planServings,
         recipe_scales,
         items:         allItems,
         updated_at:    now,
-      },
-      { onConflict: 'user_id,week_start' },
-    )
+      }
+    : {
+        user_id:       user.id,
+        meal_plan_id:  planIds[0],
+        week_start:    date_from,
+        date_from,
+        date_to,
+        servings:      planServings,
+        recipe_scales,
+        items:         allItems,
+        updated_at:    now,
+      }
+  const onConflict = ctx ? 'household_id,week_start' : 'user_id,week_start'
+  const { data: upserted, error: upsertError } = await db
+    .from('grocery_lists')
+    .upsert(upsertPayload, { onConflict })
     .select('*')
     .single()
 

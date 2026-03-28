@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase-server'
+import { createServerClient, createAdminClient } from '@/lib/supabase-server'
+import { resolveHouseholdScope } from '@/lib/household'
 import { HomeData } from '@/types'
 
 function getCurrentWeekStart(): string {
@@ -20,17 +21,21 @@ export async function GET(req: NextRequest) {
 
   const weekStart = getCurrentWeekStart()
 
-  const { data: plan } = await supabase
-    .from('meal_plans')
-    .select('id, week_start')
-    .eq('user_id', user.id)
-    .eq('week_start', weekStart)
-    .single()
+  const db = createAdminClient()
+  const ctx = await resolveHouseholdScope(db, user.id)
+
+  let planQ = db.from('meal_plans').select('id, week_start').eq('week_start', weekStart)
+  if (ctx) {
+    planQ = planQ.eq('household_id', ctx.householdId)
+  } else {
+    planQ = planQ.eq('user_id', user.id)
+  }
+  const { data: plan } = await planQ.single()
 
   let currentWeekPlan: HomeData['currentWeekPlan'] = null
 
   if (plan) {
-    const { data: entries } = await supabase
+    const { data: entries } = await db
       .from('meal_plan_entries')
       .select('planned_date, recipe_id, position, confirmed, recipes(title)')
       .eq('meal_plan_id', plan.id)
@@ -50,7 +55,8 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const { data: history } = await supabase
+  // History is always per-requesting-user, never household-scoped
+  const { data: history } = await db
     .from('recipe_history')
     .select('recipe_id, made_on, recipes(title)')
     .eq('user_id', user.id)

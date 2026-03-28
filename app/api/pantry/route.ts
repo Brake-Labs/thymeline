@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient, createAdminClient } from '@/lib/supabase-server'
+import { resolveHouseholdScope } from '@/lib/household'
 import { parseIngredientLine, assignSection } from '@/lib/grocery'
 import type { PantryItem } from '@/types'
 
@@ -13,12 +14,21 @@ export async function GET(req: NextRequest) {
   }
 
   const db = createAdminClient()
-  const { data, error } = await db
+  const ctx = await resolveHouseholdScope(db, user.id)
+
+  let query = db
     .from('pantry_items')
     .select('*')
-    .eq('user_id', user.id)
     .order('section', { nullsFirst: false })
     .order('name')
+
+  if (ctx) {
+    query = query.eq('household_id', ctx.householdId)
+  } else {
+    query = query.eq('user_id', user.id)
+  }
+
+  const { data, error } = await query
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
@@ -55,33 +65,28 @@ export async function POST(req: NextRequest) {
 
   if (parsed.rawName && parsed.rawName.trim()) {
     name = parsed.rawName.trim()
-    // Format amount + unit back into freeform quantity string
     const parsedQty = [
       parsed.amount !== null ? String(parsed.amount) : null,
       parsed.unit ?? null,
     ].filter(Boolean).join(' ')
-
-    // Only use parsed quantity if caller didn't provide one
     quantity = body.quantity !== undefined ? body.quantity : (parsedQty || null)
   } else {
-    // Entire string was a number — store original as name with no quantity
     name = body.name.trim()
     quantity = body.quantity !== undefined ? body.quantity : null
   }
 
-  // Auto-assign section unless caller provided one
   const section = body.section !== undefined ? body.section : assignSection(name)
 
   const db = createAdminClient()
+  const ctx = await resolveHouseholdScope(db, user.id)
+
+  const insertPayload = ctx
+    ? { household_id: ctx.householdId, user_id: user.id, name, quantity, section, expiry_date: body.expiry_date ?? null }
+    : { user_id: user.id, name, quantity, section, expiry_date: body.expiry_date ?? null }
+
   const { data, error } = await db
     .from('pantry_items')
-    .insert({
-      user_id:     user.id,
-      name,
-      quantity,
-      section,
-      expiry_date: body.expiry_date ?? null,
-    })
+    .insert(insertPayload)
     .select('*')
     .single()
 
@@ -113,23 +118,26 @@ export async function DELETE(req: NextRequest) {
   }
 
   const db = createAdminClient()
+  const ctx = await resolveHouseholdScope(db, user.id)
 
-  // Verify all IDs belong to the authenticated user
+  // Verify all IDs belong to this user/household
   const { data: owned, error: fetchError } = await db
     .from('pantry_items')
-    .select('id, user_id')
+    .select('id, user_id, household_id')
     .in('id', body.ids)
 
   if (fetchError) {
     return NextResponse.json({ error: fetchError.message }, { status: 500 })
   }
 
-  const ownedIds = new Set((owned ?? []).map((r: { id: string; user_id: string }) => r.id))
-  const allBelongToUser = (owned ?? []).every((r: { id: string; user_id: string }) => r.user_id === user.id)
+  const ownedIds = new Set((owned ?? []).map((r: { id: string }) => r.id))
+  const allBelongToScope = (owned ?? []).every((r: { id: string; user_id: string; household_id: string | null }) => {
+    if (ctx) return r.household_id === ctx.householdId
+    return r.user_id === user.id
+  })
 
-  // If any ID belongs to another user, or wasn't found (could be another user's)
   const allFound = body.ids.every((id) => ownedIds.has(id))
-  if (!allBelongToUser || !allFound) {
+  if (!allBelongToScope || !allFound) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

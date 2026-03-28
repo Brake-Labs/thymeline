@@ -1,6 +1,6 @@
 import { type SupabaseClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
-import type { RecipeSuggestion, UserPreferences, LimitedTag, MealType, DaySuggestions } from '@/types'
+import type { RecipeSuggestion, UserPreferences, LimitedTag, MealType, DaySuggestions, HouseholdContext } from '@/types'
 
 export const MEAL_TYPE_CATEGORIES: Record<MealType, string[]> = {
   breakfast: ['breakfast'],
@@ -45,14 +45,20 @@ export async function fetchCooldownFilteredRecipes(
   userId: string,
   cooldownDays: number,
   categories?: string[],
+  ctx?: HouseholdContext | null,
 ): Promise<RecipeForLLM[]> {
   const cats = categories ?? ['main_dish']
-  // Fetch recipes for this user with their most recent made_on date
-  const { data: recipes } = await supabase
+  // Fetch recipes scoped by household or user
+  let recipesQ = supabase
     .from('recipes')
     .select('id, title, tags')
-    .eq('user_id', userId)
     .in('category', cats)
+  if (ctx) {
+    recipesQ = recipesQ.eq('household_id', ctx.householdId)
+  } else {
+    recipesQ = recipesQ.eq('user_id', userId)
+  }
+  const { data: recipes } = await recipesQ
 
   if (!recipes || recipes.length === 0) return []
 
@@ -78,10 +84,11 @@ export async function fetchRecipesByMealTypes(
   userId: string,
   cooldownDays: number,
   mealTypes: MealType[],
+  ctx?: HouseholdContext | null,
 ): Promise<Record<MealType, RecipeForLLM[]>> {
   const result = {} as Record<MealType, RecipeForLLM[]>
   for (const mt of mealTypes) {
-    result[mt] = await fetchCooldownFilteredRecipes(supabase, userId, cooldownDays, MEAL_TYPE_CATEGORIES[mt])
+    result[mt] = await fetchCooldownFilteredRecipes(supabase, userId, cooldownDays, MEAL_TYPE_CATEGORIES[mt], ctx)
   }
   return result
 }
@@ -106,12 +113,15 @@ export async function fetchRecentHistory(
 export async function fetchUserPreferences(
   supabase: SupabaseClient,
   userId: string,
+  ctx?: HouseholdContext | null,
 ): Promise<UserPreferences | null> {
-  const { data } = await supabase
-    .from('user_preferences')
-    .select('*')
-    .eq('user_id', userId)
-    .single()
+  let q = supabase.from('user_preferences').select('*')
+  if (ctx) {
+    q = q.eq('household_id', ctx.householdId)
+  } else {
+    q = q.eq('user_id', userId)
+  }
+  const { data } = await q.single()
   return data as UserPreferences | null
 }
 
@@ -199,12 +209,18 @@ Return ONLY valid JSON in this exact format, with no prose, no markdown:
 export async function fetchPantryContext(
   supabase: SupabaseClient,
   userId: string,
+  ctx?: HouseholdContext | null,
 ): Promise<string> {
   try {
-    const { data: items } = await supabase
+    let q = supabase
       .from('pantry_items')
       .select('name, expiry_date')
-      .eq('user_id', userId)
+    if (ctx) {
+      q = q.eq('household_id', ctx.householdId)
+    } else {
+      q = q.eq('user_id', userId)
+    }
+    const { data: items } = await q
       .order('expiry_date', { ascending: true, nullsFirst: false })
       .order('name', { ascending: true })
       .limit(30)

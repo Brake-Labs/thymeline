@@ -40,14 +40,18 @@ function makeDbMock(opts: {
     owned = [sampleItem],
   } = opts
 
-  // Chainable eq factory — supports .eq().eq()....single() at any depth
+  // Chainable eq/order factory — supports .eq().../.order()... at any depth
   function makeEqChain(terminal: Record<string, unknown>): Record<string, unknown> {
-    return {
-      eq:     vi.fn().mockImplementation(() => makeEqChain(terminal)),
-      order:  vi.fn().mockReturnValue({ order: vi.fn().mockResolvedValue({ data: items, error: null }) }),
+    const chain: Record<string, unknown> = {
+      eq:    vi.fn().mockImplementation(() => makeEqChain(terminal)),
+      order: vi.fn().mockImplementation(() => makeEqChain(terminal)),
       single: vi.fn().mockResolvedValue({ data: single, error: singleError }),
+      // Terminal await resolves with items
+      then: vi.fn().mockImplementation((resolve: (v: unknown) => void) =>
+        Promise.resolve({ data: items, error: null }).then(resolve)),
       ...terminal,
     }
+    return chain
   }
 
   return {
@@ -87,6 +91,11 @@ function makeDbMock(opts: {
 vi.mock('@/lib/supabase-server', () => ({
   createServerClient: vi.fn(),
   createAdminClient:  vi.fn(),
+}))
+
+vi.mock('@/lib/household', () => ({
+  resolveHouseholdScope: async () => null,
+  canManage: (role: string) => role === 'owner' || role === 'co_owner',
 }))
 
 import { createServerClient, createAdminClient } from '@/lib/supabase-server'
