@@ -63,6 +63,7 @@ function makeSupabaseMock(opts: {
 
 vi.mock('@/lib/supabase-server', () => ({
   createServerClient: vi.fn(),
+  createAdminClient:  vi.fn(),
 }))
 
 // Firecrawl class mock (must mock before importing route)
@@ -82,8 +83,50 @@ vi.mock('@/lib/llm', () => ({
   },
 }))
 
-import { createServerClient } from '@/lib/supabase-server'
+import { createServerClient, createAdminClient } from '@/lib/supabase-server'
 import { anthropic } from '@/lib/llm'
+
+// Admin DB mock for pantry deduction tests
+function makeAdminMock(opts: {
+  pantryItems?: { id: string; name: string; quantity: string | null; user_id: string }[]
+  recipeIngredients?: string
+} = {}) {
+  const { pantryItems = [], recipeIngredients = '200g pasta' } = opts
+  const deletedIds: string[] = []
+
+  const mock = {
+    from: vi.fn((table: string) => {
+      if (table === 'recipes') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({
+                data: { ingredients: recipeIngredients },
+                error: null,
+              }),
+            }),
+          }),
+        }
+      }
+      if (table === 'pantry_items') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ data: pantryItems, error: null }),
+          }),
+          delete: vi.fn().mockReturnValue({
+            in: vi.fn().mockImplementation((_col: string, ids: string[]) => {
+              deletedIds.push(...ids)
+              return Promise.resolve({ data: null, error: null })
+            }),
+          }),
+        }
+      }
+      return {}
+    }),
+    _deletedIds: deletedIds,
+  }
+  return mock
+}
 
 function makeReq(url: string, method = 'POST', body?: unknown): Request {
   return new Request(url, {
@@ -96,7 +139,11 @@ function makeReq(url: string, method = 'POST', body?: unknown): Request {
 // ── Log tests ─────────────────────────────────────────────────────────────────
 
 describe('POST /api/recipes/[id]/log', () => {
-  beforeEach(() => { vi.resetModules() })
+  beforeEach(() => {
+    vi.resetModules()
+    // Default admin mock — pantry deduction is silent, so any admin mock works for non-deduction tests
+    vi.mocked(createAdminClient).mockReturnValue(makeAdminMock() as ReturnType<typeof createAdminClient>)
+  })
 
   it('T06: logs a new cook entry and returns already_logged = false', async () => {
     const mock = makeSupabaseMock()
@@ -384,5 +431,59 @@ describe('T_servings - Scrape route returns servings from LLM', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.servings).toBeNull()
+  })
+})
+
+// ── T25: Recipe log deducts pantry item with null quantity ────────────────────
+
+describe('T25 - POST /api/recipes/[id]/log deducts pantry item with null quantity', () => {
+  beforeEach(() => { vi.resetModules() })
+
+  it('deletes a pantry item with null quantity that matches an ingredient', async () => {
+    const mock = makeSupabaseMock({ singleResult: { ...sampleRecipe, ingredients: 'pasta' } })
+    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+
+    const pantryItems = [{ id: 'p1', name: 'pasta', quantity: null, user_id: 'user-1' }]
+    const adminMock = makeAdminMock({ pantryItems, recipeIngredients: 'pasta' })
+    vi.mocked(createAdminClient).mockReturnValue(adminMock as ReturnType<typeof createAdminClient>)
+
+    const { POST } = await import('@/app/api/recipes/[id]/log/route')
+    const res = await POST(
+      makeReq(`http://localhost/api/recipes/${sampleRecipe.id}/log`) as Parameters<typeof POST>[0],
+      { params: { id: sampleRecipe.id } },
+    )
+
+    // HTTP response is unchanged
+    expect(res.status).toBe(200)
+
+    // Allow the fire-and-forget deduction to complete
+    await new Promise((r) => setTimeout(r, 50))
+    expect(adminMock._deletedIds).toContain('p1')
+  })
+})
+
+// ── T26: Recipe log does NOT deduct pantry item with vague quantity ───────────
+
+describe('T26 - POST /api/recipes/[id]/log does NOT deduct item with quantity "some"', () => {
+  beforeEach(() => { vi.resetModules() })
+
+  it('leaves pantry item untouched when quantity is "some"', async () => {
+    const mock = makeSupabaseMock({ singleResult: { ...sampleRecipe, ingredients: 'pasta' } })
+    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+
+    const pantryItems = [{ id: 'p2', name: 'pasta', quantity: 'some', user_id: 'user-1' }]
+    const adminMock = makeAdminMock({ pantryItems, recipeIngredients: 'pasta' })
+    vi.mocked(createAdminClient).mockReturnValue(adminMock as ReturnType<typeof createAdminClient>)
+
+    const { POST } = await import('@/app/api/recipes/[id]/log/route')
+    const res = await POST(
+      makeReq(`http://localhost/api/recipes/${sampleRecipe.id}/log`) as Parameters<typeof POST>[0],
+      { params: { id: sampleRecipe.id } },
+    )
+
+    expect(res.status).toBe(200)
+
+    await new Promise((r) => setTimeout(r, 50))
+    expect(adminMock._deletedIds).not.toContain('p2')
   })
 })

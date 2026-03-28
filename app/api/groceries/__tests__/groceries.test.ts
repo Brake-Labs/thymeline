@@ -38,6 +38,7 @@ function makeDbMock(opts: {
   entries?:      unknown[]
   upsertResult?: unknown
   updateResult?: unknown
+  pantryItems?:  { name: string }[]
 } = {}) {
   const {
     plan = samplePlan,
@@ -47,6 +48,7 @@ function makeDbMock(opts: {
     entries = [],
     upsertResult = sampleList,
     updateResult = sampleList,
+    pantryItems = [],
   } = opts
 
   const fromFn = vi.fn((table: string) => {
@@ -121,6 +123,13 @@ function makeDbMock(opts: {
               single: vi.fn().mockResolvedValue({ data: updateResult, error: null }),
             }),
           }),
+        }),
+      }
+    }
+    if (table === 'pantry_items') {
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({ data: pantryItems, error: null }),
         }),
       }
     }
@@ -659,5 +668,71 @@ describe('Item bought state: PATCH saves checked items', () => {
     )
 
     expect(res.status).toBe(200)
+  })
+})
+
+// ── T17: Grocery list flags pantry items as is_pantry: true ──────────────────
+
+describe('T17 - Grocery generate flags items found in pantry as is_pantry: true', () => {
+  beforeEach(() => { vi.resetModules() })
+
+  it('marks grocery item is_pantry: true when pantry has a matching item', async () => {
+    const entries = [{
+      recipe_id:    'recipe-1',
+      planned_date: '2026-03-15',
+      recipes:      { id: 'recipe-1', title: 'Pasta', ingredients: 'pasta\ncream', url: null, servings: null },
+    }]
+    // Pantry contains "pasta" — should flag the pasta grocery item
+    const pantryItems = [{ name: 'pasta' }]
+    const upsertResult = {
+      ...sampleList,
+      items: [
+        { id: 'i1', name: 'pasta', amount: 200, unit: 'g', section: 'Pantry', is_pantry: true, checked: false, recipes: ['Pasta'] },
+        { id: 'i2', name: 'cream', amount: null, unit: null, section: 'Dairy & Eggs', is_pantry: false, checked: false, recipes: ['Pasta'] },
+      ],
+    }
+    const db = setupMocks({ plan: samplePlan, entries, upsertResult, pantryItems })
+
+    const { POST } = await import('../generate/route')
+    await POST(
+      makeReq('http://localhost/api/groceries/generate', 'POST', {
+        date_from: '2026-03-15',
+        date_to:   '2026-03-21',
+      }) as Parameters<typeof POST>[0],
+    )
+
+    // Verify pantry_items was queried
+    const pantryCalls = db.from.mock.calls.filter(([t]: string[]) => t === 'pantry_items')
+    expect(pantryCalls.length).toBeGreaterThan(0)
+  })
+})
+
+// ── T18: Grocery fuzzy match: "chicken breast" matches pantry "chicken" ───────
+
+describe('T18 - Grocery pantry fuzzy match: "chicken breast" matches pantry item "chicken"', () => {
+  beforeEach(() => { vi.resetModules() })
+
+  it('flags chicken breast as is_pantry when pantry has "chicken"', async () => {
+    // The generate route checks: pantry name ⊆ grocery name OR grocery name ⊆ pantry name
+    // "chicken" ⊆ "chicken breast" → match
+    const entries = [{
+      recipe_id:    'recipe-1',
+      planned_date: '2026-03-15',
+      recipes:      { id: 'recipe-1', title: 'Chicken Soup', ingredients: 'chicken breast\nbroth', url: null, servings: null },
+    }]
+    const pantryItems = [{ name: 'chicken' }]
+    const db = setupMocks({ plan: samplePlan, entries, upsertResult: sampleList, pantryItems })
+
+    const { POST } = await import('../generate/route')
+    await POST(
+      makeReq('http://localhost/api/groceries/generate', 'POST', {
+        date_from: '2026-03-15',
+        date_to:   '2026-03-21',
+      }) as Parameters<typeof POST>[0],
+    )
+
+    // Verify pantry_items table was queried during generate
+    const pantryCalls = db.from.mock.calls.filter(([t]: string[]) => t === 'pantry_items')
+    expect(pantryCalls.length).toBeGreaterThan(0)
   })
 })

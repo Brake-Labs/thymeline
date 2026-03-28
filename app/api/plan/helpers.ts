@@ -196,6 +196,32 @@ Return ONLY valid JSON in this exact format, with no prose, no markdown:
 }`
 }
 
+export async function fetchPantryContext(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<string> {
+  try {
+    const { data: items } = await supabase
+      .from('pantry_items')
+      .select('name, expiry_date')
+      .eq('user_id', userId)
+      .order('expiry_date', { ascending: true, nullsFirst: false })
+      .order('name', { ascending: true })
+      .limit(30)
+
+    if (!items?.length) return ''
+
+    const lines = (items as { name: string; expiry_date: string | null }[]).map((item) => {
+      const expiry = item.expiry_date ? ` (expires ${item.expiry_date})` : ''
+      return `- ${item.name}${expiry}`
+    })
+
+    return `Pantry items on hand (bias suggestions toward recipes using these, especially items expiring soon):\n${lines.join('\n')}`
+  } catch {
+    return ''
+  }
+}
+
 export function buildFullWeekUserMessage(
   activeDates: string[],
   recipesByMealType: Record<MealType, RecipeForLLM[]>,
@@ -203,6 +229,7 @@ export function buildFullWeekUserMessage(
   freeText: string,
   specificRequests: string,
   activeMealTypes: MealType[],
+  pantryContext: string = '',
 ): string {
   const recipesSection = activeMealTypes.map((mt) => {
     const list = (recipesByMealType[mt] ?? []).map((r) => ({ recipe_id: r.id, title: r.title, tags: r.tags }))
@@ -222,7 +249,10 @@ User context for this week:
 ${freeText || '(none)'}
 
 Specific requests (best-effort):
-${specificRequests || '(none)'}`
+${specificRequests || '(none)'}
+
+Pantry context:
+${pantryContext || '(none)'}`
 }
 
 export function buildSwapUserMessage(
@@ -233,6 +263,7 @@ export function buildSwapUserMessage(
   alreadySelected: { date: string; recipe_id: string }[],
   freeText: string,
   allRecipes: RecipeForLLM[],
+  pantryContext: string = '',
 ): string {
   const selectedTitles = alreadySelected
     .map((s) => allRecipes.find((r) => r.id === s.recipe_id)?.title ?? s.recipe_id)
@@ -253,6 +284,9 @@ Recipes already selected for other days (do not repeat these): ${selectedTitles 
 
 User context for this week:
 ${freeText || '(none)'}
+
+Pantry context:
+${pantryContext || '(none)'}
 
 Return suggestions for ${date} / ${mealType} only.`
 }

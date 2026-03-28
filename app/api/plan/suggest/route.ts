@@ -8,6 +8,7 @@ import {
   fetchUserPreferences,
   buildSystemMessage,
   buildFullWeekUserMessage,
+  fetchPantryContext,
   validateSuggestions,
   callLLMNonStreaming,
 } from '../helpers'
@@ -60,6 +61,7 @@ export async function POST(req: NextRequest) {
   const season = getSeason(today.getMonth())
 
   const systemMessage = buildSystemMessage(prefs, prefer_this_week ?? [], avoid_this_week ?? [], season)
+  const pantryContext = await fetchPantryContext(supabase, user.id)
   const userMessage = buildFullWeekUserMessage(
     active_dates,
     recipesByMealType,
@@ -67,6 +69,7 @@ export async function POST(req: NextRequest) {
     free_text ?? '',
     specific_requests ?? '',
     active_meal_types,
+    pantryContext,
   )
 
   const validIdsByMealType = new Map<MealType, Set<string>>()
