@@ -38,8 +38,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ detected: [] })
   }
 
-  // Strip data URL prefix if present
-  const base64Data = body.image.replace(/^data:image\/[a-z]+;base64,/, '')
+  // Extract media type and base64 data from data URL, or fall back to jpeg
+  const dataUrlMatch = body.image.match(/^data:(image\/[a-z+]+);base64,(.+)$/i)
+  const mediaType = (dataUrlMatch?.[1] ?? 'image/jpeg') as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'
+  const base64Data = dataUrlMatch ? dataUrlMatch[2] : body.image
 
   try {
     const response = await anthropic.messages.create({
@@ -54,7 +56,7 @@ export async function POST(req: NextRequest) {
               type: 'image',
               source: {
                 type: 'base64',
-                media_type: 'image/jpeg',
+                media_type: mediaType,
                 data: base64Data,
               },
             },

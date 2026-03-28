@@ -29,8 +29,9 @@ export default function ScanPantrySheet({ onImport, onClose }: ScanPantrySheetPr
     setStep('scanning')
     try {
       const reader = new FileReader()
-      const base64 = await new Promise<string>((resolve, reject) => {
-        reader.onload = () => resolve((reader.result as string).split(',')[1])
+      // Send the full data URL so the server can extract the real media type
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string)
         reader.onerror = reject
         reader.readAsDataURL(file)
       })
@@ -42,7 +43,7 @@ export default function ScanPantrySheet({ onImport, onClose }: ScanPantrySheetPr
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ image: base64 }),
+        body: JSON.stringify({ image: dataUrl }),
       })
       const json = await res.json()
       const items: DetectedItem[] = json.detected ?? []
@@ -85,7 +86,11 @@ export default function ScanPantrySheet({ onImport, onClose }: ScanPantrySheetPr
         },
         body: JSON.stringify({ items: toImport }),
       })
-      if (res.ok) {
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        console.error('Pantry import failed:', err)
+        // Still close — don't leave the user stuck
+      } else {
         // Fetch fresh pantry to get the newly imported items with IDs
         const pantryRes = await fetch('/api/pantry', {
           headers: { Authorization: `Bearer ${token}` },
@@ -95,6 +100,8 @@ export default function ScanPantrySheet({ onImport, onClose }: ScanPantrySheetPr
           onImport(pantryJson.items as PantryItem[])
         }
       }
+    } catch (err) {
+      console.error('Pantry import error:', err)
     } finally {
       onClose()
     }

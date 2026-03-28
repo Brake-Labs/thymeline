@@ -54,20 +54,22 @@ export async function POST(req: NextRequest) {
 
     if (existingId) {
       // Update existing item's quantity and updated_at
-      await db
+      const { error } = await db
         .from('pantry_items')
         .update({ quantity: item.quantity, updated_at: now })
         .eq('id', existingId)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
       updated++
     } else {
       // Insert new item
-      await db.from('pantry_items').insert({
+      const { error } = await db.from('pantry_items').insert({
         user_id:  user.id,
         name:     item.name.trim(),
         quantity: item.quantity,
         section,
         updated_at: now,
       })
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
       imported++
     }
   }
