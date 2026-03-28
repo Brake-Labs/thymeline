@@ -135,7 +135,7 @@ export default function PreferencesForm({ allTags }: PreferencesFormProps) {
           <SectionTitle>Planning Defaults</SectionTitle>
           <div className="space-y-5">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-stone-700">Options per day</label>
+              <label className="text-sm font-medium text-stone-700">Options offered per day</label>
               <StepperInput
                 value={prefs.options_per_day}
                 min={1}

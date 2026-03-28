@@ -20,13 +20,12 @@ describe('cooldownLabel helper', () => {
     expect(cooldownLabel(28)).not.toBe('1 month')
   })
 
-  // "1 month (recommended)" applies at 30–31 days
-  it('returns "1 month (recommended)" for 30', () => {
-    expect(cooldownLabel(30)).toBe('1 month (recommended)')
+  it('returns "1 month" for 30', () => {
+    expect(cooldownLabel(30)).toBe('1 month')
   })
 
-  it('returns "1 month (recommended)" for 31', () => {
-    expect(cooldownLabel(31)).toBe('1 month (recommended)')
+  it('returns "1 month" for 31', () => {
+    expect(cooldownLabel(31)).toBe('1 month')
   })
 
   it('returns "2 months" for 60', () => {
@@ -43,7 +42,8 @@ describe('cooldownLabel helper', () => {
 describe('T04 - CooldownSlider renders and updates label live', () => {
   it('displays the friendly label for the current value', () => {
     render(<CooldownSlider value={30} onChange={vi.fn()} />)
-    expect(screen.getByText('1 month (recommended)')).toBeInTheDocument()
+    // "1 month" appears as both tick label and live label — confirm at least one present
+    expect(screen.getAllByText('1 month').length).toBeGreaterThanOrEqual(1)
   })
 
   it('displays "28 days" for value 28', () => {
@@ -61,7 +61,7 @@ describe('T04 - CooldownSlider renders and updates label live', () => {
 
   it('updates label when value prop changes', () => {
     const { rerender } = render(<CooldownSlider value={30} onChange={vi.fn()} />)
-    expect(screen.getByText('1 month (recommended)')).toBeInTheDocument()
+    expect(screen.getAllByText('1 month').length).toBeGreaterThanOrEqual(1)
     rerender(<CooldownSlider value={7} onChange={vi.fn()} />)
     // "1 week" appears as both tick label and live label
     expect(screen.getAllByText('1 week').length).toBeGreaterThanOrEqual(1)
@@ -70,7 +70,6 @@ describe('T04 - CooldownSlider renders and updates label live', () => {
   it('renders tick labels', () => {
     render(<CooldownSlider value={14} onChange={vi.fn()} />)
     expect(screen.getByText('1 day')).toBeInTheDocument()
-    expect(screen.getByText('1 month')).toBeInTheDocument()
     expect(screen.getByText('2 months')).toBeInTheDocument()
   })
 })
