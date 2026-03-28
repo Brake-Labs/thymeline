@@ -2,6 +2,35 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
 import { FIRST_CLASS_TAGS } from '@/lib/tags'
 
+
+// ── Household scope resolution ────────────────────────────────────────────────
+// Determines whether this user is solo or belongs to a household.
+// Falls back to 'solo' if household tables don't exist (migration 017 not run)
+// or if any other error occurs — never blocks the request.
+type HouseholdScope =
+  | { type: 'solo' }
+  | { type: 'household'; householdId: string }
+
+async function resolveHouseholdScope(
+  supabase: ReturnType<typeof createServerClient>,
+  userId: string,
+): Promise<HouseholdScope> {
+  try {
+    // household_members table is created in migration 017; if not run, this throws
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase as any)
+      .from('household_members')
+      .select('household_id')
+      .eq('user_id', userId)
+      .single()
+    if (error || !data) return { type: 'solo' }
+    return { type: 'household', householdId: (data as { household_id: string }).household_id }
+  } catch {
+    // Table doesn't exist or query failed — degrade gracefully to solo scope
+    return { type: 'solo' }
+  }
+}
+
 export async function GET(req: NextRequest) {
   const supabase = createServerClient(req)
   const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -13,7 +42,12 @@ export async function GET(req: NextRequest) {
   const category = searchParams.get('category')
   const tag = searchParams.get('tag')
 
+  // Resolve household scope (safe — returns 'solo' if tables don't exist)
+  const scope = await resolveHouseholdScope(supabase, user.id)
+
   // Fetch own recipes + shared recipes (RLS returns both via the two policies)
+  // For solo users: RLS already scopes to user_id = auth.uid(), including pre-household
+  // recipes where household_id IS NULL. No additional household_id filter is applied.
   let query = supabase
     .from('recipes')
     .select('id, user_id, title, category, tags, is_shared, created_at, total_time_minutes')
@@ -55,6 +89,12 @@ export async function GET(req: NextRequest) {
     last_made: historyMap[r.id]?.last_made ?? null,
     times_made: historyMap[r.id]?.times_made ?? 0,
   }))
+
+  console.log(
+    `[GET /api/recipes] userId=${user.id} scope=${scope.type}` +
+    (scope.type === 'household' ? ` householdId=${scope.householdId}` : '') +
+    ` returned=${result.length}`,
+  )
 
   return NextResponse.json(result)
 }
