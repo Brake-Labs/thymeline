@@ -163,7 +163,7 @@ export default async function HomePage() {
     await getHomeData()
 
   const today    = getTodayISO()
-  const phrase   = getGreetingPhrase(new Date().getUTCHours())
+  const phrase   = getGreetingPhrase(new Date().getHours())
   const weekDays = buildWeekDays(weekStart)
 
   const entriesByDay = new Map<

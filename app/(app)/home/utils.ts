@@ -11,8 +11,8 @@ export function getTodayISO(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
-/** Returns the greeting phrase based on the UTC hour. */
-export function getGreetingPhrase(hourUTC: number): 'morning' | 'afternoon' | 'evening' {
+/** Returns the greeting phrase based on the local hour. */
+export function getGreetingPhrase(hourLocal: number): 'morning' | 'afternoon' | 'evening' {
   if (hourUTC < 12) return 'morning'
   if (hourUTC < 17) return 'afternoon'
   return 'evening'
