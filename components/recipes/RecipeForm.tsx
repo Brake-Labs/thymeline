@@ -98,7 +98,7 @@ export default function RecipeForm({
           value={values.title}
           onChange={(e) => set('title', e.target.value)}
           placeholder={nullFields?.has('title') ? PLACEHOLDER : 'Recipe title'}
-          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500"
         />
         {errors.title && <p className="mt-1 text-xs text-red-500">{errors.title}</p>}
       </div>
@@ -111,7 +111,7 @@ export default function RecipeForm({
         <select
           value={values.category}
           onChange={(e) => set('category', e.target.value as RecipeFormValues['category'])}
-          className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sage-500"
         >
           {CATEGORY_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -139,7 +139,7 @@ export default function RecipeForm({
               value={values[field]}
               onChange={(e) => set(field, e.target.value)}
               placeholder="—"
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500"
             />
             <p className="mt-0.5 text-xs text-gray-400">Enter time in minutes</p>
           </div>
@@ -153,7 +153,7 @@ export default function RecipeForm({
             value={values.servings}
             onChange={(e) => set('servings', e.target.value)}
             placeholder="—"
-            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500"
           />
           <p className="mt-0.5 text-xs text-gray-400">Number of servings this recipe makes</p>
         </div>
@@ -178,7 +178,7 @@ export default function RecipeForm({
           onChange={(e) => set('ingredients', e.target.value)}
           placeholder={nullFields?.has('ingredients') ? PLACEHOLDER : 'One ingredient per line'}
           rows={6}
-          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500"
         />
       </div>
 
@@ -190,7 +190,7 @@ export default function RecipeForm({
           onChange={(e) => set('steps', e.target.value)}
           placeholder={nullFields?.has('steps') ? PLACEHOLDER : 'One step per line'}
           rows={8}
-          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500"
         />
       </div>
 
@@ -202,7 +202,7 @@ export default function RecipeForm({
           onChange={(e) => set('notes', e.target.value)}
           placeholder={nullFields?.has('notes') ? PLACEHOLDER : 'Personal notes'}
           rows={3}
-          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500"
         />
       </div>
 
@@ -214,7 +214,7 @@ export default function RecipeForm({
           value={values.url}
           onChange={(e) => set('url', e.target.value)}
           placeholder="https://..."
-          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500"
         />
       </div>
 
@@ -228,7 +228,7 @@ export default function RecipeForm({
           value={values.lastMade}
           onChange={(e) => set('lastMade', e.target.value)}
           max={new Date().toISOString().split('T')[0]}
-          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500"
         />
       </div>
 
@@ -255,7 +255,7 @@ export default function RecipeForm({
       <button
         type="submit"
         disabled={isSubmitting}
-        className="w-full bg-blue-600 text-white py-2 px-4 rounded font-medium text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full bg-sage-500 text-white py-2 px-4 rounded font-medium text-sm hover:bg-sage-600 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {isSubmitting ? 'Saving…' : 'Save Recipe'}
       </button>

@@ -133,7 +133,7 @@ export default function EditRecipePage({ params }: Props) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-8">
         <p className="text-gray-500">Recipe not found.</p>
-        <Link href="/recipes" className="text-blue-600 hover:underline text-sm mt-2 inline-block">
+        <Link href="/recipes" className="text-sage-600 hover:text-sage-700 text-sm mt-2 inline-block">
           ← Back to recipes
         </Link>
       </div>
@@ -144,7 +144,7 @@ export default function EditRecipePage({ params }: Props) {
     <div className="max-w-2xl mx-auto px-4 py-8">
       <Link
         href={`/recipes/${recipe.id}`}
-        className="text-sm text-blue-600 hover:underline mb-4 inline-block"
+        className="text-sm text-sage-600 hover:text-sage-700 mb-4 inline-block"
       >
         ← Back to recipe
       </Link>
@@ -185,13 +185,13 @@ export default function EditRecipePage({ params }: Props) {
             value={addDateValue}
             onChange={(e) => { setAddDateValue(e.target.value); setDateError(null) }}
             max={new Date().toISOString().split('T')[0]}
-            className="border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500"
           />
           <button
             type="button"
             onClick={handleAddDate}
             disabled={!addDateValue}
-            className="px-3 py-1.5 rounded text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 py-1.5 rounded text-sm font-medium bg-sage-500 text-white hover:bg-sage-600 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Add
           </button>
