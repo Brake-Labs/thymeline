@@ -287,7 +287,7 @@ export default async function HomePage() {
             >
               <span className="text-sm text-stone-500">{daysPlanned} of 7 days planned</span>
               <Link
-                href={`/plan/${weekStart}`}
+                href={`/calendar?week_start=${weekStart}`}
                 className="border border-stone-300 rounded-full px-4 py-1.5 text-sm text-stone-700 hover:bg-stone-100 transition-colors"
               >
                 View full plan &#8594;

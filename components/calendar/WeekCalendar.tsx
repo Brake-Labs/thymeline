@@ -38,7 +38,9 @@ export default function WeekCalendar() {
   const currentSunday = getMostRecentSunday()
   const [weekStart, setWeekStart] = useState(currentSunday)
   const [entries, setEntries] = useState<PlanEntry[]>([])
-  const [expandedDate, setExpandedDate] = useState<string | null>(null)
+  const [expandedDates, setExpandedDates] = useState<Set<string>>(
+    () => new Set(weekStart === currentSunday ? getWeekDates(currentSunday) : [])
+  )
   const [loading, setLoading] = useState(false)
 
   const maxWeekStart = addWeeks(currentSunday, 4)
@@ -64,7 +66,9 @@ export default function WeekCalendar() {
 
   useEffect(() => {
     fetchPlan(weekStart)
-  }, [weekStart, fetchPlan])
+    // Reset: expand all for current week, collapse all for other weeks
+    setExpandedDates(new Set(weekStart === currentSunday ? getWeekDates(weekStart) : []))
+  }, [weekStart, fetchPlan, currentSunday])
 
   const handlePrevWeek = () => setWeekStart((ws) => addWeeks(ws, -1))
   const handleNextWeek = () => {
@@ -72,7 +76,11 @@ export default function WeekCalendar() {
   }
 
   const handleToggle = (date: string) => {
-    setExpandedDate((prev) => (prev === date ? null : date))
+    setExpandedDates((prev) => {
+      const next = new Set(prev)
+      if (next.has(date)) { next.delete(date) } else { next.add(date) }
+      return next
+    })
   }
 
   const handleAddEntry = async (
@@ -174,7 +182,7 @@ export default function WeekCalendar() {
           key={date}
           date={date}
           entries={entries.filter((e) => e.planned_date === date)}
-          isExpanded={expandedDate === date}
+          isExpanded={expandedDates.has(date)}
           onToggle={() => handleToggle(date)}
           onAddEntry={handleAddEntry}
           onDeleteEntry={handleDeleteEntry}
