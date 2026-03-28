@@ -8,6 +8,8 @@ import { formatMinutes } from '@/lib/format-time'
 import TagPill from '@/components/recipes/TagPill'
 import DeleteConfirmDialog from '@/components/recipes/DeleteConfirmDialog'
 import ShareToggle from '@/components/recipes/ShareToggle'
+import AIGeneratedBadge from '@/components/recipes/AIGeneratedBadge'
+import AddRecipeModal from '@/components/recipes/AddRecipeModal'
 import { getAccessToken, getSupabaseClient } from '@/lib/supabase/browser'
 
 type RecipeWithHistory = Recipe & { last_made: string | null; times_made: number }
@@ -21,6 +23,7 @@ export default function RecipeDetailPage({ params }: Props) {
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
+  const [showRegenerate, setShowRegenerate] = useState(false)
   const [currentUserId, setCurrentUserId] = useState('')
   const [datesMade, setDatesMade] = useState<string[]>([])
   const [logStatus, setLogStatus] = useState<'idle' | 'loading' | 'success' | 'already_logged'>('idle')
@@ -148,6 +151,13 @@ export default function RecipeDetailPage({ params }: Props) {
             <p className="font-display text-[10px] uppercase tracking-[0.12em] text-stone-400 mb-1">
               {CATEGORY_LABELS[recipe.category]}
             </p>
+
+            {/* AI generated badge */}
+            {recipe.source === 'generated' && (
+              <div className="mb-2">
+                <AIGeneratedBadge />
+              </div>
+            )}
 
             {/* Title */}
             <h1 className="font-display font-bold text-[22px] text-stone-800 mb-3">
@@ -297,6 +307,14 @@ export default function RecipeDetailPage({ params }: Props) {
             >
               {logStatus === 'success' ? '✓ Logged!' : logStatus === 'already_logged' ? 'Already logged' : 'Log made today'}
             </button>
+            {isOwner && recipe.source === 'generated' && (
+              <button
+                onClick={() => setShowRegenerate(true)}
+                className="font-display font-medium text-[13px] text-stone-700 border border-stone-200 rounded-xl py-2 px-4 bg-white hover:bg-stone-50"
+              >
+                Regenerate
+              </button>
+            )}
             {isOwner && (
               <button
                 onClick={() => setShowDelete(true)}
@@ -315,6 +333,16 @@ export default function RecipeDetailPage({ params }: Props) {
           recipeId={recipe.id}
           getToken={getAccessToken}
           onCancel={() => setShowDelete(false)}
+        />
+      )}
+
+      {showRegenerate && (
+        <AddRecipeModal
+          onClose={() => setShowRegenerate(false)}
+          onSaved={() => setShowRegenerate(false)}
+          getToken={getAccessToken}
+          initialTab="generate"
+          initialGenerateIngredients={recipe.ingredients ?? ''}
         />
       )}
     </div>
