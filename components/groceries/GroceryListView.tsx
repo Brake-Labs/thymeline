@@ -2,7 +2,6 @@
 
 import { useState, useCallback } from 'react'
 import { GroceryItem, GroceryList, RecipeScale } from '@/types'
-import StepperInput from '@/components/preferences/StepperInput'
 import GroceryItemRow from './GroceryItemRow'
 import RecipeSectionGroup from './RecipeSectionGroup'
 import GotItSection from './GotItSection'
@@ -117,25 +116,6 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
 
   // ── Servings ────────────────────────────────────────────────────────────────
 
-  const handlePlanServingsChange = useCallback(async (newCount: number) => {
-    // Rescale items for recipes that don't have an override
-    const oldCount = planServings
-    const updated = items.map((item) => {
-      if (item.checked || item.amount === null) return item
-      // Find what recipe this item belongs to (use first recipe title)
-      const firstTitle = item.recipes[0]
-      if (!firstTitle) return item
-      const scale = recipeScales.find((s) => s.recipe_title === firstTitle)
-      if (scale?.servings !== null && scale?.servings !== undefined) return item // has override
-      // Rescale: divide by old, multiply by new
-      const newAmount = Math.round(item.amount * (newCount / oldCount) * 100) / 100
-      return { ...item, amount: newAmount }
-    })
-    setItems(updated)
-    setPlanServings(newCount)
-    await patch({ items: updated, servings: newCount })
-  }, [items, planServings, recipeScales, weekStart]) // eslint-disable-line react-hooks/exhaustive-deps
-
   const handleRecipeServingsChange = useCallback(async (recipeId: string, recipeTitle: string, newCount: number) => {
     const currentEffective = effectiveServings(recipeId, recipeScales, planServings)
     // Rescale items belonging to this recipe
@@ -238,13 +218,6 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
           Groceries for {formatWeekLabel(weekStart)}
         </h1>
         <div className="flex items-center gap-3">
-          <StepperInput
-            value={planServings}
-            min={1}
-            max={20}
-            onChange={handlePlanServingsChange}
-            label="Servings"
-          />
           <button
             type="button"
             onClick={() => setConfirmRegenerate(true)}
