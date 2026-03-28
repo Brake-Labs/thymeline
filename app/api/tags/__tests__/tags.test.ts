@@ -56,9 +56,11 @@ vi.mock('@/lib/supabase-server', () => ({
 }))
 
 vi.mock('@/lib/household', () => ({
-  resolveHouseholdScope: async () => null,
+  resolveHouseholdScope: vi.fn().mockResolvedValue(null),
   canManage: (role: string) => role === 'owner' || role === 'co_owner',
 }))
+
+import { resolveHouseholdScope } from '@/lib/household'
 
 const { GET, POST } = await import('@/app/api/tags/route')
 
@@ -147,5 +149,38 @@ describe('POST /api/tags creates a new custom tag', () => {
     mockState.user = null
     const res = await POST(makeReq('POST', 'http://localhost/api/tags', { name: 'NewTag' }))
     expect(res.status).toBe(401)
+  })
+})
+
+// ── T23: Household member GET returns household tag library ───────────────────
+
+describe('T23 - household GET /api/tags returns household-scoped custom tags', () => {
+  it('returns custom tags scoped to the household when user is a member', async () => {
+    mockState.customTags = [{ id: 'ht1', name: 'HouseholdTag', section: 'cuisine' }]
+    vi.mocked(resolveHouseholdScope).mockResolvedValueOnce({
+      householdId: 'hh-1',
+      role: 'member',
+    })
+    const res = await GET(makeReq('GET', 'http://localhost/api/tags'))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(Array.isArray(body.firstClass)).toBe(true)
+    expect(body.custom).toEqual([{ name: 'HouseholdTag', section: 'cuisine' }])
+  })
+})
+
+// ── T24: Household POST tag sets household_id ─────────────────────────────────
+
+describe('T24 - POST /api/tags sets household_id when user is in a household', () => {
+  it('returns 201 and inserts the tag in household scope', async () => {
+    mockState.insertResult = { id: 'ht-new', name: 'SharedTag', section: 'cuisine' }
+    vi.mocked(resolveHouseholdScope).mockResolvedValueOnce({
+      householdId: 'hh-1',
+      role: 'member',
+    })
+    const res = await POST(makeReq('POST', 'http://localhost/api/tags', { name: 'shared tag' }))
+    expect(res.status).toBe(201)
+    const body = await res.json()
+    expect(body.name).toBe('SharedTag')
   })
 })

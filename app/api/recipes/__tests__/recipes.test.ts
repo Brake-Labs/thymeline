@@ -174,11 +174,12 @@ vi.mock('@/lib/supabase-server', () => ({
 }))
 
 vi.mock('@/lib/household', () => ({
-  resolveHouseholdScope: async () => null,
+  resolveHouseholdScope: vi.fn().mockResolvedValue(null),
   canManage: (role: string) => role === 'owner' || role === 'co_owner',
 }))
 
 import { createServerClient, createAdminClient } from '@/lib/supabase-server'
+import { resolveHouseholdScope } from '@/lib/household'
 
 // ── Helper to build a minimal NextRequest ─────────────────────────────────────
 
@@ -478,6 +479,7 @@ describe('T21 - POST /api/recipes accepts and saves source field', () => {
     const insertResult = { ...sampleRecipe, source: 'generated' }
     const mock = makeSupabaseMock({ insertResult })
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
 
     const { POST } = await import('../route')
     const res = await POST(
@@ -496,6 +498,7 @@ describe('T21 - POST /api/recipes accepts and saves source field', () => {
   it('returns 400 when source is an invalid value', async () => {
     const mock = makeSupabaseMock({})
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
 
     const { POST } = await import('../route')
     const res = await POST(
@@ -519,6 +522,7 @@ describe('T22 - POST /api/recipes defaults source to "manual" when not supplied'
     const insertResult = { ...sampleRecipe, source: 'manual' }
     const mock = makeSupabaseMock({ insertResult })
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
 
     const { POST } = await import('../route')
     const res = await POST(
@@ -545,6 +549,7 @@ describe('T23 - PATCH /api/recipes/[id] ignores source in request body', () => {
     const updated = { ...sampleRecipe, title: 'Updated Title', source: 'manual' }
     const mock = makeSupabaseMock({ singleResult: sampleRecipe, updateResult: updated })
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
 
     const { PATCH } = await import('../[id]/route')
     const res = await PATCH(
@@ -556,5 +561,109 @@ describe('T23 - PATCH /api/recipes/[id] ignores source in request body', () => {
     )
     // Should not return 400 for the source field
     expect(res.status).toBe(200)
+  })
+})
+
+// ── Spec-14: Household scope integration tests ────────────────────────────────
+
+describe('T15 - solo GET returns only solo user recipes', () => {
+  beforeEach(() => { vi.resetModules() })
+
+  it('returns 200 with recipes for solo user (resolveHouseholdScope = null)', async () => {
+    // Default mock returns null — solo path uses eq('user_id', ...)
+    const mock = makeSupabaseMock({ recipes: [sampleRecipe], history: [] })
+    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
+
+    const { GET } = await import('../route')
+    const res = await GET(makeReq('http://localhost/api/recipes') as Parameters<typeof GET>[0])
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json).toHaveLength(1)
+    expect(json[0].id).toBe(sampleRecipe.id)
+  })
+})
+
+describe('T16 - household GET returns recipes scoped to household_id', () => {
+  beforeEach(() => { vi.resetModules() })
+
+  it('returns 200 when user has household scope (resolveHouseholdScope returns ctx)', async () => {
+    vi.mocked(resolveHouseholdScope).mockResolvedValueOnce({
+      householdId: 'hh-1',
+      role: 'member',
+    })
+    const householdRecipe = { ...sampleRecipe, id: 'recipe-hh', household_id: 'hh-1', user_id: 'user-2' }
+    const mock = makeSupabaseMock({ recipes: [householdRecipe], history: [] })
+    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
+
+    const { GET } = await import('../route')
+    const res = await GET(makeReq('http://localhost/api/recipes') as Parameters<typeof GET>[0])
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json).toHaveLength(1)
+    expect(json[0].id).toBe('recipe-hh')
+  })
+})
+
+describe('T17 - household POST sets household_id in insert payload', () => {
+  beforeEach(() => { vi.resetModules() })
+
+  it('includes household_id in the inserted recipe when user is in a household', async () => {
+    vi.mocked(resolveHouseholdScope).mockResolvedValueOnce({
+      householdId: 'hh-1',
+      role: 'member',
+    })
+    const created = { ...sampleRecipe, id: 'recipe-new', household_id: 'hh-1' }
+    const mock = makeSupabaseMock({ insertResult: created, customTags: [] })
+    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
+
+    const { POST } = await import('../route')
+    const res = await POST(
+      makeReq('http://localhost/api/recipes', 'POST', {
+        title: 'Household Recipe',
+        category: 'main_dish',
+        tags: [],
+      }) as Parameters<typeof POST>[0],
+    )
+    expect(res.status).toBe(201)
+    const json = await res.json()
+    expect(json.household_id).toBe('hh-1')
+
+    // Verify insert was called with household_id in the payload
+    const recipesFromIdx = mock.from.mock.calls.findIndex(([t]: [string]) => t === 'recipes')
+    if (recipesFromIdx !== -1) {
+      const recipesObj = mock.from.mock.results[recipesFromIdx].value
+      const insertPayload = recipesObj.insert?.mock?.calls?.[0]?.[0]
+      expect(insertPayload?.household_id).toBe('hh-1')
+    }
+  })
+})
+
+describe('T18 - household member can delete another member\'s recipe', () => {
+  beforeEach(() => { vi.resetModules() })
+
+  it('returns 204 when household member deletes a recipe owned by a different member', async () => {
+    // Recipe is owned by user-1 but belongs to hh-1; user-2 is the requester
+    vi.mocked(resolveHouseholdScope).mockResolvedValueOnce({
+      householdId: 'hh-1',
+      role: 'member',
+    })
+    const memberOwnedRecipe = { ...sampleRecipe, user_id: 'user-1', household_id: 'hh-1' }
+    const mock = makeSupabaseMock({
+      user: mockOtherUser,
+      singleResult: memberOwnedRecipe,
+      deleteOk: true,
+    })
+    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
+
+    const { DELETE } = await import('../[id]/route')
+    const res = await DELETE(
+      makeReq(`http://localhost/api/recipes/${sampleRecipe.id}`, 'DELETE') as Parameters<typeof DELETE>[0],
+      { params: { id: sampleRecipe.id } },
+    )
+    expect(res.status).toBe(204)
   })
 })

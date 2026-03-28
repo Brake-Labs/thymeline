@@ -105,9 +105,11 @@ vi.mock('@/lib/supabase-server', () => ({
 }))
 
 vi.mock('@/lib/household', () => ({
-  resolveHouseholdScope: async () => null,
+  resolveHouseholdScope: vi.fn().mockResolvedValue(null),
   canManage: (role: string) => role === 'owner' || role === 'co_owner',
 }))
+
+import { resolveHouseholdScope } from '@/lib/household'
 
 // Import after mocks are set up
 const { GET, PATCH } = await import('@/app/api/preferences/route')
@@ -263,6 +265,58 @@ describe('T16 - DB trigger creates default preferences row on signup', () => {
     expect(sql).toContain('options_per_day')
     expect(sql).toContain('cooldown_days')
     expect(sql).toContain('onboarding_completed')
+  })
+})
+
+// ── T19: Household member GET returns household prefs ────────────────────────
+describe('T19 - household member GET /api/preferences returns household preferences', () => {
+  it('returns household prefs row when user is in a household', async () => {
+    mockState.prefsRow = {
+      options_per_day: 4,
+      cooldown_days: 21,
+      seasonal_mode: true,
+      preferred_tags: [],
+      avoided_tags: [],
+      limited_tags: [],
+      onboarding_completed: true,
+    }
+    vi.mocked(resolveHouseholdScope).mockResolvedValueOnce({
+      householdId: 'hh-1',
+      role: 'member',
+    })
+    const res = await GET(makeGetRequest())
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.options_per_day).toBe(4)
+    expect(body.cooldown_days).toBe(21)
+  })
+})
+
+// ── T20: Member role PATCH returns 403 ────────────────────────────────────────
+describe('T20 - PATCH /api/preferences returns 403 for household member (non-manager)', () => {
+  it('returns 403 when user has role "member" in the household', async () => {
+    vi.mocked(resolveHouseholdScope).mockResolvedValueOnce({
+      householdId: 'hh-1',
+      role: 'member',
+    })
+    const res = await PATCH(makePatchRequest({ cooldown_days: 14 }))
+    expect(res.status).toBe(403)
+    const body = await res.json()
+    expect(body.error).toMatch(/owner or co-owner/)
+  })
+})
+
+// ── T21: Co-owner PATCH returns 200 ──────────────────────────────────────────
+describe('T21 - PATCH /api/preferences returns 200 for co-owner', () => {
+  it('allows co_owner to update household preferences', async () => {
+    vi.mocked(resolveHouseholdScope).mockResolvedValueOnce({
+      householdId: 'hh-1',
+      role: 'co_owner',
+    })
+    const res = await PATCH(makePatchRequest({ cooldown_days: 14 }))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.cooldown_days).toBe(14)
   })
 })
 

@@ -34,7 +34,7 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
         setMembers(data.members ?? [])
         setCtx(
           data.household
-            ? { householdId: data.household.id, role: data.currentUserRole }
+            ? { householdId: data.household.id, role: data.myRole }
             : null,
         )
       } else {

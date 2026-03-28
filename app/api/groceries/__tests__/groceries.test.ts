@@ -140,9 +140,11 @@ vi.mock('@/lib/supabase-server', () => ({
 }))
 
 vi.mock('@/lib/household', () => ({
-  resolveHouseholdScope: async () => null,
+  resolveHouseholdScope: vi.fn().mockResolvedValue(null),
   canManage: (role: string) => role === 'owner' || role === 'co_owner',
 }))
+
+import { resolveHouseholdScope } from '@/lib/household'
 
 vi.mock('firecrawl', () => ({
   default: class MockFirecrawl {
@@ -734,5 +736,42 @@ describe('T18 - Grocery pantry fuzzy match: "chicken breast" matches pantry item
     // Verify pantry_items table was queried during generate
     const pantryCalls = db.from.mock.calls.filter(([t]: string[]) => t === 'pantry_items')
     expect(pantryCalls.length).toBeGreaterThan(0)
+  })
+})
+
+// ── T25: Household generate upserts with household_id and correct conflict key ─
+
+describe('T25 - POST /api/groceries/generate uses household_id in upsert when in a household', () => {
+  beforeEach(() => { vi.resetModules() })
+
+  it('upserts grocery_lists with household_id and conflict key "household_id,week_start"', async () => {
+    vi.mocked(resolveHouseholdScope).mockResolvedValueOnce({
+      householdId: 'hh-1',
+      role: 'member',
+    })
+    const entries = [{
+      recipe_id:    'recipe-1',
+      planned_date: '2026-03-15',
+      recipes:      { id: 'recipe-1', title: 'Pasta', ingredients: '200g pasta', url: null, servings: null },
+    }]
+    const householdList = { ...sampleList, household_id: 'hh-1' }
+    const db = setupMocks({ plan: samplePlan, entries, upsertResult: householdList })
+
+    const { POST } = await import('../generate/route')
+    const res = await POST(
+      makeReq('http://localhost/api/groceries/generate', 'POST', { week_start: '2026-03-15' }) as Parameters<typeof POST>[0],
+    )
+    expect(res.status).toBe(200)
+
+    // Verify grocery_lists.upsert was called with household_id + correct onConflict
+    type FromResult = { upsert?: ReturnType<typeof vi.fn> }
+    const groceryObjs = db.from.mock.calls
+      .map((args: string[], i: number) => ({ table: args[0], obj: (db.from.mock.results[i] as { value: FromResult }).value }))
+      .filter(({ table }) => table === 'grocery_lists')
+    const upsertCalls = groceryObjs.flatMap(({ obj }) => obj.upsert?.mock?.calls ?? [])
+    expect(upsertCalls.length).toBeGreaterThan(0)
+    const [upsertPayload, upsertOpts] = upsertCalls[0]
+    expect(upsertPayload.household_id).toBe('hh-1')
+    expect(upsertOpts?.onConflict).toBe('household_id,week_start')
   })
 })

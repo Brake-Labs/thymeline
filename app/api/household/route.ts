@@ -91,7 +91,7 @@ export async function GET(req: NextRequest) {
     // auth.admin not available in all environments; return without emails
   }
 
-  return NextResponse.json({ household: household as Household, members: enrichedMembers })
+  return NextResponse.json({ household: household as Household, members: enrichedMembers, myRole: ctx.role })
 }
 
 // ── PATCH /api/household — update household name ──────────────────────────────
