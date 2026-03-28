@@ -85,7 +85,7 @@ export default function TagBucketPicker({
                   <button
                     type="button"
                     onClick={() => toggleLimitedTag(lt.tag)}
-                    className="px-3 py-1.5 rounded-full text-sm font-medium border transition-colors bg-amber-100 border-amber-400 text-amber-800"
+                    className="px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors bg-amber-100 border-amber-400 text-amber-800"
                   >
                     {lt.tag}
                   </button>
@@ -109,7 +109,7 @@ export default function TagBucketPicker({
                   key={tag}
                   type="button"
                   onClick={() => toggleLimitedTag(tag)}
-                  className="px-3 py-1.5 rounded-full text-sm font-medium border transition-colors bg-white border-gray-300 text-gray-600 hover:border-amber-300"
+                  className="px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors bg-white border-gray-300 text-gray-600 hover:border-amber-300"
                 >
                   {tag}
                 </button>
@@ -154,7 +154,7 @@ export default function TagBucketPicker({
                   key={tag}
                   type="button"
                   onClick={() => toggle(tag)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                  className={`px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors ${
                     isSelected
                       ? selectedColor
                       : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'
