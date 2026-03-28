@@ -2,7 +2,8 @@ import Link from 'next/link'
 import { Sparkles, Archive, ClipboardList } from 'lucide-react'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { HomeData } from '@/types'
-import { getMostRecentSunday, getTodayISO, getGreetingPhrase, isToday } from './utils'
+import { getMostRecentSunday, getTodayISO, isToday } from './utils'
+import GreetingHeading from './GreetingHeading'
 
 // ── Formatting helpers ────────────────────────────────────────────────────────
 
@@ -163,7 +164,6 @@ export default async function HomePage() {
     await getHomeData()
 
   const today    = getTodayISO()
-  const phrase   = getGreetingPhrase(new Date().getUTCHours())
   const weekDays = buildWeekDays(weekStart)
 
   const entriesByDay = new Map<
@@ -214,9 +214,7 @@ export default async function HomePage() {
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-8 pb-12">
 
         {/* Greeting */}
-        <h1 className="font-display text-3xl font-bold text-stone-900">
-          Good {phrase}{userName ? `, ${userName}` : ''}
-        </h1>
+        <GreetingHeading userName={userName ?? ''} />
 
         {/* This Week */}
         <section>
