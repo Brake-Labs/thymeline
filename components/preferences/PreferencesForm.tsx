@@ -107,8 +107,8 @@ export default function PreferencesForm({ allTags }: PreferencesFormProps) {
       body: JSON.stringify(fields),
     })
     if (res.ok) {
-      const updated: PrefsState = await res.json()
-      setPrefs(updated)
+      // Only merge the saved fields — don't overwrite unsaved selections in other sections
+      setPrefs((prev) => ({ ...prev, ...fields }))
     }
   }
 
