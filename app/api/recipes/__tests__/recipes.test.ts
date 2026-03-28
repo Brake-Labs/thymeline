@@ -433,3 +433,93 @@ describe('T14b - PATCH /api/recipes/[id] rejects unknown tag with 400', () => {
     expect(body.error).toMatch(/Unknown tags/)
   })
 })
+
+// ── T21: POST /api/recipes accepts and saves source field ────────────────────
+
+describe('T21 - POST /api/recipes accepts and saves source field', () => {
+  beforeEach(() => { vi.resetModules() })
+
+  it('saves source: generated when provided', async () => {
+    const insertResult = { ...sampleRecipe, source: 'generated' }
+    const mock = makeSupabaseMock({ insertResult })
+    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+
+    const { POST } = await import('../route')
+    const res = await POST(
+      makeReq('http://localhost/api/recipes', 'POST', {
+        title: 'Test Recipe',
+        category: 'main_dish',
+        tags: [],
+        source: 'generated',
+      }) as Parameters<typeof POST>[0],
+    )
+    expect(res.status).toBe(201)
+    const body = await res.json()
+    expect(body.source).toBe('generated')
+  })
+
+  it('returns 400 when source is an invalid value', async () => {
+    const mock = makeSupabaseMock({})
+    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+
+    const { POST } = await import('../route')
+    const res = await POST(
+      makeReq('http://localhost/api/recipes', 'POST', {
+        title: 'Test Recipe',
+        category: 'main_dish',
+        tags: [],
+        source: 'invalid_source',
+      }) as Parameters<typeof POST>[0],
+    )
+    expect(res.status).toBe(400)
+  })
+})
+
+// ── T22: POST /api/recipes defaults source to 'manual' when not supplied ──────
+
+describe('T22 - POST /api/recipes defaults source to "manual" when not supplied', () => {
+  beforeEach(() => { vi.resetModules() })
+
+  it('inserts source: manual when source not in body', async () => {
+    const insertResult = { ...sampleRecipe, source: 'manual' }
+    const mock = makeSupabaseMock({ insertResult })
+    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+
+    const { POST } = await import('../route')
+    const res = await POST(
+      makeReq('http://localhost/api/recipes', 'POST', {
+        title: 'Test Recipe',
+        category: 'main_dish',
+        tags: [],
+      }) as Parameters<typeof POST>[0],
+    )
+    expect(res.status).toBe(201)
+    // The route sets source: body.source ?? 'manual' in the insert
+    // We verify it returns 201 (insert was called successfully)
+    const body = await res.json()
+    expect(body.source).toBe('manual')
+  })
+})
+
+// ── T23: PATCH /api/recipes/[id] ignores source field ────────────────────────
+
+describe('T23 - PATCH /api/recipes/[id] ignores source in request body', () => {
+  beforeEach(() => { vi.resetModules() })
+
+  it('succeeds without error when source is included in PATCH body', async () => {
+    const updated = { ...sampleRecipe, title: 'Updated Title', source: 'manual' }
+    const mock = makeSupabaseMock({ singleResult: sampleRecipe, updateResult: updated })
+    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+
+    const { PATCH } = await import('../[id]/route')
+    const res = await PATCH(
+      makeReq(`http://localhost/api/recipes/${sampleRecipe.id}`, 'PATCH', {
+        title: 'Updated Title',
+        source: 'generated',  // should be silently ignored
+      }) as Parameters<typeof PATCH>[0],
+      { params: { id: sampleRecipe.id } },
+    )
+    // Should not return 400 for the source field
+    expect(res.status).toBe(200)
+  })
+})

@@ -8,6 +8,7 @@ import PantrySection from './PantrySection'
 import AddPantryItemInput from './AddPantryItemInput'
 import ScanPantrySheet from './ScanPantrySheet'
 import PantryMatchSheet from './PantryMatchSheet'
+import AddRecipeModal from '@/components/recipes/AddRecipeModal'
 
 // Section render order (spec §6 rule 9)
 const SECTION_ORDER: (GrocerySection | 'Unsorted')[] = [
@@ -24,6 +25,7 @@ export default function PantryPageClient() {
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [matchLoading, setMatchLoading] = useState(false)
   const [matches, setMatches] = useState<PantryMatch[] | null>(null)
+  const [showGenerateModal, setShowGenerateModal] = useState(false)
 
   const fetchItems = useCallback(async () => {
     try {
@@ -156,6 +158,13 @@ export default function PantryPageClient() {
           </button>
           <button
             type="button"
+            onClick={() => setShowGenerateModal(true)}
+            className="px-3 py-1.5 text-sm rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 transition-colors"
+          >
+            Generate new recipe
+          </button>
+          <button
+            type="button"
             onClick={handleWhatCanIMake}
             className="px-3 py-1.5 text-sm rounded-lg bg-sage-500 text-white hover:bg-sage-600 transition-colors font-medium"
           >
@@ -267,6 +276,20 @@ export default function PantryPageClient() {
           matches={matches ?? []}
           loading={matchLoading}
           onClose={() => setMatches(null)}
+        />
+      )}
+
+      {/* Generate recipe modal (spec-13) */}
+      {showGenerateModal && (
+        <AddRecipeModal
+          onClose={() => setShowGenerateModal(false)}
+          onSaved={() => {
+            setShowGenerateModal(false)
+            window.location.href = '/recipes'
+          }}
+          getToken={getAccessToken}
+          initialTab="generate"
+          initialPantryEnabled={true}
         />
       )}
     </div>

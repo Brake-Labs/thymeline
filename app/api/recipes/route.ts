@@ -80,6 +80,7 @@ export async function POST(req: NextRequest) {
     total_time_minutes?: number | null
     inactive_time_minutes?: number | null
     servings?: number | null
+    source?: string
   }
 
   try {
@@ -91,6 +92,12 @@ export async function POST(req: NextRequest) {
   if (!body.title?.trim()) {
     return NextResponse.json({ error: 'title is required' }, { status: 400 })
   }
+
+  const validSources = ['scraped', 'manual', 'generated']
+  if (body.source !== undefined && !validSources.includes(body.source)) {
+    return NextResponse.json({ error: 'source must be one of: scraped, manual, generated' }, { status: 400 })
+  }
+
   const validCategories = ['main_dish', 'breakfast', 'dessert', 'side_dish']
   if (!body.category || !validCategories.includes(body.category)) {
     return NextResponse.json({ error: 'category is required and must be one of: main_dish, breakfast, dessert, side_dish' }, { status: 400 })
@@ -131,6 +138,7 @@ export async function POST(req: NextRequest) {
       url: body.url ?? null,
       image_url: body.image_url ?? null,
       is_shared: false,
+      source: body.source ?? 'manual',
       prep_time_minutes: body.prep_time_minutes ?? null,
       cook_time_minutes: body.cook_time_minutes ?? null,
       total_time_minutes: body.total_time_minutes ?? null,
