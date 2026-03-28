@@ -27,6 +27,8 @@ export default function RecipeDetailPage({ params }: Props) {
   const [currentUserId, setCurrentUserId] = useState('')
   const [datesMade, setDatesMade] = useState<string[]>([])
   const [logStatus, setLogStatus] = useState<'idle' | 'loading' | 'success' | 'already_logged'>('idle')
+  const [showLogModal, setShowLogModal] = useState(false)
+  const [logDate, setLogDate] = useState('')
 
   const isOwner = !!currentUserId && recipe?.user_id === currentUserId
 
@@ -57,17 +59,23 @@ export default function RecipeDetailPage({ params }: Props) {
     fetchRecipe()
   }, [params.id])
 
-  async function handleLogToday() {
+  function openLogModal() {
+    setLogDate(new Date().toISOString().split('T')[0])
+    setShowLogModal(true)
+  }
+
+  async function handleLogDate() {
+    if (!logDate) return
+    setShowLogModal(false)
     setLogStatus('loading')
     try {
-      const today = new Date().toISOString().split('T')[0]
       const res = await fetch(`/api/recipes/${params.id}/log`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${await getAccessToken()}`,
         },
-        body: JSON.stringify({ made_on: today }),
+        body: JSON.stringify({ made_on: logDate }),
       })
       if (res.ok) {
         const data: { made_on: string; already_logged: boolean } = await res.json()
@@ -301,11 +309,11 @@ export default function RecipeDetailPage({ params }: Props) {
               </Link>
             )}
             <button
-              onClick={handleLogToday}
+              onClick={openLogModal}
               disabled={logStatus === 'loading'}
               className="font-display font-medium text-[13px] text-stone-700 border border-stone-200 rounded-xl py-2 px-4 bg-white hover:bg-stone-50 disabled:opacity-50"
             >
-              {logStatus === 'success' ? '✓ Logged!' : logStatus === 'already_logged' ? 'Already logged' : 'Log made today'}
+              {logStatus === 'success' ? '✓ Logged!' : logStatus === 'already_logged' ? 'Already logged' : 'Log made'}
             </button>
             {isOwner && recipe.source === 'generated' && (
               <button
@@ -334,6 +342,38 @@ export default function RecipeDetailPage({ params }: Props) {
           getToken={getAccessToken}
           onCancel={() => setShowDelete(false)}
         />
+      )}
+
+      {showLogModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-xs w-full space-y-4">
+            <h2 className="font-display text-base font-semibold text-stone-800">Log a date made</h2>
+            <input
+              type="date"
+              value={logDate}
+              max={new Date().toISOString().split('T')[0]}
+              onChange={(e) => setLogDate(e.target.value)}
+              className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-700 focus:outline-none focus:ring-2 focus:ring-sage-400"
+            />
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={handleLogDate}
+                disabled={!logDate}
+                className="font-display flex-1 px-4 py-2 bg-sage-500 text-white text-sm font-medium rounded-lg hover:bg-sage-600 disabled:opacity-40"
+              >
+                Log
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowLogModal(false)}
+                className="flex-1 px-4 py-2 border border-stone-300 text-stone-700 text-sm font-medium rounded-lg hover:bg-stone-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {showRegenerate && (
