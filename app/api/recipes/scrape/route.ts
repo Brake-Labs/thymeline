@@ -69,8 +69,9 @@ The JSON must have exactly these fields:
 - "cookTimeMinutes": cook time in minutes as an integer, or null
 - "totalTimeMinutes": total time in minutes as an integer, or null
 - "inactiveTimeMinutes": inactive/rest/marinate time in minutes as an integer, or null
+- "stepPhotos": array of objects with shape {"stepIndex": number, "imageUrl": string} — 0-based index into the steps lines. [] if none.
 
-If a field cannot be found, set it to null. Do not invent data.
+If a field cannot be found, set it to null (or [] for arrays). Do not invent data.
 
 Note: cooking steps may appear after a long ingredients list or narrative content. Look for sections labeled "Instructions", "Directions", "Method", or "Steps".
 
@@ -78,6 +79,7 @@ Page content:
 ${pageContent.slice(0, 20000)}`
 
   type RawNewTag = { name: string; section: string }
+  type StepPhoto = { stepIndex: number; imageUrl: string }
 
   let extracted: {
     title: string | null
@@ -91,6 +93,7 @@ ${pageContent.slice(0, 20000)}`
     cookTimeMinutes: number | null
     totalTimeMinutes: number | null
     inactiveTimeMinutes: number | null
+    stepPhotos: StepPhoto[]
   } = {
     title: null,
     ingredients: null,
@@ -103,6 +106,7 @@ ${pageContent.slice(0, 20000)}`
     cookTimeMinutes: null,
     totalTimeMinutes: null,
     inactiveTimeMinutes: null,
+    stepPhotos: [],
   }
 
   try {
@@ -140,6 +144,14 @@ ${pageContent.slice(0, 20000)}`
       cookTimeMinutes: Number.isInteger(parsed.cookTimeMinutes) ? parsed.cookTimeMinutes : null,
       totalTimeMinutes: Number.isInteger(parsed.totalTimeMinutes) ? parsed.totalTimeMinutes : null,
       inactiveTimeMinutes: Number.isInteger(parsed.inactiveTimeMinutes) ? parsed.inactiveTimeMinutes : null,
+      stepPhotos: Array.isArray(parsed.stepPhotos)
+        ? parsed.stepPhotos.filter(
+            (p: unknown): p is StepPhoto =>
+              typeof p === 'object' && p !== null &&
+              Number.isInteger((p as StepPhoto).stepIndex) &&
+              typeof (p as StepPhoto).imageUrl === 'string',
+          )
+        : [],
     }
   } catch (err) {
     console.error('LLM extraction error:', err)
@@ -191,5 +203,6 @@ ${pageContent.slice(0, 20000)}`
     cookTimeMinutes: extracted.cookTimeMinutes,
     totalTimeMinutes: extracted.totalTimeMinutes,
     inactiveTimeMinutes: extracted.inactiveTimeMinutes,
+    stepPhotos: extracted.stepPhotos,
   })
 }
