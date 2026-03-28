@@ -9,6 +9,43 @@ const mockState = {
   history: [] as unknown[],
 }
 
+function makeFrom(table: string) {
+  if (table === 'meal_plans') {
+    return {
+      select: () => ({
+        eq: () => ({
+          eq: () => ({
+            single: async () => ({ data: mockState.plan, error: mockState.plan ? null : { message: 'not found' } }),
+          }),
+        }),
+      }),
+    }
+  }
+  if (table === 'meal_plan_entries') {
+    return {
+      select: () => ({
+        eq: () => ({
+          order: () => ({
+            order: async () => ({ data: mockState.entries, error: null }),
+          }),
+        }),
+      }),
+    }
+  }
+  if (table === 'recipe_history') {
+    return {
+      select: () => ({
+        eq: () => ({
+          order: () => ({
+            limit: async () => ({ data: mockState.history, error: null }),
+          }),
+        }),
+      }),
+    }
+  }
+  return {}
+}
+
 vi.mock('@/lib/supabase-server', () => ({
   createServerClient: () => ({
     auth: {
@@ -17,43 +54,14 @@ vi.mock('@/lib/supabase-server', () => ({
         error: mockState.user ? null : { message: 'no user' },
       }),
     },
-    from: (table: string) => {
-      if (table === 'meal_plans') {
-        return {
-          select: () => ({
-            eq: () => ({
-              eq: () => ({
-                single: async () => ({ data: mockState.plan, error: mockState.plan ? null : { message: 'not found' } }),
-              }),
-            }),
-          }),
-        }
-      }
-      if (table === 'meal_plan_entries') {
-        return {
-          select: () => ({
-            eq: () => ({
-              order: () => ({
-                order: async () => ({ data: mockState.entries, error: null }),
-              }),
-            }),
-          }),
-        }
-      }
-      if (table === 'recipe_history') {
-        return {
-          select: () => ({
-            eq: () => ({
-              order: () => ({
-                limit: async () => ({ data: mockState.history, error: null }),
-              }),
-            }),
-          }),
-        }
-      }
-      return {}
-    },
+    from: makeFrom,
   }),
+  createAdminClient: () => ({ from: makeFrom }),
+}))
+
+vi.mock('@/lib/household', () => ({
+  resolveHouseholdScope: async () => null,
+  canManage: (role: string) => role === 'owner' || role === 'co_owner',
 }))
 
 const { GET } = await import('@/app/api/home/route')

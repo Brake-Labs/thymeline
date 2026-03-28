@@ -10,6 +10,38 @@ const mockState = {
   insertError: null as { message: string } | null,
 }
 
+// Fluent terminal that always resolves with customTags
+function makeTagsChain(): Record<string, unknown> {
+  const terminal = {
+    then: (resolve: (v: unknown) => void) =>
+      resolve({ data: mockState.customTags, error: null }),
+  }
+  const chain: Record<string, unknown> = {
+    ...terminal,
+    eq: () => makeTagsChain(),
+    order: () => makeTagsChain(),
+    single: async () => ({ data: mockState.customTags[0] ?? null, error: null }),
+  }
+  return chain
+}
+
+function makeTagsFrom(table: string) {
+  if (table === 'custom_tags') {
+    return {
+      select: () => makeTagsChain(),
+      insert: () => ({
+        select: () => ({
+          single: async () => ({
+            data: mockState.insertResult,
+            error: mockState.insertError,
+          }),
+        }),
+      }),
+    }
+  }
+  return {}
+}
+
 vi.mock('@/lib/supabase-server', () => ({
   createServerClient: () => ({
     auth: {
@@ -18,37 +50,14 @@ vi.mock('@/lib/supabase-server', () => ({
         error: mockState.user ? null : { message: 'no user' },
       }),
     },
-    from: (table: string) => {
-      if (table === 'custom_tags') {
-        return {
-          select: () => ({
-            eq: () => ({
-              // For the full list fetch (duplicate check)
-              then: (resolve: (v: unknown) => void) =>
-                resolve({ data: mockState.customTags, error: null }),
-              // For order (GET route)
-              order: () =>
-                Promise.resolve({ data: mockState.customTags, error: null }),
-              // Chained select().eq() for duplicate check path
-              select: () => ({
-                eq: () =>
-                  Promise.resolve({ data: mockState.customTags, error: null }),
-              }),
-            }),
-          }),
-          insert: () => ({
-            select: () => ({
-              single: async () => ({
-                data: mockState.insertResult,
-                error: mockState.insertError,
-              }),
-            }),
-          }),
-        }
-      }
-      return {}
-    },
+    from: makeTagsFrom,
   }),
+  createAdminClient: () => ({ from: makeTagsFrom }),
+}))
+
+vi.mock('@/lib/household', () => ({
+  resolveHouseholdScope: async () => null,
+  canManage: (role: string) => role === 'owner' || role === 'co_owner',
 }))
 
 const { GET, POST } = await import('@/app/api/tags/route')

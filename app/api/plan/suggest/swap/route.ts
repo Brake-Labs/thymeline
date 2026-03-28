@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase-server'
+import { createServerClient, createAdminClient } from '@/lib/supabase-server'
+import { resolveHouseholdScope } from '@/lib/household'
 import {
   getSeason,
   fetchCooldownFilteredRecipes,
@@ -38,10 +39,13 @@ export async function POST(req: NextRequest) {
   const { date, already_selected, prefer_this_week, avoid_this_week, free_text } = body
   const meal_type: MealType = body.meal_type ?? 'dinner'
 
-  const prefs = await fetchUserPreferences(supabase, user.id)
+  const db = createAdminClient()
+  const ctx = await resolveHouseholdScope(db, user.id)
+
+  const prefs = await fetchUserPreferences(supabase, user.id, ctx)
   const cooldownDays = prefs?.cooldown_days ?? 28
   const categories = MEAL_TYPE_CATEGORIES[meal_type]
-  const recipes = await fetchCooldownFilteredRecipes(supabase, user.id, cooldownDays, categories)
+  const recipes = await fetchCooldownFilteredRecipes(supabase, user.id, cooldownDays, categories, ctx)
   const recentHistory = await fetchRecentHistory(supabase, user.id)
 
   const today = new Date()

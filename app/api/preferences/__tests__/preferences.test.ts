@@ -67,6 +67,46 @@ vi.mock('@/lib/supabase-server', () => ({
       }
     },
   }),
+  createAdminClient: () => ({
+    from: (table: string) => {
+      if (table === 'user_tags') {
+        return {
+          select: () => ({
+            eq: () => Promise.resolve({ data: mockState.userTags, error: null }),
+          }),
+        }
+      }
+      return {
+        select: (_cols: string) => ({
+          eq: (_col: string, _val: unknown) => ({
+            single: async () => {
+              if (mockState.prefsError) return { data: null, error: mockState.prefsError }
+              if (!mockState.prefsRow) return { data: null, error: { code: 'PGRST116', message: 'not found' } }
+              return { data: mockState.prefsRow, error: null }
+            },
+          }),
+        }),
+        upsert: (data: Record<string, unknown>, _opts: unknown) => ({
+          select: (_cols: string) => ({
+            single: async () => ({
+              data: {
+                options_per_day: 3, cooldown_days: 28, seasonal_mode: true,
+                preferred_tags: [], avoided_tags: [], limited_tags: [],
+                onboarding_completed: false, ...data,
+                ...(mockState.upsertResult ?? {}),
+              },
+              error: null,
+            }),
+          }),
+        }),
+      }
+    },
+  }),
+}))
+
+vi.mock('@/lib/household', () => ({
+  resolveHouseholdScope: async () => null,
+  canManage: (role: string) => role === 'owner' || role === 'co_owner',
 }))
 
 // Import after mocks are set up

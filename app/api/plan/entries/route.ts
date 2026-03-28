@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient, createAdminClient } from '@/lib/supabase-server'
+import { resolveHouseholdScope } from '@/lib/household'
 import { isSunday } from '../helpers'
 import type { MealType, PlanEntry } from '@/types'
 
@@ -56,6 +57,7 @@ export async function POST(req: NextRequest) {
   }
 
   const db = createAdminClient()
+  const ctx = await resolveHouseholdScope(db, user.id)
 
   // Dessert parent must be a Dinner or Lunch slot
   if (meal_type === 'dessert' && parent_entry_id) {
@@ -69,21 +71,28 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Upsert meal_plans on (user_id, week_start)
-  const { data: existingPlan } = await db
+  // Upsert meal_plans on (household_id, week_start) or (user_id, week_start)
+  let existingPlanQ = db
     .from('meal_plans')
     .select('id')
-    .eq('user_id', user.id)
     .eq('week_start', week_start)
-    .maybeSingle()
+  if (ctx) {
+    existingPlanQ = existingPlanQ.eq('household_id', ctx.householdId)
+  } else {
+    existingPlanQ = existingPlanQ.eq('user_id', user.id)
+  }
+  const { data: existingPlan } = await existingPlanQ.maybeSingle()
 
   let planId: string
   if (existingPlan?.id) {
     planId = existingPlan.id
   } else {
+    const insertPayload = ctx
+      ? { household_id: ctx.householdId, user_id: user.id, week_start }
+      : { user_id: user.id, week_start }
     const { data: newPlan, error: planError } = await db
       .from('meal_plans')
-      .insert({ user_id: user.id, week_start })
+      .insert(insertPayload)
       .select('id')
       .single()
     if (planError || !newPlan) {

@@ -100,16 +100,31 @@ function makeSupabaseMock(opts: {
           // list query returns recipes array
           select: vi.fn().mockReturnValue({
             ...chainable,
-            order: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                contains: vi.fn().mockResolvedValue({ data: recipes, error: null }),
-              }),
-              contains: vi.fn().mockResolvedValue({ data: recipes, error: null }),
-              then: (resolve: (v: unknown) => void) =>
-                Promise.resolve({ data: recipes, error: null }).then(resolve),
+            order: vi.fn().mockImplementation(() => {
+              // Fluent chain for: .order().eq().eq()?.contains()? awaited
+              const makeFilterChain = (): Record<string, unknown> => ({
+                eq: vi.fn().mockImplementation(() => makeFilterChain()),
+                contains: vi.fn().mockImplementation(() => makeFilterChain()),
+                then: (resolve: (v: unknown) => void) =>
+                  Promise.resolve({ data: recipes, error: null }).then(resolve),
+              })
+              return makeFilterChain()
             }),
-            eq: vi.fn().mockReturnValue({
-              single: vi.fn().mockResolvedValue({ data: singleResult, error: singleError }),
+            eq: vi.fn().mockImplementation(() => {
+              const level2 = {
+                eq: vi.fn().mockReturnValue({
+                  single: vi.fn().mockResolvedValue({ data: singleResult, error: singleError }),
+                  order: vi.fn().mockResolvedValue({ data: recipes, error: null }),
+                }),
+                contains: vi.fn().mockReturnValue({
+                  order: vi.fn().mockResolvedValue({ data: recipes, error: null }),
+                }),
+                order: vi.fn().mockResolvedValue({ data: recipes, error: null }),
+                single: vi.fn().mockResolvedValue({ data: singleResult, error: singleError }),
+                then: (resolve: (v: unknown) => void) =>
+                  Promise.resolve({ data: recipes, error: null }).then(resolve),
+              }
+              return level2
             }),
             single: vi.fn().mockResolvedValue({ data: singleResult, error: singleError }),
           }),
@@ -155,9 +170,15 @@ function makeSupabaseMock(opts: {
 
 vi.mock('@/lib/supabase-server', () => ({
   createServerClient: vi.fn(),
+  createAdminClient:  vi.fn(),
 }))
 
-import { createServerClient } from '@/lib/supabase-server'
+vi.mock('@/lib/household', () => ({
+  resolveHouseholdScope: async () => null,
+  canManage: (role: string) => role === 'owner' || role === 'co_owner',
+}))
+
+import { createServerClient, createAdminClient } from '@/lib/supabase-server'
 
 // ── Helper to build a minimal NextRequest ─────────────────────────────────────
 
@@ -181,6 +202,7 @@ describe('POST /api/recipes — T03: manual add with no URL', () => {
     const created = { ...sampleRecipe, url: null, ingredients: null, steps: null }
     const mock = makeSupabaseMock({ insertResult: created, customTags: [] })
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
 
     const { POST } = await import('../route')
     const req = makeReq('http://localhost/api/recipes', 'POST', {
@@ -200,6 +222,7 @@ describe('GET /api/recipes — T04: new recipe appears in table with correct fie
   it('returns recipe list with last_made = null for a new recipe', async () => {
     const mock = makeSupabaseMock({ recipes: [sampleRecipe], history: [] })
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
 
     const { GET } = await import('../route')
     const req = makeReq('http://localhost/api/recipes')
@@ -219,6 +242,7 @@ describe('GET /api/recipes — T15: tag filter', () => {
   it('passes tag filter to query', async () => {
     const mock = makeSupabaseMock({ recipes: [sampleRecipe], history: [] })
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
 
     const { GET } = await import('../route')
     const req = makeReq('http://localhost/api/recipes?tag=Favorite')
@@ -235,6 +259,7 @@ describe('GET /api/recipes — T16: category filter', () => {
   it('passes category filter to query', async () => {
     const mock = makeSupabaseMock({ recipes: [sampleRecipe], history: [] })
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
 
     const { GET } = await import('../route')
     const req = makeReq('http://localhost/api/recipes?category=main_dish')
@@ -252,6 +277,7 @@ describe('GET /api/recipes/[id] — T05, T13: detail and shared access', () => {
   it('T05: returns recipe data for owner', async () => {
     const mock = makeSupabaseMock({ singleResult: sampleRecipe, history: [] })
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
 
     const { GET } = await import('../[id]/route')
     const req = makeReq(`http://localhost/api/recipes/${sampleRecipe.id}`)
@@ -269,6 +295,7 @@ describe('GET /api/recipes/[id] — T05, T13: detail and shared access', () => {
       history: [],
     })
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
 
     const { GET } = await import('../[id]/route')
     const req = makeReq(`http://localhost/api/recipes/${sharedRecipe.id}`)
@@ -290,6 +317,7 @@ describe('PATCH /api/recipes/[id] — T08, T11: edit and ownership', () => {
       updateResult: updated,
     })
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
 
     const { PATCH } = await import('../[id]/route')
     const req = makeReq(
@@ -308,6 +336,7 @@ describe('PATCH /api/recipes/[id] — T08, T11: edit and ownership', () => {
       singleResult: sampleRecipe,  // recipe owned by user-1
     })
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
 
     const { PATCH } = await import('../[id]/route')
     const req = makeReq(
@@ -327,6 +356,7 @@ describe('DELETE /api/recipes/[id] — T09, T12: delete and ownership', () => {
   it('T09: owner can delete a recipe', async () => {
     const mock = makeSupabaseMock({ singleResult: sampleRecipe, deleteOk: true })
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
 
     const { DELETE } = await import('../[id]/route')
     const req = makeReq(`http://localhost/api/recipes/${sampleRecipe.id}`, 'DELETE')
@@ -341,6 +371,7 @@ describe('DELETE /api/recipes/[id] — T09, T12: delete and ownership', () => {
       singleResult: sampleRecipe,
     })
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
 
     const { DELETE } = await import('../[id]/route')
     const req = makeReq(`http://localhost/api/recipes/${sampleRecipe.id}`, 'DELETE')
@@ -360,6 +391,7 @@ describe('PATCH /api/recipes/[id]/share — T10: share toggle', () => {
       updateResult: sharedResult,
     })
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
 
     const { PATCH } = await import('../[id]/share/route')
     const req = makeReq(
@@ -381,6 +413,7 @@ describe('T14 - POST /api/recipes rejects unknown tag with 400', () => {
   it('returns 400 when tag is not in first-class list or custom_tags', async () => {
     const mock = makeSupabaseMock({ insertResult: sampleRecipe, customTags: [] })
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
 
     const { POST } = await import('../route')
     const res = await POST(
@@ -399,6 +432,7 @@ describe('T14 - POST /api/recipes rejects unknown tag with 400', () => {
     const created = { ...sampleRecipe, tags: ['Chicken'] }
     const mock = makeSupabaseMock({ insertResult: created, customTags: [] })
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
 
     const { POST } = await import('../route')
     const res = await POST(
@@ -420,6 +454,7 @@ describe('T14b - PATCH /api/recipes/[id] rejects unknown tag with 400', () => {
   it('returns 400 when patched tag is not in first-class list or custom_tags', async () => {
     const mock = makeSupabaseMock({ singleResult: sampleRecipe, customTags: [] })
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
 
     const { PATCH } = await import('../[id]/route')
     const res = await PATCH(

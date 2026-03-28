@@ -32,20 +32,18 @@ const mockState = {
 // Shared from() builder used by both createServerClient and createAdminClient
 function makeMockFrom(table: string) {
   if (table === 'recipes') {
+    // Support both:
+    //   select().in('category', cats).eq('user_id', ...) — suggest/helpers route
+    //   select().eq('user_id', ...) — match route
+    const makeRecipeChain = (filtered: typeof mockState.recipes) => ({
+      eq: () => makeRecipeChain(filtered),
+      in: (_col: string, cats: string[]) =>
+        makeRecipeChain(filtered.filter((r) => cats.includes(r.category))),
+      then: (resolve: (v: { data: typeof filtered; error: null }) => void) =>
+        Promise.resolve({ data: filtered, error: null }).then(resolve),
+    })
     return {
-      select: () => ({
-        eq: () => {
-          // Support both terminal .eq() (match route) and .eq().in() (suggest route)
-          const allResult = { data: mockState.recipes, error: null }
-          const withIn = {
-            in: async (_col: string, cats: string[]) => ({
-              data: mockState.recipes.filter((r) => cats.includes(r.category)),
-              error: null,
-            }),
-          }
-          return Object.assign(Promise.resolve(allResult), withIn)
-        },
-      }),
+      select: () => makeRecipeChain(mockState.recipes),
     }
   }
   if (table === 'recipe_history') {
@@ -139,6 +137,11 @@ vi.mock('@/lib/supabase-server', () => ({
   }),
   // Admin client: same DB mock, no auth — simulates service role behaviour
   createAdminClient: () => ({ from: makeMockFrom }),
+}))
+
+vi.mock('@/lib/household', () => ({
+  resolveHouseholdScope: async () => null,
+  canManage: (role: string) => role === 'owner' || role === 'co_owner',
 }))
 
 vi.mock('@anthropic-ai/sdk', () => ({

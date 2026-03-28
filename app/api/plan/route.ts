@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient, createAdminClient } from '@/lib/supabase-server'
+import { resolveHouseholdScope } from '@/lib/household'
 import { isSunday } from './helpers'
 import type { SavedPlanEntry } from '@/types'
 
@@ -31,22 +32,30 @@ export async function POST(req: NextRequest) {
 
   // Step 2: all DB operations use the admin client (bypasses RLS, scoped by user.id)
   const db = createAdminClient()
+  const ctx = await resolveHouseholdScope(db, user.id)
 
   // Find existing plan for this week, or create a new one
-  const { data: existing } = await db
+  let existingQ = db
     .from('meal_plans')
     .select('id')
-    .eq('user_id', user.id)
     .eq('week_start', week_start)
-    .maybeSingle()
+  if (ctx) {
+    existingQ = existingQ.eq('household_id', ctx.householdId)
+  } else {
+    existingQ = existingQ.eq('user_id', user.id)
+  }
+  const { data: existing } = await existingQ.maybeSingle()
 
   let planId: string
   if (existing?.id) {
     planId = existing.id
   } else {
+    const insertPayload = ctx
+      ? { household_id: ctx.householdId, user_id: user.id, week_start }
+      : { user_id: user.id, week_start }
     const { data: created, error: createError } = await db
       .from('meal_plans')
-      .insert({ user_id: user.id, week_start })
+      .insert(insertPayload)
       .select('id')
       .single()
 
@@ -102,13 +111,18 @@ export async function GET(req: NextRequest) {
   }
 
   const db = createAdminClient()
+  const ctx = await resolveHouseholdScope(db, user.id)
 
-  const { data: plan } = await db
+  let planQ = db
     .from('meal_plans')
     .select('id, week_start')
-    .eq('user_id', user.id)
     .eq('week_start', week_start)
-    .single()
+  if (ctx) {
+    planQ = planQ.eq('household_id', ctx.householdId)
+  } else {
+    planQ = planQ.eq('user_id', user.id)
+  }
+  const { data: plan } = await planQ.single()
 
   if (!plan) {
     return NextResponse.json({ plan: null })

@@ -64,17 +64,12 @@ function makeDbMock(opts: {
       const makeChain = (): Record<string, unknown> => {
         const ch: Record<string, unknown> = {
           eq:     vi.fn().mockImplementation(() => makeChain()),
-          lte:    vi.fn().mockReturnValue({
-            gte:  vi.fn().mockReturnValue({
-              order: vi.fn().mockResolvedValue(plansResult),
-            }),
-          }),
-          gte:    vi.fn().mockReturnValue({
-            order: vi.fn().mockResolvedValue(plansResult),
-          }),
+          order:  vi.fn().mockImplementation(() => makeChain()),
+          lte:    vi.fn().mockImplementation(() => makeChain()),
+          gte:    vi.fn().mockImplementation(() => makeChain()),
           single: vi.fn().mockResolvedValue(singleResult),
-          order:  vi.fn().mockResolvedValue(plansResult),
-          // Make thenable: `await db.from('meal_plans').select().eq()` → plansResult
+          maybeSingle: vi.fn().mockResolvedValue(singleResult),
+          // Make thenable: `await db.from('meal_plans').select()...` → plansResult
           then:   (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) =>
                     Promise.resolve(plansResult).then(resolve, reject),
         }
@@ -142,6 +137,11 @@ function makeDbMock(opts: {
 vi.mock('@/lib/supabase-server', () => ({
   createServerClient: vi.fn(),
   createAdminClient:  vi.fn(),
+}))
+
+vi.mock('@/lib/household', () => ({
+  resolveHouseholdScope: async () => null,
+  canManage: (role: string) => role === 'owner' || role === 'co_owner',
 }))
 
 vi.mock('firecrawl', () => ({

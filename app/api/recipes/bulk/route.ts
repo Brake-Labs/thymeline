@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase-server'
+import { createServerClient, createAdminClient } from '@/lib/supabase-server'
+import { resolveHouseholdScope } from '@/lib/household'
 
 export async function PATCH(req: NextRequest) {
   const supabase = createServerClient(req)
@@ -22,10 +23,13 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'recipe_ids is required and must be non-empty' }, { status: 400 })
   }
 
+  const db = createAdminClient()
+  const ctx = await resolveHouseholdScope(db, user.id)
+
   // Fetch all requested recipes
-  const { data: recipes, error: fetchError } = await supabase
+  const { data: recipes, error: fetchError } = await db
     .from('recipes')
-    .select('id, user_id, tags')
+    .select('id, user_id, household_id, tags')
     .in('id', recipeIds)
 
   if (fetchError) {
@@ -34,18 +38,24 @@ export async function PATCH(req: NextRequest) {
 
   const found = recipes ?? []
 
-  // Verify all IDs belong to this user
-  const forbidden = found.some((r) => r.user_id !== user.id)
+  // Verify all IDs belong to this user or household
+  const forbidden = found.some((r) => {
+    if (ctx) return r.household_id !== ctx.householdId
+    return r.user_id !== user.id
+  })
   if (forbidden || found.length !== recipeIds.length) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   // Validate add_tags against user's tag library
   if (addTags.length > 0) {
-    const { data: customTags } = await supabase
-      .from('custom_tags')
-      .select('name')
-      .eq('user_id', user.id)
+    let customTagsQuery = db.from('custom_tags').select('name')
+    if (ctx) {
+      customTagsQuery = customTagsQuery.eq('household_id', ctx.householdId)
+    } else {
+      customTagsQuery = customTagsQuery.eq('user_id', user.id)
+    }
+    const { data: customTags } = await customTagsQuery
 
     const knownNames = new Set(
       (customTags ?? []).map((t: { name: string }) => t.name.toLowerCase()),
@@ -67,7 +77,7 @@ export async function PATCH(req: NextRequest) {
   })
 
   const updatePromises = updates.map(({ id, tags }) =>
-    supabase.from('recipes').update({ tags }).eq('id', id).select().single()
+    db.from('recipes').update({ tags }).eq('id', id).select().single()
   )
 
   const results = await Promise.all(updatePromises)

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase-server'
+import { createServerClient, createAdminClient } from '@/lib/supabase-server'
+import { resolveHouseholdScope } from '@/lib/household'
 import { anthropic } from '@/lib/llm'
 import type { RecipeFilters } from '@/types'
 
@@ -42,11 +43,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ results: [] })
   }
 
-  // Fetch all user's recipes with enough data for LLM + filtering
-  const { data: recipes, error: recipesError } = await supabase
+  const db = createAdminClient()
+  const ctx = await resolveHouseholdScope(db, user.id)
+
+  let recipesQuery = db
     .from('recipes')
     .select('id, title, category, tags, total_time_minutes, ingredients')
-    .eq('user_id', user.id)
+  if (ctx) {
+    recipesQuery = recipesQuery.eq('household_id', ctx.householdId)
+  } else {
+    recipesQuery = recipesQuery.eq('user_id', user.id)
+  }
+
+  const { data: recipes, error: recipesError } = await recipesQuery
 
   if (recipesError) {
     return NextResponse.json({ error: recipesError.message }, { status: 500 })
@@ -59,7 +68,7 @@ export async function POST(req: NextRequest) {
 
   // Fetch last_made for each recipe
   const recipeIds = allRecipes.map((r) => r.id)
-  const { data: history } = await supabase
+  const { data: history } = await db
     .from('recipe_history')
     .select('recipe_id, made_on')
     .in('recipe_id', recipeIds)

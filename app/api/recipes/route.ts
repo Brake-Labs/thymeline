@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase-server'
+import { createServerClient, createAdminClient } from '@/lib/supabase-server'
+import { resolveHouseholdScope } from '@/lib/household'
 import { FIRST_CLASS_TAGS } from '@/lib/tags'
 
 export async function GET(req: NextRequest) {
@@ -13,11 +14,19 @@ export async function GET(req: NextRequest) {
   const category = searchParams.get('category')
   const tag = searchParams.get('tag')
 
-  // Fetch own recipes + shared recipes (RLS returns both via the two policies)
-  let query = supabase
+  const db = createAdminClient()
+  const ctx = await resolveHouseholdScope(db, user.id)
+
+  let query = db
     .from('recipes')
-    .select('id, user_id, title, category, tags, is_shared, created_at, total_time_minutes')
+    .select('id, user_id, household_id, title, category, tags, is_shared, created_at, total_time_minutes')
     .order('created_at', { ascending: false })
+
+  if (ctx) {
+    query = query.eq('household_id', ctx.householdId)
+  } else {
+    query = query.eq('user_id', user.id)
+  }
 
   if (category) query = query.eq('category', category)
   if (tag) query = query.contains('tags', [tag])
@@ -32,7 +41,7 @@ export async function GET(req: NextRequest) {
   const historyMap: Record<string, { last_made: string | null; times_made: number }> = {}
 
   if (recipeIds.length > 0) {
-    const { data: history } = await supabase
+    const { data: history } = await db
       .from('recipe_history')
       .select('recipe_id, made_on')
       .in('recipe_id', recipeIds)
@@ -104,13 +113,18 @@ export async function POST(req: NextRequest) {
   }
 
   const tags = body.tags ?? []
+  const db = createAdminClient()
+  const ctx = await resolveHouseholdScope(db, user.id)
 
-  // Validate tags against first-class list + user's custom_tags
+  // Validate tags against first-class list + scoped custom_tags
   if (tags.length > 0) {
-    const { data: customTags } = await supabase
-      .from('custom_tags')
-      .select('name')
-      .eq('user_id', user.id)
+    let customTagsQuery = db.from('custom_tags').select('name')
+    if (ctx) {
+      customTagsQuery = customTagsQuery.eq('household_id', ctx.householdId)
+    } else {
+      customTagsQuery = customTagsQuery.eq('user_id', user.id)
+    }
+    const { data: customTags } = await customTagsQuery
 
     const knownNames = new Set([
       ...FIRST_CLASS_TAGS.map((t) => t.toLowerCase()),
@@ -125,26 +139,48 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const { data, error } = await supabase
+  const insertPayload = ctx
+    ? {
+        household_id: ctx.householdId,
+        user_id: user.id,
+        title: body.title,
+        category: body.category,
+        tags,
+        ingredients: body.ingredients ?? null,
+        steps: body.steps ?? null,
+        notes: body.notes ?? null,
+        url: body.url ?? null,
+        image_url: body.image_url ?? null,
+        is_shared: false,
+        source: body.source ?? 'manual',
+        prep_time_minutes: body.prep_time_minutes ?? null,
+        cook_time_minutes: body.cook_time_minutes ?? null,
+        total_time_minutes: body.total_time_minutes ?? null,
+        inactive_time_minutes: body.inactive_time_minutes ?? null,
+        servings: body.servings ?? null,
+      }
+    : {
+        user_id: user.id,
+        title: body.title,
+        category: body.category,
+        tags,
+        ingredients: body.ingredients ?? null,
+        steps: body.steps ?? null,
+        notes: body.notes ?? null,
+        url: body.url ?? null,
+        image_url: body.image_url ?? null,
+        is_shared: false,
+        source: body.source ?? 'manual',
+        prep_time_minutes: body.prep_time_minutes ?? null,
+        cook_time_minutes: body.cook_time_minutes ?? null,
+        total_time_minutes: body.total_time_minutes ?? null,
+        inactive_time_minutes: body.inactive_time_minutes ?? null,
+        servings: body.servings ?? null,
+      }
+
+  const { data, error } = await db
     .from('recipes')
-    .insert({
-      user_id: user.id,
-      title: body.title,
-      category: body.category,
-      tags,
-      ingredients: body.ingredients ?? null,
-      steps: body.steps ?? null,
-      notes: body.notes ?? null,
-      url: body.url ?? null,
-      image_url: body.image_url ?? null,
-      is_shared: false,
-      source: body.source ?? 'manual',
-      prep_time_minutes: body.prep_time_minutes ?? null,
-      cook_time_minutes: body.cook_time_minutes ?? null,
-      total_time_minutes: body.total_time_minutes ?? null,
-      inactive_time_minutes: body.inactive_time_minutes ?? null,
-      servings: body.servings ?? null,
-    })
+    .insert(insertPayload)
     .select()
     .single()
 

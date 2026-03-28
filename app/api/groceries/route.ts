@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient, createAdminClient } from '@/lib/supabase-server'
+import { resolveHouseholdScope } from '@/lib/household'
 import { GroceryItem, GroceryList, RecipeScale } from '@/types'
 
 // ── GET /api/groceries?week_start=YYYY-MM-DD  (or ?date_from=YYYY-MM-DD) ─────
@@ -19,12 +20,15 @@ export async function GET(req: NextRequest) {
   }
 
   const db = createAdminClient()
-  const { data: list, error } = await db
-    .from('grocery_lists')
-    .select('*')
-    .eq('user_id', user.id)
-    .eq('week_start', weekStart)
-    .single()
+  const ctx = await resolveHouseholdScope(db, user.id)
+
+  let listQ = db.from('grocery_lists').select('*').eq('week_start', weekStart)
+  if (ctx) {
+    listQ = listQ.eq('household_id', ctx.householdId)
+  } else {
+    listQ = listQ.eq('user_id', user.id)
+  }
+  const { data: list, error } = await listQ.single()
 
   if (error && error.code !== 'PGRST116') {
     return NextResponse.json({ error: 'Failed to fetch grocery list' }, { status: 500 })
@@ -61,27 +65,30 @@ export async function PATCH(req: NextRequest) {
   }
 
   const db = createAdminClient()
+  const ctx = await resolveHouseholdScope(db, user.id)
 
   // Find existing row — prefer list_id for direct lookup, fall back to week_start
   let existing: { id: string; meal_plan_id: string } | null = null
   if (list_id) {
-    const { data, error } = await db
-      .from('grocery_lists')
-      .select('id, meal_plan_id')
-      .eq('id', list_id)
-      .eq('user_id', user.id)
-      .single()
+    let q = db.from('grocery_lists').select('id, meal_plan_id').eq('id', list_id)
+    if (ctx) {
+      q = q.eq('household_id', ctx.householdId)
+    } else {
+      q = q.eq('user_id', user.id)
+    }
+    const { data, error } = await q.single()
     if (error || !data) {
       return NextResponse.json({ error: 'Grocery list not found' }, { status: 404 })
     }
     existing = data as { id: string; meal_plan_id: string }
   } else {
-    const { data, error } = await db
-      .from('grocery_lists')
-      .select('id, meal_plan_id')
-      .eq('user_id', user.id)
-      .eq('week_start', week_start!)
-      .single()
+    let q = db.from('grocery_lists').select('id, meal_plan_id').eq('week_start', week_start!)
+    if (ctx) {
+      q = q.eq('household_id', ctx.householdId)
+    } else {
+      q = q.eq('user_id', user.id)
+    }
+    const { data, error } = await q.single()
     if (error || !data) {
       return NextResponse.json({ error: 'Grocery list not found' }, { status: 404 })
     }

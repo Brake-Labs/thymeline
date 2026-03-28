@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase-server'
+import { createServerClient, createAdminClient } from '@/lib/supabase-server'
+import { resolveHouseholdScope } from '@/lib/household'
 import { FIRST_CLASS_TAGS } from '@/lib/tags'
 
 function toTitleCase(str: string): string {
@@ -13,18 +14,23 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { data, error } = await supabase
-    .from('custom_tags')
-    .select('name, section')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: true })
+  const db = createAdminClient()
+  const ctx = await resolveHouseholdScope(db, user.id)
+
+  let query = db.from('custom_tags').select('name, section').order('created_at', { ascending: true })
+  if (ctx) {
+    query = query.eq('household_id', ctx.householdId)
+  } else {
+    query = query.eq('user_id', user.id)
+  }
+
+  const { data, error } = await query
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
   const firstClassLower = new Set(FIRST_CLASS_TAGS.map((t) => t.toLowerCase()))
-  // Filter out any custom tags that duplicate a first-class tag (stale DB entries)
   const custom = (data ?? [])
     .filter((t: { name: string }) => !firstClassLower.has(t.name.toLowerCase()))
     .map((t: { name: string; section: string }) => ({ name: t.name, section: t.section }))
@@ -65,20 +71,30 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Check for duplicate custom tag (case-insensitive)
-  const { data: existing } = await supabase
-    .from('custom_tags')
-    .select('id, name')
-    .eq('user_id', user.id)
+  const db = createAdminClient()
+  const ctx = await resolveHouseholdScope(db, user.id)
+
+  // Check for duplicate custom tag (case-insensitive) in scope
+  let existingQuery = db.from('custom_tags').select('id, name')
+  if (ctx) {
+    existingQuery = existingQuery.eq('household_id', ctx.householdId)
+  } else {
+    existingQuery = existingQuery.eq('user_id', user.id)
+  }
+  const { data: existing } = await existingQuery
 
   const duplicate = (existing ?? []).find((t: { name: string }) => t.name.toLowerCase() === lc)
   if (duplicate) {
     return NextResponse.json({ error: 'Tag already exists' }, { status: 409 })
   }
 
-  const { data: created, error: insertError } = await supabase
+  const insertPayload = ctx
+    ? { household_id: ctx.householdId, user_id: user.id, name: normalized, section }
+    : { user_id: user.id, name: normalized, section }
+
+  const { data: created, error: insertError } = await db
     .from('custom_tags')
-    .insert({ user_id: user.id, name: normalized, section })
+    .insert(insertPayload)
     .select('id, name, section')
     .single()
 
