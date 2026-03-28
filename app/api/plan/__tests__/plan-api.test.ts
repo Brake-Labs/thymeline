@@ -32,20 +32,18 @@ const mockState = {
 // Shared from() builder used by both createServerClient and createAdminClient
 function makeMockFrom(table: string) {
   if (table === 'recipes') {
+    // Support both:
+    //   select().in('category', cats).eq('user_id', ...) — suggest/helpers route
+    //   select().eq('user_id', ...) — match route
+    const makeRecipeChain = (filtered: typeof mockState.recipes) => ({
+      eq: () => makeRecipeChain(filtered),
+      in: (_col: string, cats: string[]) =>
+        makeRecipeChain(filtered.filter((r) => cats.includes(r.category))),
+      then: (resolve: (v: { data: typeof filtered; error: null }) => void) =>
+        Promise.resolve({ data: filtered, error: null }).then(resolve),
+    })
     return {
-      select: () => ({
-        eq: () => {
-          // Support both terminal .eq() (match route) and .eq().in() (suggest route)
-          const allResult = { data: mockState.recipes, error: null }
-          const withIn = {
-            in: async (_col: string, cats: string[]) => ({
-              data: mockState.recipes.filter((r) => cats.includes(r.category)),
-              error: null,
-            }),
-          }
-          return Object.assign(Promise.resolve(allResult), withIn)
-        },
-      }),
+      select: () => makeRecipeChain(mockState.recipes),
     }
   }
   if (table === 'recipe_history') {
@@ -140,6 +138,13 @@ vi.mock('@/lib/supabase-server', () => ({
   // Admin client: same DB mock, no auth — simulates service role behaviour
   createAdminClient: () => ({ from: makeMockFrom }),
 }))
+
+vi.mock('@/lib/household', () => ({
+  resolveHouseholdScope: vi.fn().mockResolvedValue(null),
+  canManage: (role: string) => role === 'owner' || role === 'co_owner',
+}))
+
+import { resolveHouseholdScope } from '@/lib/household'
 
 vi.mock('@anthropic-ai/sdk', () => ({
   default: function MockAnthropic(this: any) {
@@ -586,5 +591,33 @@ describe('Unauthenticated requests', () => {
       week_start: '2026-03-01', entries: [{ date: '2026-03-01', recipe_id: 'r1' }],
     }))
     expect(res.status).toBe(401)
+  })
+})
+
+// ── T22: Cooldown filtering uses per-user history in household context ─────────
+
+describe('T22 - cooldown filtering uses per-user history, not household-wide', () => {
+  it('suggest returns 200 with household ctx: cooldown is per-requesting-user only', async () => {
+    // In household mode, recipe pool is scoped to the household (eq household_id).
+    // But cooldown history is always filtered by the requesting user_id — a recipe
+    // made by a household-mate does NOT count toward the requester's cooldown.
+    vi.mocked(resolveHouseholdScope).mockResolvedValueOnce({
+      householdId: 'hh-1',
+      role: 'member',
+    })
+    mockState.prefs.cooldown_days = 28
+    // mockState.recentHistory is [] — user-1 has no recent history
+    const res = await suggestPOST(makeReq('POST', 'http://localhost/api/plan/suggest', {
+      week_start: '2026-03-01',
+      active_dates: ['2026-03-01'],
+      prefer_this_week: [],
+      avoid_this_week: [],
+      free_text: '',
+      specific_requests: '',
+    }))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    // All household recipes are available (none cooled down for user-1)
+    expect(body.days[0].meal_types[0].options[0].recipe_id).toBe('r1')
   })
 })

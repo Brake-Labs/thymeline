@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase-server'
+import { createServerClient, createAdminClient } from '@/lib/supabase-server'
+import { resolveHouseholdScope, canManage } from '@/lib/household'
 import { LimitedTag } from '@/types'
 
 const DEFAULT_PREFS = {
@@ -20,14 +21,22 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { data, error } = await supabase
+  const db = createAdminClient()
+  const ctx = await resolveHouseholdScope(db, user.id)
+
+  let query = db
     .from('user_preferences')
     .select('options_per_day, cooldown_days, seasonal_mode, preferred_tags, avoided_tags, limited_tags, onboarding_completed, is_active')
-    .eq('user_id', user.id)
-    .single()
+
+  if (ctx) {
+    query = query.eq('household_id', ctx.householdId)
+  } else {
+    query = query.eq('user_id', user.id)
+  }
+
+  const { data, error } = await query.single()
 
   if (error) {
-    // PGRST116: no row found — new user with no preferences row yet
     if (error.code === 'PGRST116') {
       return NextResponse.json(DEFAULT_PREFS)
     }
@@ -45,6 +54,17 @@ export async function PATCH(req: NextRequest) {
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const db = createAdminClient()
+  const ctx = await resolveHouseholdScope(db, user.id)
+
+  // Household members without manage permission cannot update shared preferences
+  if (ctx && !canManage(ctx.role)) {
+    return NextResponse.json(
+      { error: 'Only owner or co-owner can update household preferences.' },
+      { status: 403 },
+    )
   }
 
   let body: Record<string, unknown>
@@ -70,7 +90,7 @@ export async function PATCH(req: NextRequest) {
     }
   }
 
-  // Validate tag arrays against user_tags
+  // Validate tag arrays — scope to household or user
   const tagArrayFields = ['preferred_tags', 'avoided_tags'] as const
   for (const field of tagArrayFields) {
     if (field in body) {
@@ -79,10 +99,15 @@ export async function PATCH(req: NextRequest) {
         return NextResponse.json({ error: `${field} must be an array` }, { status: 400 })
       }
       if (tags.length > 0) {
-        const { data: userTags } = await supabase
-          .from('user_tags')
-          .select('name')
-          .eq('user_id', user.id)
+        let tagsQuery = db.from('user_tags').select('name')
+        if (ctx) {
+          // Use household custom_tags for scoped validation
+          tagsQuery = (db.from('custom_tags').select('name') as typeof tagsQuery)
+          tagsQuery = tagsQuery.eq('household_id', ctx.householdId)
+        } else {
+          tagsQuery = tagsQuery.eq('user_id', user.id)
+        }
+        const { data: userTags } = await tagsQuery
         const tagSet = new Set((userTags ?? []).map((t: { name: string }) => t.name))
         const unknown = (tags as string[]).filter((t) => !tagSet.has(t))
         if (unknown.length > 0) {
@@ -98,18 +123,20 @@ export async function PATCH(req: NextRequest) {
     if (!Array.isArray(lt)) {
       return NextResponse.json({ error: 'limited_tags must be an array' }, { status: 400 })
     }
-    // Validate caps
     for (const item of lt as LimitedTag[]) {
       if (typeof item.cap !== 'number' || !Number.isInteger(item.cap) || item.cap < 1 || item.cap > 7) {
         return NextResponse.json({ error: `limited_tags cap must be an integer between 1 and 7` }, { status: 400 })
       }
     }
-    // Validate tags exist
     if ((lt as LimitedTag[]).length > 0) {
-      const { data: userTags } = await supabase
-        .from('user_tags')
-        .select('name')
-        .eq('user_id', user.id)
+      let tagsQuery = db.from('user_tags').select('name')
+      if (ctx) {
+        tagsQuery = (db.from('custom_tags').select('name') as typeof tagsQuery)
+        tagsQuery = tagsQuery.eq('household_id', ctx.householdId)
+      } else {
+        tagsQuery = tagsQuery.eq('user_id', user.id)
+      }
+      const { data: userTags } = await tagsQuery
       const tagSet = new Set((userTags ?? []).map((t: { name: string }) => t.name))
       const unknown = (lt as LimitedTag[]).map((i) => i.tag).filter((t) => !tagSet.has(t))
       if (unknown.length > 0) {
@@ -118,22 +145,39 @@ export async function PATCH(req: NextRequest) {
     }
   }
 
-  // Build update payload — only include allowed fields; is_active is write-protected
   const allowed = ['options_per_day', 'cooldown_days', 'seasonal_mode', 'preferred_tags', 'avoided_tags', 'limited_tags', 'onboarding_completed']
-  const update: Record<string, unknown> = { user_id: user.id }
-  for (const key of allowed) {
-    if (key in body) update[key] = body[key]
+
+  if (ctx) {
+    const update: Record<string, unknown> = { household_id: ctx.householdId }
+    for (const key of allowed) {
+      if (key in body) update[key] = body[key]
+    }
+
+    const { data, error } = await db
+      .from('user_preferences')
+      .upsert(update, { onConflict: 'household_id' })
+      .select('options_per_day, cooldown_days, seasonal_mode, preferred_tags, avoided_tags, limited_tags, onboarding_completed, is_active')
+      .single()
+
+    if (error || !data) {
+      return NextResponse.json({ error: 'Failed to update preferences' }, { status: 500 })
+    }
+    return NextResponse.json(data)
+  } else {
+    const update: Record<string, unknown> = { user_id: user.id }
+    for (const key of allowed) {
+      if (key in body) update[key] = body[key]
+    }
+
+    const { data, error } = await db
+      .from('user_preferences')
+      .upsert(update, { onConflict: 'user_id' })
+      .select('options_per_day, cooldown_days, seasonal_mode, preferred_tags, avoided_tags, limited_tags, onboarding_completed, is_active')
+      .single()
+
+    if (error || !data) {
+      return NextResponse.json({ error: 'Failed to update preferences' }, { status: 500 })
+    }
+    return NextResponse.json(data)
   }
-
-  const { data, error } = await supabase
-    .from('user_preferences')
-    .upsert(update, { onConflict: 'user_id' })
-    .select('options_per_day, cooldown_days, seasonal_mode, preferred_tags, avoided_tags, limited_tags, onboarding_completed, is_active')
-    .single()
-
-  if (error || !data) {
-    return NextResponse.json({ error: 'Failed to update preferences' }, { status: 500 })
-  }
-
-  return NextResponse.json(data)
 }

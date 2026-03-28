@@ -251,3 +251,36 @@ export interface GeneratedRecipe {
 }
 
 export type MealTypeInput = 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'dessert'
+
+export type HouseholdRole = 'owner' | 'co_owner' | 'member'
+
+export interface Household {
+  id:         string
+  name:       string
+  owner_id:   string
+  created_at: string
+}
+
+export interface HouseholdMember {
+  household_id:  string
+  user_id:       string
+  role:          HouseholdRole
+  joined_at:     string
+  email?:        string
+  display_name?: string
+}
+
+export interface HouseholdInvite {
+  id:           string
+  household_id: string
+  token:        string
+  invited_by:   string
+  expires_at:   string
+  used_by:      string | null
+  created_at:   string
+}
+
+export interface HouseholdContext {
+  householdId: string
+  role:        HouseholdRole
+}

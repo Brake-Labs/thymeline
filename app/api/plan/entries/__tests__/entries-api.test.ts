@@ -94,6 +94,11 @@ vi.mock('@/lib/supabase-server', () => ({
   createAdminClient: () => ({ from: makeMockFrom }),
 }))
 
+vi.mock('@/lib/household', () => ({
+  resolveHouseholdScope: async () => null,
+  canManage: (role: string) => role === 'owner' || role === 'co_owner',
+}))
+
 const { POST: entriesPOST } = await import('@/app/api/plan/entries/route')
 const { DELETE: entryDELETE } = await import('@/app/api/plan/entries/[entry_id]/route')
 

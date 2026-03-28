@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase-server'
+import { createServerClient, createAdminClient } from '@/lib/supabase-server'
+import { resolveHouseholdScope } from '@/lib/household'
 import { FIRST_CLASS_TAGS } from '@/lib/tags'
 
 interface RouteContext {
@@ -8,10 +9,10 @@ interface RouteContext {
 
 // Helper: attach last_made + times_made to a recipe row
 async function withHistory(
-  supabase: ReturnType<typeof createServerClient>,
+  db: ReturnType<typeof createAdminClient>,
   recipe: Record<string, unknown>,
 ) {
-  const { data: history } = await supabase
+  const { data: history } = await db
     .from('recipe_history')
     .select('made_on')
     .eq('recipe_id', recipe.id as string)
@@ -33,7 +34,8 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { data: recipe, error } = await supabase
+  const db = createAdminClient()
+  const { data: recipe, error } = await db
     .from('recipes')
     .select('*')
     .eq('id', params.id)
@@ -43,7 +45,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  return NextResponse.json(await withHistory(supabase, recipe))
+  return NextResponse.json(await withHistory(db, recipe))
 }
 
 export async function PATCH(req: NextRequest, { params }: RouteContext) {
@@ -53,18 +55,29 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  const db = createAdminClient()
+  const ctx = await resolveHouseholdScope(db, user.id)
+
   // Ownership check
-  const { data: existing, error: fetchError } = await supabase
+  const { data: existing, error: fetchError } = await db
     .from('recipes')
-    .select('user_id')
+    .select('user_id, household_id')
     .eq('id', params.id)
     .single()
 
   if (fetchError || !existing) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
-  if (existing.user_id !== user.id) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  // Household: any member can edit; Solo: must be owner
+  if (ctx) {
+    if (existing.household_id !== ctx.householdId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+  } else {
+    if (existing.user_id !== user.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
   }
 
   let body: {
@@ -89,12 +102,15 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  // Validate tags against first-class list + user's custom_tags
+  // Validate tags against first-class list + scoped custom_tags
   if (body.tags !== undefined && body.tags.length > 0) {
-    const { data: customTags } = await supabase
-      .from('custom_tags')
-      .select('name')
-      .eq('user_id', user.id)
+    let customTagsQuery = db.from('custom_tags').select('name')
+    if (ctx) {
+      customTagsQuery = customTagsQuery.eq('household_id', ctx.householdId)
+    } else {
+      customTagsQuery = customTagsQuery.eq('user_id', user.id)
+    }
+    const { data: customTags } = await customTagsQuery
 
     const knownNames = new Set([
       ...FIRST_CLASS_TAGS.map((t) => t.toLowerCase()),
@@ -133,7 +149,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
   if ('inactive_time_minutes' in body) update.inactive_time_minutes = body.inactive_time_minutes
   if ('servings' in body) update.servings = body.servings
 
-  const { data: updated, error: updateError } = await supabase
+  const { data: updated, error: updateError } = await db
     .from('recipes')
     .update(update)
     .eq('id', params.id)
@@ -154,21 +170,31 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  const db = createAdminClient()
+  const ctx = await resolveHouseholdScope(db, user.id)
+
   // Ownership check
-  const { data: existing, error: fetchError } = await supabase
+  const { data: existing, error: fetchError } = await db
     .from('recipes')
-    .select('user_id')
+    .select('user_id, household_id')
     .eq('id', params.id)
     .single()
 
   if (fetchError || !existing) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
-  if (existing.user_id !== user.id) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  if (ctx) {
+    if (existing.household_id !== ctx.householdId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+  } else {
+    if (existing.user_id !== user.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
   }
 
-  const { error: deleteError } = await supabase
+  const { error: deleteError } = await db
     .from('recipes')
     .delete()
     .eq('id', params.id)
