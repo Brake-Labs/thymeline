@@ -6,7 +6,8 @@ import CookHeader from '@/components/cook/CookHeader'
 import StepView from '@/components/cook/StepView'
 import IngredientChecklist from '@/components/cook/IngredientChecklist'
 import VoiceControl, { type VoiceCommand } from '@/components/cook/VoiceControl'
-import { type TimerState } from '@/components/cook/StepTimer'
+import ActiveTimersBar from '@/components/cook/ActiveTimersBar'
+import { type TimerState, deriveTimerLabel } from '@/components/cook/StepTimer'
 import { getAccessToken } from '@/lib/supabase/browser'
 import { type Recipe } from '@/types'
 
@@ -97,8 +98,8 @@ export default function CookModePage({ params }: Props) {
             next.set(idx, { ...state, remaining: state.remaining - 1 })
             changed = true
           } else if (state.running && state.remaining === 0) {
-            // Stop running
-            next.set(idx, { ...state, running: false })
+            // Stop running, mark expired
+            next.set(idx, { ...state, running: false, isExpired: true })
             changed = true
             // Chime once
             if (!chimedRef.current.has(idx)) {
@@ -150,6 +151,16 @@ export default function CookModePage({ params }: Props) {
     })
   }
 
+  function handleTimerPause(stepIndex: number) {
+    setTimers((prev) => {
+      const state = prev.get(stepIndex)
+      if (!state) return prev
+      const next = new Map(prev)
+      next.set(stepIndex, { ...state, running: !state.running })
+      return next
+    })
+  }
+
   async function handleLog() {
     setLogStatus('loading')
     try {
@@ -190,6 +201,9 @@ export default function CookModePage({ params }: Props) {
           seconds: cmd.seconds,
           remaining: cmd.minutes * 60 + cmd.seconds,
           running: true,
+          isExpired: false,
+          stepIndex: currentStep,
+          label: deriveTimerLabel(steps[currentStep] ?? ''),
         })
         break
       case 'checkIngredient': {
@@ -237,6 +251,14 @@ export default function CookModePage({ params }: Props) {
         wakeLockActive={wakeLockActive}
         unitSystem={unitSystem}
         onUnitSystemChange={setUnitSystem}
+      />
+
+      {/* Active Timers Bar */}
+      <ActiveTimersBar
+        timers={[...timers.values()]}
+        onPause={handleTimerPause}
+        onReset={(stepIndex) => handleTimerChange(stepIndex, null)}
+        onDismiss={(stepIndex) => handleTimerChange(stepIndex, null)}
       />
 
       {/* Tab bar */}

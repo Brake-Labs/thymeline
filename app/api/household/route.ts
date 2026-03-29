@@ -53,45 +53,52 @@ export async function POST(req: NextRequest) {
 // ── GET /api/household — get current user's household and members ─────────────
 
 export async function GET(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
-  if (!ctx) {
-    return NextResponse.json({ household: null })
-  }
-
-  const { data: household } = await db
-    .from('households')
-    .select('*')
-    .eq('id', ctx.householdId)
-    .single()
-
-  const { data: members } = await db
-    .from('household_members')
-    .select('household_id, user_id, role, joined_at')
-    .eq('household_id', ctx.householdId)
-
-  // Attempt to enrich with email via admin auth API
-  let enrichedMembers: HouseholdMember[] = (members ?? []) as HouseholdMember[]
   try {
-    const { data: usersPage } = await db.auth.admin.listUsers({ perPage: 1000 })
-    const userMap = new Map(
-      (usersPage?.users ?? []).map((u: { id: string; email?: string }) => [u.id, u.email]),
-    )
-    enrichedMembers = (members ?? []).map((m: { household_id: string; user_id: string; role: string; joined_at: string }) => ({
-      ...m,
-      email: userMap.get(m.user_id) ?? undefined,
-    })) as HouseholdMember[]
-  } catch {
-    // auth.admin not available in all environments; return without emails
-  }
+    const supabase = createServerClient(req)
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
-  return NextResponse.json({ household: household as Household, members: enrichedMembers, myRole: ctx.role })
+    console.log('[GET /api/household] called for user:', user.id)
+
+    const db = createAdminClient()
+    const ctx = await resolveHouseholdScope(db, user.id)
+    if (!ctx) {
+      return NextResponse.json({ household: null })
+    }
+
+    const { data: household } = await db
+      .from('households')
+      .select('*')
+      .eq('id', ctx.householdId)
+      .single()
+
+    const { data: members } = await db
+      .from('household_members')
+      .select('household_id, user_id, role, joined_at')
+      .eq('household_id', ctx.householdId)
+
+    // Attempt to enrich with email via admin auth API
+    let enrichedMembers: HouseholdMember[] = (members ?? []) as HouseholdMember[]
+    try {
+      const { data: usersPage } = await db.auth.admin.listUsers({ perPage: 1000 })
+      const userMap = new Map(
+        (usersPage?.users ?? []).map((u: { id: string; email?: string }) => [u.id, u.email]),
+      )
+      enrichedMembers = (members ?? []).map((m: { household_id: string; user_id: string; role: string; joined_at: string }) => ({
+        ...m,
+        email: userMap.get(m.user_id) ?? undefined,
+      })) as HouseholdMember[]
+    } catch {
+      // auth.admin not available in all environments; return without emails
+    }
+
+    return NextResponse.json({ household: household as Household, members: enrichedMembers, myRole: ctx.role })
+  } catch (err) {
+    console.error('[GET /api/household] error:', err)
+    return NextResponse.json({ household: null, members: [], myRole: null })
+  }
 }
 
 // ── PATCH /api/household — update household name ──────────────────────────────
