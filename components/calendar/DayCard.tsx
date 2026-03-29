@@ -15,10 +15,22 @@ interface DayCardProps {
   onDeleteEntry: (entryId: string) => void
 }
 
-function formatDayLabel(dateStr: string): string {
+function getDayAbbrev(dateStr: string): string {
   return new Date(dateStr + 'T12:00:00Z').toLocaleDateString('en-US', {
-    weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC',
+    weekday: 'short', timeZone: 'UTC',
   })
+}
+
+function getMonthDay(dateStr: string): string {
+  return new Date(dateStr + 'T12:00:00Z').toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', timeZone: 'UTC',
+  })
+}
+
+function isTodayDate(dateStr: string): boolean {
+  const today = new Date()
+  const local = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  return dateStr === local
 }
 
 export default function DayCard({ date, entries, isExpanded, onToggle, onAddEntry, onDeleteEntry }: DayCardProps) {
@@ -26,27 +38,46 @@ export default function DayCard({ date, entries, isExpanded, onToggle, onAddEntr
   const summaryText = mealCount > 0
     ? `${mealCount} meal${mealCount !== 1 ? 's' : ''} planned`
     : 'Nothing planned'
+  const today = isTodayDate(date)
 
   return (
-    <div className="border border-stone-200 rounded-xl overflow-hidden bg-white">
+    <div className="bg-[#FFFDF9] border border-stone-200 rounded overflow-hidden">
+      {/* Top accent bar */}
+      <div className="h-[3px] bg-sage-500" />
+
       {/* Header — always visible */}
       <button
         onClick={onToggle}
-        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-stone-50 transition-colors"
+        className={`w-full flex items-center justify-between px-4 py-3 text-left transition-colors ${
+          isExpanded ? 'bg-sage-500' : 'hover:bg-stone-50'
+        }`}
         aria-expanded={isExpanded}
       >
-        <span className="text-sm font-semibold text-stone-700">{formatDayLabel(date)}</span>
-        <span className="text-xs text-stone-400">{summaryText}</span>
+        <div>
+          <p className={`text-[9px] font-display font-bold uppercase tracking-[0.1em] ${
+            isExpanded ? 'text-white/70' : 'text-stone-400'
+          }`}>
+            {getDayAbbrev(date)}
+          </p>
+          <p className={`text-lg font-display font-bold leading-tight mt-0.5 ${
+            isExpanded ? 'text-white' : today ? 'text-sage-500' : 'text-[#1F2D26]'
+          }`}>
+            {getMonthDay(date)}
+          </p>
+        </div>
+        <span className={`text-xs ${isExpanded ? 'text-white/70' : 'text-stone-400'}`}>
+          {summaryText}
+        </span>
       </button>
 
       {/* Expanded content */}
       {isExpanded && (
-        <div className="border-t border-stone-100 px-4 py-3">
+        <div className="border-t border-dashed border-stone-200 px-4 py-3">
           {entries.length === 0 && (
             <p className="text-sm text-stone-400 mb-3">
               Nothing planned —{' '}
               <Link href="/plan" className="text-sage-500 hover:underline">
-                use Help Me Plan
+                Help Me Plan
               </Link>
             </p>
           )}
