@@ -10,6 +10,8 @@ interface Props {
   baseServings: number
   onServingsChange: (n: number) => void
   wakeLockActive: boolean
+  unitSystem: 'imperial' | 'metric'
+  onUnitSystemChange: (u: 'imperial' | 'metric') => void
 }
 
 export default function CookHeader({
@@ -19,6 +21,8 @@ export default function CookHeader({
   baseServings: _baseServings,
   onServingsChange,
   wakeLockActive,
+  unitSystem,
+  onUnitSystemChange,
 }: Props) {
   return (
     <header
@@ -39,8 +43,25 @@ export default function CookHeader({
         {title}
       </h1>
 
-      {/* Right: scaler + wake lock dot */}
+      {/* Right: unit toggle + scaler + wake lock dot */}
       <div className="flex items-center gap-2 shrink-0">
+        {/* Unit segmented control */}
+        <div className="flex rounded-lg overflow-hidden border border-white/20 text-xs font-medium">
+          {(['imperial', 'metric'] as const).map((u) => (
+            <button
+              key={u}
+              type="button"
+              onClick={() => onUnitSystemChange(u)}
+              className={`px-2.5 py-1 transition-colors ${
+                unitSystem === u
+                  ? 'bg-sage-500 text-white'
+                  : 'text-white/70 hover:text-white'
+              }`}
+            >
+              {u === 'imperial' ? 'imp' : 'met'}
+            </button>
+          ))}
+        </div>
         <ServingsScaler value={servings} onChange={onServingsChange} />
         {wakeLockActive && (
           <span

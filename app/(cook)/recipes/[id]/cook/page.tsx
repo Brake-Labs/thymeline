@@ -28,6 +28,7 @@ export default function CookModePage({ params }: Props) {
   const [timers, setTimers] = useState<Map<number, TimerState>>(new Map())
   const [logStatus, setLogStatus] = useState<'idle' | 'loading' | 'success' | 'already_logged'>('idle')
   const [wakeLockActive, setWakeLockActive] = useState(false)
+  const [unitSystem, setUnitSystem] = useState<'imperial' | 'metric'>('imperial')
   const wakeLockRef = useRef<WakeLockSentinel | null>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const chimedRef = useRef<Set<number>>(new Set())
@@ -234,6 +235,8 @@ export default function CookModePage({ params }: Props) {
         baseServings={recipe.servings ?? 4}
         onServingsChange={setServings}
         wakeLockActive={wakeLockActive}
+        unitSystem={unitSystem}
+        onUnitSystemChange={setUnitSystem}
       />
 
       {/* Tab bar */}
@@ -286,6 +289,7 @@ export default function CookModePage({ params }: Props) {
               setChecked(new Set(lines.map((_, i) => i)))
             }}
             onUncheckAll={() => setChecked(new Set())}
+            unitSystem={unitSystem}
           />
         ) : (
           <p className="px-4 py-8 text-stone-400 text-sm">No ingredients listed.</p>
