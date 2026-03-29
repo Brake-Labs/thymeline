@@ -327,8 +327,10 @@ export function buildPlainTextList(
   _recipeScales: RecipeScale[],
   _planServings: number,
   _weekStart: string,
+  options?: { onlyUnchecked?: boolean },
 ): string {
-  return items
+  const filtered = options?.onlyUnchecked ? items.filter((i) => !i.bought) : items
+  return filtered
     .map((item) => {
       const amt = item.amount !== null ? `${item.amount} ` : ''
       const unit = item.unit ? `${item.unit} ` : ''

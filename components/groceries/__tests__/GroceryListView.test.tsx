@@ -239,6 +239,47 @@ describe('T33 - Got it button marks item as bought', () => {
   })
 })
 
+// ── T34: Got it auto-imports into pantry ─────────────────────────────────────
+
+describe('T34 - Got it auto-imports item into pantry', () => {
+  it('fires POST /api/pantry/import silently when item is marked bought', async () => {
+    render(<GroceryListView initialList={sampleList} />)
+
+    const gotItBtn = screen.getAllByLabelText(/Got it pasta/i)[0]
+    fireEvent.click(gotItBtn)
+
+    await waitFor(() => {
+      const importCalls = mockFetch.mock.calls.filter(([url]) =>
+        typeof url === 'string' && url.includes('/api/pantry/import'),
+      )
+      expect(importCalls.length).toBeGreaterThan(0)
+      const body = JSON.parse(importCalls[0][1].body)
+      expect(body.items[0].name).toBe('pasta')
+    })
+  })
+
+  it('does not fire pantry import when item is unmarked (bought → false)', async () => {
+    const listWithBought = {
+      ...sampleList,
+      items: [{ ...sampleList.items[0], bought: true }, sampleList.items[1], sampleList.items[2]],
+    }
+    render(<GroceryListView initialList={listWithBought} />)
+
+    const undoBtn = screen.getByLabelText('Undo pasta')
+    fireEvent.click(undoBtn)
+
+    await waitFor(() => {
+      const patchCalls = mockFetch.mock.calls.filter(([, opts]) => opts?.method === 'PATCH')
+      expect(patchCalls.length).toBeGreaterThan(0)
+    })
+
+    const importCalls = mockFetch.mock.calls.filter(([url]) =>
+      typeof url === 'string' && url.includes('/api/pantry/import'),
+    )
+    expect(importCalls).toHaveLength(0)
+  })
+})
+
 // ── T22: Share invokes Web Share API ─────────────────────────────────────────
 
 describe('T22 - Share invokes Web Share API with correct format', () => {
@@ -258,6 +299,30 @@ describe('T22 - Share invokes Web Share API with correct format', () => {
       expect(args.text).toContain('pasta')
       expect(args.text).not.toContain('🛒')
       expect(args.text).not.toMatch(/^[•\-–]/m)
+    })
+  })
+
+  it('excludes bought items from the share payload', async () => {
+    const shareMock = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', { ...navigator, share: shareMock })
+
+    const listWithBought = {
+      ...sampleList,
+      items: [
+        { ...sampleList.items[0], bought: true },   // pasta — bought, should be excluded
+        { ...sampleList.items[1], bought: false },  // lettuce — not bought, should be included
+        sampleList.items[2],
+      ],
+    }
+
+    render(<GroceryListView initialList={listWithBought} />)
+    fireEvent.click(screen.getByText('Share'))
+
+    await waitFor(() => {
+      expect(shareMock).toHaveBeenCalled()
+      const { text } = shareMock.mock.calls[0][0]
+      expect(text).not.toContain('pasta')
+      expect(text).toContain('lettuce')
     })
   })
 })
