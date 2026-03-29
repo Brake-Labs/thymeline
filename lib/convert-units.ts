@@ -9,12 +9,8 @@ function parseQty(s: string): number {
   return parseFloat(clean)
 }
 
-function roundMl(ml: number): number {
-  if (ml < 10) return Math.round(ml * 10) / 10
-  return Math.round(ml)
-}
-
 function roundG(g: number): number {
+  if (g < 10) return Math.round(g * 10) / 10
   return Math.round(g)
 }
 
@@ -30,32 +26,32 @@ const RULES: Rule[] = [
   {
     re: new RegExp(`^${QTY}\\s*(tbsp|tablespoons?)(\\s+.*)?$`, 'i'),
     convert: (q, rest) => {
-      const ml = roundMl(parseQty(q) * 14.79)
-      return `${ml} ml (${q.trim()} tbsp)${rest}`
+      const g = roundG(parseQty(q) * 14.79)
+      return `${g} g (${q.trim()} tbsp)${rest}`
     },
   },
   // tsp / teaspoon
   {
     re: new RegExp(`^${QTY}\\s*(tsp|teaspoons?)(\\s+.*)?$`, 'i'),
     convert: (q, rest) => {
-      const ml = roundMl(parseQty(q) * 4.93)
-      return `${ml} ml (${q.trim()} tsp)${rest}`
+      const g = roundG(parseQty(q) * 4.93)
+      return `${g} g (${q.trim()} tsp)${rest}`
     },
   },
   // cup
   {
     re: new RegExp(`^${QTY}\\s*(cups?)(\\s+.*)?$`, 'i'),
     convert: (q, rest) => {
-      const ml = roundMl(parseQty(q) * 236.59)
-      return `${ml} ml${rest}`
+      const g = roundG(parseQty(q) * 236.59)
+      return `${g} g${rest}`
     },
   },
   // fl oz / fluid oz
   {
     re: new RegExp(`^${QTY}\\s*(fl\\.?\\s*oz|fluid\\s+oz)(\\s+.*)?$`, 'i'),
     convert: (q, rest) => {
-      const ml = roundMl(parseQty(q) * 29.57)
-      return `${ml} ml${rest}`
+      const g = roundG(parseQty(q) * 29.57)
+      return `${g} g${rest}`
     },
   },
   // oz weight (after fl oz)
