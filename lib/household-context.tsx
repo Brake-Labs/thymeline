@@ -27,21 +27,20 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch('/api/household')
-      if (res.ok) {
-        const data = await res.json()
-        setHousehold(data.household ?? null)
-        setMembers(data.members ?? [])
-        setCtx(
-          data.household
-            ? { householdId: data.household.id, role: data.myRole }
-            : null,
-        )
-      } else {
-        setHousehold(null)
-        setMembers([])
+      const res = await fetch('/api/household').catch(() => null)
+      if (!res || !res.ok) {
         setCtx(null)
+        setLoading(false)
+        return
       }
+      const data = await res.json().catch(() => ({ household: null, members: [], myRole: null }))
+      setHousehold(data.household ?? null)
+      setMembers(data.members ?? [])
+      setCtx(
+        data.household
+          ? { householdId: data.household.id, role: data.myRole }
+          : null,
+      )
     } catch {
       setHousehold(null)
       setMembers([])
