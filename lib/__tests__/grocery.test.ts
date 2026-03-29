@@ -101,6 +101,22 @@ describe('assignSection', () => {
   it('assigns Other to unknown ingredient', () => {
     expect(assignSection('xylograph sauce')).toBe('Other')
   })
+
+  it('assigns Canned & Jarred to "2 cans fire roasted diced tomatoes"', () => {
+    expect(assignSection('2 cans fire roasted diced tomatoes')).toBe('Canned & Jarred')
+  })
+
+  it('assigns Canned & Jarred to "1 can coconut milk"', () => {
+    expect(assignSection('1 can coconut milk')).toBe('Canned & Jarred')
+  })
+
+  it('assigns Produce to "fresh tomatoes"', () => {
+    expect(assignSection('fresh tomatoes')).toBe('Produce')
+  })
+
+  it('does not misclassify "pecan" as Canned & Jarred', () => {
+    expect(assignSection('pecan')).toBe('Other')
+  })
 })
 
 // ── isPantryStaple ─────────────────────────────────────────────────────────────
