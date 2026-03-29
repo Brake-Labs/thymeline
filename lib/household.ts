@@ -1,30 +1,27 @@
 import { type SupabaseClient } from '@supabase/supabase-js'
-
-export type HouseholdScope =
-  | { type: 'solo' }
-  | { type: 'household'; householdId: string }
+import type { HouseholdContext, HouseholdRole } from '@/types'
 
 /**
- * Returns the household scope for a user.
- * Always call this with the admin client (service role) so it can bypass RLS.
- * Falls back to 'solo' if the household tables don't exist (migration 017 not run)
- * or if the user is not in a household.
+ * Returns the household context for a user, or null if they are not in a household.
+ * Always call this with the admin client (service role).
  */
 export async function resolveHouseholdScope(
   db: SupabaseClient,
   userId: string,
-): Promise<HouseholdScope> {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (db as any)
-      .from('household_members')
-      .select('household_id')
-      .eq('user_id', userId)
-      .single()
-    if (error || !data) return { type: 'solo' }
-    return { type: 'household', householdId: (data as { household_id: string }).household_id }
-  } catch {
-    // Table doesn't exist or query failed — degrade gracefully to solo scope
-    return { type: 'solo' }
-  }
+): Promise<HouseholdContext | null> {
+  const { data } = await db
+    .from('household_members')
+    .select('household_id, role')
+    .eq('user_id', userId)
+    .single()
+  if (!data) return null
+  return { householdId: data.household_id, role: data.role as HouseholdRole }
+}
+
+/**
+ * Checks whether the user's role permits write access to shared settings
+ * (preferences, tag management, member management).
+ */
+export function canManage(role: HouseholdRole): boolean {
+  return role === 'owner' || role === 'co_owner'
 }
