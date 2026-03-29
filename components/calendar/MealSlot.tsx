@@ -22,6 +22,39 @@ interface MealSlotProps {
   onAddSideDish:  (parentEntryId: string) => void
 }
 
+interface MealItemProps {
+  entry:    PlanEntry
+  indented: boolean
+  onDelete: (id: string) => void
+}
+
+function MealItem({ entry, indented, onDelete }: MealItemProps) {
+  return (
+    <div className={`flex items-center justify-between gap-2 py-1.5 px-2 bg-sage-50 border-l-2 border-l-sage-500 rounded-r group mb-1 ${indented ? 'ml-4' : ''}`}>
+      <Link
+        href={`/recipes/${entry.recipe_id}`}
+        className="flex-1 min-w-0"
+      >
+        <span className="text-xs font-display font-medium text-[#1F2D26] truncate block leading-snug">
+          {entry.recipe_title}
+        </span>
+        {entry.total_time_minutes != null && (
+          <span className="text-[10px] font-sans text-stone-500 block mt-0.5">
+            · {formatMinutes(entry.total_time_minutes)}
+          </span>
+        )}
+      </Link>
+      <button
+        onClick={() => onDelete(entry.id)}
+        aria-label={`Remove ${entry.recipe_title}`}
+        className="text-stone-300 hover:text-terra-500 transition-colors opacity-0 group-hover:opacity-100 text-base leading-none flex-shrink-0"
+      >
+        ×
+      </button>
+    </div>
+  )
+}
+
 export default function MealSlot({ mealType, entries, onAdd, onDelete, onAddSideDish }: MealSlotProps) {
   const [vaultOpen, setVaultOpen] = useState(false)
   const [sideDishVaultForParent, setSideDishVaultForParent] = useState<string | null>(null)
@@ -33,14 +66,15 @@ export default function MealSlot({ mealType, entries, onAdd, onDelete, onAddSide
 
   return (
     <div className="mb-4 last:mb-0">
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-xs font-semibold text-stone-500 uppercase tracking-wide">
+      {/* Slot header */}
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[10px] font-display font-bold uppercase tracking-[0.1em] text-sage-500">
           {MEAL_TYPE_LABELS[mealType]}
         </span>
         <button
           onClick={() => setVaultOpen(true)}
           aria-label={`Add ${MEAL_TYPE_LABELS[mealType]}`}
-          className="text-xs text-sage-500 hover:text-sage-600 font-medium px-2 py-0.5 rounded hover:bg-sage-50 transition-colors"
+          className="text-xs border border-sage-200 text-sage-500 hover:bg-sage-50 px-2 py-0.5 rounded transition-colors"
         >
           +
         </button>
@@ -51,60 +85,28 @@ export default function MealSlot({ mealType, entries, onAdd, onDelete, onAddSide
         const sideDishes = entries.filter((e) => e.is_side_dish && e.meal_type !== 'dessert' && e.parent_entry_id === entry.id)
         const dessertEntries = entries.filter((e) => e.meal_type === 'dessert' && e.parent_entry_id === entry.id)
         return (
-          <div key={entry.id} className="mb-1">
-            {/* Main dish */}
-            <div className="flex items-center justify-between gap-2 py-1 px-2 rounded-lg hover:bg-stone-50 group">
-              <Link
-                href={`/recipes/${entry.recipe_id}`}
-                className="text-sm text-stone-800 hover:text-sage-600 flex-1 min-w-0 transition-colors"
-              >
-                <span className="truncate">{entry.recipe_title}</span>
-                {entry.total_time_minutes != null && (
-                  <span className="text-stone-400 text-xs ml-1.5">· {formatMinutes(entry.total_time_minutes)}</span>
-                )}
-              </Link>
-              <button
-                onClick={() => onDelete(entry.id)}
-                aria-label={`Remove ${entry.recipe_title}`}
-                className="text-stone-300 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 text-base leading-none"
-              >
-                ×
-              </button>
-            </div>
+          <div key={entry.id}>
+            <MealItem entry={entry} indented={false} onDelete={onDelete} />
 
-            {/* Side dishes */}
             {sideDishes.map((sd) => (
-              <div key={sd.id} className="flex items-center justify-between gap-2 py-0.5 pl-6 pr-2 rounded-lg hover:bg-stone-50 group">
-                <Link
-                  href={`/recipes/${sd.recipe_id}`}
-                  className="text-xs text-stone-500 hover:text-sage-600 flex-1 min-w-0 transition-colors"
-                >
-                  <span className="truncate">{sd.recipe_title}</span>
-                  {sd.total_time_minutes != null && (
-                    <span className="text-stone-400 text-xs ml-1.5">· {formatMinutes(sd.total_time_minutes)}</span>
-                  )}
-                </Link>
-                <button
-                  onClick={() => onDelete(sd.id)}
-                  aria-label={`Remove ${sd.recipe_title}`}
-                  className="text-stone-300 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 text-base leading-none"
-                >
-                  ×
-                </button>
-              </div>
+              <MealItem key={sd.id} entry={sd} indented onDelete={onDelete} />
             ))}
 
-            {/* Dessert entries */}
             {dessertEntries.map((d) => (
-              <div key={d.id} className="flex items-center justify-between gap-2 py-0.5 pl-6 pr-2 rounded-lg hover:bg-stone-50 group">
+              <div key={d.id} className="flex items-center justify-between gap-2 py-1 px-2 ml-4 bg-sage-50 border-l-2 border-l-sage-500 rounded-r group mb-1">
                 <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                  <span className="text-xs font-medium text-stone-400 flex-shrink-0">Dessert</span>
-                  <Link href={`/recipes/${d.recipe_id}`} className="text-xs text-stone-500 hover:text-sage-600 truncate transition-colors">
+                  <span className="text-[10px] font-display font-bold uppercase tracking-[0.1em] text-sage-500 flex-shrink-0">
+                    Dessert
+                  </span>
+                  <Link href={`/recipes/${d.recipe_id}`} className="text-xs font-display font-medium text-[#1F2D26] truncate">
                     {d.recipe_title}
                   </Link>
                 </div>
-                <button onClick={() => onDelete(d.id)} aria-label={`Remove ${d.recipe_title}`}
-                  className="text-stone-300 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 text-base leading-none">
+                <button
+                  onClick={() => onDelete(d.id)}
+                  aria-label={`Remove ${d.recipe_title}`}
+                  className="text-stone-300 hover:text-terra-500 transition-colors opacity-0 group-hover:opacity-100 text-base leading-none flex-shrink-0"
+                >
                   ×
                 </button>
               </div>
@@ -112,13 +114,17 @@ export default function MealSlot({ mealType, entries, onAdd, onDelete, onAddSide
 
             {/* Add side dish + dessert links */}
             {canHaveSideDishes && (
-              <div className="flex gap-3 pl-6">
-                <button onClick={() => setSideDishVaultForParent(entry.id)}
-                  className="text-xs text-stone-400 hover:text-stone-600 underline transition-colors">
+              <div className="flex gap-3 pl-2 mb-1">
+                <button
+                  onClick={() => setSideDishVaultForParent(entry.id)}
+                  className="text-[11px] font-sans text-sage-500 hover:text-sage-600 hover:underline transition-colors"
+                >
                   Add side dish
                 </button>
-                <button onClick={() => setDessertVaultForParent(entry.id)}
-                  className="text-xs text-stone-400 hover:text-stone-600 underline transition-colors">
+                <button
+                  onClick={() => setDessertVaultForParent(entry.id)}
+                  className="text-[11px] font-sans text-sage-500 hover:text-sage-600 hover:underline transition-colors"
+                >
                   Add dessert
                 </button>
               </div>
@@ -128,7 +134,7 @@ export default function MealSlot({ mealType, entries, onAdd, onDelete, onAddSide
       })}
 
       {!hasMainEntry && (
-        <p className="text-xs text-stone-300 italic px-2">None planned</p>
+        <p className="text-xs text-stone-300 italic px-2">—</p>
       )}
 
       {/* Vault sheet for adding main entry */}
