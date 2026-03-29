@@ -77,8 +77,7 @@ export async function POST(req: NextRequest) {
     confirmed:       true,
     meal_type:       e.meal_type ?? 'dinner',
     is_side_dish:    e.is_side_dish ?? false,
-    parent_entry_id:    e.parent_entry_id ?? null,
-    total_time_minutes: ((e.recipes as unknown) as { total_time_minutes: number | null } | null)?.total_time_minutes ?? null,
+    parent_entry_id: e.parent_entry_id ?? null,
   }))
 
   const { data: savedEntries, error: entryError } = await db
