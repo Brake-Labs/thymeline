@@ -16,14 +16,12 @@ export default function ActiveTimersBar({ timers, onPause, onReset, onDismiss }:
 
   return (
     <div
-      style={{ backgroundColor: '#1F2D26' }}
-      className="px-4 py-2 flex flex-col gap-2"
+      className="bg-sage-900 px-4 py-2 flex flex-col gap-2"
     >
       {visible.map((timer) => (
         <div key={timer.stepIndex} className="flex items-center gap-2 min-h-[32px]">
           <span
-            className="text-xs rounded px-1.5 py-0.5 font-medium shrink-0 text-white/90"
-            style={{ backgroundColor: 'rgba(107, 142, 107, 0.4)' }}
+            className="bg-sage-500/40 text-xs rounded px-1.5 py-0.5 font-medium shrink-0 text-white/90"
           >
             {timer.label}
           </span>

@@ -29,6 +29,8 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await fetch('/api/household').catch(() => null)
       if (!res || !res.ok) {
+        setHousehold(null)
+        setMembers([])
         setCtx(null)
         setLoading(false)
         return
