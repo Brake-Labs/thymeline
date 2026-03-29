@@ -74,6 +74,8 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
+  console.log('[PATCH /api/preferences] body:', JSON.stringify(body))
+
   // Validate options_per_day
   if ('options_per_day' in body) {
     const v = body.options_per_day
@@ -99,10 +101,8 @@ export async function PATCH(req: NextRequest) {
         return NextResponse.json({ error: `${field} must be an array` }, { status: 400 })
       }
       if (tags.length > 0) {
-        let tagsQuery = db.from('user_tags').select('name')
+        let tagsQuery = db.from('custom_tags').select('name')
         if (ctx) {
-          // Use household custom_tags for scoped validation
-          tagsQuery = (db.from('custom_tags').select('name') as typeof tagsQuery)
           tagsQuery = tagsQuery.eq('household_id', ctx.householdId)
         } else {
           tagsQuery = tagsQuery.eq('user_id', user.id)
@@ -111,7 +111,9 @@ export async function PATCH(req: NextRequest) {
         const tagSet = new Set((userTags ?? []).map((t: { name: string }) => t.name))
         const unknown = (tags as string[]).filter((t) => !tagSet.has(t))
         if (unknown.length > 0) {
-          return NextResponse.json({ error: `Unknown tags: ${unknown.join(', ')}` }, { status: 400 })
+          const validationError = `Unknown tags: ${unknown.join(', ')}`
+          console.log('[PATCH /api/preferences] validation error:', validationError)
+          return NextResponse.json({ error: validationError }, { status: 400 })
         }
       }
     }
@@ -129,9 +131,8 @@ export async function PATCH(req: NextRequest) {
       }
     }
     if ((lt as LimitedTag[]).length > 0) {
-      let tagsQuery = db.from('user_tags').select('name')
+      let tagsQuery = db.from('custom_tags').select('name')
       if (ctx) {
-        tagsQuery = (db.from('custom_tags').select('name') as typeof tagsQuery)
         tagsQuery = tagsQuery.eq('household_id', ctx.householdId)
       } else {
         tagsQuery = tagsQuery.eq('user_id', user.id)
@@ -140,7 +141,9 @@ export async function PATCH(req: NextRequest) {
       const tagSet = new Set((userTags ?? []).map((t: { name: string }) => t.name))
       const unknown = (lt as LimitedTag[]).map((i) => i.tag).filter((t) => !tagSet.has(t))
       if (unknown.length > 0) {
-        return NextResponse.json({ error: `Unknown tags in limited_tags: ${unknown.join(', ')}` }, { status: 400 })
+        const validationError = `Unknown tags in limited_tags: ${unknown.join(', ')}`
+        console.log('[PATCH /api/preferences] validation error:', validationError)
+        return NextResponse.json({ error: validationError }, { status: 400 })
       }
     }
   }
