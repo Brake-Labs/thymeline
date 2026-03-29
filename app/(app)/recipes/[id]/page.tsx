@@ -11,6 +11,7 @@ import ShareToggle from '@/components/recipes/ShareToggle'
 import AIGeneratedBadge from '@/components/recipes/AIGeneratedBadge'
 import AddRecipeModal from '@/components/recipes/AddRecipeModal'
 import { getAccessToken, getSupabaseClient } from '@/lib/supabase/browser'
+import { convertIngredients } from '@/lib/convert-units'
 
 type RecipeWithHistory = Recipe & { last_made: string | null; times_made: number }
 
@@ -29,6 +30,7 @@ export default function RecipeDetailPage({ params }: Props) {
   const [logStatus, setLogStatus] = useState<'idle' | 'loading' | 'success' | 'already_logged'>('idle')
   const [showLogModal, setShowLogModal] = useState(false)
   const [logDate, setLogDate] = useState('')
+  const [unitSystem, setUnitSystem] = useState<'imperial' | 'metric'>('imperial')
 
   const isOwner = !!currentUserId && recipe?.user_id === currentUserId
 
@@ -206,12 +208,32 @@ export default function RecipeDetailPage({ params }: Props) {
           <div className="px-6 py-5 grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Left: Ingredients */}
             <div>
-              <h2 className="font-display font-semibold text-[13px] tracking-[0.04em] text-stone-700 mb-3">
-                Ingredients
-              </h2>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-display font-semibold text-[13px] tracking-[0.04em] text-stone-700">
+                  Ingredients
+                </h2>
+                {recipe.ingredients && (
+                  <div className="flex rounded-lg overflow-hidden border border-stone-200 text-[11px] font-medium">
+                    {(['imperial', 'metric'] as const).map((u) => (
+                      <button
+                        key={u}
+                        type="button"
+                        onClick={() => setUnitSystem(u)}
+                        className={`px-2.5 py-1 transition-colors ${
+                          unitSystem === u
+                            ? 'bg-sage-500 text-white'
+                            : 'text-stone-500 hover:text-stone-700'
+                        }`}
+                      >
+                        {u === 'imperial' ? 'Imperial' : 'Metric'}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               {recipe.ingredients ? (
                 <ul>
-                  {recipe.ingredients.split('\n').filter(Boolean).map((line, i, arr) => (
+                  {convertIngredients(recipe.ingredients, unitSystem).split('\n').filter(Boolean).map((line, i, arr) => (
                     <li
                       key={i}
                       className={`font-sans text-[13px] text-stone-700 py-2 ${i < arr.length - 1 ? 'border-b border-stone-100' : ''}`}
