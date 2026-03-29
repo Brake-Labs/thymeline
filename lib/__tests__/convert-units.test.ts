@@ -2,20 +2,20 @@ import { describe, it, expect } from 'vitest'
 import { convertIngredientLine, convertIngredients } from '../convert-units'
 
 describe('convertIngredientLine — metric', () => {
-  it('T01 tsp → ml with parens', () => {
-    expect(convertIngredientLine('1 tsp salt', 'metric')).toBe('4.9 ml (1 tsp) salt')
+  it('T01 tsp → g with parens', () => {
+    expect(convertIngredientLine('1 tsp salt', 'metric')).toBe('4.9 g (1 tsp) salt')
   })
 
-  it('T02 tbsp → ml with parens', () => {
-    expect(convertIngredientLine('2 tbsp olive oil', 'metric')).toBe('30 ml (2 tbsp) olive oil')
+  it('T02 tbsp → g with parens', () => {
+    expect(convertIngredientLine('2 tbsp olive oil', 'metric')).toBe('30 g (2 tbsp) olive oil')
   })
 
-  it('T03 1 cup → ml without parens', () => {
-    expect(convertIngredientLine('1 cup flour', 'metric')).toBe('237 ml flour')
+  it('T03 1 cup → g without parens', () => {
+    expect(convertIngredientLine('1 cup flour', 'metric')).toBe('237 g flour')
   })
 
-  it('T04 1/2 cup → ml', () => {
-    expect(convertIngredientLine('1/2 cup milk', 'metric')).toBe('118 ml milk')
+  it('T04 1/2 cup → g', () => {
+    expect(convertIngredientLine('1/2 cup milk', 'metric')).toBe('118 g milk')
   })
 
   it('T05 oz → g', () => {
@@ -40,7 +40,7 @@ describe('convertIngredientLine — metric', () => {
 
   it('T10 convertIngredients converts all lines', () => {
     const input = '1 tsp salt\n2 tbsp olive oil\n2 cloves garlic'
-    const output = '4.9 ml (1 tsp) salt\n30 ml (2 tbsp) olive oil\n2 cloves garlic'
+    const output = '4.9 g (1 tsp) salt\n30 g (2 tbsp) olive oil\n2 cloves garlic'
     expect(convertIngredients(input, 'metric')).toBe(output)
   })
 
