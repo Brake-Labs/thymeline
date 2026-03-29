@@ -19,7 +19,7 @@ vi.mock('@/lib/supabase-server', () => ({
       }),
     },
     from: (table: string) => {
-      if (table === 'user_tags') {
+      if (table === 'custom_tags') {
         return {
           select: () => ({
             eq: () => Promise.resolve({ data: mockState.userTags, error: null }),
@@ -69,7 +69,7 @@ vi.mock('@/lib/supabase-server', () => ({
   }),
   createAdminClient: () => ({
     from: (table: string) => {
-      if (table === 'user_tags') {
+      if (table === 'custom_tags') {
         return {
           select: () => ({
             eq: () => Promise.resolve({ data: mockState.userTags, error: null }),
@@ -317,6 +317,32 @@ describe('T21 - PATCH /api/preferences returns 200 for co-owner', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.cooldown_days).toBe(14)
+  })
+})
+
+// ── T22: Solo user full PATCH payload returns 200 ────────────────────────────
+describe('T22 - PATCH /api/preferences with valid solo user payload returns 200', () => {
+  it('returns 200 and persists all fields for a solo user', async () => {
+    mockState.userTags = [{ name: 'Healthy' }, { name: 'Quick' }, { name: 'Comfort' }]
+    const payload = {
+      options_per_day: 2,
+      cooldown_days: 14,
+      seasonal_mode: false,
+      preferred_tags: ['Healthy'],
+      avoided_tags: ['Comfort'],
+      limited_tags: [{ tag: 'Quick', cap: 3 }],
+      onboarding_completed: true,
+    }
+    const res = await PATCH(makePatchRequest(payload))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.options_per_day).toBe(2)
+    expect(body.cooldown_days).toBe(14)
+    expect(body.seasonal_mode).toBe(false)
+    expect(body.preferred_tags).toEqual(['Healthy'])
+    expect(body.avoided_tags).toEqual(['Comfort'])
+    expect(body.limited_tags).toEqual([{ tag: 'Quick', cap: 3 }])
+    expect(body.onboarding_completed).toBe(true)
   })
 })
 

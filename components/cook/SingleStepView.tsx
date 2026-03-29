@@ -77,6 +77,7 @@ export default function SingleStepView({
       {/* Timer */}
       <StepTimer
         stepIndex={currentStep}
+        stepText={steps[currentStep]}
         timerState={timers.get(currentStep)}
         onChange={(state) => onTimerChange(currentStep, state)}
       />
