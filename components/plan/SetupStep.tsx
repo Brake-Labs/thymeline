@@ -6,17 +6,7 @@ import DayTogglePicker from './DayTogglePicker'
 import MealTypePicker from './MealTypePicker'
 import TagBucketPicker from '@/components/preferences/TagBucketPicker'
 import { getAccessToken } from '@/lib/supabase/browser'
-import type { MealType } from '@/types'
-
-interface PlanSetup {
-  weekStart:        string
-  activeDates:      string[]
-  activeMealTypes:  MealType[]
-  preferThisWeek:   string[]
-  avoidThisWeek:    string[]
-  freeText:         string
-  specificRequests: string
-}
+import type { MealType, PlanSetup } from '@/types'
 
 interface SetupStepProps {
   setup: PlanSetup

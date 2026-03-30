@@ -2,17 +2,11 @@
 
 import { useState } from 'react'
 import { formatWeekRange, formatDayName, formatWeekday as formatShortDay } from '@/lib/date-utils'
-import type { DaySelection, MealType } from '@/types'
-
-interface PlanSetup {
-  weekStart:       string
-  activeDates:     string[]
-  activeMealTypes: MealType[]
-}
+import type { DaySelection, MealType, PlanSetup, SelectionsMap } from '@/types'
 
 interface SummaryStepProps {
-  setup:      PlanSetup
-  selections: Record<string, DaySelection | null>  // composite keys "date:mealType"
+  setup:      Pick<PlanSetup, 'weekStart' | 'activeDates' | 'activeMealTypes'>
+  selections: SelectionsMap
   onSave:     () => Promise<void>
   isSaving:   boolean
   onBack:     () => void

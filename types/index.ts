@@ -211,6 +211,20 @@ export interface PlanEntry {
   total_time_minutes?: number | null
 }
 
+// ── Plan wizard types ─────────────────────────────────────────────────────────
+
+export interface PlanSetup {
+  weekStart:        string
+  activeDates:      string[]
+  activeMealTypes:  MealType[]
+  preferThisWeek:   string[]
+  avoidThisWeek:    string[]
+  freeText:         string
+  specificRequests: string
+}
+
+export type SelectionsMap = Record<string, DaySelection | null>
+
 export type GrocerySection =
   | 'Produce'
   | 'Proteins'

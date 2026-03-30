@@ -7,20 +7,10 @@ import SuggestionsStep from '@/components/plan/SuggestionsStep'
 import SummaryStep from '@/components/plan/SummaryStep'
 import PostSaveModal from '@/components/plan/PostSaveModal'
 import { getAccessToken } from '@/lib/supabase/browser'
-import type { RecipeSuggestion, DaySelection, DaySuggestions, MealType, SavedPlanEntry } from '@/types'
+import type { RecipeSuggestion, DaySelection, DaySuggestions, MealType, SavedPlanEntry, PlanSetup, SelectionsMap } from '@/types'
 import type { MealTypeState } from '@/components/plan/SuggestionDayRow'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
-
-interface PlanSetup {
-  weekStart:        string
-  activeDates:      string[]
-  activeMealTypes:  MealType[]
-  preferThisWeek:   string[]
-  avoidThisWeek:    string[]
-  freeText:         string
-  specificRequests: string
-}
 
 interface DayState {
   date:       string
@@ -30,9 +20,6 @@ interface DayState {
 interface SuggestionsState {
   days: DayState[]
 }
-
-// Composite keys: "date:mealType"
-type SelectionsMap = Record<string, DaySelection | null>
 
 import { getMostRecentSunday, getWeekDates } from '@/lib/date-utils'
 

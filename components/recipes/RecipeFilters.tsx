@@ -3,13 +3,11 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getAccessToken } from '@/lib/supabase/browser'
+import { CATEGORY_OPTIONS } from '@/lib/category-labels'
 
-const CATEGORY_OPTIONS = [
-  { value: '', label: 'All Categories' },
-  { value: 'main_dish', label: 'Main Dish' },
-  { value: 'breakfast', label: 'Breakfast' },
-  { value: 'dessert', label: 'Dessert' },
-  { value: 'side_dish', label: 'Side Dish' },
+const FILTER_CATEGORY_OPTIONS = [
+  { value: '' as string, label: 'All Categories' },
+  ...CATEGORY_OPTIONS,
 ]
 
 export default function RecipeFilters() {
@@ -48,7 +46,7 @@ export default function RecipeFilters() {
         onChange={(e) => handleChange('category', e.target.value)}
         aria-label="Filter by category"
       >
-        {CATEGORY_OPTIONS.map((opt) => (
+        {FILTER_CATEGORY_OPTIONS.map((opt) => (
           <option key={opt.value} value={opt.value}>{opt.label}</option>
         ))}
       </select>

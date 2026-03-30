@@ -3,17 +3,7 @@
 import { useState } from 'react'
 import SuggestionDayRow, { type MealTypeState } from './SuggestionDayRow'
 import { formatWeekRange } from '@/lib/date-utils'
-import type { RecipeSuggestion, DaySelection, MealType } from '@/types'
-
-interface PlanSetup {
-  weekStart:        string
-  activeDates:      string[]
-  activeMealTypes:  MealType[]
-  preferThisWeek:   string[]
-  avoidThisWeek:    string[]
-  freeText:         string
-  specificRequests: string
-}
+import type { RecipeSuggestion, DaySelection, MealType, PlanSetup, SelectionsMap } from '@/types'
 
 interface DayState {
   date:       string
@@ -23,8 +13,6 @@ interface DayState {
 interface SuggestionsState {
   days: DayState[]
 }
-
-type SelectionsMap = Record<string, DaySelection | null>
 
 interface SuggestionsStepProps {
   setup:            PlanSetup

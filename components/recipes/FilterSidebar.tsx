@@ -9,13 +9,7 @@ import {
   CUISINE_TAGS,
   PROTEIN_TAGS,
 } from '@/lib/tags'
-
-const CATEGORY_OPTIONS: { value: Recipe['category']; label: string }[] = [
-  { value: 'main_dish',  label: 'Main Dish' },
-  { value: 'breakfast',  label: 'Breakfast' },
-  { value: 'dessert',    label: 'Dessert' },
-  { value: 'side_dish',  label: 'Side Dish' },
-]
+import { CATEGORY_OPTIONS } from '@/lib/category-labels'
 
 const TIME_BUCKETS: { max: number | null; label: string }[] = [
   { max: null,  label: 'Any time' },
