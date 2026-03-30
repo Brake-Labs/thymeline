@@ -34,26 +34,9 @@ interface SuggestionsState {
 // Composite keys: "date:mealType"
 type SelectionsMap = Record<string, DaySelection | null>
 
+import { getMostRecentSunday, getWeekDates } from '@/lib/date-utils'
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
-
-function getMostRecentSunday(): string {
-  const d = new Date()
-  d.setDate(d.getDate() - d.getDay())
-  const year = d.getFullYear()
-  const month = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-function getDefaultActiveDates(weekStart: string): string[] {
-  const dates: string[] = []
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(weekStart + 'T12:00:00Z')
-    d.setDate(d.getDate() + i)
-    dates.push(d.toISOString().split('T')[0]!)
-  }
-  return dates
-}
 
 // ── Inner page (needs Suspense for useSearchParams) ────────────────────────────
 
@@ -66,7 +49,7 @@ function PlanPageInner() {
 
   const [setup, setSetup] = useState<PlanSetup>({
     weekStart:        initialSunday,
-    activeDates:      getDefaultActiveDates(initialSunday),
+    activeDates:      getWeekDates(initialSunday),
     activeMealTypes:  ['dinner'],
     preferThisWeek:   [],
     avoidThisWeek:    [],
@@ -85,7 +68,7 @@ function PlanPageInner() {
   useEffect(() => {
     setSetup((prev) => ({
       ...prev,
-      activeDates: getDefaultActiveDates(prev.weekStart),
+      activeDates: getWeekDates(prev.weekStart),
     }))
   }, [setup.weekStart])
 

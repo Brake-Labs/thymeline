@@ -1,21 +1,13 @@
 'use client'
 
+import { getWeekDates } from '@/lib/date-utils'
+
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 interface DayTogglePickerProps {
   activeDates: string[]
   weekStart: string
   onChange: (activeDates: string[]) => void
-}
-
-function getWeekDates(weekStart: string): string[] {
-  const dates: string[] = []
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(weekStart + 'T12:00:00Z')
-    d.setDate(d.getDate() + i)
-    dates.push(d.toISOString().split('T')[0]!)
-  }
-  return dates
 }
 
 export default function DayTogglePicker({ activeDates, weekStart, onChange }: DayTogglePickerProps) {

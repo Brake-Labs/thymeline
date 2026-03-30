@@ -353,38 +353,6 @@ export function buildPlainTextList(
     .join('\n')
 }
 
-// ── Week helpers ──────────────────────────────────────────────────────────────
+// ── Week helpers (re-exported from date-utils) ───────────────────────────────
 
-/** Return the most recent Sunday (or today if Sunday) as "YYYY-MM-DD". */
-export function getCurrentWeekSunday(): string {
-  const now = new Date()
-  const day = now.getUTCDay() // 0=Sun
-  const diff = day // days back to Sunday
-  const sunday = new Date(now)
-  sunday.setUTCDate(now.getUTCDate() - diff)
-  return sunday.toISOString().slice(0, 10)
-}
-
-/** Add N days to a YYYY-MM-DD string and return the new date string. */
-export function addDays(dateStr: string, days: number): string {
-  const d = new Date(`${dateStr}T00:00:00Z`)
-  d.setUTCDate(d.getUTCDate() + days)
-  return d.toISOString().slice(0, 10)
-}
-
-/** Format a flexible date range as "Mar 1 – Mar 14". */
-export function formatDateRangeLabel(from: string, to: string): string {
-  const start = new Date(`${from}T00:00:00Z`)
-  const end   = new Date(`${to}T00:00:00Z`)
-  const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', timeZone: 'UTC' }
-  return `${start.toLocaleDateString('en-US', opts)} – ${end.toLocaleDateString('en-US', opts)}`
-}
-
-/** Format ISO date range as "Mar 1 – Mar 7". */
-export function formatWeekLabel(weekStart: string): string {
-  const start = new Date(`${weekStart}T00:00:00Z`)
-  const end = new Date(start)
-  end.setUTCDate(end.getUTCDate() + 6)
-  const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', timeZone: 'UTC' }
-  return `${start.toLocaleDateString('en-US', opts)} – ${end.toLocaleDateString('en-US', opts)}`
-}
+export { getMostRecentSunday as getCurrentWeekSunday, addDays, formatDateRange as formatDateRangeLabel, formatWeekRange as formatWeekLabel } from '@/lib/date-utils'

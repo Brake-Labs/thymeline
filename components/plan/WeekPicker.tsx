@@ -1,31 +1,11 @@
 'use client'
 
 import { useMemo } from 'react'
+import { getMostRecentSunday, addDays, formatWeekRange } from '@/lib/date-utils'
 
 interface WeekPickerProps {
   weekStart: string
   onChange: (weekStart: string) => void
-}
-
-function formatWeekRange(weekStart: string): string {
-  const start = new Date(weekStart + 'T12:00:00Z')
-  const end = new Date(start)
-  end.setDate(start.getDate() + 6)
-  const fmt = (d: Date) =>
-    d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
-  return `${fmt(start)} – ${fmt(end)}`
-}
-
-function getMostRecentSunday(date: Date): string {
-  const d = new Date(date)
-  d.setDate(d.getDate() - d.getDay())
-  return d.toISOString().split('T')[0]!
-}
-
-function addDays(dateStr: string, days: number): string {
-  const d = new Date(dateStr + 'T12:00:00Z')
-  d.setDate(d.getDate() + days)
-  return d.toISOString().split('T')[0]!
 }
 
 export default function WeekPicker({ weekStart, onChange }: WeekPickerProps) {

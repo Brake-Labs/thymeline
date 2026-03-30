@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { formatWeekRange, formatDayName, formatWeekday as formatShortDay } from '@/lib/date-utils'
 import type { DaySelection, MealType } from '@/types'
 
 interface PlanSetup {
@@ -15,27 +16,6 @@ interface SummaryStepProps {
   onSave:     () => Promise<void>
   isSaving:   boolean
   onBack:     () => void
-}
-
-function formatWeekRange(weekStart: string): string {
-  const start = new Date(weekStart + 'T12:00:00Z')
-  const end = new Date(start)
-  end.setDate(start.getDate() + 6)
-  const fmt = (d: Date) =>
-    d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
-  return `${fmt(start)} – ${fmt(end)}`
-}
-
-function formatDayName(dateStr: string): string {
-  return new Date(dateStr + 'T12:00:00Z').toLocaleDateString('en-US', {
-    weekday: 'long', month: 'short', day: 'numeric', timeZone: 'UTC',
-  })
-}
-
-function formatShortDay(dateStr: string): string {
-  return new Date(dateStr + 'T12:00:00Z').toLocaleDateString('en-US', {
-    weekday: 'long', timeZone: 'UTC',
-  })
 }
 
 const MEAL_TYPE_LABELS: Record<MealType, string> = {
