@@ -1,14 +1,15 @@
 import { z } from 'zod'
+import { RECIPE_CATEGORIES, MEAL_TYPES, TAG_SECTIONS } from '@/types'
 
-// ─── Shared primitives ──────────────────────────────────────────────────────
+// ─── Shared primitives (derived from types/index.ts const arrays) ───────────
 
 const dateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected YYYY-MM-DD date')
 
-const recipeCategory = z.enum(['main_dish', 'breakfast', 'dessert', 'side_dish'])
+const recipeCategory = z.enum(RECIPE_CATEGORIES)
 
-const mealType = z.enum(['breakfast', 'lunch', 'dinner', 'snack', 'dessert'])
+const mealType = z.enum(MEAL_TYPES)
 
-const tagSection = z.enum(['style', 'dietary', 'seasonal', 'cuisine', 'protein'])
+const tagSection = z.enum(TAG_SECTIONS)
 
 const positiveInt = z.number().int().positive()
 const nonNegativeInt = z.number().int().nonnegative()

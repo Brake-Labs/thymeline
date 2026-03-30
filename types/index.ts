@@ -1,3 +1,39 @@
+// ─── Shared const arrays (single source of truth for types + Zod schemas) ────
+
+export const RECIPE_CATEGORIES = ['main_dish', 'breakfast', 'dessert', 'side_dish'] as const
+export type RecipeCategory = typeof RECIPE_CATEGORIES[number]
+
+export const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack', 'dessert'] as const
+export type MealType = typeof MEAL_TYPES[number]
+
+export const TAG_SECTIONS = ['style', 'dietary', 'seasonal', 'cuisine', 'protein'] as const
+export type TagSection = typeof TAG_SECTIONS[number]
+
+// ─── Typed Supabase join results ─────────────────────────────────────────────
+// These replace `as unknown` casts on Supabase .select() joins.
+
+/** Shape returned when joining `recipes` from `meal_plan_entries` */
+export interface RecipeJoinResult {
+  title: string
+  total_time_minutes: number | null
+}
+
+/** Extended shape for grocery generation joins */
+export interface RecipeJoinFull extends RecipeJoinResult {
+  id: string
+  ingredients: string | null
+  url: string | null
+  servings: number | null
+}
+
+/** Shape returned when joining `meal_plans` from `meal_plan_entries` */
+export interface MealPlanJoinResult {
+  user_id: string
+  household_id: string | null
+}
+
+// ─── Domain types ────────────────────────────────────────────────────────────
+
 export interface LimitedTag {
   tag: string
   cap: number  // 1–7
@@ -57,7 +93,7 @@ export interface Recipe {
   user_id: string
   title: string
   url: string | null
-  category: 'main_dish' | 'breakfast' | 'dessert' | 'side_dish'
+  category: RecipeCategory
   tags: string[]
   notes: string | null
   is_shared: boolean
@@ -78,7 +114,7 @@ export interface RecipeListItem {
   id: string
   user_id: string
   title: string
-  category: 'main_dish' | 'breakfast' | 'dessert' | 'side_dish'
+  category: RecipeCategory
   tags: string[]
   is_shared: boolean
   last_made: string | null  // "YYYY-MM-DD"
@@ -119,8 +155,6 @@ export interface MealPlanEntry {
   position: number
   confirmed: boolean
 }
-
-export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'dessert'
 
 export interface RecipeSuggestion {
   recipe_id:    string
@@ -241,7 +275,7 @@ export interface GeneratedRecipe {
   ingredients:           string
   steps:                 string
   tags:                  string[]
-  category:              'main_dish' | 'breakfast' | 'dessert' | 'side_dish'
+  category:              RecipeCategory
   servings:              number | null
   prep_time_minutes:     number | null
   cook_time_minutes:     number | null
@@ -249,8 +283,6 @@ export interface GeneratedRecipe {
   inactive_time_minutes: number | null
   notes:                 string | null
 }
-
-export type MealTypeInput = 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'dessert'
 
 export type HouseholdRole = 'owner' | 'co_owner' | 'member'
 

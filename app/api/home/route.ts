@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
-import { HomeData } from '@/types'
+import type { HomeData, RecipeJoinResult } from '@/types'
 
 function getCurrentWeekStart(): string {
   const now = new Date()
@@ -38,7 +38,7 @@ export const GET = withAuth(async (req, { user, db, ctx }) => {
       entries: (entries ?? []).map((e) => ({
         planned_date:  e.planned_date,
         recipe_id:     e.recipe_id,
-        recipe_title:  ((e.recipes as unknown) as { title: string } | null)?.title ?? '',
+        recipe_title:  (e.recipes as RecipeJoinResult | null)?.title ?? '',
         position:      e.position,
         confirmed:     e.confirmed,
       })),
@@ -55,7 +55,7 @@ export const GET = withAuth(async (req, { user, db, ctx }) => {
 
   const recentlyMade = (history ?? []).map((h) => ({
     recipe_id:    h.recipe_id,
-    recipe_title: ((h.recipes as unknown) as { title: string } | null)?.title ?? '',
+    recipe_title: (h.recipes as RecipeJoinResult | null)?.title ?? '',
     made_on:      h.made_on,
   }))
 

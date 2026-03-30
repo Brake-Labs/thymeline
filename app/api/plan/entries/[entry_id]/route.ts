@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
+import type { MealPlanJoinResult } from '@/types'
 
 export const DELETE = withAuth(async (req, { user, db, ctx }, params) => {
   const { entry_id } = params
@@ -15,7 +16,7 @@ export const DELETE = withAuth(async (req, { user, db, ctx }, params) => {
     return NextResponse.json({ error: 'Entry not found' }, { status: 404 })
   }
 
-  const plan = (entry.meal_plans as unknown) as { user_id: string; household_id: string | null } | null
+  const plan = entry.meal_plans as MealPlanJoinResult | null
   const authorized = ctx
     ? plan?.household_id === ctx.householdId
     : plan?.user_id === user.id

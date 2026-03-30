@@ -3,6 +3,7 @@ import FirecrawlApp from 'firecrawl'
 import { withAuth } from '@/lib/auth'
 import { anthropic } from '@/lib/llm'
 import { generateGroceriesSchema, parseBody } from '@/lib/schemas'
+import type { RecipeJoinFull } from '@/types'
 import {
   parseIngredientLine,
   combineIngredients,
@@ -80,7 +81,7 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
   const seenRecipeIds = new Set<string>()
   const recipes: RecipeEntry[] = []
   for (const entry of (entriesRaw ?? [])) {
-    const r = (entry.recipes as unknown) as { id: string; title: string; ingredients: string | null; url: string | null; servings: number | null } | null
+    const r = entry.recipes as RecipeJoinFull | null
     if (!r) continue
     if (seenRecipeIds.has(r.id)) continue
     seenRecipeIds.add(r.id)

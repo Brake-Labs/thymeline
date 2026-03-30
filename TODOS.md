@@ -59,11 +59,21 @@
 - Documented `lib/llm.ts`, `lib/auth.ts`, `lib/schemas.ts` patterns
 - Added testing guidelines (don't duplicate auth/validation tests)
 
+## Type Consolidation — DONE
+
+### ~~Consolidate shared types and remove `as unknown` casts~~ ✅
+- `types/index.ts` — shared const arrays (`RECIPE_CATEGORIES`, `MEAL_TYPES`, `TAG_SECTIONS`) with derived types
+- `RecipeCategory` named type replaces inline unions across `Recipe`, `RecipeListItem`, `GeneratedRecipe`
+- Removed duplicate `MealTypeInput` (identical to `MealType`)
+- `lib/schemas.ts` Zod enums now derived from shared const arrays
+- `RecipeJoinResult`, `RecipeJoinFull`, `MealPlanJoinResult` typed interfaces replace 10 `as unknown` casts in 6 files
+- `generate/route.ts` uses shared `RECIPE_CATEGORIES` instead of local `VALID_CATEGORIES`
+
 ## Remaining (not in reliability sprint scope)
 
 ### Generate Supabase types
-- **What:** Run `supabase gen types typescript` for DB types. Replace `as unknown` casts.
-- **Why:** Supabase responses are untyped. Generated types eliminate runtime cast bugs.
+- **What:** Run `supabase gen types typescript` for full DB types.
+- **Why:** Would give end-to-end type safety on Supabase queries. Currently mitigated by typed join interfaces.
 - **Blocked by:** Needs `SUPABASE_ACCESS_TOKEN` or `supabase login` (not available in sandbox)
 
 ### Formalize design system into DESIGN.md

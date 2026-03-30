@@ -3,12 +3,10 @@ import { withAuth } from '@/lib/auth'
 import { anthropic } from '@/lib/llm'
 import { FIRST_CLASS_TAGS } from '@/lib/tags'
 import { generateRecipeSchema, parseBody } from '@/lib/schemas'
-import type { GeneratedRecipe, MealTypeInput } from '@/types'
+import { RECIPE_CATEGORIES } from '@/types'
+import type { GeneratedRecipe, MealType, RecipeCategory } from '@/types'
 
-const VALID_CATEGORIES = ['main_dish', 'breakfast', 'dessert', 'side_dish'] as const
-type RecipeCategory = typeof VALID_CATEGORIES[number]
-
-function mealTypeToCategory(mealType: MealTypeInput): RecipeCategory {
+function mealTypeToCategory(mealType: MealType): RecipeCategory {
   switch (mealType) {
     case 'dinner':
     case 'lunch':     return 'main_dish'
@@ -147,7 +145,7 @@ Make it practical and delicious.`
 
   // Category validation + fallback
   const llmCategory = typeof parsed.category === 'string' ? parsed.category : ''
-  const category: RecipeCategory = (VALID_CATEGORIES as readonly string[]).includes(llmCategory)
+  const category: RecipeCategory = (RECIPE_CATEGORIES as readonly string[]).includes(llmCategory)
     ? (llmCategory as RecipeCategory)
     : mealTypeToCategory(meal_type)
 
