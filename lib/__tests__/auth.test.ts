@@ -104,7 +104,7 @@ describe('withAuth', () => {
     const res = await wrapped(req, { params: {} })
 
     expect(handler).toHaveBeenCalledOnce()
-    const [passedReq, auth, params] = handler.mock.calls[0]
+    const [passedReq, auth, params] = handler.mock.calls[0]!
 
     expect(passedReq).toBe(req)
     expect(auth.user).toBe(mockUser)
@@ -125,7 +125,7 @@ describe('withAuth', () => {
     await wrapped(makeReq(), { params: routeParams })
 
     expect(handler).toHaveBeenCalledOnce()
-    const [, , params] = handler.mock.calls[0]
+    const [, , params] = handler.mock.calls[0]!
     expect(params).toEqual(routeParams)
   })
 
@@ -137,7 +137,7 @@ describe('withAuth', () => {
     await wrapped(makeReq())
 
     expect(handler).toHaveBeenCalledOnce()
-    const [, , params] = handler.mock.calls[0]
+    const [, , params] = handler.mock.calls[0]!
     expect(params).toEqual({})
   })
 
@@ -151,7 +151,7 @@ describe('withAuth', () => {
     await wrapped(makeReq(), { params: {} })
 
     expect(handler).toHaveBeenCalledOnce()
-    const [, auth] = handler.mock.calls[0]
+    const [, auth] = handler.mock.calls[0]!
     expect(auth.ctx).toBeNull()
   })
 })
