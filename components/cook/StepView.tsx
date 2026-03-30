@@ -13,6 +13,9 @@ interface Props {
   onViewChange: (v: 'one' | 'all') => void
   timers: Map<number, TimerState>
   onTimerChange: (stepIndex: number, state: TimerState | null) => void
+  ingredients?: string
+  baseServings?: number
+  targetServings?: number
 }
 
 export default function StepView({
@@ -24,6 +27,9 @@ export default function StepView({
   onViewChange,
   timers,
   onTimerChange,
+  ingredients,
+  baseServings,
+  targetServings,
 }: Props) {
   return (
     <div>
@@ -53,6 +59,9 @@ export default function StepView({
           onCurrentStepChange={onCurrentStepChange}
           timers={timers}
           onTimerChange={onTimerChange}
+          ingredients={ingredients}
+          baseServings={baseServings}
+          targetServings={targetServings}
         />
       ) : (
         <ScrollStepView
@@ -62,6 +71,9 @@ export default function StepView({
           onCurrentStepChange={onCurrentStepChange}
           timers={timers}
           onTimerChange={onTimerChange}
+          ingredients={ingredients}
+          baseServings={baseServings}
+          targetServings={targetServings}
         />
       )}
     </div>

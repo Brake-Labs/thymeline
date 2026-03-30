@@ -148,22 +148,24 @@ export default function WeekCalendar() {
   const weekDates = getWeekDates(weekStart)
 
   return (
-    <div className="space-y-4">
-      {/* Week navigation */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-3">
+      {/* Week navigation header */}
+      <div className="bg-sage-900 rounded-lg flex items-center justify-between px-3 py-2">
         <button
           onClick={handlePrevWeek}
           aria-label="Previous week"
-          className="p-2 rounded-lg hover:bg-stone-100 text-stone-600 transition-colors"
+          className="p-1.5 text-sage-300 hover:text-sage-200 transition-colors"
         >
           ←
         </button>
-        <span className="text-sm font-semibold text-stone-700">{formatWeekRange(weekStart)}</span>
+        <span className="font-display text-sm font-medium text-white">
+          {formatWeekRange(weekStart)}
+        </span>
         <button
           onClick={handleNextWeek}
           disabled={isAtMaxFuture}
           aria-label="Next week"
-          className="p-2 rounded-lg hover:bg-stone-100 text-stone-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          className="p-1.5 text-sage-300 hover:text-sage-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         >
           →
         </button>
@@ -172,7 +174,7 @@ export default function WeekCalendar() {
       {loading && (
         <div className="space-y-2">
           {weekDates.map((d) => (
-            <div key={d} className="h-12 bg-stone-100 rounded-xl animate-pulse" />
+            <div key={d} className="h-14 bg-stone-100 rounded animate-pulse" />
           ))}
         </div>
       )}

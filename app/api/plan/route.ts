@@ -59,8 +59,7 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
     confirmed:       true,
     meal_type:       e.meal_type ?? 'dinner',
     is_side_dish:    e.is_side_dish ?? false,
-    parent_entry_id:    e.parent_entry_id ?? null,
-    total_time_minutes: (e.recipes as RecipeJoinResult | null)?.total_time_minutes ?? null,
+    parent_entry_id: e.parent_entry_id ?? null,
   }))
 
   const { data: savedEntries, error: entryError } = await db

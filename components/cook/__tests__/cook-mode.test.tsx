@@ -334,12 +334,12 @@ describe('T20-T23 - Step timers', () => {
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /set timer/i })) })
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /start/i })) })
 
-    // Initial display: 05:00 (5 minutes * 60 + 0 seconds)
-    expect(screen.getByText('05:00')).toBeDefined()
+    // Initial display: 05:00 (5 minutes * 60 + 0 seconds) — shown in both inline timer and bar
+    expect(screen.getAllByText('05:00').length).toBeGreaterThan(0)
 
     // After 1 second
     await act(async () => { vi.advanceTimersByTime(1000) })
-    expect(screen.getByText('04:59')).toBeDefined()
+    expect(screen.getAllByText('04:59').length).toBeGreaterThan(0)
   })
 
   it('T22 - Timer persists across step navigation', async () => {
@@ -355,8 +355,8 @@ describe('T20-T23 - Step timers', () => {
     // Navigate back
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /← prev/i })) })
 
-    // Timer should still show countdown (not reset)
-    expect(screen.getByText('04:59')).toBeDefined()
+    // Timer should still show countdown (not reset) — shown in inline timer and bar
+    expect(screen.getAllByText('04:59').length).toBeGreaterThan(0)
   })
 
   it('T23 - Timer at zero → "Time\'s up!" shown', async () => {
@@ -369,7 +369,7 @@ describe('T20-T23 - Step timers', () => {
     // Advance past 5 minutes (default timer)
     await act(async () => { vi.advanceTimersByTime(301 * 1000) })
 
-    expect(screen.getByText("Time's up!")).toBeDefined()
+    expect(screen.getAllByText("Time's up!").length).toBeGreaterThan(0)
   })
 })
 
@@ -494,5 +494,227 @@ describe('T34-T35 - Step photos', () => {
   it('T35 - no photo space when step has no photo', async () => {
     await renderCookPage()
     expect(document.querySelector('img[alt="Step 1"]')).toBeNull()
+  })
+})
+
+// ── T43-T49: Timer auto-populate and ActiveTimersBar ─────────────────────────
+
+describe('T43 - Step with time reference pre-fills timer to 20:00', () => {
+  it('clicking Start after seeing "simmer for 20 minutes" step starts 20:00 timer', async () => {
+    vi.useFakeTimers()
+    const recipe = { ...sampleRecipe, steps: 'Simmer for 20 minutes over low heat' }
+    await renderCookPage(recipe)
+
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /set timer/i })) })
+    // Picker should be pre-filled to 20m
+    expect(screen.getByText('20m')).toBeDefined()
+
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /start/i })) })
+    expect(screen.getAllByText('20:00').length).toBeGreaterThan(0)
+  })
+})
+
+describe('T44 - Step with "1 hour 30 minutes" pre-fills to 1:30:00', () => {
+  it('clicking Start after seeing "1 hour 30 minutes" step starts 1:30:00 timer', async () => {
+    vi.useFakeTimers()
+    const recipe = { ...sampleRecipe, steps: 'Cook for 1 hour 30 minutes until tender' }
+    await renderCookPage(recipe)
+
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /set timer/i })) })
+    // Picker pre-filled: 90m (= 1hr 30min in minutes)
+    expect(screen.getByText('90m')).toBeDefined()
+
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /start/i })) })
+    expect(screen.getAllByText('1:30:00').length).toBeGreaterThan(0)
+  })
+})
+
+describe('T45 - Step with "10–15 minutes" pre-fills to 15:00', () => {
+  it('range pattern uses higher value', async () => {
+    vi.useFakeTimers()
+    const recipe = { ...sampleRecipe, steps: 'Rest for 10–15 minutes before slicing' }
+    await renderCookPage(recipe)
+
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /set timer/i })) })
+    expect(screen.getByText('15m')).toBeDefined()
+
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /start/i })) })
+    expect(screen.getAllByText('15:00').length).toBeGreaterThan(0)
+  })
+})
+
+describe('T46 - Step with no time reference leaves timer unchanged', () => {
+  it('parseTimeFromStep returns 0 for a step with no time reference', async () => {
+    const { parseTimeFromStep } = await import('@/components/cook/StepTimer')
+    expect(parseTimeFromStep('Add the chicken thighs to the pan')).toBe(0)
+    expect(parseTimeFromStep('Mix until combined')).toBe(0)
+  })
+
+  it('no time reference: Set timer button still shows with default picker', async () => {
+    await renderCookPage()
+    // sampleRecipe step 0 is "Mix ingredients" — no time ref
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /set timer/i })) })
+    // Default picker shows 5m (unchanged behavior)
+    expect(screen.getByText('5m')).toBeDefined()
+  })
+})
+
+describe('T47 - Running timer appears in ActiveTimersBar with step label', () => {
+  it('shows derived action label and countdown in bar', async () => {
+    vi.useFakeTimers()
+    const recipe = { ...sampleRecipe, steps: 'Simmer for 20 minutes over low heat' }
+    await renderCookPage(recipe)
+
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /set timer/i })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /start/i })) })
+
+    // Bar should show derived label "Simmer"
+    expect(screen.getByText('Simmer')).toBeDefined()
+    // Bar and inline timer both show 20:00
+    const countdowns = screen.getAllByText('20:00')
+    expect(countdowns.length).toBeGreaterThan(0)
+  })
+})
+
+describe('T48 - Navigating to a different step keeps timer running in bar', () => {
+  it('timer stays visible in bar after navigating away from that step', async () => {
+    vi.useFakeTimers()
+    const recipe = {
+      ...sampleRecipe,
+      steps: 'Simmer for 20 minutes over low heat\nAdd the vegetables and stir',
+    }
+    await renderCookPage(recipe)
+
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /set timer/i })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /start/i })) })
+    await act(async () => { vi.advanceTimersByTime(3000) })
+
+    // Navigate to step 2
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /next →/i })) })
+
+    // Step 2 content is visible
+    expect(screen.getByText('Add the vegetables and stir')).toBeDefined()
+    // Bar still shows the Simmer timer at 19:57
+    expect(screen.getByText('Simmer')).toBeDefined()
+    expect(screen.getByText('19:57')).toBeDefined()
+  })
+})
+
+describe('T49 - Expired timer shows "Time\'s up!" in bar until dismissed', () => {
+  it('shows Time\'s up! in bar and removes after dismiss click', async () => {
+    vi.useFakeTimers()
+    const recipe = {
+      ...sampleRecipe,
+      steps: 'Simmer for 20 minutes over low heat\nAdd the vegetables and stir',
+    }
+    await renderCookPage(recipe)
+
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /set timer/i })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /start/i })) })
+
+    // Advance past 20 minutes
+    await act(async () => { vi.advanceTimersByTime(21 * 60 * 1000) })
+
+    // Navigate to step 2 so step 1's inline timer is hidden
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /next →/i })) })
+
+    // Bar should show "Time's up!"
+    const timesUpEls = screen.getAllByText("Time's up!")
+    expect(timesUpEls.length).toBeGreaterThan(0)
+
+    // Dismiss the expired timer
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /dismiss timer/i }))
+    })
+
+    // Timer should be gone from the bar
+    expect(screen.queryAllByText("Time's up!").length).toBe(0)
+  })
+})
+
+// ── T50-T53: Step ingredient panel ───────────────────────────────────────────
+
+describe('T50 - Step containing "flour" shows matched ingredient in panel', () => {
+  it('renders the ingredient line when a step references it', async () => {
+    const recipe = {
+      ...sampleRecipe,
+      ingredients: '2 cups flour\n1/2 tsp salt',
+      steps: 'Add the flour and mix well\nBake for 30 minutes',
+      servings: 4,
+    }
+    await renderCookPage(recipe)
+
+    // Panel is auto-expanded (1 match ≤ 3)
+    expect(screen.getByText('2 cups flour')).toBeDefined()
+  })
+})
+
+describe('T51 - Step with no matching ingredients shows no panel', () => {
+  it('hides the panel when no ingredients match the step text', async () => {
+    const recipe = {
+      ...sampleRecipe,
+      ingredients: '2 cups flour\n1/2 tsp salt',
+      // Step 0 "Preheat the oven" matches neither flour nor salt
+      steps: 'Preheat the oven to 350°F\nAdd the flour and mix',
+      servings: 4,
+    }
+    await renderCookPage(recipe)
+
+    expect(screen.queryByText('Ingredients for this step')).toBeNull()
+  })
+})
+
+describe('T52 - Panel collapsed by default when more than 3 ingredients match', () => {
+  it('does not expand list when >3 ingredients match', async () => {
+    const recipe = {
+      ...sampleRecipe,
+      ingredients: '2 cups flour\n1/2 tsp salt\n1 cup sugar\n2 eggs\n1 tsp vanilla',
+      // Step mentions all five ingredients
+      steps: 'Combine flour, salt, sugar, eggs, and vanilla in a bowl',
+      servings: 4,
+    }
+    await renderCookPage(recipe)
+
+    // Label is visible but the list items are not (collapsed)
+    expect(screen.getByText('Ingredients for this step')).toBeDefined()
+    expect(screen.queryByText('2 cups flour')).toBeNull()
+  })
+})
+
+describe('T52b - Panel collapses after navigating to a step with >3 matching ingredients', () => {
+  it('remounts collapsed when navigating to a >3-match step from a 1-match step', async () => {
+    const recipe = {
+      ...sampleRecipe,
+      ingredients: '2 cups flour\n1/2 tsp salt\n1 cup sugar\n2 eggs\n1 tsp vanilla',
+      // Step 0: only "flour" matches (1 match → auto-expanded)
+      // Step 1: all five ingredients mentioned (>3 → should start collapsed)
+      steps: 'Add the flour to the bowl\nCombine flour, salt, sugar, eggs, and vanilla',
+      servings: 4,
+    }
+    await renderCookPage(recipe)
+
+    // Step 0: panel is auto-expanded, ingredient list visible
+    expect(screen.getByText('Ingredients for this step')).toBeDefined()
+    expect(screen.getByText('2 cups flour')).toBeDefined()
+
+    // Navigate to step 1
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /next →/i })) })
+
+    // Panel label still visible but list is collapsed (>3 matches)
+    expect(screen.getByText('Ingredients for this step')).toBeDefined()
+    expect(screen.queryByText('2 cups flour')).toBeNull()
+  })
+})
+
+describe('T53 - Scaled quantity appears correctly in the panel', () => {
+  it('shows scaled quantities when targetServings differs from base', async () => {
+    // The cook page starts servings at recipe.servings (4), but we test the
+    // matchStepIngredients utility directly with a different target to keep
+    // the test deterministic without driving the full UI stepper.
+    const { matchStepIngredients } = await import('@/components/cook/StepIngredientPanel')
+    const ingredients = '2 cups flour\n1/2 tsp salt'
+    const result = matchStepIngredients('Add the flour and mix', ingredients, 4, 8)
+    // 2 cups * (8/4) = 4 cups
+    expect(result).toContain('4 cups flour')
   })
 })

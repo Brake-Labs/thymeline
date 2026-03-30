@@ -1,6 +1,7 @@
 'use client'
 
 import { scaleIngredients } from '@/lib/scale-ingredients'
+import { convertIngredients } from '@/lib/convert-units'
 
 interface Props {
   ingredients: string
@@ -10,6 +11,7 @@ interface Props {
   onToggle: (index: number) => void
   onCheckAll: () => void
   onUncheckAll: () => void
+  unitSystem?: 'imperial' | 'metric'
 }
 
 export default function IngredientChecklist({
@@ -20,8 +22,10 @@ export default function IngredientChecklist({
   onToggle,
   onCheckAll,
   onUncheckAll,
+  unitSystem = 'imperial',
 }: Props) {
-  const lines = scaleIngredients(ingredients, baseServings, targetServings)
+  const scaled = scaleIngredients(ingredients, baseServings, targetServings)
+  const lines = scaled.map((line) => convertIngredients(line, unitSystem))
   const allChecked = lines.length > 0 && checked.size === lines.length
 
   return (

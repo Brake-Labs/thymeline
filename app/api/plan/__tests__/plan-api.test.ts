@@ -22,6 +22,8 @@ const mockState = {
   },
   plan: null as { id: string; week_start: string } | null,
   entries: [] as { id?: string; planned_date: string; recipe_id: string; position: number; confirmed: boolean; meal_type?: string; is_side_dish?: boolean; parent_entry_id?: string | null; recipes: { title: string } }[],
+  // Entries returned by the already-planned future dates query in suggest route
+  alreadyPlannedEntries: [] as { recipe_id: string; planned_date: string }[],
   llmResponse: '{"days":[]}',
   upsertPlanId: 'plan-1',
   // Simulate DB errors for save tests
@@ -105,6 +107,7 @@ function makeMockFrom(table: string) {
       select: () => ({
         eq: () => ({
           order: async () => ({ data: mockState.entries, error: null }),
+          gte: async () => ({ data: mockState.alreadyPlannedEntries, error: null }),
         }),
       }),
     }
@@ -183,6 +186,7 @@ beforeEach(() => {
   mockState.recentHistory = []
   mockState.plan = null
   mockState.entries = []
+  mockState.alreadyPlannedEntries = []
   mockState.planInsertError = null
   mockState.entryInsertError = null
   mockState.llmResponse = JSON.stringify({
@@ -601,5 +605,113 @@ describe('T22 - cooldown filtering uses per-user history, not household-wide', (
     const body = await res.json()
     // All household recipes are available (none cooled down for user-1)
     expect(body.days[0].meal_types[0].options[0].recipe_id).toBe('r1')
+  })
+})
+
+// ── T31: Already-planned future recipes excluded from suggestions ──────────────
+
+describe('T31 - Already-planned future recipes are excluded from suggestions', () => {
+  it('excludes recipe already confirmed for a future date from the candidate pool', async () => {
+    // r1 is already planned for a future date in the current week
+    mockState.plan = { id: 'plan-1', week_start: '2026-03-01' }
+    mockState.alreadyPlannedEntries = [
+      { recipe_id: 'r1', planned_date: '2026-03-05' },
+    ]
+
+    // LLM suggests both r1 and r2 — r1 should be dropped because it was filtered
+    // from the candidate pool before the LLM call, so it won't appear in validIdsByMealType
+    mockState.llmResponse = JSON.stringify({
+      days: [{
+        date: '2026-03-06',
+        meal_types: [{
+          meal_type: 'dinner',
+          options: [
+            { recipe_id: 'r1', recipe_title: 'Pasta' },
+            { recipe_id: 'r2', recipe_title: 'Tacos' },
+          ],
+        }],
+      }],
+    })
+
+    const res = await suggestPOST(makeReq('POST', 'http://localhost/api/plan/suggest', {
+      week_start: '2026-03-01',
+      active_dates: ['2026-03-06'],
+      prefer_this_week: [],
+      avoid_this_week: [],
+      free_text: '',
+      specific_requests: '',
+    }))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    const options = body.days[0].meal_types[0].options
+    // r1 was already planned — filtered from candidates, stripped by validateSuggestions
+    expect(options.find((o: { recipe_id: string }) => o.recipe_id === 'r1')).toBeUndefined()
+    // r2 was not planned — should still be suggested
+    expect(options.find((o: { recipe_id: string }) => o.recipe_id === 'r2')).toBeDefined()
+  })
+
+  it('does not exclude recipes planned for past dates', async () => {
+    // gte('planned_date', today) excludes past entries — mock returns empty alreadyPlannedEntries
+    mockState.plan = { id: 'plan-1', week_start: '2026-03-01' }
+    mockState.alreadyPlannedEntries = []
+
+    mockState.llmResponse = JSON.stringify({
+      days: [{
+        date: '2026-03-06',
+        meal_types: [{
+          meal_type: 'dinner',
+          options: [{ recipe_id: 'r1', recipe_title: 'Pasta' }],
+        }],
+      }],
+    })
+
+    const res = await suggestPOST(makeReq('POST', 'http://localhost/api/plan/suggest', {
+      week_start: '2026-03-01',
+      active_dates: ['2026-03-06'],
+      prefer_this_week: [],
+      avoid_this_week: [],
+      free_text: '',
+      specific_requests: '',
+    }))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    const options = body.days[0].meal_types[0].options
+    // r1 not excluded — available for suggestions
+    expect(options.find((o: { recipe_id: string }) => o.recipe_id === 'r1')).toBeDefined()
+  })
+
+  it('returns available recipes when filtering leaves fewer than options_per_day', async () => {
+    // r1 and r3 already planned — only r2 remains in the dinner pool
+    mockState.plan = { id: 'plan-1', week_start: '2026-03-01' }
+    mockState.alreadyPlannedEntries = [
+      { recipe_id: 'r1', planned_date: '2026-03-02' },
+      { recipe_id: 'r3', planned_date: '2026-03-03' },
+    ]
+    mockState.prefs.options_per_day = 3
+
+    mockState.llmResponse = JSON.stringify({
+      days: [{
+        date: '2026-03-06',
+        meal_types: [{
+          meal_type: 'dinner',
+          options: [{ recipe_id: 'r2', recipe_title: 'Tacos' }],
+        }],
+      }],
+    })
+
+    const res = await suggestPOST(makeReq('POST', 'http://localhost/api/plan/suggest', {
+      week_start: '2026-03-01',
+      active_dates: ['2026-03-06'],
+      prefer_this_week: [],
+      avoid_this_week: [],
+      free_text: '',
+      specific_requests: '',
+    }))
+    // Does not error — returns what's available
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    const options = body.days[0].meal_types[0].options
+    expect(options).toHaveLength(1)
+    expect(options[0].recipe_id).toBe('r2')
   })
 })

@@ -5,13 +5,15 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import type { RecipeListItem, RecipeFilters } from '@/types'
 import RecipeGrid from '@/components/recipes/RecipeGrid'
 import RecipeListView, { ListSortKey } from '@/components/recipes/RecipeListView'
-import FilterPanel from '@/components/recipes/FilterPanel'
+import FilterSidebar from '@/components/recipes/FilterSidebar'
 import BulkActionBar from '@/components/recipes/BulkActionBar'
 import BulkTagModal from '@/components/recipes/BulkTagModal'
 import AddRecipeModal from '@/components/recipes/AddRecipeModal'
+import GenerateRecipeModal from '@/components/recipes/GenerateRecipeModal'
 import { getAccessToken, getSupabaseClient } from '@/lib/supabase/browser'
 
 const VIEW_KEY = 'forkcast:recipe-view'
+const FILTER_OPEN_KEY = 'forkcast:filter-sidebar'
 
 const EMPTY_FILTERS: RecipeFilters = {
   tags: [],
@@ -91,7 +93,8 @@ export default function RecipePageContent() {
 
   const [recipes, setRecipes] = useState<RecipeListItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [showModal, setShowModal] = useState(false)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [showGenerateModal, setShowGenerateModal] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string | undefined>(undefined)
 
   // View toggle
@@ -105,10 +108,9 @@ export default function RecipePageContent() {
   const [searchError, setSearchError] = useState<string | null>(null)
   const [fetchError, setFetchError] = useState<string | null>(null)
 
-  // Filters
-  const [filterOpen, setFilterOpen] = useState(false)
-  const [appliedFilters, setAppliedFilters] = useState<RecipeFilters>(EMPTY_FILTERS)
-  const [pendingFilters, setPendingFilters] = useState<RecipeFilters>(EMPTY_FILTERS)
+  // Sidebar
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [filters, setFilters] = useState<RecipeFilters>(EMPTY_FILTERS)
 
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -119,17 +121,26 @@ export default function RecipePageContent() {
   // List sort — persisted in URL as ?sort=<key>&dir=<asc|desc>
   const { key: listSortKey, dir: listSortDir } = parseSortParams(searchParams)
 
-  // Init view mode from localStorage
+  // Init view mode and sidebar state from localStorage
   useEffect(() => {
     try {
       const saved = localStorage.getItem(VIEW_KEY)
       if (saved === 'list' || saved === 'grid') setViewMode(saved)
+      const sidebarSaved = localStorage.getItem(FILTER_OPEN_KEY)
+      if (sidebarSaved === 'true') setSidebarOpen(true)
     } catch {}
   }, [])
 
   function setAndPersistViewMode(mode: 'grid' | 'list') {
     setViewMode(mode)
     try { localStorage.setItem(VIEW_KEY, mode) } catch {}
+  }
+
+  function toggleSidebar() {
+    setSidebarOpen((o) => {
+      try { localStorage.setItem(FILTER_OPEN_KEY, String(!o)) } catch {}
+      return !o
+    })
   }
 
   const fetchRecipes = useCallback(async () => {
@@ -174,12 +185,12 @@ export default function RecipePageContent() {
       base = searchResults
         .map((sr) => idToRecipe.get(sr.recipe_id))
         .filter((r): r is RecipeListItem => r !== undefined)
-      base = applyFiltersLocally(base, appliedFilters)
+      base = applyFiltersLocally(base, filters)
     } else {
-      base = applyFiltersLocally(recipes, appliedFilters)
+      base = applyFiltersLocally(recipes, filters)
     }
     return sortListView(base, listSortKey, listSortDir)
-  }, [recipes, searchResults, appliedFilters, listSortKey, listSortDir])
+  }, [recipes, searchResults, filters, listSortKey, listSortDir])
 
   async function handleSearch() {
     const q = searchQuery.trim()
@@ -218,18 +229,11 @@ export default function RecipePageContent() {
     searchInputRef.current?.focus()
   }
 
-  function handleApplyFilters() {
-    setAppliedFilters(pendingFilters)
-    setFilterOpen(false)
-  }
-
   function handleClearAllFilters() {
-    setPendingFilters(EMPTY_FILTERS)
-    setAppliedFilters(EMPTY_FILTERS)
-    setFilterOpen(false)
+    setFilters(EMPTY_FILTERS)
   }
 
-  const activeFilterCount = countActiveFilters(appliedFilters)
+  const activeFilterCount = countActiveFilters(filters)
 
   function handleSelect(id: string, selected: boolean) {
     setSelectedIds((prev) => {
@@ -305,21 +309,60 @@ export default function RecipePageContent() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="font-display text-2xl font-bold text-[#1F2D26]">Recipes</h1>
+    <div className="max-w-7xl mx-auto px-4 py-6">
+      {/* Toolbar */}
+      <div className="flex items-center gap-2 mb-6">
+        {/* Filters toggle */}
         <button
-          onClick={() => setShowModal(true)}
-          className="bg-sage-500 text-white px-4 py-2 rounded text-sm font-medium hover:bg-sage-600 transition-colors"
+          type="button"
+          onClick={toggleSidebar}
+          className={`flex items-center gap-1.5 px-3 py-2 rounded text-sm font-medium border transition-colors ${
+            sidebarOpen || activeFilterCount > 0
+              ? 'border-sage-500 text-sage-700 bg-sage-50'
+              : 'border-stone-200 text-stone-600 bg-white hover:border-stone-300'
+          }`}
         >
-          + Add Recipe
+          <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M2.628 1.601C5.028 1.206 7.49 1 10 1s4.973.206 7.372.601a.75.75 0 01.628.74v2.288a2.25 2.25 0 01-.659 1.59l-4.682 4.683a2.25 2.25 0 00-.659 1.59v3.037c0 .684-.31 1.33-.844 1.757l-1.937 1.55A.75.75 0 018 18.25v-5.757a2.25 2.25 0 00-.659-1.591L2.659 6.22A2.25 2.25 0 002 4.629V2.34a.75.75 0 01.628-.74z" clipRule="evenodd" />
+          </svg>
+          Filters
+          {activeFilterCount > 0 && (
+            <span className="ml-0.5 text-xs font-semibold bg-sage-500 text-white rounded-full w-4 h-4 flex items-center justify-center">
+              {activeFilterCount}
+            </span>
+          )}
         </button>
-      </div>
 
-      {/* Search + view toggle row */}
-      <div className="flex items-center gap-3 mb-4">
-        <div className="relative flex-1 max-w-md">
+        {/* View mode toggle */}
+        <div className="flex border border-stone-200 rounded overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setAndPersistViewMode('grid')}
+            className={`px-3 py-2 transition-colors ${viewMode === 'grid' ? 'bg-sage-500 text-white' : 'bg-white text-stone-500 hover:bg-stone-50'}`}
+            aria-label="Grid view"
+            title="Grid view"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M4.25 2A2.25 2.25 0 002 4.25v2.5A2.25 2.25 0 004.25 9h2.5A2.25 2.25 0 009 6.75v-2.5A2.25 2.25 0 006.75 2h-2.5zm0 9A2.25 2.25 0 002 13.25v2.5A2.25 2.25 0 004.25 18h2.5A2.25 2.25 0 009 15.75v-2.5A2.25 2.25 0 006.75 11h-2.5zm6.5-9A2.25 2.25 0 008.5 4.25v2.5A2.25 2.25 0 0010.75 9h2.5A2.25 2.25 0 0015.5 6.75v-2.5A2.25 2.25 0 0013.25 2h-2.5zm0 9A2.25 2.25 0 008.5 13.25v2.5A2.25 2.25 0 0010.75 18h2.5A2.25 2.25 0 0015.5 15.75v-2.5A2.25 2.25 0 0013.25 11h-2.5z" clipRule="evenodd" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => setAndPersistViewMode('list')}
+            className={`px-3 py-2 transition-colors ${viewMode === 'list' ? 'bg-sage-500 text-white' : 'bg-white text-stone-500 hover:bg-stone-50'}`}
+            aria-label="List view"
+            title="List view"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M2 4.75A.75.75 0 012.75 4h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 4.75zm0 10.5a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75a.75.75 0 01-.75-.75zM2 10a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 10z" clipRule="evenodd" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="flex-1" />
+
+        {/* Search */}
+        <div className="relative flex-1 max-w-sm">
           <input
             ref={searchInputRef}
             type="text"
@@ -356,52 +399,22 @@ export default function RecipePageContent() {
           </button>
         </div>
 
-        {/* Filter toggle */}
+        {/* Add Recipe */}
         <button
-          type="button"
-          onClick={() => { setFilterOpen((o) => !o); setPendingFilters(appliedFilters) }}
-          className={`flex items-center gap-1.5 px-3 py-2 rounded text-sm font-medium border transition-colors ${
-            filterOpen || activeFilterCount > 0
-              ? 'border-sage-500 text-sage-700 bg-sage-50'
-              : 'border-stone-200 text-stone-600 bg-white hover:border-stone-300'
-          }`}
+          onClick={() => setShowAddModal(true)}
+          className="bg-sage-500 text-white px-4 py-2 rounded text-sm font-medium hover:bg-sage-600 transition-colors whitespace-nowrap"
         >
-          <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M2.628 1.601C5.028 1.206 7.49 1 10 1s4.973.206 7.372.601a.75.75 0 01.628.74v2.288a2.25 2.25 0 01-.659 1.59l-4.682 4.683a2.25 2.25 0 00-.659 1.59v3.037c0 .684-.31 1.33-.844 1.757l-1.937 1.55A.75.75 0 018 18.25v-5.757a2.25 2.25 0 00-.659-1.591L2.659 6.22A2.25 2.25 0 012 4.629V2.34a.75.75 0 01.628-.74z" clipRule="evenodd" />
-          </svg>
-          Filters
-          {activeFilterCount > 0 && (
-            <span className="ml-0.5 text-xs font-semibold bg-sage-500 text-white rounded-full w-4 h-4 flex items-center justify-center">
-              {activeFilterCount}
-            </span>
-          )}
+          + Add Recipe
         </button>
 
-        {/* View mode toggle */}
-        <div className="flex border border-stone-200 rounded overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setAndPersistViewMode('grid')}
-            className={`px-3 py-2 transition-colors ${viewMode === 'grid' ? 'bg-sage-500 text-white' : 'bg-white text-stone-500 hover:bg-stone-50'}`}
-            aria-label="Grid view"
-            title="Grid view"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M4.25 2A2.25 2.25 0 002 4.25v2.5A2.25 2.25 0 004.25 9h2.5A2.25 2.25 0 009 6.75v-2.5A2.25 2.25 0 006.75 2h-2.5zm0 9A2.25 2.25 0 002 13.25v2.5A2.25 2.25 0 004.25 18h2.5A2.25 2.25 0 009 15.75v-2.5A2.25 2.25 0 006.75 11h-2.5zm6.5-9A2.25 2.25 0 008.5 4.25v2.5A2.25 2.25 0 0010.75 9h2.5A2.25 2.25 0 0015.5 6.75v-2.5A2.25 2.25 0 0013.25 2h-2.5zm0 9A2.25 2.25 0 008.5 13.25v2.5A2.25 2.25 0 0010.75 18h2.5A2.25 2.25 0 0015.5 15.75v-2.5A2.25 2.25 0 0013.25 11h-2.5z" clipRule="evenodd" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            onClick={() => setAndPersistViewMode('list')}
-            className={`px-3 py-2 transition-colors ${viewMode === 'list' ? 'bg-sage-500 text-white' : 'bg-white text-stone-500 hover:bg-stone-50'}`}
-            aria-label="List view"
-            title="List view"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M2 4.75A.75.75 0 012.75 4h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 4.75zm0 10.5a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75a.75.75 0 01-.75-.75zM2 10a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 10z" clipRule="evenodd" />
-            </svg>
-          </button>
-        </div>
+        {/* Generate with AI */}
+        <button
+          onClick={() => setShowGenerateModal(true)}
+          className="flex items-center gap-1.5 border border-sage-400 text-sage-700 bg-sage-50 px-4 py-2 rounded text-sm font-medium hover:bg-sage-100 transition-colors whitespace-nowrap"
+        >
+          <span className="text-sage-500">✦</span>
+          Generate with AI
+        </button>
       </div>
 
       {/* Search error */}
@@ -420,7 +433,7 @@ export default function RecipePageContent() {
           <span>
             {searchResults.length === 0
               ? 'No results for your search'
-              : `${displayedRecipes.length} result${displayedRecipes.length !== 1 ? 's' : ''} for “${searchQuery}”`}
+              : `${displayedRecipes.length} result${displayedRecipes.length !== 1 ? 's' : ''} for "${searchQuery}"`}
           </span>
           <button
             type="button"
@@ -429,19 +442,6 @@ export default function RecipePageContent() {
           >
             Clear search
           </button>
-        </div>
-      )}
-
-      {/* Filter panel */}
-      {filterOpen && (
-        <div className="mb-5">
-          <FilterPanel
-            pendingFilters={pendingFilters}
-            onPendingChange={setPendingFilters}
-            onApply={handleApplyFilters}
-            onClearAll={handleClearAllFilters}
-            vaultTags={vaultTags}
-          />
         </div>
       )}
 
@@ -482,32 +482,59 @@ export default function RecipePageContent() {
         </div>
       )}
 
-      {/* Recipe display */}
-      {viewMode === 'grid' ? (
-        <RecipeGrid
-          recipes={displayedRecipes}
-          selectedIds={selectedIds}
-          onSelect={handleSelect}
-          currentUserId={currentUserId}
-          loading={loading}
-        />
-      ) : (
-        <RecipeListView
-          recipes={displayedRecipes}
-          selectedIds={selectedIds}
-          onSelect={handleSelect}
-          onSelectAll={handleSelectAll}
-          sortKey={listSortKey}
-          sortDir={listSortDir}
-          onSort={handleListSort}
-          currentUserId={currentUserId}
+      {/* Body: sidebar + recipes */}
+      <div className="flex gap-6 items-start">
+        {/* Filter sidebar */}
+        {sidebarOpen && (
+          <aside className="w-56 shrink-0">
+            <FilterSidebar
+              filters={filters}
+              onChange={setFilters}
+              onClearAll={handleClearAllFilters}
+              vaultTags={vaultTags}
+              activeCount={activeFilterCount}
+            />
+          </aside>
+        )}
+
+        {/* Recipe display */}
+        <div className="flex-1 min-w-0">
+          {viewMode === 'grid' ? (
+            <RecipeGrid
+              recipes={displayedRecipes}
+              selectedIds={selectedIds}
+              onSelect={handleSelect}
+              currentUserId={currentUserId}
+              loading={loading}
+            />
+          ) : (
+            <RecipeListView
+              recipes={displayedRecipes}
+              selectedIds={selectedIds}
+              onSelect={handleSelect}
+              onSelectAll={handleSelectAll}
+              sortKey={listSortKey}
+              sortDir={listSortDir}
+              onSort={handleListSort}
+              currentUserId={currentUserId}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Add recipe modal */}
+      {showAddModal && (
+        <AddRecipeModal
+          onClose={() => setShowAddModal(false)}
+          onSaved={() => void fetchRecipes()}
+          getToken={getAccessToken}
         />
       )}
 
-      {/* Add recipe modal */}
-      {showModal && (
-        <AddRecipeModal
-          onClose={() => setShowModal(false)}
+      {/* Generate recipe modal */}
+      {showGenerateModal && (
+        <GenerateRecipeModal
+          onClose={() => setShowGenerateModal(false)}
           onSaved={() => void fetchRecipes()}
           getToken={getAccessToken}
         />

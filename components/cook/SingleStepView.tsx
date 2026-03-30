@@ -2,6 +2,7 @@
 
 import { useRef } from 'react'
 import StepTimer, { type TimerState } from './StepTimer'
+import StepIngredientPanel from './StepIngredientPanel'
 
 interface Props {
   steps: string[]
@@ -10,6 +11,9 @@ interface Props {
   onCurrentStepChange: (i: number) => void
   timers: Map<number, TimerState>
   onTimerChange: (stepIndex: number, state: TimerState | null) => void
+  ingredients?: string
+  baseServings?: number
+  targetServings?: number
 }
 
 export default function SingleStepView({
@@ -19,6 +23,9 @@ export default function SingleStepView({
   onCurrentStepChange,
   timers,
   onTimerChange,
+  ingredients,
+  baseServings = 4,
+  targetServings = 4,
 }: Props) {
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
 
@@ -74,9 +81,21 @@ export default function SingleStepView({
         </p>
       </div>
 
+      {/* Ingredients for this step */}
+      {ingredients && (
+        <StepIngredientPanel
+          key={currentStep}
+          stepText={steps[currentStep]}
+          ingredients={ingredients}
+          baseServings={baseServings}
+          targetServings={targetServings}
+        />
+      )}
+
       {/* Timer */}
       <StepTimer
         stepIndex={currentStep}
+        stepText={steps[currentStep]}
         timerState={timers.get(currentStep)}
         onChange={(state) => onTimerChange(currentStep, state)}
       />

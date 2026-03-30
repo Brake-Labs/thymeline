@@ -2,19 +2,14 @@
 
 import { useState } from 'react'
 import RecipeForm, { RecipeFormValues } from './RecipeForm'
-import GenerateRecipeTab from './GenerateRecipeTab'
-import AIGeneratedBadge from './AIGeneratedBadge'
-import type { GeneratedRecipe } from '@/types'
 
-type Tab = 'url' | 'manual' | 'generate'
+type Tab = 'url' | 'manual'
 
 interface AddRecipeModalProps {
-  onClose:                    () => void
-  onSaved:                    () => void
-  getToken:                   () => Promise<string> | string
-  initialTab?:                Tab
-  initialGenerateIngredients?: string
-  initialPantryEnabled?:      boolean
+  onClose:   () => void
+  onSaved:   () => void
+  getToken:  () => Promise<string> | string
+  initialTab?: Tab
 }
 
 interface ScrapeResult {
@@ -38,8 +33,6 @@ export default function AddRecipeModal({
   onSaved,
   getToken,
   initialTab = 'url',
-  initialGenerateIngredients,
-  initialPantryEnabled,
 }: AddRecipeModalProps) {
   const [tab, setTab] = useState<Tab>(initialTab)
   const [urlInput, setUrlInput] = useState('')
@@ -47,7 +40,6 @@ export default function AddRecipeModal({
   const [scrapeResult, setScrapeResult] = useState<ScrapeResult | null>(null)
   const [scrapeError, setScrapeError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [generatedRecipe, setGeneratedRecipe] = useState<GeneratedRecipe | null>(null)
 
   async function handleScrape() {
     setScrapeError(null)
@@ -79,10 +71,7 @@ export default function AddRecipeModal({
     try {
       const token = await getToken()
 
-      const source: 'scraped' | 'manual' | 'generated' =
-        tab === 'generate' ? 'generated'
-        : tab === 'url'    ? 'scraped'
-        : 'manual'
+      const source: 'scraped' | 'manual' = tab === 'url' ? 'scraped' : 'manual'
 
       const res = await fetch('/api/recipes', {
         method: 'POST',
@@ -145,28 +134,6 @@ export default function AddRecipeModal({
       }
     : undefined
 
-  // Build initial values from generated recipe
-  const generateFormInitialValues: Partial<RecipeFormValues> = generatedRecipe
-    ? {
-        title: generatedRecipe.title,
-        category: generatedRecipe.category,
-        tags: generatedRecipe.tags,
-        ingredients: generatedRecipe.ingredients ?? '',
-        steps: generatedRecipe.steps ?? '',
-        notes: generatedRecipe.notes ?? '',
-        prep_time_minutes: generatedRecipe.prep_time_minutes !== null
-          ? String(generatedRecipe.prep_time_minutes) : '',
-        cook_time_minutes: generatedRecipe.cook_time_minutes !== null
-          ? String(generatedRecipe.cook_time_minutes) : '',
-        total_time_minutes: generatedRecipe.total_time_minutes !== null
-          ? String(generatedRecipe.total_time_minutes) : '',
-        inactive_time_minutes: generatedRecipe.inactive_time_minutes !== null
-          ? String(generatedRecipe.inactive_time_minutes) : '',
-        servings: generatedRecipe.servings !== null
-          ? String(generatedRecipe.servings) : '',
-      }
-    : {}
-
   const nullFields: Set<string> | undefined = scrapeResult
     ? new Set(
         (['title', 'ingredients', 'steps'] as const).filter((f) => scrapeResult[f] === null)
@@ -174,9 +141,8 @@ export default function AddRecipeModal({
     : undefined
 
   const TAB_LABELS: Record<Tab, string> = {
-    url:      'From URL',
-    manual:   'Manual',
-    generate: 'Generate with AI',
+    url:    'From URL',
+    manual: 'Manual',
   }
 
   return (
@@ -196,7 +162,7 @@ export default function AddRecipeModal({
 
         {/* Tabs */}
         <div className="flex border-b">
-          {(['url', 'manual', 'generate'] as Tab[]).map((t) => (
+          {(['url', 'manual'] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -262,34 +228,6 @@ export default function AddRecipeModal({
             />
           )}
 
-          {tab === 'generate' && !generatedRecipe && (
-            <GenerateRecipeTab
-              getToken={getToken}
-              onGenerated={setGeneratedRecipe}
-              initialPantryEnabled={initialPantryEnabled}
-              initialIngredients={initialGenerateIngredients}
-            />
-          )}
-
-          {tab === 'generate' && generatedRecipe && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <AIGeneratedBadge />
-                <button
-                  type="button"
-                  onClick={() => setGeneratedRecipe(null)}
-                  className="text-xs text-stone-500 border border-stone-200 rounded-lg px-3 py-1 hover:bg-stone-50"
-                >
-                  Regenerate
-                </button>
-              </div>
-              <RecipeForm
-                initialValues={generateFormInitialValues}
-                onSubmit={handleSubmit}
-                isSubmitting={isSubmitting}
-              />
-            </div>
-          )}
         </div>
       </div>
     </div>

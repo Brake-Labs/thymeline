@@ -6,7 +6,8 @@ import CookHeader from '@/components/cook/CookHeader'
 import StepView from '@/components/cook/StepView'
 import IngredientChecklist from '@/components/cook/IngredientChecklist'
 import VoiceControl, { type VoiceCommand } from '@/components/cook/VoiceControl'
-import { type TimerState } from '@/components/cook/StepTimer'
+import ActiveTimersBar from '@/components/cook/ActiveTimersBar'
+import { type TimerState, deriveTimerLabel } from '@/components/cook/StepTimer'
 import { getAccessToken } from '@/lib/supabase/browser'
 import { type Recipe } from '@/types'
 
@@ -28,6 +29,7 @@ export default function CookModePage({ params }: Props) {
   const [timers, setTimers] = useState<Map<number, TimerState>>(new Map())
   const [logStatus, setLogStatus] = useState<'idle' | 'loading' | 'success' | 'already_logged'>('idle')
   const [wakeLockActive, setWakeLockActive] = useState(false)
+  const [unitSystem, setUnitSystem] = useState<'imperial' | 'metric'>('imperial')
   const wakeLockRef = useRef<WakeLockSentinel | null>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const chimedRef = useRef<Set<number>>(new Set())
@@ -96,8 +98,8 @@ export default function CookModePage({ params }: Props) {
             next.set(idx, { ...state, remaining: state.remaining - 1 })
             changed = true
           } else if (state.running && state.remaining === 0) {
-            // Stop running
-            next.set(idx, { ...state, running: false })
+            // Stop running, mark expired
+            next.set(idx, { ...state, running: false, isExpired: true })
             changed = true
             // Chime once
             if (!chimedRef.current.has(idx)) {
@@ -149,6 +151,16 @@ export default function CookModePage({ params }: Props) {
     })
   }
 
+  function handleTimerPause(stepIndex: number) {
+    setTimers((prev) => {
+      const state = prev.get(stepIndex)
+      if (!state) return prev
+      const next = new Map(prev)
+      next.set(stepIndex, { ...state, running: !state.running })
+      return next
+    })
+  }
+
   async function handleLog() {
     setLogStatus('loading')
     try {
@@ -189,6 +201,9 @@ export default function CookModePage({ params }: Props) {
           seconds: cmd.seconds,
           remaining: cmd.minutes * 60 + cmd.seconds,
           running: true,
+          isExpired: false,
+          stepIndex: currentStep,
+          label: deriveTimerLabel(steps[currentStep] ?? ''),
         })
         break
       case 'checkIngredient': {
@@ -234,6 +249,16 @@ export default function CookModePage({ params }: Props) {
         baseServings={recipe.servings ?? 4}
         onServingsChange={setServings}
         wakeLockActive={wakeLockActive}
+        unitSystem={unitSystem}
+        onUnitSystemChange={setUnitSystem}
+      />
+
+      {/* Active Timers Bar */}
+      <ActiveTimersBar
+        timers={[...timers.values()]}
+        onPause={handleTimerPause}
+        onReset={(stepIndex) => handleTimerChange(stepIndex, null)}
+        onDismiss={(stepIndex) => handleTimerChange(stepIndex, null)}
       />
 
       {/* Tab bar */}
@@ -265,6 +290,9 @@ export default function CookModePage({ params }: Props) {
           onViewChange={setView}
           timers={timers}
           onTimerChange={handleTimerChange}
+          ingredients={recipe.ingredients ?? undefined}
+          baseServings={recipe.servings ?? 4}
+          targetServings={servings}
         />
       ) : (
         recipe.ingredients ? (
@@ -286,6 +314,7 @@ export default function CookModePage({ params }: Props) {
               setChecked(new Set(lines.map((_, i) => i)))
             }}
             onUncheckAll={() => setChecked(new Set())}
+            unitSystem={unitSystem}
           />
         ) : (
           <p className="px-4 py-8 text-stone-400 text-sm">No ingredients listed.</p>

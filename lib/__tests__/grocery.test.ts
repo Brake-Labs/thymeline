@@ -101,6 +101,22 @@ describe('assignSection', () => {
   it('assigns Other to unknown ingredient', () => {
     expect(assignSection('xylograph sauce')).toBe('Other')
   })
+
+  it('assigns Canned & Jarred to "2 cans fire roasted diced tomatoes"', () => {
+    expect(assignSection('2 cans fire roasted diced tomatoes')).toBe('Canned & Jarred')
+  })
+
+  it('assigns Canned & Jarred to "1 can coconut milk"', () => {
+    expect(assignSection('1 can coconut milk')).toBe('Canned & Jarred')
+  })
+
+  it('assigns Produce to "fresh tomatoes"', () => {
+    expect(assignSection('fresh tomatoes')).toBe('Produce')
+  })
+
+  it('does not misclassify "pecan" as Canned & Jarred', () => {
+    expect(assignSection('pecan')).toBe('Other')
+  })
 })
 
 // ── isPantryStaple ─────────────────────────────────────────────────────────────
@@ -257,6 +273,36 @@ describe('buildPlainTextList', () => {
   it('has no bullets, dashes, or emoji headers', () => {
     const text = buildPlainTextList(items, scales, 2, '2026-03-15')
     expect(text).not.toMatch(/^[•\-–🛒]/m)
+  })
+
+  it('onlyUnchecked: true excludes bought items', () => {
+    const mixedItems: GroceryItem[] = [
+      { id: 'i1', name: 'pasta', amount: 200, unit: 'g', section: 'Pantry', is_pantry: false, checked: false, bought: false, recipes: ['Pasta'] },
+      { id: 'i2', name: 'olive oil', amount: 2, unit: 'tbsp', section: 'Pantry', is_pantry: true, checked: false, bought: true, recipes: ['Pasta'] },
+    ]
+    const text = buildPlainTextList(mixedItems, scales, 2, '2026-03-15', { onlyUnchecked: true })
+    expect(text).toContain('pasta')
+    expect(text).not.toContain('olive oil')
+  })
+
+  it('onlyUnchecked: false includes all items regardless of bought', () => {
+    const mixedItems: GroceryItem[] = [
+      { id: 'i1', name: 'pasta', amount: 200, unit: 'g', section: 'Pantry', is_pantry: false, checked: false, bought: false, recipes: ['Pasta'] },
+      { id: 'i2', name: 'olive oil', amount: 2, unit: 'tbsp', section: 'Pantry', is_pantry: true, checked: false, bought: true, recipes: ['Pasta'] },
+    ]
+    const text = buildPlainTextList(mixedItems, scales, 2, '2026-03-15', { onlyUnchecked: false })
+    expect(text).toContain('pasta')
+    expect(text).toContain('olive oil')
+  })
+
+  it('without options includes all items (backwards-compatible)', () => {
+    const mixedItems: GroceryItem[] = [
+      { id: 'i1', name: 'pasta', amount: 200, unit: 'g', section: 'Pantry', is_pantry: false, checked: false, bought: false, recipes: ['Pasta'] },
+      { id: 'i2', name: 'olive oil', amount: 2, unit: 'tbsp', section: 'Pantry', is_pantry: true, checked: false, bought: true, recipes: ['Pasta'] },
+    ]
+    const text = buildPlainTextList(mixedItems, scales, 2, '2026-03-15')
+    expect(text).toContain('pasta')
+    expect(text).toContain('olive oil')
   })
 })
 

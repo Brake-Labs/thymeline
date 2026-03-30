@@ -15,8 +15,15 @@ const KNOWN_UNITS = new Set([
 
 // ── Section assignment ────────────────────────────────────────────────────────
 
+// Whole-word canned/jar indicator regex — matched before the keyword table so that
+// any ingredient string containing one of these words is assigned to Canned & Jarred
+// regardless of the ingredient name (e.g. "2 cans fire roasted diced tomatoes").
+// Word boundaries prevent false matches on "pecan", "toucan", "scan", etc.
+const CANNED_INDICATOR_RE = /\b(can|cans|canned|jar|jars|jarred|tin|tins|tinned)\b/
+
 const SECTION_KEYWORDS: { section: GrocerySection; keywords: string[] }[] = [
-  // Frozen and Canned must come before Produce so "frozen peas" / "canned tomatoes" match correctly
+  // Priority order: Frozen → Canned & Jarred → Proteins → Dairy & Eggs → Bakery → Pantry → Produce
+  // Frozen and Canned must come before Produce to avoid mis-classifying frozen/canned items.
   {
     section: 'Frozen',
     keywords: [
@@ -26,35 +33,16 @@ const SECTION_KEYWORDS: { section: GrocerySection; keywords: string[] }[] = [
   },
   {
     section: 'Canned & Jarred',
+    // These specific phrases catch canned items whose unit indicator ("can"/"cans") may have
+    // been stripped by the ingredient parser before assignSection is called.
     keywords: [
       'canned artichoke', 'canned bean', 'canned corn', 'canned lentil',
       'canned tomato', 'canned tuna', 'canned salmon', 'canned chickpea',
       'canned kidney bean', 'canned black bean',
+      'fire roasted', 'diced tomato', 'crushed tomato',
       'coconut milk', 'tomato paste', 'tomato sauce', 'jarred sauce',
       'roasted pepper', 'sun-dried tomato',
       'broth', 'stock', 'salsa', 'pickle', 'pumpkin puree', 'olives',
-    ],
-  },
-  {
-    section: 'Bakery',
-    keywords: [
-      'bagel', 'baguette', 'bun', 'ciabatta', 'cornbread', 'croissant',
-      'english muffin', 'flatbread', 'naan', 'pita', 'roll', 'sourdough bread',
-      'tortilla', 'wrap', 'bread',
-    ],
-  },
-  {
-    section: 'Produce',
-    keywords: [
-      'apple', 'avocado', 'banana', 'basil', 'bean sprout', 'beet', 'bell pepper',
-      'broccoli', 'cabbage', 'carrot', 'cauliflower', 'celery', 'cherry', 'chili',
-      'cilantro', 'corn', 'cucumber', 'dill', 'eggplant', 'fennel', 'fig',
-      'garlic', 'ginger', 'grape', 'green bean', 'green onion', 'herbs', 'jalapeño',
-      'kale', 'leek', 'lemon', 'lettuce', 'lime', 'mango', 'mint', 'mushroom',
-      'onion', 'orange', 'parsley', 'parsnip', 'pea', 'peach', 'pear', 'pepper',
-      'pineapple', 'plum', 'potato', 'pumpkin', 'radish', 'rosemary', 'sage',
-      'scallion', 'shallot', 'spinach', 'squash', 'strawberry', 'sweet potato',
-      'thyme', 'tomato', 'turnip', 'zucchini',
     ],
   },
   {
@@ -74,6 +62,14 @@ const SECTION_KEYWORDS: { section: GrocerySection; keywords: string[] }[] = [
     ],
   },
   {
+    section: 'Bakery',
+    keywords: [
+      'bagel', 'baguette', 'bun', 'ciabatta', 'cornbread', 'croissant',
+      'english muffin', 'flatbread', 'naan', 'pita', 'roll', 'sourdough bread',
+      'tortilla', 'wrap', 'bread',
+    ],
+  },
+  {
     section: 'Pantry',
     keywords: [
       'almond flour', 'baking powder', 'baking soda', 'bay leaf', 'black pepper',
@@ -83,6 +79,20 @@ const SECTION_KEYWORDS: { section: GrocerySection; keywords: string[] }[] = [
       'noodle', 'nutmeg', 'oat', 'oil', 'olive oil', 'oregano', 'paprika',
       'pasta', 'pepper flake', 'rice', 'salt', 'sesame oil', 'soy sauce',
       'spice', 'sugar', 'tahini', 'turmeric', 'vanilla', 'vinegar', 'worcestershire',
+    ],
+  },
+  {
+    section: 'Produce',
+    keywords: [
+      'apple', 'avocado', 'banana', 'basil', 'bean sprout', 'beet', 'bell pepper',
+      'broccoli', 'cabbage', 'carrot', 'cauliflower', 'celery', 'cherry', 'chili',
+      'cilantro', 'corn', 'cucumber', 'dill', 'eggplant', 'fennel', 'fig',
+      'garlic', 'ginger', 'grape', 'green bean', 'green onion', 'herbs', 'jalapeño',
+      'kale', 'leek', 'lemon', 'lettuce', 'lime', 'mango', 'mint', 'mushroom',
+      'onion', 'orange', 'parsley', 'parsnip', 'pea', 'peach', 'pear', 'pepper',
+      'pineapple', 'plum', 'potato', 'pumpkin', 'radish', 'rosemary', 'sage',
+      'scallion', 'shallot', 'spinach', 'squash', 'strawberry', 'sweet potato',
+      'thyme', 'tomato', 'turnip', 'zucchini',
     ],
   },
 ]
@@ -114,6 +124,10 @@ export function normalizeIngredientName(name: string): string {
 /** Assign a GrocerySection from the ingredient name. */
 export function assignSection(name: string): GrocerySection {
   const lc = name.toLowerCase()
+  // If a canned/jar indicator word is present (whole-word match), short-circuit
+  // to Canned & Jarred before the keyword table runs — this catches cases like
+  // "2 cans fire roasted diced tomatoes" where "tomato" would otherwise match Produce.
+  if (CANNED_INDICATOR_RE.test(lc)) return 'Canned & Jarred'
   for (const { section, keywords } of SECTION_KEYWORDS) {
     if (keywords.some((kw) => lc.includes(kw))) return section
   }
@@ -327,8 +341,10 @@ export function buildPlainTextList(
   _recipeScales: RecipeScale[],
   _planServings: number,
   _weekStart: string,
+  options?: { onlyUnchecked?: boolean },
 ): string {
-  return items
+  const filtered = options?.onlyUnchecked ? items.filter((i) => !i.bought) : items
+  return filtered
     .map((item) => {
       const amt = item.amount !== null ? `${item.amount} ` : ''
       const unit = item.unit ? `${item.unit} ` : ''

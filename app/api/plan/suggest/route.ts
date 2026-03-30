@@ -26,10 +26,42 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
     return NextResponse.json({ error: 'week_start must be a Sunday' }, { status: 400 })
   }
 
+  const todayISO = new Date().toISOString().slice(0, 10)
+
   const prefs = await fetchUserPreferences(db, user.id, ctx)
   const cooldownDays = prefs?.cooldown_days ?? 28
   const recipesByMealType = await fetchRecipesByMealTypes(db, user.id, cooldownDays, active_meal_types, ctx)
   const recentHistory = await fetchRecentHistory(db, user.id)
+
+  // Exclude recipes already confirmed for future dates (including today) in the current week
+  let currentPlanQ = db
+    .from('meal_plans')
+    .select('id')
+    .eq('week_start', week_start)
+  if (ctx) {
+    currentPlanQ = currentPlanQ.eq('household_id', ctx.householdId)
+  } else {
+    currentPlanQ = currentPlanQ.eq('user_id', user.id)
+  }
+  const { data: currentPlan } = await currentPlanQ.maybeSingle()
+
+  const alreadyPlannedIds = new Set<string>()
+  if (currentPlan?.id) {
+    const { data: existingEntries } = await db
+      .from('meal_plan_entries')
+      .select('recipe_id, planned_date')
+      .eq('meal_plan_id', currentPlan.id)
+      .gte('planned_date', todayISO)
+    for (const entry of existingEntries ?? []) {
+      alreadyPlannedIds.add((entry as { recipe_id: string }).recipe_id)
+    }
+  }
+
+  if (alreadyPlannedIds.size > 0) {
+    for (const mt of Object.keys(recipesByMealType) as MealType[]) {
+      recipesByMealType[mt] = recipesByMealType[mt].filter((r) => !alreadyPlannedIds.has(r.id))
+    }
+  }
 
   const totalRecipes = Object.values(recipesByMealType).reduce((n, r) => n + r.length, 0)
   console.log(`[suggest] user=${user.id} total_recipes_after_cooldown=${totalRecipes} cooldown_days=${cooldownDays}`)
