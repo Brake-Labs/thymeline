@@ -9,7 +9,7 @@ import TagPill from '@/components/recipes/TagPill'
 import DeleteConfirmDialog from '@/components/recipes/DeleteConfirmDialog'
 import ShareToggle from '@/components/recipes/ShareToggle'
 import AIGeneratedBadge from '@/components/recipes/AIGeneratedBadge'
-import AddRecipeModal from '@/components/recipes/AddRecipeModal'
+import GenerateRecipeModal from '@/components/recipes/GenerateRecipeModal'
 import { getAccessToken, getSupabaseClient } from '@/lib/supabase/browser'
 import { convertIngredients } from '@/lib/convert-units'
 
@@ -407,12 +407,11 @@ export default function RecipeDetailPage({ params }: Props) {
       )}
 
       {showRegenerate && (
-        <AddRecipeModal
+        <GenerateRecipeModal
           onClose={() => setShowRegenerate(false)}
           onSaved={() => setShowRegenerate(false)}
           getToken={getAccessToken}
-          initialTab="generate"
-          initialGenerateIngredients={recipe.ingredients ?? ''}
+          initialIngredients={recipe.ingredients ?? ''}
         />
       )}
     </div>
