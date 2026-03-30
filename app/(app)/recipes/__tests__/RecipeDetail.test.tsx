@@ -19,19 +19,28 @@ vi.mock('next/link', () => ({
 vi.mock('@/lib/supabase/browser', () => ({
   getAccessToken: async () => 'test-token',
   getSupabaseClient: () => ({
-    auth: { getSession: async () => ({ data: { session: { user: { id: 'user-1' } } } }) },
+    auth: {
+      getSession: async () => ({ data: { session: { user: { id: 'user-1' } } } }),
+      getUser: async () => ({ data: { user: { id: 'user-1' } } }),
+    },
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          single: async () => ({ data: { avoided_tags: [] }, error: null }),
+        }),
+      }),
+    }),
   }),
 }))
 
-vi.mock('@/components/recipes/AddRecipeModal', () => ({
-  default: ({ onClose, initialTab, initialGenerateIngredients }: {
+vi.mock('@/components/recipes/GenerateRecipeModal', () => ({
+  default: ({ onClose, initialIngredients }: {
     onClose: () => void
-    initialTab: string
-    initialGenerateIngredients: string
+    initialIngredients: string
   }) => (
-    <div data-testid="add-recipe-modal">
-      <span data-testid="modal-tab">{initialTab}</span>
-      <span data-testid="modal-ingredients">{initialGenerateIngredients}</span>
+    <div data-testid="generate-recipe-modal">
+      <h2>Generate Recipe with AI</h2>
+      <span data-testid="modal-ingredients">{initialIngredients}</span>
       <button onClick={onClose}>Close Modal</button>
     </div>
   ),
@@ -180,8 +189,8 @@ describe('T16 - Regenerate button appears on detail page only when isOwner && so
 
 // ── T17: Regenerate button opens modal with generate tab + ingredients pre-filled
 
-describe('T17 - Regenerate opens modal at generate tab with recipe ingredients pre-filled', () => {
-  it('opens AddRecipeModal at generate tab with current ingredients', async () => {
+describe('T17 - Regenerate opens GenerateRecipeModal with recipe ingredients pre-filled', () => {
+  it('opens GenerateRecipeModal with current ingredients pre-filled', async () => {
     const ingredients = 'chicken breast\nlemon\ngarlic'
     setupFetch(makeRecipe({ source: 'generated', user_id: 'user-1', ingredients }))
     render(<RecipeDetailPage params={{ id: 'recipe-1' }} />)
@@ -194,10 +203,11 @@ describe('T17 - Regenerate opens modal at generate tab with recipe ingredients p
       fireEvent.click(screen.getByRole('button', { name: /regenerate/i }))
     })
 
+    // GenerateRecipeModal opens with heading and ingredients pre-filled
     await waitFor(() => {
-      expect(screen.getByTestId('add-recipe-modal')).toBeInTheDocument()
+      expect(screen.getByTestId('generate-recipe-modal')).toBeInTheDocument()
     })
-    expect(screen.getByTestId('modal-tab').textContent).toBe('generate')
+    expect(screen.getByText('Generate Recipe with AI')).toBeInTheDocument()
     expect(screen.getByTestId('modal-ingredients').textContent).toBe(ingredients)
   })
 })

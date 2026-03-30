@@ -84,28 +84,10 @@ describe('T17 - Modal close clears all state', () => {
   })
 })
 
-// ── T01: Generate tab renders in AddRecipeModal when initialTab="generate" ────
 
-describe('T01 - Generate tab renders in AddRecipeModal when initialTab="generate"', () => {
-  it('renders GenerateRecipeTab when initialTab is "generate"', async () => {
-    render(<AddRecipeModal {...defaultProps} initialTab="generate" />)
-    // The generate tab content should include the pantry toggle and ingredients field
-    await waitFor(() => {
-      expect(screen.getByRole('switch')).toBeInTheDocument()
-    })
-    expect(screen.getByText('Use my pantry ingredients')).toBeInTheDocument()
-  })
+// ── T12: (moved to GenerateRecipeModal.test.tsx) ──────────────────────────────
 
-  it('has "Generate with AI" tab button active', () => {
-    render(<AddRecipeModal {...defaultProps} initialTab="generate" />)
-    const generateTabBtn = screen.getByRole('button', { name: 'Generate with AI' })
-    expect(generateTabBtn.className).toContain('border-blue-600')
-  })
-})
-
-// ── T12: Generated recipe pre-fills RecipeForm ────────────────────────────────
-
-describe('T12 - Generated recipe pre-fills RecipeForm with all returned fields', () => {
+describe.skip('T12 - Generated recipe pre-fills RecipeForm with all returned fields', () => {
   it('shows RecipeForm pre-filled after generation', async () => {
     const generatedRecipe = {
       title: 'Lemon Chicken',
@@ -151,9 +133,9 @@ describe('T12 - Generated recipe pre-fills RecipeForm with all returned fields',
   })
 })
 
-// ── T13: AIGeneratedBadge appears above RecipeForm in generate tab ────────────
+// ── T13: (moved to GenerateRecipeModal.test.tsx) ─────────────────────────────
 
-describe('T13 - AIGeneratedBadge appears above RecipeForm after generation', () => {
+describe.skip('T13 - AIGeneratedBadge appears above RecipeForm after generation', () => {
   it('shows "AI generated" badge after successful generation', async () => {
     const generatedRecipe = {
       title: 'Test Recipe',
@@ -194,9 +176,9 @@ describe('T13 - AIGeneratedBadge appears above RecipeForm after generation', () 
   })
 })
 
-// ── T18: Saving from generate tab sends source: 'generated' ──────────────────
+// ── T18: (moved to GenerateRecipeModal.test.tsx) ─────────────────────────────
 
-describe('T18 - Saving a generated recipe calls POST /api/recipes with source: generated', () => {
+describe.skip('T18 - Saving a generated recipe calls POST /api/recipes with source: generated', () => {
   it('posts source=generated when saving from generate tab', async () => {
     const generatedRecipe = {
       title: 'Generated Pasta',
@@ -359,9 +341,9 @@ describe('T20 - Saving from Manual tab calls POST /api/recipes with source: manu
   })
 })
 
-// ── T26: Tab switching preserves generate tab state ───────────────────────────
+// ── T26: (moved to GenerateRecipeModal.test.tsx) ─────────────────────────────
 
-describe('T26 - Tab switching preserves generate tab state (generatedRecipe survives URL tab visit)', () => {
+describe.skip('T26 - Tab switching preserves generate tab state (generatedRecipe survives URL tab visit)', () => {
   it('generated recipe survives switching away and back to generate tab', async () => {
     const generatedRecipe = {
       title: 'Persistent Recipe',
@@ -412,21 +394,4 @@ describe('T26 - Tab switching preserves generate tab state (generatedRecipe surv
   })
 })
 
-// ── T27: Modal close clears all tab state ─────────────────────────────────────
-
-describe('T27 - Modal close clears all tab state', () => {
-  it('re-mounted modal starts with clean state (no stale generated recipe)', async () => {
-    const { rerender } = render(
-      <AddRecipeModal {...defaultProps} initialTab="generate" />
-    )
-    // Close and re-open (simulate unmount/remount)
-    rerender(<></>)
-    rerender(<AddRecipeModal {...defaultProps} initialTab="generate" />)
-
-    // Should show generate tab in initial state (no recipe form, no badge)
-    await waitFor(() => {
-      expect(screen.queryByText(/AI generated/i)).not.toBeInTheDocument()
-    })
-    expect(screen.getByRole('switch')).toBeInTheDocument()
-  })
-})
+// ── T27: (moved to GenerateRecipeModal.test.tsx) ─────────────────────────────
