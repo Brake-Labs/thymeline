@@ -23,9 +23,11 @@ export default function GenerateRecipeModal({
 }: Props) {
   const [generatedRecipe, setGeneratedRecipe] = useState<GeneratedRecipe | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   async function handleSubmit(values: RecipeFormValues) {
     setIsSubmitting(true)
+    setSaveError(null)
     try {
       const token = await getToken()
       const res = await fetch('/api/recipes', {
@@ -62,6 +64,8 @@ export default function GenerateRecipeModal({
       }
       onSaved()
       onClose()
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
     } finally {
       setIsSubmitting(false)
     }
@@ -121,6 +125,11 @@ export default function GenerateRecipeModal({
                   Regenerate
                 </button>
               </div>
+              {saveError && (
+                <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                  {saveError}
+                </p>
+              )}
               <RecipeForm
                 initialValues={formInitialValues}
                 onSubmit={handleSubmit}
