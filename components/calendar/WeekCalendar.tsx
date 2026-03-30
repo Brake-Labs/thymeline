@@ -14,14 +14,14 @@ function getMostRecentSunday(): string {
 function addWeeks(dateStr: string, weeks: number): string {
   const d = new Date(dateStr + 'T12:00:00Z')
   d.setDate(d.getDate() + weeks * 7)
-  return d.toISOString().split('T')[0]
+  return d.toISOString().split('T')[0]!
 }
 
 function getWeekDates(weekStart: string): string[] {
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart + 'T12:00:00Z')
     d.setDate(d.getDate() + i)
-    return d.toISOString().split('T')[0]
+    return d.toISOString().split('T')[0]!
   })
 }
 

@@ -13,7 +13,7 @@ function getWeekDates(weekStart: string): string[] {
   for (let i = 0; i < 7; i++) {
     const d = new Date(weekStart + 'T12:00:00Z')
     d.setDate(d.getDate() + i)
-    dates.push(d.toISOString().split('T')[0])
+    dates.push(d.toISOString().split('T')[0]!)
   }
   return dates
 }

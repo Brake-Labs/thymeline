@@ -82,7 +82,7 @@ async function getHomeData(): Promise<HomeData & { weekStart: string }> {
 
   const fullName = (user.user_metadata?.full_name as string | undefined) ?? null
   const userName = fullName
-    ? fullName.split(' ')[0]
+    ? (fullName.split(' ')[0] ?? fullName)
     : (user.email?.split('@')[0] ?? null)
 
   const [planResult, historyResult, recipeCountResult, groceryResult] = await Promise.all([

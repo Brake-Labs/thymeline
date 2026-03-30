@@ -71,7 +71,7 @@ export default function SummaryStep({ setup, selections, onSave, isSaving, onBac
   // Group confirmed by date for display
   const byDate = confirmed.reduce<Record<string, typeof confirmed>>((acc, item) => {
     if (!acc[item.date]) acc[item.date] = []
-    acc[item.date].push(item)
+    acc[item.date]!.push(item)
     return acc
   }, {})
   const sortedDates = Object.keys(byDate).sort()
@@ -99,7 +99,7 @@ export default function SummaryStep({ setup, selections, onSave, isSaving, onBac
               <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-1">
                 {formatDayName(date)}
               </p>
-              {byDate[date].map(({ mealType, sel }) => (
+              {byDate[date]?.map(({ mealType, sel }) => (
                 <div
                   key={`${date}:${mealType}`}
                   className="flex items-center gap-3 py-1.5 border-b border-stone-100 last:border-0"

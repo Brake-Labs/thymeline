@@ -251,7 +251,7 @@ describe('GET /api/recipes — T15: tag filter', () => {
 
     expect(res.status).toBe(200)
     // Verify the Supabase .contains() was called with the tag
-    const fromCall = mock.from.mock.results[0].value
+    const fromCall = mock.from.mock.results[0]!.value
     expect(fromCall.select).toHaveBeenCalled()
   })
 })
@@ -267,7 +267,7 @@ describe('GET /api/recipes — T16: category filter', () => {
     const res = await GET(req as Parameters<typeof GET>[0])
 
     expect(res.status).toBe(200)
-    const fromCall = mock.from.mock.results[0].value
+    const fromCall = mock.from.mock.results[0]!.value
     expect(fromCall.select).toHaveBeenCalled()
   })
 })
@@ -634,7 +634,7 @@ describe('T17 - household POST sets household_id in insert payload', () => {
     // Verify insert was called with household_id in the payload
     const recipesFromIdx = mock.from.mock.calls.findIndex(([t]: [string]) => t === 'recipes')
     if (recipesFromIdx !== -1) {
-      const recipesObj = mock.from.mock.results[recipesFromIdx].value
+      const recipesObj = mock.from.mock.results[recipesFromIdx]!.value
       const insertPayload = recipesObj.insert?.mock?.calls?.[0]?.[0]
       expect(insertPayload?.household_id).toBe('hh-1')
     }

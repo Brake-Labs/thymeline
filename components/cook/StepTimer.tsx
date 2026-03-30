@@ -19,22 +19,22 @@ export function parseTimeFromStep(text: string): number {
 
   // "X hours and Y minutes" / "X hr Y min"
   for (const m of text.matchAll(/(\d+)\s*(?:hours?|hr)\s*(?:and\s*)?(\d+)\s*(?:minutes?|mins?)/gi)) {
-    candidates.push(parseInt(m[1]) * 3600 + parseInt(m[2]) * 60)
+    candidates.push(parseInt(m[1]!, 10) * 3600 + parseInt(m[2]!, 10) * 60)
   }
 
   // "X to Y minutes" or "X–Y minutes" (en-dash or hyphen) → use Y (higher value)
   for (const m of text.matchAll(/\d+\s*(?:to|[-–])\s*(\d+)\s*(?:minutes?|mins?)/gi)) {
-    candidates.push(parseInt(m[1]) * 60)
+    candidates.push(parseInt(m[1]!, 10) * 60)
   }
 
   // "X hours" / "X hour"
   for (const m of text.matchAll(/(\d+)\s*(?:hours?|hr)/gi)) {
-    candidates.push(parseInt(m[1]) * 3600)
+    candidates.push(parseInt(m[1]!, 10) * 3600)
   }
 
   // "X minutes" / "X mins"
   for (const m of text.matchAll(/(\d+)\s*(?:minutes?|mins?)/gi)) {
-    candidates.push(parseInt(m[1]) * 60)
+    candidates.push(parseInt(m[1]!, 10) * 60)
   }
 
   return candidates.length > 0 ? Math.max(...candidates) : 0

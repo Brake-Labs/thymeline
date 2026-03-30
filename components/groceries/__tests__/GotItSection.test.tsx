@@ -59,7 +59,7 @@ describe('T19 - Add to pantry from Got It section calls POST /api/pantry/import'
       expect(addBtns.length).toBeGreaterThan(0)
     })
 
-    const addBtn = screen.getAllByLabelText(/add .* to pantry/i)[0]
+    const addBtn = screen.getAllByLabelText(/add .* to pantry/i)[0]!
     fireEvent.click(addBtn)
 
     await waitFor(() => {
@@ -67,7 +67,7 @@ describe('T19 - Add to pantry from Got It section calls POST /api/pantry/import'
         ([url]) => url === '/api/pantry/import',
       )
       expect(importCalls.length).toBeGreaterThan(0)
-      const body = JSON.parse(importCalls[0][1].body as string)
+      const body = JSON.parse(importCalls[0]![1].body as string)
       expect(Array.isArray(body.items)).toBe(true)
       expect(body.items[0].name).toBe('chicken breast')
     })
@@ -88,7 +88,7 @@ describe('T19 - Add to pantry from Got It section calls POST /api/pantry/import'
         ([url]) => url === '/api/pantry/import',
       )
       expect(importCalls.length).toBeGreaterThan(0)
-      const body = JSON.parse(importCalls[0][1].body as string)
+      const body = JSON.parse(importCalls[0]![1].body as string)
       expect(body.items).toHaveLength(2)
     })
   })
@@ -101,7 +101,7 @@ describe('T19 - Add to pantry from Got It section calls POST /api/pantry/import'
       expect(addBtns.length).toBeGreaterThan(0)
     })
 
-    fireEvent.click(screen.getAllByLabelText(/add .* to pantry/i)[0])
+    fireEvent.click(screen.getAllByLabelText(/add .* to pantry/i)[0]!)
 
     await waitFor(() => {
       const toast = screen.queryByText(/added to pantry/i)

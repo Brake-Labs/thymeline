@@ -26,5 +26,11 @@ jobs:
       - name: Type check
         run: npm run type-check
 
+      - name: Build
+        run: npx next build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
+
       - name: Tests
         run: npm test

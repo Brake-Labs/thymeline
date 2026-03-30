@@ -80,7 +80,7 @@ export default function FilterPanel({
   function applyPreset(preset: string) {
     setLastMadePreset(preset)
     const today = new Date()
-    const fmt = (d: Date) => d.toISOString().split('T')[0]
+    const fmt = (d: Date) => d.toISOString().split('T')[0]!
 
     if (preset === 'never') {
       onPendingChange({ ...pendingFilters, neverMade: true, lastMadeFrom: null, lastMadeTo: null })

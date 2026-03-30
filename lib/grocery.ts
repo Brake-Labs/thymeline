@@ -152,12 +152,12 @@ function parseFraction(s: string): number | null {
   // Mixed number like "1½" or "1 1/2"
   const mixedMatch = s.match(/^(\d+)\s*([½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞]|(\d+\/\d+))/)
   if (mixedMatch) {
-    const whole = parseInt(mixedMatch[1], 10)
-    const frac = mixedMatch[2]
-    if (frac in unicodeFractions) return whole + unicodeFractions[frac]
+    const whole = parseInt(mixedMatch[1]!, 10)
+    const frac = mixedMatch[2]!
+    if (frac in unicodeFractions) return whole + unicodeFractions[frac]!
     if (frac.includes('/')) {
       const [n, d] = frac.split('/').map(Number)
-      return whole + n / d
+      return whole + n! / d!
     }
   }
   // Unicode fraction alone
@@ -166,10 +166,10 @@ function parseFraction(s: string): number | null {
   }
   // Simple fraction
   const fracMatch = s.match(/^(\d+)\/(\d+)$/)
-  if (fracMatch) return parseInt(fracMatch[1], 10) / parseInt(fracMatch[2], 10)
+  if (fracMatch) return parseInt(fracMatch[1]!, 10) / parseInt(fracMatch[2]!, 10)
   // Range like "2-3" → take lower
   const rangeMatch = s.match(/^(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$/)
-  if (rangeMatch) return parseFloat(rangeMatch[1])
+  if (rangeMatch) return parseFloat(rangeMatch[1]!)
   // Plain number
   const n = parseFloat(s)
   return isNaN(n) ? null : n
@@ -202,7 +202,7 @@ export function parseIngredientLine(line: string): ParsedIngredient {
   const amountPattern = /^(\d+(?:\.\d+)?(?:[½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞]|\s+\d+\/\d+)?(?:\/\d+)?(?:\s*[-–]\s*\d+(?:\.\d+)?)?|[½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞])\s*/
   const amountMatch = remainder.match(amountPattern)
   if (amountMatch) {
-    amount = parseFraction(amountMatch[1].trim())
+    amount = parseFraction(amountMatch[1]!.trim())
     remainder = remainder.slice(amountMatch[0].length)
   }
 
@@ -254,7 +254,7 @@ export function combineIngredients(inputs: CombineInput[]): {
 
   for (const [, group] of byName) {
     if (group.length === 1) {
-      const { parsed, recipeTitle, scaleFactor } = group[0]
+      const { parsed, recipeTitle, scaleFactor } = group[0]!
       const scaled = parsed.amount !== null ? parsed.amount * scaleFactor : null
       resolved.push({
         id:        uuidv4(),
@@ -273,7 +273,7 @@ export function combineIngredients(inputs: CombineInput[]): {
     const units = new Set(group.map((g) => g.parsed.unit))
     if (units.size === 1) {
       // Same unit (or all null) → sum
-      const [unit] = Array.from(units)
+      const unit = Array.from(units)[0] ?? null
       let total: number | null = null
       const recipeNames: string[] = []
       let isAmbiguous = false
@@ -284,7 +284,7 @@ export function combineIngredients(inputs: CombineInput[]): {
         total = (total ?? 0) + scaled
       }
       if (!isAmbiguous) {
-        const first = group[0].parsed
+        const first = group[0]!.parsed
         resolved.push({
           id:        uuidv4(),
           name:      first.rawName || first.name,

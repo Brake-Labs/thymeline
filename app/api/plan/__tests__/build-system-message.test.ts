@@ -108,7 +108,7 @@ describe('buildSystemMessage', () => {
     // "Grill" should only appear once in the avoided tags section
     const avoidedMatch = result.match(/avoided tags: (.+)/)
     expect(avoidedMatch).not.toBeNull()
-    const avoidedList = avoidedMatch![1].split(', ')
+    const avoidedList = avoidedMatch![1]!.split(', ')
     const grillCount = avoidedList.filter((t) => t === 'Grill').length
     expect(grillCount).toBe(1)
   })

@@ -15,7 +15,7 @@ export const MEAL_TYPE_CATEGORIES: Record<MealType, string[]> = {
 export function getMostRecentSunday(date: Date): string {
   const d = new Date(date)
   d.setDate(d.getDate() - d.getDay()) // getDay() === 0 for Sunday
-  return d.toISOString().split('T')[0]
+  return d.toISOString().split('T')[0]!
 }
 
 export function isSunday(dateStr: string): boolean {

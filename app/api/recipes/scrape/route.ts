@@ -97,7 +97,7 @@ ${pageContent.slice(0, 20000)}`
       messages: [{ role: 'user', content: extractionPrompt }],
     })
 
-    const rawText = response.content[0].type === 'text' ? response.content[0].text : ''
+    const rawText = response.content[0]?.type === 'text' ? response.content[0].text : ''
     // Strip markdown code fences if present
     const cleaned = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
     const parsed = JSON.parse(cleaned)

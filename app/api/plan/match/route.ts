@@ -34,10 +34,12 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
       ),
     )
     if (keywordMatches.length === 1) {
-      return NextResponse.json({ match: { recipe_id: keywordMatches[0].id, recipe_title: keywordMatches[0].title } })
+      const m = keywordMatches[0]!
+      return NextResponse.json({ match: { recipe_id: m.id, recipe_title: m.title } })
     }
     // Multiple keyword matches: pass only those to the LLM to narrow down
     if (keywordMatches.length > 1) {
+      const first = keywordMatches[0]!
       try {
         const systemMessage = `You are helping find a recipe from a user's personal recipe vault.
 Pick the single best match from the list for the search phrase. Return ONLY valid JSON: { "recipe_id": "uuid" }`
@@ -47,9 +49,9 @@ Pick the single best match from the list for the search phrase. Return ONLY vali
         const found = keywordMatches.find((r) => r.id === parsed.recipe_id)
         if (found) return NextResponse.json({ match: { recipe_id: found.id, recipe_title: found.title } })
         // Fall through to return first keyword match if LLM fails
-        return NextResponse.json({ match: { recipe_id: keywordMatches[0].id, recipe_title: keywordMatches[0].title } })
+        return NextResponse.json({ match: { recipe_id: first.id, recipe_title: first.title } })
       } catch {
-        return NextResponse.json({ match: { recipe_id: keywordMatches[0].id, recipe_title: keywordMatches[0].title } })
+        return NextResponse.json({ match: { recipe_id: first.id, recipe_title: first.title } })
       }
     }
   }

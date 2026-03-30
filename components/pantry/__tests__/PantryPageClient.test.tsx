@@ -165,7 +165,7 @@ describe('T14 - "Clear expired" removes only expired items', () => {
           call[0] === '/api/pantry' && (call[1] as RequestInit)?.method === 'DELETE',
       )
       expect(deleteCalls.length).toBeGreaterThan(0)
-      const body = JSON.parse(deleteCalls[0][1].body as string)
+      const body = JSON.parse(deleteCalls[0]![1].body as string)
       // Should only include the expired item (p3), not p1 or p2
       expect(body.ids).toContain('p3')
       expect(body.ids).not.toContain('p1')

@@ -49,7 +49,7 @@ describe('T16 - Selection highlights chosen option', () => {
   it('calls onSelect when Select is clicked', () => {
     const onSelect = vi.fn()
     render(<SuggestionDayRow {...makeRow({ onSelect })} />)
-    fireEvent.click(screen.getAllByText('Select')[0])
+    fireEvent.click(screen.getAllByText('Select')[0]!)
     expect(onSelect).toHaveBeenCalledWith(DATE, 'dinner', RECIPE_A)
   })
 
@@ -72,7 +72,7 @@ describe('T17 - Use for a different day shows AssignDayPicker', () => {
 
   it('opens the AssignDayPicker when "Use for a different day" is clicked', () => {
     render(<SuggestionDayRow {...makeRow()} />)
-    fireEvent.click(screen.getAllByText('Use for a different day')[0])
+    fireEvent.click(screen.getAllByText('Use for a different day')[0]!)
     expect(screen.getByRole('dialog', { name: 'Use for a different day' })).toBeInTheDocument()
   })
 })
@@ -84,7 +84,7 @@ describe('T17b - Cross-day assignment calls onAssignToDay with sourceDate', () =
     const onAssignToDay = vi.fn()
     render(<SuggestionDayRow {...makeRow({ onAssignToDay })} />)
     // Open picker for RECIPE_A (first "Use for a different day")
-    fireEvent.click(screen.getAllByText('Use for a different day')[0])
+    fireEvent.click(screen.getAllByText('Use for a different day')[0]!)
     // Pick OTHER_DATE from the dialog (2026-03-03 → "Tuesday, Mar 3")
     fireEvent.click(screen.getByText('Tuesday, Mar 3'))
     expect(onAssignToDay).toHaveBeenCalledWith(RECIPE_A, DATE, OTHER_DATE, 'dinner')

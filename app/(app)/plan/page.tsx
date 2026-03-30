@@ -50,7 +50,7 @@ function getDefaultActiveDates(weekStart: string): string[] {
   for (let i = 0; i < 7; i++) {
     const d = new Date(weekStart + 'T12:00:00Z')
     d.setDate(d.getDate() + i)
-    dates.push(d.toISOString().split('T')[0])
+    dates.push(d.toISOString().split('T')[0]!)
   }
   return dates
 }
@@ -145,7 +145,7 @@ function PlanPageInner() {
         const data = await res.json() as { days: DaySuggestions[] }
         for (const dayData of data.days ?? []) {
           const idx = days.findIndex((d) => d.date === dayData.date)
-          if (idx >= 0) {
+          if (idx >= 0 && days[idx]) {
             days[idx].meal_types = (dayData.meal_types ?? []).map((mts) => ({
               meal_type:  mts.meal_type,
               options:    mts.options,

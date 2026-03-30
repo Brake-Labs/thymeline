@@ -135,7 +135,7 @@ describe('RecipeTable', () => {
   })
 
   it('T14: recipes render in the order they are passed (sort is caller responsibility)', () => {
-    const sorted = [recipes[1], recipes[2], recipes[0]] // Apple Pie, Bacon Eggs, Zucchini Soup
+    const sorted = [recipes[1]!, recipes[2]!, recipes[0]!] // Apple Pie, Bacon Eggs, Zucchini Soup
     render(
       <RecipeTable
         recipes={sorted}

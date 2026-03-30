@@ -88,7 +88,7 @@ describe('T12 - Section Save sends only its own fields', () => {
     // Click first Save button (Planning Defaults section)
     const saveButtons = screen.getAllByText('Save')
     await act(async () => {
-      fireEvent.click(saveButtons[0])
+      fireEvent.click(saveButtons[0]!)
     })
 
     await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2))
@@ -116,7 +116,7 @@ describe('T12 - Section Save sends only its own fields', () => {
     // Last Save button = Seasonal Mode section
     const saveButtons = screen.getAllByText('Save')
     await act(async () => {
-      fireEvent.click(saveButtons[saveButtons.length - 1])
+      fireEvent.click(saveButtons[saveButtons.length - 1]!)
     })
 
     await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2))
@@ -144,7 +144,7 @@ describe('T13 - Saved ✓ success state', () => {
 
     const saveButtons = screen.getAllByText('Save')
     await act(async () => {
-      fireEvent.click(saveButtons[0])
+      fireEvent.click(saveButtons[0]!)
     })
 
     await waitFor(() => {

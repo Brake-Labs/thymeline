@@ -19,13 +19,13 @@ function formatWeekRange(weekStart: string): string {
 function getMostRecentSunday(date: Date): string {
   const d = new Date(date)
   d.setDate(d.getDate() - d.getDay())
-  return d.toISOString().split('T')[0]
+  return d.toISOString().split('T')[0]!
 }
 
 function addDays(dateStr: string, days: number): string {
   const d = new Date(dateStr + 'T12:00:00Z')
   d.setDate(d.getDate() + days)
-  return d.toISOString().split('T')[0]
+  return d.toISOString().split('T')[0]!
 }
 
 export default function WeekPicker({ weekStart, onChange }: WeekPickerProps) {

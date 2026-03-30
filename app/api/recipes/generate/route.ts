@@ -53,9 +53,9 @@ export const POST = withAuth(async (req: NextRequest, { user, db }) => {
     .filter(Boolean)
 
   // Deduplicate: pantry names take precedence
-  const pantryLower = new Set(pantryLines.map((l) => l.split(' ').slice(-1)[0].toLowerCase()))
+  const pantryLower = new Set(pantryLines.map((l) => l.split(' ').slice(-1)[0]!.toLowerCase()))
   const dedupedSpecific = specificLines.filter(
-    (l) => !pantryLower.has(l.toLowerCase().split(' ').slice(-1)[0])
+    (l) => !pantryLower.has(l.toLowerCase().split(' ').slice(-1)[0]!)
   )
 
   const combined = [...pantryLines, ...dedupedSpecific]
@@ -112,7 +112,7 @@ Make it practical and delicious.`
       messages: [{ role: 'user', content: userMessage }],
       system: systemMessage,
     })
-    raw = response.content[0].type === 'text' ? response.content[0].text : ''
+    raw = response.content[0]?.type === 'text' ? response.content[0].text : ''
   } catch (err) {
     console.error('[generate] LLM error:', err)
     return NextResponse.json({ error: 'Recipe generation failed — please try again' }, { status: 500 })

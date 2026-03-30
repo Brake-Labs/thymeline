@@ -11,13 +11,13 @@ interface LogDateSectionProps {
 type Status = 'idle' | 'loading' | 'success' | 'already_logged' | 'picking'
 
 function getToday(): string {
-  return new Date().toISOString().split('T')[0]
+  return new Date().toISOString().split('T')[0]!
 }
 
 function getYesterday(): string {
   const d = new Date()
   d.setDate(d.getDate() - 1)
-  return d.toISOString().split('T')[0]
+  return d.toISOString().split('T')[0]!
 }
 
 export default function LogDateSection({

@@ -122,7 +122,7 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
           messages: [{ role: 'user', content: extractionPrompt }],
         })
 
-        const rawText = response.content[0].type === 'text' ? response.content[0].text : ''
+        const rawText = response.content[0]?.type === 'text' ? response.content[0].text : ''
         const cleaned = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
         const parsed = JSON.parse(cleaned)
         if (typeof parsed.ingredients === 'string') {
@@ -183,7 +183,7 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
         messages:   [{ role: 'user', content: userPrompt }],
       })
 
-      const rawText = response.content[0].type === 'text' ? response.content[0].text : '[]'
+      const rawText = response.content[0]?.type === 'text' ? response.content[0].text : '[]'
       const cleaned = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
       const parsed: unknown[] = JSON.parse(cleaned)
 

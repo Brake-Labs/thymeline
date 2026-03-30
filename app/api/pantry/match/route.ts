@@ -50,7 +50,7 @@ Rank these recipes by how many pantry ingredients they use. Return the top 5 in 
       messages: [{ role: 'user', content: userMessage }],
     })
 
-    const rawText = response.content[0].type === 'text' ? response.content[0].text : ''
+    const rawText = response.content[0]?.type === 'text' ? response.content[0].text : ''
     const cleaned = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
     const parsed = JSON.parse(cleaned) as { matches: PantryMatch[] }
 

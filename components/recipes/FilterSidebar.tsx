@@ -126,7 +126,7 @@ export default function FilterSidebar({ filters, onChange, onClearAll, vaultTags
 
   function applyLastMadePreset(preset: string) {
     const today = new Date()
-    const fmt = (d: Date) => d.toISOString().split('T')[0]
+    const fmt = (d: Date) => d.toISOString().split('T')[0]!
 
     if (preset === 'never') {
       onChange({ ...filters, neverMade: true, lastMadeFrom: null, lastMadeTo: null })

@@ -68,7 +68,7 @@ export default function RecipeDetailPage({ params }: Props) {
   }, [params.id])
 
   function openLogModal() {
-    setLogDate(new Date().toISOString().split('T')[0])
+    setLogDate(new Date().toISOString().split('T')[0]!)
     setShowLogModal(true)
   }
 

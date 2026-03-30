@@ -233,7 +233,7 @@ describe('scrapeRecipeSchema', () => {
     const result = scrapeRecipeSchema.safeParse({ url: '' })
     expect(result.success).toBe(false)
     if (!result.success) {
-      expect(result.error.issues[0].message).toBe('url is required')
+      expect(result.error.issues[0]!.message).toBe('url is required')
     }
   })
 
@@ -241,7 +241,7 @@ describe('scrapeRecipeSchema', () => {
     const result = scrapeRecipeSchema.safeParse({ url: 'not-a-url' })
     expect(result.success).toBe(false)
     if (!result.success) {
-      expect(result.error.issues[0].message).toBe('url must be a valid URL')
+      expect(result.error.issues[0]!.message).toBe('url must be a valid URL')
     }
   })
 })
@@ -286,7 +286,7 @@ describe('bulkUpdateRecipesSchema', () => {
     const result = bulkUpdateRecipesSchema.safeParse({ recipe_ids: [] })
     expect(result.success).toBe(false)
     if (!result.success) {
-      expect(result.error.issues[0].message).toBe(
+      expect(result.error.issues[0]!.message).toBe(
         'recipe_ids is required and must be non-empty'
       )
     }

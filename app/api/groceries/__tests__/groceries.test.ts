@@ -450,7 +450,7 @@ describe('T10 - Plan-level scaling: 4 people doubles amounts from base 2', () =>
     ]
     const { resolved } = combineIngredients(inputs)
     const pasta = resolved[0]
-    expect(pasta.amount).toBe(400)
+    expect(pasta!.amount).toBe(400)
   })
 })
 
@@ -771,7 +771,7 @@ describe('T25 - POST /api/groceries/generate uses household_id in upsert when in
       .filter(({ table }) => table === 'grocery_lists')
     const upsertCalls = groceryObjs.flatMap(({ obj }) => obj.upsert?.mock?.calls ?? [])
     expect(upsertCalls.length).toBeGreaterThan(0)
-    const [upsertPayload, upsertOpts] = upsertCalls[0]
+    const [upsertPayload, upsertOpts] = upsertCalls[0]!
     expect(upsertPayload.household_id).toBe('hh-1')
     expect(upsertOpts?.onConflict).toBe('household_id,week_start')
   })

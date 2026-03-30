@@ -26,7 +26,7 @@ export const POST = withAuth(async (req) => {
   // Extract media type and base64 data from data URL, or fall back to jpeg
   const dataUrlMatch = body.image.match(/^data:(image\/[a-z+]+);base64,(.+)$/i)
   const mediaType = (dataUrlMatch?.[1] ?? 'image/jpeg') as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'
-  const base64Data = dataUrlMatch ? dataUrlMatch[2] : body.image
+  const base64Data = dataUrlMatch?.[2] ?? body.image
 
   try {
     const response = await anthropic.messages.create({
@@ -54,7 +54,7 @@ export const POST = withAuth(async (req) => {
       ],
     })
 
-    const rawText = response.content[0].type === 'text' ? response.content[0].text : ''
+    const rawText = response.content[0]?.type === 'text' ? response.content[0].text : ''
     const cleaned = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
     const parsed = JSON.parse(cleaned) as { detected: { name: string; quantity: string | null; section: string | null }[] }
 

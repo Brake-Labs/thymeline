@@ -19,7 +19,7 @@ export const POST = withAuth(async (req: NextRequest, { user, db }, params) => {
   }
 
   // Accept optional made_on from body; default to today
-  const today = new Date().toISOString().split('T')[0]
+  const today = new Date().toISOString().split('T')[0]!
   const { data: body } = await parseBody(req, logRecipeSchema)
   const madeOn = body?.made_on ?? today
 
@@ -37,7 +37,7 @@ export const POST = withAuth(async (req: NextRequest, { user, db }, params) => {
   }
 
   // Silent pantry deduction — fire and forget, never affects the HTTP response
-  void deductPantryIngredients(id, user.id).catch(() => {})
+  if (id) void deductPantryIngredients(id, user.id).catch(() => {})
 
   return NextResponse.json({ made_on: madeOn, already_logged: alreadyLogged })
 })

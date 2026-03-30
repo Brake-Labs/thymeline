@@ -231,6 +231,6 @@ describe('T43 - "Read step" triggers speech synthesis', () => {
 
     const calls = onCommand.mock.calls
     expect(calls.length).toBe(1)
-    expect(calls[0][0]).toEqual({ type: 'readStep' })
+    expect(calls[0]![0]).toEqual({ type: 'readStep' })
   })
 })

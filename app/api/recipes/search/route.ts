@@ -93,7 +93,7 @@ Return ONLY a JSON array of recipe_id strings, e.g. ["uuid1","uuid2"]. No other 
       temperature: 0,
       messages: [{ role: 'user', content: prompt }],
     })
-    const rawText = response.content[0].type === 'text' ? response.content[0].text : '[]'
+    const rawText = response.content[0]?.type === 'text' ? response.content[0].text : '[]'
     const cleaned = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
     const parsed = JSON.parse(cleaned)
     rankedIds = Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : []

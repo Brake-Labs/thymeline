@@ -66,7 +66,7 @@ export const PATCH = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   const results = await Promise.all(updatePromises)
   const errors = results.filter((r) => r.error)
   if (errors.length > 0) {
-    return NextResponse.json({ error: errors[0].error?.message }, { status: 500 })
+    return NextResponse.json({ error: errors[0]?.error?.message }, { status: 500 })
   }
 
   const updatedRecipes = results.map((r) => r.data)
