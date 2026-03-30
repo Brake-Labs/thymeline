@@ -1,6 +1,7 @@
 'use client'
 
 import StepTimer, { type TimerState } from './StepTimer'
+import StepIngredientPanel from './StepIngredientPanel'
 
 interface Props {
   steps: string[]
@@ -9,6 +10,9 @@ interface Props {
   onCurrentStepChange: (i: number) => void
   timers: Map<number, TimerState>
   onTimerChange: (stepIndex: number, state: TimerState | null) => void
+  ingredients?: string
+  baseServings?: number
+  targetServings?: number
 }
 
 export default function ScrollStepView({
@@ -18,6 +22,9 @@ export default function ScrollStepView({
   onCurrentStepChange,
   timers,
   onTimerChange,
+  ingredients,
+  baseServings = 4,
+  targetServings = 4,
 }: Props) {
   return (
     <div className="px-4 py-4 space-y-4">
@@ -51,6 +58,15 @@ export default function ScrollStepView({
               </span>
               <p className="text-stone-700 text-sm leading-relaxed">{step}</p>
             </div>
+            {ingredients && (
+              <StepIngredientPanel
+                stepText={step}
+                ingredients={ingredients}
+                baseServings={baseServings}
+                targetServings={targetServings}
+                defaultExpanded={false}
+              />
+            )}
             <StepTimer
               stepIndex={i}
               timerState={timers.get(i)}

@@ -290,6 +290,9 @@ export default function CookModePage({ params }: Props) {
           onViewChange={setView}
           timers={timers}
           onTimerChange={handleTimerChange}
+          ingredients={recipe.ingredients ?? undefined}
+          baseServings={recipe.servings ?? 4}
+          targetServings={servings}
         />
       ) : (
         recipe.ingredients ? (
