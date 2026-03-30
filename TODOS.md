@@ -45,31 +45,27 @@
 ### ~~Parallelize meal type queries~~ ✅
 - Completed in PR #160.
 
-## Deferred (after reliability sprint)
+## Deferred — DONE
 
-### Build shared test utilities
-- **What:** Extract common Supabase mock factories and test helpers into shared utilities. Build for the new patterns (zod schemas, generated types, auth middleware).
-- **Why:** ~600 lines of mock code duplicated across test files. BUT: this should wait until after Priority 1 changes land, or you'll build utilities for the old patterns.
-- **Depends on:** Priority 1 (zod + auth middleware) must land first.
+### ~~Build shared test utilities~~ ✅
+- `test/helpers.ts` — `mockSupabase`, `mockHousehold`, `makeRequest`, `defaultMockState`, `tableMock`, `defaultGetUser`
+- Refactored 3 test files (home, tags, preferences) as proof of concept
+- Remaining test files can be migrated incrementally
 
-### Migrate remaining routes to Zod
-- **What:** Wire `parseBody` into the ~20 routes that still use manual `req.json()` + if/else validation.
-- **Why:** Schemas exist in `lib/schemas.ts` — routes just need to call `parseBody` instead of manual parsing.
-- **Effort:** CC: ~30 min
+### ~~Migrate remaining routes to Zod~~ ✅
+- All routes now use `parseBody()` — zero manual `req.json()` calls remain
+
+### ~~Update CLAUDE.md to reflect actual LLM usage~~ ✅
+- Documented `lib/llm.ts`, `lib/auth.ts`, `lib/schemas.ts` patterns
+- Added testing guidelines (don't duplicate auth/validation tests)
+
+## Remaining (not in reliability sprint scope)
 
 ### Generate Supabase types
 - **What:** Run `supabase gen types typescript` for DB types. Replace `as unknown` casts.
 - **Why:** Supabase responses are untyped. Generated types eliminate runtime cast bugs.
-- **Effort:** CC: ~30 min
-- **Depends on:** Supabase CLI access
-
-### Update CLAUDE.md to reflect actual LLM usage
-- **What:** Change "any-llm" reference to `@anthropic-ai/sdk`. Document actual LLM routing pattern.
-- **Why:** CLAUDE.md is inaccurate. Agents reading it get confused about the LLM setup.
-- **Effort:** CC: ~5 min
+- **Blocked by:** Needs `SUPABASE_ACCESS_TOKEN` or `supabase login` (not available in sandbox)
 
 ### Formalize design system into DESIGN.md
-- **What:** Run `/design-consultation` to document the implicit design system: sage/stone/terra palette, Plus Jakarta Sans + Manrope fonts, borders-not-shadows, warm cream backgrounds (#FFFDF9), card patterns with 3px sage accent bars, button styles, section header patterns.
-- **Why:** The codebase has a strong implicit design system but no documentation. As real users arrive and iteration speeds up, visual drift will creep in without a reference document. New contributors (human or AI) will introduce inconsistencies.
-- **Effort:** CC: ~30 min
-- **Depends on:** Reliability sprint complete (this is polish, not reliability).
+- **What:** Run `/design-consultation` to document the implicit design system.
+- **Why:** Polish, not reliability. Defer to after sprint lands.

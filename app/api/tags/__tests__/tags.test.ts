@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { NextRequest } from 'next/server'
+import {
+  mockSupabase,
+  mockHousehold,
+  makeRequest,
+  defaultGetUser,
+} from '@/test/helpers'
 
 // ── Shared mock state ─────────────────────────────────────────────────────────
 
@@ -42,36 +47,19 @@ function makeTagsFrom(table: string) {
   return {}
 }
 
-vi.mock('@/lib/supabase-server', () => ({
-  createServerClient: () => ({
-    auth: {
-      getUser: async () => ({
-        data: { user: mockState.user },
-        error: mockState.user ? null : { message: 'no user' },
-      }),
-    },
-    from: makeTagsFrom,
-  }),
-  createAdminClient: () => ({ from: makeTagsFrom }),
-}))
+// ── Module mocks (vi.mock calls must stay in the test file) ───────────────────
 
-vi.mock('@/lib/household', () => ({
+vi.mock('@/lib/supabase-server', () =>
+  mockSupabase(makeTagsFrom, defaultGetUser(mockState))
+)
+
+vi.mock('@/lib/household', () => mockHousehold({
   resolveHouseholdScope: vi.fn().mockResolvedValue(null),
-  canManage: (role: string) => role === 'owner' || role === 'co_owner',
 }))
 
 import { resolveHouseholdScope } from '@/lib/household'
 
 const { GET, POST } = await import('@/app/api/tags/route')
-
-function makeReq(method: string, url: string, body?: unknown): NextRequest {
-  const opts: RequestInit = {
-    method,
-    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer token' },
-  }
-  if (body !== undefined) opts.body = JSON.stringify(body)
-  return new NextRequest(url, opts)
-}
 
 beforeEach(() => {
   mockState.user = { id: 'user-1' }
@@ -85,7 +73,7 @@ beforeEach(() => {
 describe('T27 - GET /api/tags returns correct shape', () => {
   it('returns firstClass array containing known tags and custom array for the user', async () => {
     mockState.customTags = [{ id: 'ct1', name: 'MyTag', section: 'cuisine' }]
-    const res = await GET(makeReq('GET', 'http://localhost/api/tags'))
+    const res = await GET(makeRequest('GET', 'http://localhost/api/tags'))
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(Array.isArray(body.firstClass)).toBe(true)
@@ -95,7 +83,7 @@ describe('T27 - GET /api/tags returns correct shape', () => {
   })
 
   it('returns empty custom array when user has no custom tags', async () => {
-    const res = await GET(makeReq('GET', 'http://localhost/api/tags'))
+    const res = await GET(makeRequest('GET', 'http://localhost/api/tags'))
     const body = await res.json()
     expect(body.custom).toEqual([])
     expect(body.firstClass.length).toBeGreaterThan(0)
@@ -107,14 +95,14 @@ describe('T27 - GET /api/tags returns correct shape', () => {
 
 describe('T12 - POST /api/tags returns 400 when name matches first-class tag', () => {
   it('rejects "chicken" (case-insensitive match to "Chicken")', async () => {
-    const res = await POST(makeReq('POST', 'http://localhost/api/tags', { name: 'chicken' }))
+    const res = await POST(makeRequest('POST', 'http://localhost/api/tags', { name: 'chicken' }))
     expect(res.status).toBe(400)
     const body = await res.json()
     expect(body.error).toMatch(/built-in tag/)
   })
 
   it('rejects exact match "Vegan"', async () => {
-    const res = await POST(makeReq('POST', 'http://localhost/api/tags', { name: 'Vegan' }))
+    const res = await POST(makeRequest('POST', 'http://localhost/api/tags', { name: 'Vegan' }))
     expect(res.status).toBe(400)
   })
 })
@@ -124,7 +112,7 @@ describe('T12 - POST /api/tags returns 400 when name matches first-class tag', (
 describe('T13 - POST /api/tags returns 409 for duplicate custom tag', () => {
   it('returns 409 when a matching custom tag already exists (case-insensitive)', async () => {
     mockState.customTags = [{ id: 'ct1', name: 'MyTag' }]
-    const res = await POST(makeReq('POST', 'http://localhost/api/tags', { name: 'mytag' }))
+    const res = await POST(makeRequest('POST', 'http://localhost/api/tags', { name: 'mytag' }))
     expect(res.status).toBe(409)
   })
 })
@@ -134,7 +122,7 @@ describe('T13 - POST /api/tags returns 409 for duplicate custom tag', () => {
 describe('POST /api/tags creates a new custom tag', () => {
   it('normalizes to Title Case and inserts', async () => {
     mockState.insertResult = { id: 'ct-new', name: 'My New Tag', section: 'cuisine' }
-    const res = await POST(makeReq('POST', 'http://localhost/api/tags', { name: 'my new tag' }))
+    const res = await POST(makeRequest('POST', 'http://localhost/api/tags', { name: 'my new tag' }))
     expect(res.status).toBe(201)
     const body = await res.json()
     expect(body.name).toBe('My New Tag')
@@ -151,7 +139,7 @@ describe('T23 - household GET /api/tags returns household-scoped custom tags', (
       householdId: 'hh-1',
       role: 'member',
     })
-    const res = await GET(makeReq('GET', 'http://localhost/api/tags'))
+    const res = await GET(makeRequest('GET', 'http://localhost/api/tags'))
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(Array.isArray(body.firstClass)).toBe(true)
@@ -168,7 +156,7 @@ describe('T24 - POST /api/tags sets household_id when user is in a household', (
       householdId: 'hh-1',
       role: 'member',
     })
-    const res = await POST(makeReq('POST', 'http://localhost/api/tags', { name: 'shared tag' }))
+    const res = await POST(makeRequest('POST', 'http://localhost/api/tags', { name: 'shared tag' }))
     expect(res.status).toBe(201)
     const body = await res.json()
     expect(body.name).toBe('SharedTag')

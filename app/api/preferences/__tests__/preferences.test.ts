@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { NextRequest } from 'next/server'
+import {
+  mockSupabase,
+  mockHousehold,
+  makeRequest,
+  defaultGetUser,
+} from '@/test/helpers'
 
 // ── Mutable mock state ────────────────────────────────────────────────────────
 const mockState = {
@@ -10,124 +15,112 @@ const mockState = {
   upsertResult: null as Record<string, unknown> | null,
 }
 
+// ── Table-specific mock behavior ──────────────────────────────────────────────
+
+function makePrefsFrom(table: string) {
+  if (table === 'user_tags') {
+    return {
+      select: () => ({
+        eq: () => Promise.resolve({ data: mockState.userTags, error: null }),
+      }),
+    }
+  }
+  // user_preferences
+  return {
+    select: (_cols: string) => ({
+      eq: (_col: string, _val: unknown) => ({
+        single: async () => {
+          if (mockState.prefsError) {
+            return { data: null, error: mockState.prefsError }
+          }
+          if (!mockState.prefsRow) {
+            return { data: null, error: { code: 'PGRST116', message: 'not found' } }
+          }
+          return { data: mockState.prefsRow, error: null }
+        },
+      }),
+    }),
+    upsert: (data: Record<string, unknown>, _opts: unknown) => ({
+      select: (_cols: string) => ({
+        single: async () => {
+          if (mockState.upsertResult) {
+            return { data: { ...data, ...mockState.upsertResult }, error: null }
+          }
+          // Default: return the upserted data merged with defaults
+          return {
+            data: {
+              options_per_day: 3,
+              cooldown_days: 28,
+              seasonal_mode: true,
+              preferred_tags: [],
+              avoided_tags: [],
+              limited_tags: [],
+              onboarding_completed: false,
+              ...data,
+            },
+            error: null,
+          }
+        },
+      }),
+    }),
+  }
+}
+
+// The admin client uses the same from logic but also needs upsert support
+function makeAdminFrom(table: string) {
+  if (table === 'user_tags') {
+    return {
+      select: () => ({
+        eq: () => Promise.resolve({ data: mockState.userTags, error: null }),
+      }),
+    }
+  }
+  return {
+    select: (_cols: string) => ({
+      eq: (_col: string, _val: unknown) => ({
+        single: async () => {
+          if (mockState.prefsError) return { data: null, error: mockState.prefsError }
+          if (!mockState.prefsRow) return { data: null, error: { code: 'PGRST116', message: 'not found' } }
+          return { data: mockState.prefsRow, error: null }
+        },
+      }),
+    }),
+    upsert: (data: Record<string, unknown>, _opts: unknown) => ({
+      select: (_cols: string) => ({
+        single: async () => ({
+          data: {
+            options_per_day: 3, cooldown_days: 28, seasonal_mode: true,
+            preferred_tags: [], avoided_tags: [], limited_tags: [],
+            onboarding_completed: false, ...data,
+            ...(mockState.upsertResult ?? {}),
+          },
+          error: null,
+        }),
+      }),
+    }),
+  }
+}
+
+// ── Module mocks (vi.mock calls must stay in the test file) ───────────────────
+
 vi.mock('@/lib/supabase-server', () => ({
   createServerClient: () => ({
-    auth: {
-      getUser: async () => ({
-        data: { user: mockState.user },
-        error: mockState.user ? null : { message: 'no user' },
-      }),
-    },
-    from: (table: string) => {
-      if (table === 'user_tags') {
-        return {
-          select: () => ({
-            eq: () => Promise.resolve({ data: mockState.userTags, error: null }),
-          }),
-        }
-      }
-      // user_preferences
-      return {
-        select: (_cols: string) => ({
-          eq: (_col: string, _val: unknown) => ({
-            single: async () => {
-              if (mockState.prefsError) {
-                return { data: null, error: mockState.prefsError }
-              }
-              if (!mockState.prefsRow) {
-                return { data: null, error: { code: 'PGRST116', message: 'not found' } }
-              }
-              return { data: mockState.prefsRow, error: null }
-            },
-          }),
-        }),
-        upsert: (data: Record<string, unknown>, _opts: unknown) => ({
-          select: (_cols: string) => ({
-            single: async () => {
-              if (mockState.upsertResult) {
-                return { data: { ...data, ...mockState.upsertResult }, error: null }
-              }
-              // Default: return the upserted data merged with defaults
-              return {
-                data: {
-                  options_per_day: 3,
-                  cooldown_days: 28,
-                  seasonal_mode: true,
-                  preferred_tags: [],
-                  avoided_tags: [],
-                  limited_tags: [],
-                  onboarding_completed: false,
-                  ...data,
-                },
-                error: null,
-              }
-            },
-          }),
-        }),
-      }
-    },
+    auth: { getUser: defaultGetUser(mockState) },
+    from: makePrefsFrom,
   }),
   createAdminClient: () => ({
-    from: (table: string) => {
-      if (table === 'user_tags') {
-        return {
-          select: () => ({
-            eq: () => Promise.resolve({ data: mockState.userTags, error: null }),
-          }),
-        }
-      }
-      return {
-        select: (_cols: string) => ({
-          eq: (_col: string, _val: unknown) => ({
-            single: async () => {
-              if (mockState.prefsError) return { data: null, error: mockState.prefsError }
-              if (!mockState.prefsRow) return { data: null, error: { code: 'PGRST116', message: 'not found' } }
-              return { data: mockState.prefsRow, error: null }
-            },
-          }),
-        }),
-        upsert: (data: Record<string, unknown>, _opts: unknown) => ({
-          select: (_cols: string) => ({
-            single: async () => ({
-              data: {
-                options_per_day: 3, cooldown_days: 28, seasonal_mode: true,
-                preferred_tags: [], avoided_tags: [], limited_tags: [],
-                onboarding_completed: false, ...data,
-                ...(mockState.upsertResult ?? {}),
-              },
-              error: null,
-            }),
-          }),
-        }),
-      }
-    },
+    from: makeAdminFrom,
   }),
 }))
 
-vi.mock('@/lib/household', () => ({
+vi.mock('@/lib/household', () => mockHousehold({
   resolveHouseholdScope: vi.fn().mockResolvedValue(null),
-  canManage: (role: string) => role === 'owner' || role === 'co_owner',
 }))
 
 import { resolveHouseholdScope } from '@/lib/household'
 
 // Import after mocks are set up
 const { GET, PATCH } = await import('@/app/api/preferences/route')
-
-function makeGetRequest(): NextRequest {
-  return new NextRequest('http://localhost/api/preferences', {
-    method: 'GET',
-    headers: { Authorization: 'Bearer test-token' },
-  })
-}
-
-function makePatchRequest(body: unknown): NextRequest {
-  return new NextRequest('http://localhost/api/preferences', {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-token' },
-    body: JSON.stringify(body),
-  })
-}
 
 beforeEach(() => {
   mockState.user = { id: 'user-1' }
@@ -141,7 +134,7 @@ beforeEach(() => {
 describe('GET /api/preferences', () => {
   it('returns defaults when no row exists', async () => {
     mockState.prefsRow = null
-    const res = await GET(makeGetRequest())
+    const res = await GET(makeRequest('GET', 'http://localhost/api/preferences'))
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.options_per_day).toBe(3)
@@ -159,7 +152,7 @@ describe('GET /api/preferences', () => {
       limited_tags: [],
       onboarding_completed: true,
     }
-    const res = await GET(makeGetRequest())
+    const res = await GET(makeRequest('GET', 'http://localhost/api/preferences'))
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.options_per_day).toBe(5)
@@ -168,7 +161,7 @@ describe('GET /api/preferences', () => {
 
   it('returns 500 when DB returns a non-PGRST116 error (e.g. RLS denial)', async () => {
     mockState.prefsError = { code: '42501', message: 'permission denied for table user_preferences' }
-    const res = await GET(makeGetRequest())
+    const res = await GET(makeRequest('GET', 'http://localhost/api/preferences'))
     expect(res.status).toBe(500)
     const body = await res.json()
     expect(body.error).toContain('permission denied')
@@ -178,32 +171,32 @@ describe('GET /api/preferences', () => {
 // ── T17: PATCH validation errors ─────────────────────────────────────────────
 describe('T17 - PATCH returns 400 for invalid ranges', () => {
   it('returns 400 for options_per_day: 0', async () => {
-    const res = await PATCH(makePatchRequest({ options_per_day: 0 }))
+    const res = await PATCH(makeRequest('PATCH', 'http://localhost/api/preferences', { options_per_day: 0 }))
     expect(res.status).toBe(400)
     const body = await res.json()
     expect(body.error).toMatch(/options_per_day/)
   })
 
   it('returns 400 for options_per_day: 6', async () => {
-    const res = await PATCH(makePatchRequest({ options_per_day: 6 }))
+    const res = await PATCH(makeRequest('PATCH', 'http://localhost/api/preferences', { options_per_day: 6 }))
     expect(res.status).toBe(400)
   })
 
   it('returns 400 for cooldown_days: 0', async () => {
-    const res = await PATCH(makePatchRequest({ cooldown_days: 0 }))
+    const res = await PATCH(makeRequest('PATCH', 'http://localhost/api/preferences', { cooldown_days: 0 }))
     expect(res.status).toBe(400)
     const body = await res.json()
     expect(body.error).toMatch(/cooldown_days/)
   })
 
   it('returns 400 for cooldown_days: 61', async () => {
-    const res = await PATCH(makePatchRequest({ cooldown_days: 61 }))
+    const res = await PATCH(makeRequest('PATCH', 'http://localhost/api/preferences', { cooldown_days: 61 }))
     expect(res.status).toBe(400)
   })
 
   it('returns 400 for limited_tags cap out of range', async () => {
     mockState.userTags = [{ name: 'Comfort' }]
-    const res = await PATCH(makePatchRequest({ limited_tags: [{ tag: 'Comfort', cap: 8 }] }))
+    const res = await PATCH(makeRequest('PATCH', 'http://localhost/api/preferences', { limited_tags: [{ tag: 'Comfort', cap: 8 }] }))
     expect(res.status).toBe(400)
     const body = await res.json()
     expect(body.error).toMatch(/cap/)
@@ -214,7 +207,7 @@ describe('T17 - PATCH returns 400 for invalid ranges', () => {
 describe('T18 - PATCH with unknown tag returns 400', () => {
   it('returns 400 for unknown preferred_tags', async () => {
     mockState.userTags = [] // no tags in user's library
-    const res = await PATCH(makePatchRequest({ preferred_tags: ['UnknownTag'] }))
+    const res = await PATCH(makeRequest('PATCH', 'http://localhost/api/preferences', { preferred_tags: ['UnknownTag'] }))
     expect(res.status).toBe(400)
     const body = await res.json()
     expect(body.error).toMatch(/unknown tags/i)
@@ -222,7 +215,7 @@ describe('T18 - PATCH with unknown tag returns 400', () => {
 
   it('returns 200 for valid preferred_tags', async () => {
     mockState.userTags = [{ name: 'Healthy' }, { name: 'Quick' }]
-    const res = await PATCH(makePatchRequest({ preferred_tags: ['Healthy'] }))
+    const res = await PATCH(makeRequest('PATCH', 'http://localhost/api/preferences', { preferred_tags: ['Healthy'] }))
     expect(res.status).toBe(200)
   })
 })
@@ -230,7 +223,7 @@ describe('T18 - PATCH with unknown tag returns 400', () => {
 // ── T15: Partial PATCH only updates sent fields ───────────────────────────────
 describe('T15 - partial PATCH only updates sent fields', () => {
   it('sends only cooldown_days and response includes it updated', async () => {
-    const res = await PATCH(makePatchRequest({ cooldown_days: 7 }))
+    const res = await PATCH(makeRequest('PATCH', 'http://localhost/api/preferences', { cooldown_days: 7 }))
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.cooldown_days).toBe(7)
@@ -239,7 +232,7 @@ describe('T15 - partial PATCH only updates sent fields', () => {
   it('PATCH does not include non-sent fields in upsert payload', async () => {
     // Only cooldown_days is sent — the response should not reset other fields
     // The upsert mock returns merged data including the sent field
-    const res = await PATCH(makePatchRequest({ cooldown_days: 14 }))
+    const res = await PATCH(makeRequest('PATCH', 'http://localhost/api/preferences', { cooldown_days: 14 }))
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.cooldown_days).toBe(14)
@@ -278,7 +271,7 @@ describe('T19 - household member GET /api/preferences returns household preferen
       householdId: 'hh-1',
       role: 'member',
     })
-    const res = await GET(makeGetRequest())
+    const res = await GET(makeRequest('GET', 'http://localhost/api/preferences'))
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.options_per_day).toBe(4)
@@ -293,7 +286,7 @@ describe('T20 - PATCH /api/preferences returns 403 for household member (non-man
       householdId: 'hh-1',
       role: 'member',
     })
-    const res = await PATCH(makePatchRequest({ cooldown_days: 14 }))
+    const res = await PATCH(makeRequest('PATCH', 'http://localhost/api/preferences', { cooldown_days: 14 }))
     expect(res.status).toBe(403)
     const body = await res.json()
     expect(body.error).toMatch(/owner or co-owner/)
@@ -307,7 +300,7 @@ describe('T21 - PATCH /api/preferences returns 200 for co-owner', () => {
       householdId: 'hh-1',
       role: 'co_owner',
     })
-    const res = await PATCH(makePatchRequest({ cooldown_days: 14 }))
+    const res = await PATCH(makeRequest('PATCH', 'http://localhost/api/preferences', { cooldown_days: 14 }))
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.cooldown_days).toBe(14)
@@ -317,10 +310,6 @@ describe('T21 - PATCH /api/preferences returns 200 for co-owner', () => {
 // ── T01/T02: Redirect logic (server component, documented) ───────────────────
 describe('T01/T02 - onboarding redirect logic in app layout', () => {
   it('layout.tsx fetches preferences and redirects on onboarding_completed=false', async () => {
-    // The redirect logic lives in app/(app)/layout.tsx (server component).
-    // It calls getPreferences(token), and if onboarding_completed === false
-    // and pathname is not /onboarding, it calls redirect('/onboarding').
-    // Verified by reading the layout source.
     const fs = await import('fs')
     const path = await import('path')
     const layoutPath = path.join(process.cwd(), 'app/(app)/layout.tsx')

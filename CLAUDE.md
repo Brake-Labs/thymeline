@@ -20,8 +20,45 @@ based on preferences, generate grocery lists, and track what they've cooked.
 - **Frontend:** Next.js 14+ with TypeScript, Tailwind CSS
 - **Backend:** Next.js API routes
 - **Database:** Supabase (Postgres)
-- **LLM routing:** any-llm (swap between Claude, GPT, etc.)
-- **Auth:** Supabase Auth
+- **LLM:** `@anthropic-ai/sdk` — centralized in `lib/llm.ts` (see below)
+- **Auth:** Supabase Auth — centralized in `lib/auth.ts` via `withAuth()` HOF
+- **Validation:** Zod schemas in `lib/schemas.ts` via `parseBody()` helper
+
+## API Route Patterns
+
+All authenticated routes use the `withAuth()` higher-order function from `lib/auth.ts`:
+```typescript
+export const GET = withAuth(async (req, { user, db, ctx }, params) => {
+  // user: authenticated Supabase user
+  // db: admin Supabase client (bypasses RLS)
+  // ctx: HouseholdContext | null (for multi-tenant scoping)
+  // params: route params e.g. { id: '...' }
+})
+```
+
+Request bodies are validated with Zod via `parseBody()` from `lib/schemas.ts`:
+```typescript
+const { data: body, error } = await parseBody(req, createRecipeSchema)
+if (error) return error
+```
+
+### LLM usage
+All LLM calls go through `lib/llm.ts` which provides:
+- `anthropic` — pre-configured Anthropic SDK client (retry: 2, timeout: 60s)
+- `callLLM(opts)` — simple text completion helper
+- `parseLLMJson<T>(text)` — strips markdown fences + parses JSON
+- `classifyLLMError(err)` — maps SDK errors to typed `LLMError` codes
+- `LLMError` class with codes: `rate_limit`, `timeout`, `bad_response`, `service_down`, `auth`, `unknown`
+
+Default model: `process.env.LLM_MODEL` or `claude-haiku-4-5-20251001`.
+The plan suggestion engine in `plan/helpers.ts` delegates to `callLLM()`.
+
+### Testing
+Run tests: `npm test` (vitest)
+- Auth behavior is tested in `lib/__tests__/auth.test.ts` — route tests should NOT duplicate 401 checks
+- Schema validation is tested in `lib/__tests__/schemas.test.ts` — route tests should NOT duplicate basic field validation
+- LLM resilience is tested in `lib/__tests__/llm.test.ts`
+- Route tests should focus on business logic: ownership, DB operations, household scoping
 
 ## Core Data Models
 
