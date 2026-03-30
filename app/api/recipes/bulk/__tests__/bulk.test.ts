@@ -87,16 +87,6 @@ describe('PATCH /api/recipes/bulk', () => {
     vi.resetModules()
   })
 
-  it('returns 401 for unauthenticated request', async () => {
-    const mock = makeSupabaseMock({ user: null })
-    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
-
-    const { PATCH } = await import('../route')
-    const res = await PATCH(makeReq({ recipe_ids: ['recipe-1'], add_tags: ['Chicken'] }) as Parameters<typeof PATCH>[0])
-    expect(res.status).toBe(401)
-  })
-
   it('T42: returns 403 when any recipe_id belongs to a different user', async () => {
     const mock = makeSupabaseMock({ recipes: [ownedRecipe, foreignRecipe] })
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)

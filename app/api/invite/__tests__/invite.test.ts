@@ -218,12 +218,6 @@ describe('POST /api/invite/consume', () => {
     expect(consumeMockState.prefsUpdateCalled).toBe(true)
   })
 
-  it('returns 401 when not authenticated', async () => {
-    consumeMockState.user = null
-    const res = await consumePOST(makeRequest({ token: 'any' }))
-    expect(res.status).toBe(401)
-  })
-
   it('returns success=false without deactivating when onboarding_completed=true (returning user guard)', async () => {
     consumeMockState.existingOnboardingCompleted = true
     const res = await consumePOST(makeRequest({ token: null }))

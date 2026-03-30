@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
+import { swapSchema, parseBody } from '@/lib/schemas'
 import {
   getSeason,
   fetchCooldownFilteredRecipes,
@@ -14,20 +15,8 @@ import {
 import type { DaySuggestions, MealType } from '@/types'
 
 export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
-  let body: {
-    date: string
-    meal_type?: MealType
-    week_start: string
-    already_selected: { date: string; recipe_id: string }[]
-    prefer_this_week: string[]
-    avoid_this_week: string[]
-    free_text: string
-  }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
-  }
+  const { data: body, error: parseError } = await parseBody(req, swapSchema)
+  if (parseError) return parseError
 
   const { date, already_selected, prefer_this_week, avoid_this_week, free_text } = body
   const meal_type: MealType = body.meal_type ?? 'dinner'

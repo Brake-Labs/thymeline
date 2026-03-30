@@ -1,23 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
+import { createPlanSchema, parseBody } from '@/lib/schemas'
 import { isSunday } from './helpers'
 import type { SavedPlanEntry } from '@/types'
 
 // ── POST /api/plan — save confirmed plan ───────────────────────────────────────
 
 export const POST = withAuth(async (req, { user, db, ctx }) => {
-  let body: { week_start: string; entries: { date: string; recipe_id: string; meal_type?: string; is_side_dish?: boolean; parent_entry_id?: string }[] }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
-  }
+  const { data: body, error: parseError } = await parseBody(req, createPlanSchema)
+  if (parseError) return parseError
 
   const { week_start, entries } = body
 
-  if (!entries || entries.length === 0) {
-    return NextResponse.json({ error: 'entries must be non-empty' }, { status: 400 })
-  }
   if (!isSunday(week_start)) {
     return NextResponse.json({ error: 'week_start must be a Sunday' }, { status: 400 })
   }

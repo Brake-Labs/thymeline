@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { canManage } from '@/lib/household'
 import { LimitedTag } from '@/types'
+import { updatePreferencesSchema, parseBody } from '@/lib/schemas'
 
 const DEFAULT_PREFS = {
   options_per_day: 3,
@@ -49,37 +50,14 @@ export const PATCH = withAuth(async (req, { user, db, ctx }) => {
     )
   }
 
-  let body: Record<string, unknown>
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
+  const { data: body, error: parseError } = await parseBody(req, updatePreferencesSchema)
+  if (parseError) return parseError
 
-  // Validate options_per_day
-  if ('options_per_day' in body) {
-    const v = body.options_per_day
-    if (typeof v !== 'number' || !Number.isInteger(v) || v < 1 || v > 5) {
-      return NextResponse.json({ error: 'options_per_day must be an integer between 1 and 5' }, { status: 400 })
-    }
-  }
-
-  // Validate cooldown_days
-  if ('cooldown_days' in body) {
-    const v = body.cooldown_days
-    if (typeof v !== 'number' || !Number.isInteger(v) || v < 1 || v > 60) {
-      return NextResponse.json({ error: 'cooldown_days must be an integer between 1 and 60' }, { status: 400 })
-    }
-  }
-
-  // Validate tag arrays — scope to household or user
+  // Validate tag arrays against user's tag library — scope to household or user
   const tagArrayFields = ['preferred_tags', 'avoided_tags'] as const
   for (const field of tagArrayFields) {
     if (field in body) {
-      const tags = body[field]
-      if (!Array.isArray(tags)) {
-        return NextResponse.json({ error: `${field} must be an array` }, { status: 400 })
-      }
+      const tags = body[field] as string[]
       if (tags.length > 0) {
         let tagsQuery = db.from('user_tags').select('name')
         if (ctx) {
@@ -91,7 +69,7 @@ export const PATCH = withAuth(async (req, { user, db, ctx }) => {
         }
         const { data: userTags } = await tagsQuery
         const tagSet = new Set((userTags ?? []).map((t: { name: string }) => t.name))
-        const unknown = (tags as string[]).filter((t) => !tagSet.has(t))
+        const unknown = tags.filter((t) => !tagSet.has(t))
         if (unknown.length > 0) {
           return NextResponse.json({ error: `Unknown tags: ${unknown.join(', ')}` }, { status: 400 })
         }
@@ -99,18 +77,10 @@ export const PATCH = withAuth(async (req, { user, db, ctx }) => {
     }
   }
 
-  // Validate limited_tags
+  // Validate limited_tags against user's tag library
   if ('limited_tags' in body) {
-    const lt = body.limited_tags
-    if (!Array.isArray(lt)) {
-      return NextResponse.json({ error: 'limited_tags must be an array' }, { status: 400 })
-    }
-    for (const item of lt as LimitedTag[]) {
-      if (typeof item.cap !== 'number' || !Number.isInteger(item.cap) || item.cap < 1 || item.cap > 7) {
-        return NextResponse.json({ error: `limited_tags cap must be an integer between 1 and 7` }, { status: 400 })
-      }
-    }
-    if ((lt as LimitedTag[]).length > 0) {
+    const lt = body.limited_tags as LimitedTag[]
+    if (lt.length > 0) {
       let tagsQuery = db.from('user_tags').select('name')
       if (ctx) {
         tagsQuery = (db.from('custom_tags').select('name') as typeof tagsQuery)
@@ -120,7 +90,7 @@ export const PATCH = withAuth(async (req, { user, db, ctx }) => {
       }
       const { data: userTags } = await tagsQuery
       const tagSet = new Set((userTags ?? []).map((t: { name: string }) => t.name))
-      const unknown = (lt as LimitedTag[]).map((i) => i.tag).filter((t) => !tagSet.has(t))
+      const unknown = lt.map((i) => i.tag).filter((t) => !tagSet.has(t))
       if (unknown.length > 0) {
         return NextResponse.json({ error: `Unknown tags in limited_tags: ${unknown.join(', ')}` }, { status: 400 })
       }

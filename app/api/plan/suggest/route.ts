@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
+import { suggestSchema, parseBody } from '@/lib/schemas'
 import {
   getSeason,
   isSunday,
@@ -15,27 +16,12 @@ import {
 import type { DaySuggestions, MealType } from '@/types'
 
 export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
-  let body: {
-    week_start: string
-    active_dates: string[]
-    active_meal_types?: MealType[]
-    prefer_this_week: string[]
-    avoid_this_week: string[]
-    free_text: string
-    specific_requests: string
-  }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
-  }
+  const { data: body, error: parseError } = await parseBody(req, suggestSchema)
+  if (parseError) return parseError
 
   const { week_start, active_dates, prefer_this_week, avoid_this_week, free_text, specific_requests } = body
   const active_meal_types: MealType[] = body.active_meal_types?.length ? body.active_meal_types : ['dinner']
 
-  if (!active_dates || active_dates.length === 0) {
-    return NextResponse.json({ error: 'active_dates must be non-empty' }, { status: 400 })
-  }
   if (!isSunday(week_start)) {
     return NextResponse.json({ error: 'week_start must be a Sunday' }, { status: 400 })
   }

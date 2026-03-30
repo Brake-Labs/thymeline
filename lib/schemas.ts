@@ -186,6 +186,14 @@ export const scanPantrySchema = z.object({
 
 // ─── Groceries ──────────────────────────────────────────────────────────────
 
+export const updateGroceryListSchema = z.object({
+  week_start: dateString.optional(),
+  list_id: z.string().optional(),
+  items: z.array(z.unknown()).optional(),
+  servings: z.number().optional(),
+  recipe_scales: z.array(z.unknown()).optional(),
+})
+
 export const generateGroceriesSchema = z.object({
   week_start: dateString.optional(),
   date_from: dateString.optional(),

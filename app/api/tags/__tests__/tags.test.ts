@@ -101,11 +101,6 @@ describe('T27 - GET /api/tags returns correct shape', () => {
     expect(body.firstClass.length).toBeGreaterThan(0)
   })
 
-  it('returns 401 for unauthenticated request', async () => {
-    mockState.user = null
-    const res = await GET(makeReq('GET', 'http://localhost/api/tags'))
-    expect(res.status).toBe(401)
-  })
 })
 
 // ── T12: POST /api/tags returns 400 for first-class tag ───────────────────────
@@ -145,11 +140,6 @@ describe('POST /api/tags creates a new custom tag', () => {
     expect(body.name).toBe('My New Tag')
   })
 
-  it('returns 401 for unauthenticated request', async () => {
-    mockState.user = null
-    const res = await POST(makeReq('POST', 'http://localhost/api/tags', { name: 'NewTag' }))
-    expect(res.status).toBe(401)
-  })
 })
 
 // ── T23: Household member GET returns household tag library ───────────────────

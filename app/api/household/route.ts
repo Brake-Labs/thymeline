@@ -1,21 +1,14 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
+import { createHouseholdSchema, parseBody } from '@/lib/schemas'
 import { canManage } from '@/lib/household'
 import type { Household, HouseholdMember } from '@/types'
 
 // ── POST /api/household — create a new household ──────────────────────────────
 
 export const POST = withAuth(async (req, { user, db, ctx }) => {
-  let body: { name?: string }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
-
-  if (!body.name?.trim()) {
-    return NextResponse.json({ error: 'name is required' }, { status: 400 })
-  }
+  const { data: body, error: parseError } = await parseBody(req, createHouseholdSchema)
+  if (parseError) return parseError
 
   if (ctx) {
     return NextResponse.json({ error: 'Already in a household.' }, { status: 409 })
@@ -23,7 +16,7 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
 
   const { data: household, error: householdError } = await db
     .from('households')
-    .insert({ name: body.name.trim(), owner_id: user.id })
+    .insert({ name: body.name, owner_id: user.id })
     .select()
     .single()
 
@@ -88,20 +81,12 @@ export const PATCH = withAuth(async (req, { user, db, ctx }) => {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  let body: { name?: string }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
-
-  if (!body.name?.trim()) {
-    return NextResponse.json({ error: 'name is required' }, { status: 400 })
-  }
+  const { data: body, error: parseError } = await parseBody(req, createHouseholdSchema)
+  if (parseError) return parseError
 
   const { data: updated, error: updateError } = await db
     .from('households')
-    .update({ name: body.name.trim() })
+    .update({ name: body.name })
     .eq('id', ctx.householdId)
     .select()
     .single()

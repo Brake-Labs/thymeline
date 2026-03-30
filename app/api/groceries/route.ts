@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { GroceryItem, GroceryList, RecipeScale } from '@/types'
+import { updateGroceryListSchema, parseBody } from '@/lib/schemas'
 
 // ── GET /api/groceries?week_start=YYYY-MM-DD  (or ?date_from=YYYY-MM-DD) ─────
 
@@ -30,20 +31,16 @@ export const GET = withAuth(async (req, { user, db, ctx }) => {
 // ── PATCH /api/groceries ──────────────────────────────────────────────────────
 
 export const PATCH = withAuth(async (req, { user, db, ctx }) => {
-  let body: {
+  const { data: body, error: parseError } = await parseBody(req, updateGroceryListSchema)
+  if (parseError) return parseError
+
+  const { week_start, list_id, items, servings, recipe_scales } = body as {
     week_start?:    string
     list_id?:       string
     items?:         GroceryItem[]
     servings?:      number
     recipe_scales?: RecipeScale[]
   }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
-
-  const { week_start, list_id, items, servings, recipe_scales } = body
   if (!week_start && !list_id) {
     return NextResponse.json({ error: 'week_start or list_id is required' }, { status: 400 })
   }

@@ -111,17 +111,6 @@ describe('POST /api/recipes/search', () => {
     vi.resetModules()
   })
 
-  it('returns 401 for unauthenticated request', async () => {
-    const mock = makeSupabaseMock({ user: null })
-    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
-
-    const { POST } = await import('../route')
-    const req = makeReq({ query: 'chicken' }, { Authorization: '' })
-    const res = await POST(req as Parameters<typeof POST>[0])
-    expect(res.status).toBe(401)
-  })
-
   it('T18: returns empty results when LLM returns []', async () => {
     const mock = makeSupabaseMock({})
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)

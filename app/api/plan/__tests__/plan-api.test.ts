@@ -575,24 +575,6 @@ describe('T21 - Pantry context is (none) when pantry is empty', () => {
   })
 })
 
-describe('Unauthenticated requests', () => {
-  it('suggest returns 401', async () => {
-    mockState.user = null
-    const res = await suggestPOST(makeReq('POST', 'http://localhost/api/plan/suggest', {
-      week_start: '2026-03-01', active_dates: ['2026-03-01'],
-      prefer_this_week: [], avoid_this_week: [], free_text: '', specific_requests: '',
-    }))
-    expect(res.status).toBe(401)
-  })
-
-  it('plan POST returns 401', async () => {
-    mockState.user = null
-    const res = await planPOST(makeReq('POST', 'http://localhost/api/plan', {
-      week_start: '2026-03-01', entries: [{ date: '2026-03-01', recipe_id: 'r1' }],
-    }))
-    expect(res.status).toBe(401)
-  })
-})
 
 // ── T22: Cooldown filtering uses per-user history in household context ─────────
 

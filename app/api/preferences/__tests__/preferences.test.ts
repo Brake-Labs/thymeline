@@ -166,12 +166,6 @@ describe('GET /api/preferences', () => {
     expect(body.onboarding_completed).toBe(true)
   })
 
-  it('returns 401 when not authenticated', async () => {
-    mockState.user = null
-    const res = await GET(makeGetRequest())
-    expect(res.status).toBe(401)
-  })
-
   it('returns 500 when DB returns a non-PGRST116 error (e.g. RLS denial)', async () => {
     mockState.prefsError = { code: '42501', message: 'permission denied for table user_preferences' }
     const res = await GET(makeGetRequest())

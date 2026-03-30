@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase-server'
 import { parseIngredientLine } from '@/lib/grocery'
+import { logRecipeSchema, deleteLogSchema, parseBody } from '@/lib/schemas'
 
 export const POST = withAuth(async (req: NextRequest, { user, db }, params) => {
   const { id } = params
@@ -19,13 +20,8 @@ export const POST = withAuth(async (req: NextRequest, { user, db }, params) => {
 
   // Accept optional made_on from body; default to today
   const today = new Date().toISOString().split('T')[0]
-  let madeOn = today
-  try {
-    const body = await req.json()
-    if (body.made_on && typeof body.made_on === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.made_on)) {
-      madeOn = body.made_on
-    }
-  } catch { /* no body — use today */ }
+  const { data: body } = await parseBody(req, logRecipeSchema)
+  const madeOn = body?.made_on ?? today
 
   const { error: insertError } = await db
     .from('recipe_history')
@@ -99,16 +95,8 @@ async function deductPantryIngredients(recipeId: string, userId: string): Promis
 export const DELETE = withAuth(async (req: NextRequest, { user, db }, params) => {
   const { id } = params
 
-  let body: { made_on?: string }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
-
-  if (!body.made_on || !/^\d{4}-\d{2}-\d{2}$/.test(body.made_on)) {
-    return NextResponse.json({ error: 'made_on (YYYY-MM-DD) is required' }, { status: 400 })
-  }
+  const { data: body, error: parseError } = await parseBody(req, deleteLogSchema)
+  if (parseError) return parseError
 
   const { error: deleteError } = await db
     .from('recipe_history')

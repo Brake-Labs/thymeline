@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { FIRST_CLASS_TAGS } from '@/lib/tags'
+import { createRecipeSchema, parseBody } from '@/lib/schemas'
 
 export const GET = withAuth(async (req, { user, db, ctx }) => {
   const { searchParams } = new URL(req.url)
@@ -59,44 +60,10 @@ export const GET = withAuth(async (req, { user, db, ctx }) => {
 })
 
 export const POST = withAuth(async (req, { user, db, ctx }) => {
-  let body: {
-    title?: string
-    category?: string
-    tags?: string[]
-    ingredients?: string | null
-    steps?: string | null
-    notes?: string | null
-    url?: string | null
-    image_url?: string | null
-    prep_time_minutes?: number | null
-    cook_time_minutes?: number | null
-    total_time_minutes?: number | null
-    inactive_time_minutes?: number | null
-    servings?: number | null
-    source?: string
-  }
+  const { data: body, error: parseError } = await parseBody(req, createRecipeSchema)
+  if (parseError) return parseError
 
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
-
-  if (!body.title?.trim()) {
-    return NextResponse.json({ error: 'title is required' }, { status: 400 })
-  }
-
-  const validSources = ['scraped', 'manual', 'generated']
-  if (body.source !== undefined && !validSources.includes(body.source)) {
-    return NextResponse.json({ error: 'source must be one of: scraped, manual, generated' }, { status: 400 })
-  }
-
-  const validCategories = ['main_dish', 'breakfast', 'dessert', 'side_dish']
-  if (!body.category || !validCategories.includes(body.category)) {
-    return NextResponse.json({ error: 'category is required and must be one of: main_dish, breakfast, dessert, side_dish' }, { status: 400 })
-  }
-
-  const tags = body.tags ?? []
+  const tags = body.tags
 
   // Validate tags against first-class list + scoped custom_tags
   if (tags.length > 0) {
@@ -128,36 +95,36 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
         title: body.title,
         category: body.category,
         tags,
-        ingredients: body.ingredients ?? null,
-        steps: body.steps ?? null,
-        notes: body.notes ?? null,
-        url: body.url ?? null,
-        image_url: body.image_url ?? null,
+        ingredients: body.ingredients,
+        steps: body.steps,
+        notes: body.notes,
+        url: body.url,
+        image_url: body.image_url,
         is_shared: false,
-        source: body.source ?? 'manual',
-        prep_time_minutes: body.prep_time_minutes ?? null,
-        cook_time_minutes: body.cook_time_minutes ?? null,
-        total_time_minutes: body.total_time_minutes ?? null,
-        inactive_time_minutes: body.inactive_time_minutes ?? null,
-        servings: body.servings ?? null,
+        source: body.source,
+        prep_time_minutes: body.prep_time_minutes,
+        cook_time_minutes: body.cook_time_minutes,
+        total_time_minutes: body.total_time_minutes,
+        inactive_time_minutes: body.inactive_time_minutes,
+        servings: body.servings,
       }
     : {
         user_id: user.id,
         title: body.title,
         category: body.category,
         tags,
-        ingredients: body.ingredients ?? null,
-        steps: body.steps ?? null,
-        notes: body.notes ?? null,
-        url: body.url ?? null,
-        image_url: body.image_url ?? null,
+        ingredients: body.ingredients,
+        steps: body.steps,
+        notes: body.notes,
+        url: body.url,
+        image_url: body.image_url,
         is_shared: false,
-        source: body.source ?? 'manual',
-        prep_time_minutes: body.prep_time_minutes ?? null,
-        cook_time_minutes: body.cook_time_minutes ?? null,
-        total_time_minutes: body.total_time_minutes ?? null,
-        inactive_time_minutes: body.inactive_time_minutes ?? null,
-        servings: body.servings ?? null,
+        source: body.source,
+        prep_time_minutes: body.prep_time_minutes,
+        cook_time_minutes: body.cook_time_minutes,
+        total_time_minutes: body.total_time_minutes,
+        inactive_time_minutes: body.inactive_time_minutes,
+        servings: body.servings,
       }
 
   const { data, error } = await db

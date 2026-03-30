@@ -1,19 +1,12 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
+import { joinHouseholdSchema, parseBody } from '@/lib/schemas'
 
 // ── POST /api/household/join — consume invite and join ────────────────────────
 
 export const POST = withAuth(async (req, { user, db, ctx }) => {
-  let body: { token?: string }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
-
-  if (!body.token?.trim()) {
-    return NextResponse.json({ error: 'token is required' }, { status: 400 })
-  }
+  const { data: body, error: parseError } = await parseBody(req, joinHouseholdSchema)
+  if (parseError) return parseError
 
   // Check if already in a household
   if (ctx) {
@@ -24,7 +17,7 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
   const { data: invite } = await db
     .from('household_invites')
     .select('id, household_id, used_by, expires_at')
-    .eq('token', body.token.trim())
+    .eq('token', body.token)
     .single()
 
   if (!invite) {

@@ -1,19 +1,12 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
+import { transferOwnershipSchema, parseBody } from '@/lib/schemas'
 
 // ── POST /api/household/transfer — transfer ownership ─────────────────────────
 
 export const POST = withAuth(async (req, { user, db, ctx }) => {
-  let body: { new_owner_id?: string }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
-
-  if (!body.new_owner_id) {
-    return NextResponse.json({ error: 'new_owner_id is required' }, { status: 400 })
-  }
+  const { data: body, error: parseError } = await parseBody(req, transferOwnershipSchema)
+  if (parseError) return parseError
 
   if (!ctx) {
     return NextResponse.json({ error: 'Not in a household' }, { status: 404 })

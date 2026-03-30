@@ -1,22 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
+import { createPlanEntrySchema, parseBody } from '@/lib/schemas'
 import { isSunday } from '../helpers'
 import type { MealType, PlanEntry } from '@/types'
 
 export const POST = withAuth(async (req, { user, db, ctx }) => {
-  let body: {
-    week_start:        string
-    date:              string
-    recipe_id:         string
-    meal_type:         MealType
-    is_side_dish?:     boolean
-    parent_entry_id?:  string
-  }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
-  }
+  const { data: body, error: parseError } = await parseBody(req, createPlanEntrySchema)
+  if (parseError) return parseError
 
   const { week_start, date, recipe_id, meal_type, parent_entry_id } = body
   const is_side_dish = meal_type === 'dessert' ? true : (body.is_side_dish ?? false)

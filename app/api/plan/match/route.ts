@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
+import { matchSchema, parseBody } from '@/lib/schemas'
 import { callLLMNonStreaming } from '../helpers'
 
 export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
-  let body: { query: string; date: string }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
-  }
+  const { data: body, error: parseError } = await parseBody(req, matchSchema)
+  if (parseError) return parseError
 
   const { query } = body
 

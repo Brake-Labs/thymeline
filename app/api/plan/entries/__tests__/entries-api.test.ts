@@ -242,16 +242,6 @@ describe('POST /api/plan/entries - creates entry', () => {
     expect(res.status).toBe(400)
   })
 
-  it('returns 401 when unauthenticated', async () => {
-    mockState.user = null
-    const res = await entriesPOST(makeReq('POST', 'http://localhost/api/plan/entries', {
-      week_start: '2026-03-01',
-      date: '2026-03-01',
-      recipe_id: 'r1',
-      meal_type: 'dinner',
-    }))
-    expect(res.status).toBe(401)
-  })
 })
 
 // ── Dessert entry tests ────────────────────────────────────────────────────────

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { FIRST_CLASS_TAGS } from '@/lib/tags'
 import { createAdminClient } from '@/lib/supabase-server'
+import { updateRecipeSchema, parseBody } from '@/lib/schemas'
 
 // Helper: attach last_made + times_made to a recipe row
 async function withHistory(
@@ -64,27 +65,8 @@ export const PATCH = withAuth(async (req, { user, db, ctx }, params) => {
     }
   }
 
-  let body: {
-    title?: string
-    category?: string
-    tags?: string[]
-    ingredients?: string | null
-    steps?: string | null
-    notes?: string | null
-    url?: string | null
-    image_url?: string | null
-    prep_time_minutes?: number | null
-    cook_time_minutes?: number | null
-    total_time_minutes?: number | null
-    inactive_time_minutes?: number | null
-    servings?: number | null
-  }
-
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
+  const { data: body, error: parseError } = await parseBody(req, updateRecipeSchema)
+  if (parseError) return parseError
 
   // Validate tags against first-class list + scoped custom_tags
   if (body.tags !== undefined && body.tags.length > 0) {
@@ -107,14 +89,6 @@ export const PATCH = withAuth(async (req, { user, db, ctx }, params) => {
         { status: 400 },
       )
     }
-  }
-
-  const validCategories = ['main_dish', 'breakfast', 'dessert', 'side_dish']
-  if (body.category !== undefined && !validCategories.includes(body.category)) {
-    return NextResponse.json(
-      { error: 'category must be one of: main_dish, breakfast, dessert, side_dish' },
-      { status: 400 },
-    )
   }
 
   // Build update payload — only fields present in the request

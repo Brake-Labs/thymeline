@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
+import { consumeInviteSchema, parseBody } from '@/lib/schemas'
 
 async function setInactive(db: Parameters<Parameters<typeof withAuth>[0]>[1]['db'], userId: string) {
   await db
@@ -20,21 +21,13 @@ export const POST = withAuth(async (req, { user, db }) => {
     return NextResponse.json({ success: false, reason: 'Already registered' })
   }
 
-  let body: { token: string | null }
-  try {
-    body = await req.json()
-  } catch {
+  const { data: body, error: parseError } = await parseBody(req, consumeInviteSchema)
+  if (parseError) {
     await setInactive(db, user.id)
     return NextResponse.json({ success: false, reason: 'No invite token' })
   }
 
   const { token } = body
-
-  // No token provided
-  if (!token) {
-    await setInactive(db, user.id)
-    return NextResponse.json({ success: false, reason: 'No invite token' })
-  }
 
   // Look up the token
   const { data: invite, error: lookupError } = await db

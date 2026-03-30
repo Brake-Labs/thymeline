@@ -1,16 +1,13 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
+import { updatePantryItemSchema, parseBody } from '@/lib/schemas'
 import type { PantryItem } from '@/types'
 
 // ── PATCH /api/pantry/[id] ────────────────────────────────────────────────────
 
 export const PATCH = withAuth(async (req, { user, db }, params) => {
-  let body: { quantity?: string | null; expiry_date?: string | null }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
+  const { data: body, error: parseError } = await parseBody(req, updatePantryItemSchema)
+  if (parseError) return parseError
 
   // Build update payload — only include fields that were provided
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }

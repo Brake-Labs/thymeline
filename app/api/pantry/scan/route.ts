@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
+import { scanPantrySchema, parseBody } from '@/lib/schemas'
 import { anthropic } from '@/lib/llm'
 
 const SYSTEM_PROMPT = `You are a pantry scanner. Analyze the provided image and identify all visible food ingredients, condiments, and packaged goods.
@@ -19,16 +20,8 @@ Return ONLY valid JSON — no prose, no markdown:
 // ── POST /api/pantry/scan ─────────────────────────────────────────────────────
 
 export const POST = withAuth(async (req) => {
-  let body: { image?: string }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ detected: [] })
-  }
-
-  if (!body.image || typeof body.image !== 'string') {
-    return NextResponse.json({ detected: [] })
-  }
+  const { data: body, error: parseError } = await parseBody(req, scanPantrySchema)
+  if (parseError) return NextResponse.json({ detected: [] })
 
   // Extract media type and base64 data from data URL, or fall back to jpeg
   const dataUrlMatch = body.image.match(/^data:(image\/[a-z+]+);base64,(.+)$/i)

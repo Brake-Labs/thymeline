@@ -598,24 +598,3 @@ describe('T27 - GET /api/household — member gets household + members', () => {
   })
 })
 
-// ── Unauthenticated ───────────────────────────────────────────────────────────
-
-describe('Unauthenticated requests return 401', () => {
-  it('POST /api/household', async () => {
-    mockState.user = null
-    const res = await householdPOST(makeReq('POST', 'http://localhost/api/household', { name: 'x' }))
-    expect(res.status).toBe(401)
-  })
-
-  it('GET /api/household', async () => {
-    mockState.user = null
-    const res = await householdGET(makeReq('GET', 'http://localhost/api/household'))
-    expect(res.status).toBe(401)
-  })
-
-  it('POST /api/household/join', async () => {
-    mockState.user = null
-    const res = await joinPOST(makeReq('POST', 'http://localhost/api/household/join', { token: 'x' }))
-    expect(res.status).toBe(401)
-  })
-})

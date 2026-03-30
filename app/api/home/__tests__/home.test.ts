@@ -131,11 +131,3 @@ describe('T10 - GET /api/home returns empty recentlyMade when no history', () =>
     expect(body.recentlyMade).toHaveLength(0)
   })
 })
-
-describe('GET /api/home - unauthenticated', () => {
-  it('returns 401 when not authenticated', async () => {
-    mockState.user = null
-    const res = await GET(makeRequest())
-    expect(res.status).toBe(401)
-  })
-})

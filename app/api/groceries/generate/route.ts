@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import FirecrawlApp from 'firecrawl'
 import { withAuth } from '@/lib/auth'
 import { anthropic } from '@/lib/llm'
+import { generateGroceriesSchema, parseBody } from '@/lib/schemas'
 import {
   parseIngredientLine,
   combineIngredients,
@@ -26,12 +27,8 @@ interface RecipeEntry {
 // ── POST /api/groceries/generate ─────────────────────────────────────────────
 
 export const POST = withAuth(async (req, { user, db, ctx }) => {
-  let body: { week_start?: string; date_from?: string; date_to?: string }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
+  const { data: body, error: parseError } = await parseBody(req, generateGroceriesSchema)
+  if (parseError) return parseError
 
   // Resolve date range — accept date_from/date_to directly, or derive from week_start
   let date_from: string

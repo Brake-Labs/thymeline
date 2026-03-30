@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
+import { updateMemberRoleSchema, parseBody } from '@/lib/schemas'
 import { canManage } from '@/lib/household'
 
 // ── DELETE /api/household/members/[user_id] — remove a member ────────────────
@@ -64,20 +65,8 @@ export const PATCH = withAuth(async (req, { user, db, ctx }, params) => {
     return NextResponse.json({ error: 'Only the owner can change roles' }, { status: 403 })
   }
 
-  let body: { role?: string }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
-
-  const validRoles = ['co_owner', 'member']
-  if (!body.role || !validRoles.includes(body.role)) {
-    return NextResponse.json(
-      { error: 'role must be one of: co_owner, member' },
-      { status: 400 },
-    )
-  }
+  const { data: body, error: parseError } = await parseBody(req, updateMemberRoleSchema)
+  if (parseError) return parseError
 
   const { error: updateError } = await db
     .from('household_members')
