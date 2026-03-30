@@ -1,5 +1,5 @@
 import { type SupabaseClient } from '@supabase/supabase-js'
-import Anthropic from '@anthropic-ai/sdk'
+import { callLLM } from '@/lib/llm'
 import type { RecipeSuggestion, UserPreferences, LimitedTag, MealType, DaySuggestions, HouseholdContext } from '@/types'
 
 export const MEAL_TYPE_CATEGORIES: Record<MealType, string[]> = {
@@ -8,8 +8,6 @@ export const MEAL_TYPE_CATEGORIES: Record<MealType, string[]> = {
   dinner:    ['main_dish'],
   snack:     ['side_dish', 'dessert'],
 }
-
-const anthropic = new Anthropic({ apiKey: process.env.LLM_API_KEY })
 
 // ── Week helpers ───────────────────────────────────────────────────────────────
 
@@ -367,11 +365,9 @@ export async function callLLMNonStreaming(
   systemMessage: string,
   userMessage: string,
 ): Promise<string> {
-  const response = await anthropic.messages.create({
-    model: process.env.LLM_MODEL ?? 'claude-haiku-4-5-20251001',
-    max_tokens: 4096,
-    messages: [{ role: 'user', content: userMessage }],
+  return callLLM({
     system: systemMessage,
+    user: userMessage,
+    maxTokens: 4096,
   })
-  return response.content[0].type === 'text' ? response.content[0].text : ''
 }

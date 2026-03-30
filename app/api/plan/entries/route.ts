@@ -1,16 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-import { resolveHouseholdScope } from '@/lib/household'
+import { withAuth } from '@/lib/auth'
 import { isSunday } from '../helpers'
 import type { MealType, PlanEntry } from '@/types'
 
-export async function POST(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+export const POST = withAuth(async (req, { user, db, ctx }) => {
   let body: {
     week_start:        string
     date:              string
@@ -55,9 +48,6 @@ export async function POST(req: NextRequest) {
   if (meal_type === 'dessert' && !parent_entry_id) {
     return NextResponse.json({ error: 'parent_entry_id is required for dessert entries' }, { status: 400 })
   }
-
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
 
   // Dessert parent must be a Dinner or Lunch slot
   if (meal_type === 'dessert' && parent_entry_id) {
@@ -135,4 +125,4 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json(planEntry, { status: 201 })
-}
+})

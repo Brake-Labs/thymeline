@@ -1,30 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-import { resolveHouseholdScope } from '@/lib/household'
+import { withAuth } from '@/lib/auth'
+import { bulkUpdateRecipesSchema, parseBody } from '@/lib/schemas'
 
-export async function PATCH(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+export const PATCH = withAuth(async (req: NextRequest, { user, db, ctx }) => {
+  const { data: body, error: parseError } = await parseBody(req, bulkUpdateRecipesSchema)
+  if (parseError) return parseError
 
-  let body: { recipe_ids?: string[]; add_tags?: string[] }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
-
-  const recipeIds = body.recipe_ids ?? []
-  const addTags = body.add_tags ?? []
-
-  if (recipeIds.length === 0) {
-    return NextResponse.json({ error: 'recipe_ids is required and must be non-empty' }, { status: 400 })
-  }
-
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
+  const recipeIds = body.recipe_ids
+  const addTags = body.add_tags
 
   // Fetch all requested recipes
   const { data: recipes, error: fetchError } = await db
@@ -88,4 +71,4 @@ export async function PATCH(req: NextRequest) {
 
   const updatedRecipes = results.map((r) => r.data)
   return NextResponse.json(updatedRecipes)
-}
+})

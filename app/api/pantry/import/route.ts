@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
+import { NextResponse } from 'next/server'
+import { withAuth } from '@/lib/auth'
 import { assignSection } from '@/lib/grocery'
 
 interface ImportItem {
@@ -10,13 +10,7 @@ interface ImportItem {
 
 // ── POST /api/pantry/import ───────────────────────────────────────────────────
 
-export async function POST(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+export const POST = withAuth(async (req, { user, db }) => {
   let body: { items?: ImportItem[] }
   try {
     body = await req.json()
@@ -27,8 +21,6 @@ export async function POST(req: NextRequest) {
   if (!Array.isArray(body.items) || body.items.length === 0) {
     return NextResponse.json({ error: 'items array is required' }, { status: 400 })
   }
-
-  const db = createAdminClient()
 
   // Fetch existing pantry items for this user (for dedup check)
   const { data: existing } = await db
@@ -75,4 +67,4 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ imported, updated })
-}
+})

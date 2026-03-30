@@ -1,6 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-import { resolveHouseholdScope } from '@/lib/household'
+import { NextResponse } from 'next/server'
+import { withAuth } from '@/lib/auth'
 import { HomeData } from '@/types'
 
 function getCurrentWeekStart(): string {
@@ -12,17 +11,8 @@ function getCurrentWeekStart(): string {
   return monday.toISOString().slice(0, 10)
 }
 
-export async function GET(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+export const GET = withAuth(async (req, { user, db, ctx }) => {
   const weekStart = getCurrentWeekStart()
-
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
 
   let planQ = db.from('meal_plans').select('id, week_start').eq('week_start', weekStart)
   if (ctx) {
@@ -71,4 +61,4 @@ export async function GET(req: NextRequest) {
 
   const result: HomeData = { currentWeekPlan, recentlyMade }
   return NextResponse.json(result)
-}
+})

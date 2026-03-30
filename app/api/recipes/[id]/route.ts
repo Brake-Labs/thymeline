@@ -1,11 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-import { resolveHouseholdScope } from '@/lib/household'
+import { NextResponse } from 'next/server'
+import { withAuth } from '@/lib/auth'
 import { FIRST_CLASS_TAGS } from '@/lib/tags'
-
-interface RouteContext {
-  params: { id: string }
-}
+import { createAdminClient } from '@/lib/supabase-server'
 
 // Helper: attach last_made + times_made to a recipe row
 async function withHistory(
@@ -27,18 +23,13 @@ async function withHistory(
   return { ...recipe, last_made, times_made: rows.length, dates_made }
 }
 
-export async function GET(req: NextRequest, { params }: RouteContext) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+export const GET = withAuth(async (req, { db }, params) => {
+  const { id } = params
 
-  const db = createAdminClient()
   const { data: recipe, error } = await db
     .from('recipes')
     .select('*')
-    .eq('id', params.id)
+    .eq('id', id)
     .single()
 
   if (error || !recipe) {
@@ -46,23 +37,16 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
   }
 
   return NextResponse.json(await withHistory(db, recipe))
-}
+})
 
-export async function PATCH(req: NextRequest, { params }: RouteContext) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
+export const PATCH = withAuth(async (req, { user, db, ctx }, params) => {
+  const { id } = params
 
   // Ownership check
   const { data: existing, error: fetchError } = await db
     .from('recipes')
     .select('user_id, household_id')
-    .eq('id', params.id)
+    .eq('id', id)
     .single()
 
   if (fetchError || !existing) {
@@ -152,7 +136,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
   const { data: updated, error: updateError } = await db
     .from('recipes')
     .update(update)
-    .eq('id', params.id)
+    .eq('id', id)
     .select()
     .single()
 
@@ -161,23 +145,16 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
   }
 
   return NextResponse.json(updated)
-}
+})
 
-export async function DELETE(req: NextRequest, { params }: RouteContext) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
+export const DELETE = withAuth(async (req, { user, db, ctx }, params) => {
+  const { id } = params
 
   // Ownership check
   const { data: existing, error: fetchError } = await db
     .from('recipes')
     .select('user_id, household_id')
-    .eq('id', params.id)
+    .eq('id', id)
     .single()
 
   if (fetchError || !existing) {
@@ -197,11 +174,11 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
   const { error: deleteError } = await db
     .from('recipes')
     .delete()
-    .eq('id', params.id)
+    .eq('id', id)
 
   if (deleteError) {
     return NextResponse.json({ error: deleteError.message }, { status: 500 })
   }
 
   return new NextResponse(null, { status: 204 })
-}
+})

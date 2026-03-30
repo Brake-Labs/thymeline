@@ -1,19 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-import { resolveHouseholdScope } from '@/lib/household'
+import { withAuth } from '@/lib/auth'
 import { isSunday } from './helpers'
 import type { SavedPlanEntry } from '@/types'
 
 // ── POST /api/plan — save confirmed plan ───────────────────────────────────────
 
-export async function POST(req: NextRequest) {
-  // Step 1: verify identity with user-scoped client
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+export const POST = withAuth(async (req, { user, db, ctx }) => {
   let body: { week_start: string; entries: { date: string; recipe_id: string; meal_type?: string; is_side_dish?: boolean; parent_entry_id?: string }[] }
   try {
     body = await req.json()
@@ -29,10 +21,6 @@ export async function POST(req: NextRequest) {
   if (!isSunday(week_start)) {
     return NextResponse.json({ error: 'week_start must be a Sunday' }, { status: 400 })
   }
-
-  // Step 2: all DB operations use the admin client (bypasses RLS, scoped by user.id)
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
 
   // Find existing plan for this week, or create a new one
   let existingQ = db
@@ -92,26 +80,17 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ plan_id: planId, entries: savedEntries as SavedPlanEntry[] })
-}
+})
 
 // ── GET /api/plan?week_start=YYYY-MM-DD — fetch existing plan ──────────────────
 
-export async function GET(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+export const GET = withAuth(async (req, { user, db, ctx }) => {
   const { searchParams } = new URL(req.url)
   const week_start = searchParams.get('week_start')
 
   if (!week_start) {
     return NextResponse.json({ error: 'week_start is required' }, { status: 400 })
   }
-
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
 
   let planQ = db
     .from('meal_plans')
@@ -164,4 +143,4 @@ export async function GET(req: NextRequest) {
       entries:    enrichedEntries,
     },
   })
-}
+})

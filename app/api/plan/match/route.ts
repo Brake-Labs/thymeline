@@ -1,15 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-import { resolveHouseholdScope } from '@/lib/household'
+import { withAuth } from '@/lib/auth'
 import { callLLMNonStreaming } from '../helpers'
 
-export async function POST(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   let body: { query: string; date: string }
   try {
     body = await req.json()
@@ -18,9 +11,6 @@ export async function POST(req: NextRequest) {
   }
 
   const { query } = body
-
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
 
   // Fetch all recipes scoped by household or user (all categories)
   let recipesQ = db.from('recipes').select('id, title, tags')
@@ -96,4 +86,4 @@ Recipes: ${JSON.stringify(recipeList)}`
     console.error('LLM match error:', err)
     return NextResponse.json({ match: null })
   }
-}
+})

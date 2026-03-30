@@ -1,7 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import FirecrawlApp from 'firecrawl'
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-import { resolveHouseholdScope } from '@/lib/household'
+import { withAuth } from '@/lib/auth'
 import { anthropic } from '@/lib/llm'
 import {
   parseIngredientLine,
@@ -26,13 +25,7 @@ interface RecipeEntry {
 
 // ── POST /api/groceries/generate ─────────────────────────────────────────────
 
-export async function POST(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+export const POST = withAuth(async (req, { user, db, ctx }) => {
   let body: { week_start?: string; date_from?: string; date_to?: string }
   try {
     body = await req.json()
@@ -54,9 +47,6 @@ export async function POST(req: NextRequest) {
   } else {
     return NextResponse.json({ error: 'date_from and date_to are required' }, { status: 400 })
   }
-
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
 
   // 1. Get all meal plan IDs for the user/household (ordered so primaryPlanId is deterministic)
   let plansQ = db.from('meal_plans').select('id').order('week_start')
@@ -303,4 +293,4 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
   }
 
   return NextResponse.json({ list: upserted, skipped_recipes })
-}
+})

@@ -27,6 +27,12 @@ vi.mock('@anthropic-ai/sdk', () => ({
 
 vi.mock('@/lib/supabase-server', () => ({
   createServerClient: vi.fn(),
+  createAdminClient: () => ({}),
+}))
+
+vi.mock('@/lib/household', () => ({
+  resolveHouseholdScope: async () => null,
+  canManage: (role: string) => role === 'owner' || role === 'co_owner',
 }))
 
 import { createServerClient } from '@/lib/supabase-server'

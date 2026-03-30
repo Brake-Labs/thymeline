@@ -1,26 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-import { resolveHouseholdScope } from '@/lib/household'
+import { NextResponse } from 'next/server'
+import { withAuth } from '@/lib/auth'
 import { GroceryItem, GroceryList, RecipeScale } from '@/types'
 
 // ── GET /api/groceries?week_start=YYYY-MM-DD  (or ?date_from=YYYY-MM-DD) ─────
 
-export async function GET(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+export const GET = withAuth(async (req, { user, db, ctx }) => {
   const url = new URL(req.url)
   // Accept date_from as alias for week_start (generate stores week_start = date_from)
   const weekStart = url.searchParams.get('week_start') ?? url.searchParams.get('date_from')
   if (!weekStart) {
     return NextResponse.json({ error: 'week_start or date_from is required' }, { status: 400 })
   }
-
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
 
   let listQ = db.from('grocery_lists').select('*').eq('week_start', weekStart)
   if (ctx) {
@@ -35,17 +25,11 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json({ list: list ?? null })
-}
+})
 
 // ── PATCH /api/groceries ──────────────────────────────────────────────────────
 
-export async function PATCH(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+export const PATCH = withAuth(async (req, { user, db, ctx }) => {
   let body: {
     week_start?:    string
     list_id?:       string
@@ -63,9 +47,6 @@ export async function PATCH(req: NextRequest) {
   if (!week_start && !list_id) {
     return NextResponse.json({ error: 'week_start or list_id is required' }, { status: 400 })
   }
-
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
 
   // Find existing row — prefer list_id for direct lookup, fall back to week_start
   let existing: { id: string; meal_plan_id: string } | null = null
@@ -121,4 +102,4 @@ export async function PATCH(req: NextRequest) {
   }
 
   return NextResponse.json(updated as GroceryList)
-}
+})

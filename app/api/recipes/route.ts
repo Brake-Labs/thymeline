@@ -1,21 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-import { resolveHouseholdScope } from '@/lib/household'
+import { NextResponse } from 'next/server'
+import { withAuth } from '@/lib/auth'
 import { FIRST_CLASS_TAGS } from '@/lib/tags'
 
-export async function GET(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+export const GET = withAuth(async (req, { user, db, ctx }) => {
   const { searchParams } = new URL(req.url)
   const category = searchParams.get('category')
   const tag = searchParams.get('tag')
-
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
 
   let query = db
     .from('recipes')
@@ -66,15 +56,9 @@ export async function GET(req: NextRequest) {
   }))
 
   return NextResponse.json(result)
-}
+})
 
-export async function POST(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+export const POST = withAuth(async (req, { user, db, ctx }) => {
   let body: {
     title?: string
     category?: string
@@ -113,8 +97,6 @@ export async function POST(req: NextRequest) {
   }
 
   const tags = body.tags ?? []
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
 
   // Validate tags against first-class list + scoped custom_tags
   if (tags.length > 0) {
@@ -189,4 +171,4 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json(data, { status: 201 })
-}
+})

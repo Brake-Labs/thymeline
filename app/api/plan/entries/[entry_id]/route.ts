@@ -1,20 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-import { resolveHouseholdScope } from '@/lib/household'
+import { withAuth } from '@/lib/auth'
 
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { entry_id: string } },
-) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+export const DELETE = withAuth(async (req, { user, db, ctx }, params) => {
   const { entry_id } = params
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
 
   // Look up the entry and verify ownership via join on meal_plans
   const { data: entry } = await db
@@ -45,4 +33,4 @@ export async function DELETE(
   }
 
   return new NextResponse(null, { status: 204 })
-}
+})

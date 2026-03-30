@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-import { resolveHouseholdScope } from '@/lib/household'
+import { withAuth } from '@/lib/auth'
 import {
   getSeason,
   isSunday,
@@ -15,13 +14,7 @@ import {
 } from '../helpers'
 import type { DaySuggestions, MealType } from '@/types'
 
-export async function POST(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   let body: {
     week_start: string
     active_dates: string[]
@@ -47,13 +40,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'week_start must be a Sunday' }, { status: 400 })
   }
 
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
-
-  const prefs = await fetchUserPreferences(supabase, user.id, ctx)
+  const prefs = await fetchUserPreferences(db, user.id, ctx)
   const cooldownDays = prefs?.cooldown_days ?? 28
-  const recipesByMealType = await fetchRecipesByMealTypes(supabase, user.id, cooldownDays, active_meal_types, ctx)
-  const recentHistory = await fetchRecentHistory(supabase, user.id)
+  const recipesByMealType = await fetchRecipesByMealTypes(db, user.id, cooldownDays, active_meal_types, ctx)
+  const recentHistory = await fetchRecentHistory(db, user.id)
 
   const totalRecipes = Object.values(recipesByMealType).reduce((n, r) => n + r.length, 0)
   console.log(`[suggest] user=${user.id} total_recipes_after_cooldown=${totalRecipes} cooldown_days=${cooldownDays}`)
@@ -65,7 +55,7 @@ export async function POST(req: NextRequest) {
   const season = getSeason(today.getMonth())
 
   const systemMessage = buildSystemMessage(prefs, prefer_this_week ?? [], avoid_this_week ?? [], season)
-  const pantryContext = await fetchPantryContext(supabase, user.id, ctx)
+  const pantryContext = await fetchPantryContext(db, user.id, ctx)
   const userMessage = buildFullWeekUserMessage(
     active_dates,
     recipesByMealType,
@@ -92,4 +82,4 @@ export async function POST(req: NextRequest) {
     console.error('LLM suggest error:', err)
     return NextResponse.json({ error: 'Suggestion failed. Please try again.' }, { status: 500 })
   }
-}
+})

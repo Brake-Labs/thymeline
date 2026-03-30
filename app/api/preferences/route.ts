@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-import { resolveHouseholdScope, canManage } from '@/lib/household'
+import { NextResponse } from 'next/server'
+import { withAuth } from '@/lib/auth'
+import { canManage } from '@/lib/household'
 import { LimitedTag } from '@/types'
 
 const DEFAULT_PREFS = {
@@ -14,16 +14,7 @@ const DEFAULT_PREFS = {
   is_active: true,
 }
 
-export async function GET(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
-
+export const GET = withAuth(async (req, { user, db, ctx }) => {
   let query = db
     .from('user_preferences')
     .select('options_per_day, cooldown_days, seasonal_mode, preferred_tags, avoided_tags, limited_tags, onboarding_completed, is_active')
@@ -47,18 +38,9 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json(data)
-}
+})
 
-export async function PATCH(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
-
+export const PATCH = withAuth(async (req, { user, db, ctx }) => {
   // Household members without manage permission cannot update shared preferences
   if (ctx && !canManage(ctx.role)) {
     return NextResponse.json(
@@ -180,4 +162,4 @@ export async function PATCH(req: NextRequest) {
     }
     return NextResponse.json(data)
   }
-}
+})

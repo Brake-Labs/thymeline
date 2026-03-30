@@ -39,9 +39,15 @@ vi.mock('@anthropic-ai/sdk', () => ({
 
 vi.mock('@/lib/supabase-server', () => ({
   createServerClient: vi.fn(),
+  createAdminClient: vi.fn(),
 }))
 
-import { createServerClient } from '@/lib/supabase-server'
+vi.mock('@/lib/household', () => ({
+  resolveHouseholdScope: async () => null,
+  canManage: (role: string) => role === 'owner' || role === 'co_owner',
+}))
+
+import { createServerClient, createAdminClient } from '@/lib/supabase-server'
 
 function makeAuthMock(pantryItems: unknown[] = []) {
   return {
@@ -86,6 +92,7 @@ describe('T05 - POST /api/recipes/generate returns 400 when no ingredients', () 
 
   it('returns 400 when use_pantry is false and specific_ingredients is blank', async () => {
     vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(makeAuthMock() as ReturnType<typeof createAdminClient>)
 
     const { POST } = await import('../route')
     const res = await POST(makeReq({
@@ -103,6 +110,7 @@ describe('T05 - POST /api/recipes/generate returns 400 when no ingredients', () 
 
   it('returns 400 when use_pantry is true but pantry is empty and specific_ingredients is blank', async () => {
     vi.mocked(createServerClient).mockReturnValue(makeAuthMock([]) as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(makeAuthMock([]) as ReturnType<typeof createAdminClient>)
 
     const { POST } = await import('../route')
     const res = await POST(makeReq({
@@ -140,6 +148,7 @@ describe('T06 - POST /api/recipes/generate returns a valid GeneratedRecipe', () 
 
   it('returns 200 with a GeneratedRecipe shape', async () => {
     vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(makeAuthMock() as ReturnType<typeof createAdminClient>)
 
     const { POST } = await import('../route')
     const res = await POST(makeReq(defaultBody) as Parameters<typeof POST>[0])
@@ -182,6 +191,7 @@ describe('T07 - Tags returned by LLM are filtered to FIRST_CLASS_TAGS', () => {
 
   it('drops unrecognised tags, keeps valid ones', async () => {
     vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(makeAuthMock() as ReturnType<typeof createAdminClient>)
 
     const { POST } = await import('../route')
     const res = await POST(makeReq(defaultBody) as Parameters<typeof POST>[0])
@@ -218,6 +228,7 @@ describe('T08 - Invalid LLM category falls back to mealTypeToCategory("dinner")'
 
   it('returns main_dish when LLM category is invalid and meal_type is dinner', async () => {
     vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(makeAuthMock() as ReturnType<typeof createAdminClient>)
 
     const { POST } = await import('../route')
     const res = await POST(makeReq(defaultBody) as Parameters<typeof POST>[0])
@@ -252,6 +263,7 @@ describe('T09 - All mealType → category mappings are correct', () => {
       })
 
       vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as ReturnType<typeof createServerClient>)
+      vi.mocked(createAdminClient).mockReturnValue(makeAuthMock() as ReturnType<typeof createAdminClient>)
 
       const { POST } = await import('../route')
       const res = await POST(makeReq({ ...defaultBody, meal_type: mealType }) as Parameters<typeof POST>[0])
@@ -273,6 +285,7 @@ describe('T10 - POST /api/recipes/generate returns 500 when LLM call throws', ()
 
   it('returns 500 on LLM error', async () => {
     vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(makeAuthMock() as ReturnType<typeof createAdminClient>)
 
     const { POST } = await import('../route')
     const res = await POST(makeReq(defaultBody) as Parameters<typeof POST>[0])
@@ -294,6 +307,7 @@ describe('T11 - POST /api/recipes/generate returns 500 when LLM returns unparsea
 
   it('returns 500 on parse failure', async () => {
     vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(makeAuthMock() as ReturnType<typeof createAdminClient>)
 
     const { POST } = await import('../route')
     const res = await POST(makeReq(defaultBody) as Parameters<typeof POST>[0])

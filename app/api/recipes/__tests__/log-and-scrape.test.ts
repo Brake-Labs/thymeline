@@ -66,6 +66,11 @@ vi.mock('@/lib/supabase-server', () => ({
   createAdminClient:  vi.fn(),
 }))
 
+vi.mock('@/lib/household', () => ({
+  resolveHouseholdScope: async () => null,
+  canManage: (role: string) => role === 'owner' || role === 'co_owner',
+}))
+
 // Firecrawl class mock (must mock before importing route)
 vi.mock('firecrawl', () => ({
   default: class MockFirecrawl {
@@ -90,8 +95,11 @@ import { anthropic } from '@/lib/llm'
 function makeAdminMock(opts: {
   pantryItems?: { id: string; name: string; quantity: string | null; user_id: string }[]
   recipeIngredients?: string
+  insertError?: { code: string; message: string } | null
+  singleResult?: unknown
+  customTags?: { name: string }[]
 } = {}) {
-  const { pantryItems = [], recipeIngredients = '200g pasta' } = opts
+  const { pantryItems = [], recipeIngredients = '200g pasta', insertError = null, singleResult, customTags = [] } = opts
   const deletedIds: string[] = []
 
   const mock = {
@@ -101,10 +109,22 @@ function makeAdminMock(opts: {
           select: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
               single: vi.fn().mockResolvedValue({
-                data: { ingredients: recipeIngredients },
+                data: singleResult ?? { ingredients: recipeIngredients },
                 error: null,
               }),
             }),
+          }),
+        }
+      }
+      if (table === 'recipe_history') {
+        return {
+          insert: vi.fn().mockResolvedValue({ data: null, error: insertError }),
+        }
+      }
+      if (table === 'custom_tags') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ data: customTags, error: null }),
           }),
         }
       }
@@ -164,6 +184,7 @@ describe('POST /api/recipes/[id]/log', () => {
     const uniqueViolation = { code: '23505', message: 'recipe_history_unique_day' }
     const mock = makeSupabaseMock({ insertError: uniqueViolation })
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(makeAdminMock({ insertError: uniqueViolation }) as ReturnType<typeof createAdminClient>)
 
     const { POST } = await import('@/app/api/recipes/[id]/log/route')
     const req = makeReq(`http://localhost/api/recipes/${sampleRecipe.id}/log`)
@@ -234,6 +255,7 @@ describe('POST /api/recipes/scrape', () => {
   it('T01: successful scrape pre-fills title, ingredients, and steps (partial = false)', async () => {
     const mock = makeSupabaseMock()
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(makeAdminMock() as ReturnType<typeof createAdminClient>)
     vi.mocked(anthropic.messages.create).mockResolvedValue({
       content: [{ type: 'text', text: JSON.stringify({
         title: 'Pasta Carbonara',
@@ -266,6 +288,7 @@ describe('POST /api/recipes/scrape', () => {
   it('T02: partial scrape (steps null) sets partial = true, save button not blocked', async () => {
     const mock = makeSupabaseMock()
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(makeAdminMock() as ReturnType<typeof createAdminClient>)
     vi.mocked(anthropic.messages.create).mockResolvedValue({
       content: [{ type: 'text', text: JSON.stringify({
         title: 'Pasta Carbonara',
@@ -292,6 +315,7 @@ describe('POST /api/recipes/scrape', () => {
   it('returns 400 for missing URL', async () => {
     const mock = makeSupabaseMock()
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(makeAdminMock() as ReturnType<typeof createAdminClient>)
 
     const { POST } = await import('@/app/api/recipes/scrape/route')
     const req = makeReq('http://localhost/api/recipes/scrape', 'POST', {})
@@ -303,6 +327,7 @@ describe('POST /api/recipes/scrape', () => {
   it('returns 400 for invalid URL', async () => {
     const mock = makeSupabaseMock()
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(makeAdminMock() as ReturnType<typeof createAdminClient>)
 
     const { POST } = await import('@/app/api/recipes/scrape/route')
     const req = makeReq('http://localhost/api/recipes/scrape', 'POST', { url: 'not-a-url' })
@@ -322,6 +347,7 @@ describe('POST /api/recipes/scrape', () => {
       customTags: [{ name: 'My-Custom-Sauce' }],
     })
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(makeAdminMock({ customTags: [{ name: 'My-Custom-Sauce' }] }) as ReturnType<typeof createAdminClient>)
     vi.mocked(anthropic.messages.create).mockResolvedValue({
       content: [{ type: 'text', text: JSON.stringify({
         title: 'Pasta',
@@ -349,6 +375,7 @@ describe('POST /api/recipes/scrape', () => {
 
   it('T01b (spec-06): suggestedNewTags with invalid section are filtered out', async () => {
     vi.mocked(createServerClient).mockReturnValue(makeSupabaseMock({}) as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(makeAdminMock() as ReturnType<typeof createAdminClient>)
     vi.mocked(anthropic.messages.create).mockResolvedValue({
       content: [{ type: 'text', text: JSON.stringify({
         title: 'Pasta',
@@ -382,6 +409,7 @@ describe('T_servings - Scrape route returns servings from LLM', () => {
   it('returns servings when LLM provides it', async () => {
     const mock = makeSupabaseMock({ customTags: [] })
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(makeAdminMock() as ReturnType<typeof createAdminClient>)
     vi.mocked(anthropic.messages.create).mockResolvedValue({
       content: [{ type: 'text', text: JSON.stringify({
         title: 'Pasta',
@@ -409,6 +437,7 @@ describe('T_servings - Scrape route returns servings from LLM', () => {
   it('returns null servings when LLM cannot find it', async () => {
     const mock = makeSupabaseMock({ customTags: [] })
     vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(makeAdminMock() as ReturnType<typeof createAdminClient>)
     vi.mocked(anthropic.messages.create).mockResolvedValue({
       content: [{ type: 'text', text: JSON.stringify({
         title: 'Pasta',

@@ -68,6 +68,11 @@ vi.mock('@/lib/supabase-server', () => ({
   createAdminClient:  vi.fn(),
 }))
 
+vi.mock('@/lib/household', () => ({
+  resolveHouseholdScope: async () => null,
+  canManage: (role: string) => role === 'owner' || role === 'co_owner',
+}))
+
 import { createServerClient, createAdminClient } from '@/lib/supabase-server'
 
 function makeAuthMock() {

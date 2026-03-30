@@ -1,17 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-import { resolveHouseholdScope, canManage } from '@/lib/household'
+import { NextResponse } from 'next/server'
+import { withAuth } from '@/lib/auth'
+import { canManage } from '@/lib/household'
 import type { Household, HouseholdMember } from '@/types'
 
 // ── POST /api/household — create a new household ──────────────────────────────
 
-export async function POST(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+export const POST = withAuth(async (req, { user, db, ctx }) => {
   let body: { name?: string }
   try {
     body = await req.json()
@@ -23,8 +17,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'name is required' }, { status: 400 })
   }
 
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
   if (ctx) {
     return NextResponse.json({ error: 'Already in a household.' }, { status: 409 })
   }
@@ -48,19 +40,11 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json(household as Household, { status: 201 })
-}
+})
 
 // ── GET /api/household — get current user's household and members ─────────────
 
-export async function GET(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
+export const GET = withAuth(async (req, { user, db, ctx }) => {
   if (!ctx) {
     return NextResponse.json({ household: null })
   }
@@ -92,19 +76,11 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json({ household: household as Household, members: enrichedMembers, myRole: ctx.role })
-}
+})
 
 // ── PATCH /api/household — update household name ──────────────────────────────
 
-export async function PATCH(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
+export const PATCH = withAuth(async (req, { user, db, ctx }) => {
   if (!ctx) {
     return NextResponse.json({ error: 'Not in a household' }, { status: 404 })
   }
@@ -135,19 +111,11 @@ export async function PATCH(req: NextRequest) {
   }
 
   return NextResponse.json(updated as Household)
-}
+})
 
 // ── DELETE /api/household — delete the household (owner only) ─────────────────
 
-export async function DELETE(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
+export const DELETE = withAuth(async (req, { user, db, ctx }) => {
   if (!ctx) {
     return NextResponse.json({ error: 'Not in a household' }, { status: 404 })
   }
@@ -165,4 +133,4 @@ export async function DELETE(req: NextRequest) {
   }
 
   return new NextResponse(null, { status: 204 })
-}
+})

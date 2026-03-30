@@ -1,40 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import FirecrawlApp from 'firecrawl'
-import { createServerClient } from '@/lib/supabase-server'
+import { withAuth } from '@/lib/auth'
 import { anthropic } from '@/lib/llm'
 import { FIRST_CLASS_TAGS } from '@/lib/tags'
+import { scrapeRecipeSchema, parseBody } from '@/lib/schemas'
 
-export async function POST(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+export const POST = withAuth(async (req: NextRequest, { user, db }) => {
   const firecrawlKey = process.env.FIRECRAWL_API_KEY
   if (!firecrawlKey) {
     console.error('FIRECRAWL_API_KEY is not set')
     return NextResponse.json({ error: 'Scraping service not configured' }, { status: 500 })
   }
 
-  let body: { url?: string }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
-
+  const { data: body, error: parseError } = await parseBody(req, scrapeRecipeSchema)
+  if (parseError) return parseError
   const rawUrl = body.url
-  if (!rawUrl || typeof rawUrl !== 'string' || !rawUrl.trim()) {
-    return NextResponse.json({ error: 'url is required' }, { status: 400 })
-  }
-
-  // Validate URL
-  try {
-    new URL(rawUrl)
-  } catch {
-    return NextResponse.json({ error: 'url must be a valid URL' }, { status: 400 })
-  }
 
   let pageContent: string
   try {
@@ -47,7 +27,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Fetch user's custom tags for tag suggestion matching
-  const { data: userCustomTagRows } = await supabase
+  const { data: userCustomTagRows } = await db
     .from('custom_tags')
     .select('name')
     .eq('user_id', user.id)
@@ -178,7 +158,6 @@ ${pageContent.slice(0, 20000)}`
   for (const tag of extracted.suggestedTags) {
     const canonical = fullPool.find((t) => t.toLowerCase() === tag.toLowerCase())
     if (canonical) suggestedTags.push(canonical)
-    // Unrecognised tags are silently dropped — LLM should use suggestedNewTags for new ones
   }
 
   // Pass through LLM-supplied new tags; normalise name to Title Case, validate section
@@ -205,4 +184,4 @@ ${pageContent.slice(0, 20000)}`
     inactiveTimeMinutes: extracted.inactiveTimeMinutes,
     stepPhotos: extracted.stepPhotos,
   })
-}
+})

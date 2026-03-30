@@ -1,23 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-import Anthropic from '@anthropic-ai/sdk'
+import { NextResponse } from 'next/server'
+import { withAuth } from '@/lib/auth'
+import { anthropic } from '@/lib/llm'
 import type { PantryMatch } from '@/types'
-
-const anthropic = new Anthropic({ apiKey: process.env.LLM_API_KEY })
 
 const SYSTEM_PROMPT = `You are a recipe matching assistant. Given a pantry contents list and a recipe catalog, rank the recipes by how many pantry ingredients they use. Return only valid JSON with no prose.`
 
 // ── POST /api/pantry/match ────────────────────────────────────────────────────
 
-export async function POST(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const db = createAdminClient()
-
+export const POST = withAuth(async (req, { user, db }) => {
   // 1. Fetch all pantry items
   const { data: pantryItems } = await db
     .from('pantry_items')
@@ -72,4 +62,4 @@ Rank these recipes by how many pantry ingredients they use. Return the top 5 in 
   } catch {
     return NextResponse.json({ matches: [] })
   }
-}
+})

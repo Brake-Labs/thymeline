@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-import { resolveHouseholdScope } from '@/lib/household'
+import { withAuth } from '@/lib/auth'
 import { anthropic } from '@/lib/llm'
+import { searchRecipesSchema, parseBody } from '@/lib/schemas'
 import type { RecipeFilters } from '@/types'
 
 function applyFilters(
@@ -24,27 +24,14 @@ function applyFilters(
   })
 }
 
-export async function POST(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  let body: { query?: string; filters?: RecipeFilters }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
+export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
+  const { data: body, error: parseError } = await parseBody(req, searchRecipesSchema)
+  if (parseError) return parseError
 
   const query = body.query?.trim() ?? ''
   if (!query) {
     return NextResponse.json({ results: [] })
   }
-
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
 
   let recipesQuery = db
     .from('recipes')
@@ -143,4 +130,4 @@ Return ONLY a JSON array of recipe_id strings, e.g. ["uuid1","uuid2"]. No other 
   }))
 
   return NextResponse.json({ results })
-}
+})

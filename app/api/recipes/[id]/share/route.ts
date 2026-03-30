@@ -1,22 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase-server'
+import { withAuth } from '@/lib/auth'
+import { shareRecipeSchema, parseBody } from '@/lib/schemas'
 
-interface RouteContext {
-  params: { id: string }
-}
-
-export async function PATCH(req: NextRequest, { params }: RouteContext) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+export const PATCH = withAuth(async (req: NextRequest, { user, db }, params) => {
+  const { id } = params
 
   // Ownership check
-  const { data: existing, error: fetchError } = await supabase
+  const { data: existing, error: fetchError } = await db
     .from('recipes')
     .select('user_id')
-    .eq('id', params.id)
+    .eq('id', id)
     .single()
 
   if (fetchError || !existing) {
@@ -26,21 +19,13 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  let body: { is_shared?: boolean }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
+  const { data: body, error: parseError } = await parseBody(req, shareRecipeSchema)
+  if (parseError) return parseError
 
-  if (typeof body.is_shared !== 'boolean') {
-    return NextResponse.json({ error: 'is_shared must be a boolean' }, { status: 400 })
-  }
-
-  const { data: updated, error: updateError } = await supabase
+  const { data: updated, error: updateError } = await db
     .from('recipes')
     .update({ is_shared: body.is_shared })
-    .eq('id', params.id)
+    .eq('id', id)
     .select()
     .single()
 
@@ -49,4 +34,4 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
   }
 
   return NextResponse.json(updated)
-}
+})

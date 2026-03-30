@@ -1,23 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
+import { withAuth } from '@/lib/auth'
+import { createAdminClient } from '@/lib/supabase-server'
 import { parseIngredientLine } from '@/lib/grocery'
 
-interface RouteContext {
-  params: { id: string }
-}
+export const POST = withAuth(async (req: NextRequest, { user, db }, params) => {
+  const { id } = params
 
-export async function POST(req: NextRequest, { params }: RouteContext) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  // Verify the recipe exists and the user can access it (RLS enforces shared/owned)
-  const { data: recipe, error: fetchError } = await supabase
+  // Verify the recipe exists and the user can access it
+  const { data: recipe, error: fetchError } = await db
     .from('recipes')
     .select('id')
-    .eq('id', params.id)
+    .eq('id', id)
     .single()
 
   if (fetchError || !recipe) {
@@ -34,9 +27,9 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     }
   } catch { /* no body — use today */ }
 
-  const { error: insertError } = await supabase
+  const { error: insertError } = await db
     .from('recipe_history')
-    .insert({ recipe_id: params.id, user_id: user.id, made_on: madeOn })
+    .insert({ recipe_id: id, user_id: user.id, made_on: madeOn })
 
   // Unique constraint violation = already logged today — treat as idempotent
   const alreadyLogged =
@@ -48,10 +41,10 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   }
 
   // Silent pantry deduction — fire and forget, never affects the HTTP response
-  void deductPantryIngredients(params.id, user.id).catch(() => {})
+  void deductPantryIngredients(id, user.id).catch(() => {})
 
   return NextResponse.json({ made_on: madeOn, already_logged: alreadyLogged })
-}
+})
 
 // Pattern for clearly singular quantities (null quantity is also deductible)
 const SINGULAR_QTY_PATTERN = /^\d+\s*(can|cans|lb|lbs|oz|piece|pieces|item|items|pack|packs)$/i
@@ -103,12 +96,8 @@ async function deductPantryIngredients(recipeId: string, userId: string): Promis
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: RouteContext) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+export const DELETE = withAuth(async (req: NextRequest, { user, db }, params) => {
+  const { id } = params
 
   let body: { made_on?: string }
   try {
@@ -121,10 +110,10 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: 'made_on (YYYY-MM-DD) is required' }, { status: 400 })
   }
 
-  const { error: deleteError } = await supabase
+  const { error: deleteError } = await db
     .from('recipe_history')
     .delete()
-    .eq('recipe_id', params.id)
+    .eq('recipe_id', id)
     .eq('user_id', user.id)
     .eq('made_on', body.made_on)
 
@@ -133,4 +122,4 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
   }
 
   return new NextResponse(null, { status: 204 })
-}
+})

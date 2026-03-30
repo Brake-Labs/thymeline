@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase-server'
+import { withAuth } from '@/lib/auth'
 import { anthropic } from '@/lib/llm'
 import { FIRST_CLASS_TAGS } from '@/lib/tags'
+import { generateRecipeSchema, parseBody } from '@/lib/schemas'
 import type { GeneratedRecipe, MealTypeInput } from '@/types'
 
 const VALID_CATEGORIES = ['main_dish', 'breakfast', 'dessert', 'side_dish'] as const
@@ -27,33 +28,16 @@ function parseNonNegativeInt(val: unknown): number | null {
   return val
 }
 
-export async function POST(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  let body: {
-    use_pantry: boolean
-    specific_ingredients: string
-    meal_type: MealTypeInput
-    style_hints: string
-    dietary_restrictions: string[]
-  }
-
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
+export const POST = withAuth(async (req: NextRequest, { user, db }) => {
+  const { data: body, error: parseError } = await parseBody(req, generateRecipeSchema)
+  if (parseError) return parseError
 
   const { use_pantry, specific_ingredients, meal_type, style_hints, dietary_restrictions } = body
 
   // Fetch pantry items if requested
   let pantryLines: string[] = []
   if (use_pantry) {
-    const { data: pantryItems } = await supabase
+    const { data: pantryItems } = await db
       .from('pantry_items')
       .select('name, quantity')
       .eq('user_id', user.id)
@@ -186,4 +170,4 @@ Make it practical and delicious.`
   }
 
   return NextResponse.json(result)
-}
+})
