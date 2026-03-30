@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 
-export default function RecipeDetailError({ error, reset }: { error: Error; reset: () => void }) {
+export default function RecipeDetailError({ error: _error, reset }: { error: Error; reset: () => void }) {
   const router = useRouter()
 
   return (

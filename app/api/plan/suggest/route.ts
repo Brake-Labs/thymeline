@@ -64,7 +64,7 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   }
 
   const totalRecipes = Object.values(recipesByMealType).reduce((n, r) => n + r.length, 0)
-  console.log(`[suggest] user=${user.id} total_recipes_after_cooldown=${totalRecipes} cooldown_days=${cooldownDays}`)
+  console.warn(`[suggest] user=${user.id} total_recipes_after_cooldown=${totalRecipes} cooldown_days=${cooldownDays}`)
   if (totalRecipes === 0) {
     console.warn(`[suggest] 0 recipes available — cooldown may be excluding all recipes`)
   }
@@ -91,7 +91,7 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
 
   try {
     const raw = await callLLMNonStreaming(systemMessage, userMessage)
-    console.log(`[suggest] raw_llm_response=${raw.slice(0, 500)}${raw.length > 500 ? '…' : ''}`)
+    console.warn(`[suggest] raw_llm_response=${raw.slice(0, 500)}${raw.length > 500 ? '…' : ''}`)
     const stripped = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '')
     const parsed = JSON.parse(stripped) as { days: DaySuggestions[] }
     const validated = validateSuggestions(parsed.days ?? [], validIdsByMealType)

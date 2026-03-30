@@ -3,7 +3,7 @@ import { withAuth } from '@/lib/auth'
 
 // ── GET /api/household/invite/validate?token=<token> ─────────────────────────
 
-export const GET = withAuth(async (req, { user, db }) => {
+export const GET = withAuth(async (req, { db }) => {
   const { searchParams } = new URL(req.url)
   const token = searchParams.get('token')
   if (!token) {

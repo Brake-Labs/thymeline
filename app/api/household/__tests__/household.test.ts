@@ -88,7 +88,7 @@ function makeMockFrom(table: string) {
           then: (resolve: (v: { error: null }) => void) => resolve({ error: null }),
         }
       },
-      update: (payload: Record<string, unknown>) => ({
+      update: (_payload: Record<string, unknown>) => ({
         eq: () => ({
           eq: async () => ({ error: null }),
         }),
@@ -282,11 +282,11 @@ const { POST: transferPOST } = await import('@/app/api/household/transfer/route'
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function makeReq(method: string, url: string, body?: unknown): NextRequest {
-  const opts: RequestInit = {
+  const opts: ConstructorParameters<typeof NextRequest>[1] = {
     method,
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer token' },
   }
-  if (body !== undefined) opts.body = JSON.stringify(body)
+  if (body !== undefined) opts!.body = JSON.stringify(body)
   return new NextRequest(url, opts)
 }
 

@@ -25,7 +25,6 @@ const KNOWN_TAGS = new Set<string>([
   ...PROTEIN_TAGS,
 ])
 
-const TIME_PRESETS = [15, 30, 60, 120, 240] as const
 function timeLabel(max: number | null): string {
   if (max === null || max >= 240) return 'Any time'
   if (max < 60) return `Under ${max} min`

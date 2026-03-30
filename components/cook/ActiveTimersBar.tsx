@@ -26,7 +26,7 @@ export default function ActiveTimersBar({ timers, onPause, onReset, onDismiss }:
             {timer.label}
           </span>
           {timer.isExpired ? (
-            <span className="text-red-400 text-sm font-semibold flex-1">Time's up!</span>
+            <span className="text-red-400 text-sm font-semibold flex-1">Time&apos;s up!</span>
           ) : (
             <span className="font-mono text-white text-sm flex-1">
               {formatTime(timer.remaining)}

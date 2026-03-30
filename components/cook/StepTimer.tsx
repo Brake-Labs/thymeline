@@ -105,7 +105,7 @@ export default function StepTimer({ stepIndex, stepText, timerState, onChange }:
     return (
       <div className="flex items-center gap-2 mt-2">
         {done ? (
-          <span className="text-red-500 font-semibold text-sm">Time's up!</span>
+          <span className="text-red-500 font-semibold text-sm">Time&apos;s up!</span>
         ) : (
           <span className="font-mono text-lg">{display}</span>
         )}

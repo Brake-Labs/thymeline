@@ -113,8 +113,8 @@ describe('POST /api/recipes/search', () => {
 
   it('T18: returns empty results when LLM returns []', async () => {
     const mock = makeSupabaseMock({})
-    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
+    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
     vi.mocked(anthropic.messages.create).mockResolvedValue({
       content: [{ type: 'text', text: '[]' }],
     } as Awaited<ReturnType<typeof anthropic.messages.create>>)
@@ -129,8 +129,8 @@ describe('POST /api/recipes/search', () => {
 
   it('T15: returns relevant results ordered by LLM rank', async () => {
     const mock = makeSupabaseMock({})
-    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
+    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
     vi.mocked(anthropic.messages.create).mockResolvedValue({
       content: [{ type: 'text', text: '["recipe-1","recipe-3"]' }],
     } as Awaited<ReturnType<typeof anthropic.messages.create>>)
@@ -147,8 +147,8 @@ describe('POST /api/recipes/search', () => {
 
   it('security: silently drops IDs not in the user recipe list', async () => {
     const mock = makeSupabaseMock({})
-    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
+    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
     vi.mocked(anthropic.messages.create).mockResolvedValue({
       content: [{ type: 'text', text: '["recipe-1","evil-injected-uuid"]' }],
     } as Awaited<ReturnType<typeof anthropic.messages.create>>)
@@ -164,8 +164,8 @@ describe('POST /api/recipes/search', () => {
 
   it('T16: applies filters on top of LLM results', async () => {
     const mock = makeSupabaseMock({})
-    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
+    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
     // LLM ranks all three; filters should remove the slow recipes
     vi.mocked(anthropic.messages.create).mockResolvedValue({
       content: [{ type: 'text', text: '["recipe-1","recipe-2","recipe-3"]' }],
@@ -192,8 +192,8 @@ describe('POST /api/recipes/search', () => {
 
   it('returns empty results for empty query', async () => {
     const mock = makeSupabaseMock({})
-    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
+    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
 
     const { POST } = await import('../route')
     const req = makeReq({ query: '   ' })

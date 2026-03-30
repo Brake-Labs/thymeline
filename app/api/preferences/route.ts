@@ -70,7 +70,7 @@ export const PATCH = withAuth(async (req, { user, db, ctx }) => {
         const unknown = tags.filter((t) => !tagSet.has(t))
         if (unknown.length > 0) {
           const validationError = `Unknown tags: ${unknown.join(', ')}`
-          console.log('[PATCH /api/preferences] validation error:', validationError)
+          console.warn('[PATCH /api/preferences] validation error:', validationError)
           return NextResponse.json({ error: validationError }, { status: 400 })
         }
       }
@@ -92,18 +92,19 @@ export const PATCH = withAuth(async (req, { user, db, ctx }) => {
       const unknown = lt.map((i) => i.tag).filter((t) => !tagSet.has(t))
       if (unknown.length > 0) {
         const validationError = `Unknown tags in limited_tags: ${unknown.join(', ')}`
-        console.log('[PATCH /api/preferences] validation error:', validationError)
+        console.warn('[PATCH /api/preferences] validation error:', validationError)
         return NextResponse.json({ error: validationError }, { status: 400 })
       }
     }
   }
 
-  const allowed = ['options_per_day', 'cooldown_days', 'seasonal_mode', 'preferred_tags', 'avoided_tags', 'limited_tags', 'onboarding_completed']
+  const allowed = ['options_per_day', 'cooldown_days', 'seasonal_mode', 'preferred_tags', 'avoided_tags', 'limited_tags', 'onboarding_completed'] as const
+  const bodyRecord = body as Record<string, unknown>
 
   if (ctx) {
     const update: Record<string, unknown> = { household_id: ctx.householdId }
     for (const key of allowed) {
-      if (key in body) update[key] = body[key]
+      if (key in body) update[key] = bodyRecord[key]
     }
 
     const { data, error } = await db
@@ -119,7 +120,7 @@ export const PATCH = withAuth(async (req, { user, db, ctx }) => {
   } else {
     const update: Record<string, unknown> = { user_id: user.id }
     for (const key of allowed) {
-      if (key in body) update[key] = body[key]
+      if (key in body) update[key] = bodyRecord[key]
     }
 
     const { data, error } = await db

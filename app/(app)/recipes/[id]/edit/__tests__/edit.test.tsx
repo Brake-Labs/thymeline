@@ -111,7 +111,7 @@ describe('T19 - Submit sends updated tags in PATCH request', () => {
         ([url, opts]) => url.includes('/api/recipes/recipe-1') && opts?.method === 'PATCH',
       )
       expect(patchCall).toBeDefined()
-      const body = JSON.parse(patchCall[1].body)
+      const body = JSON.parse(patchCall![1].body)
       expect(body.tags).toContain('Chicken')
       expect(body.tags).toContain('Soup')
       expect(body.tags).toContain('Gluten-Free')
@@ -138,7 +138,7 @@ describe('T19 - Submit sends updated tags in PATCH request', () => {
       const patchCall = mockFetch.mock.calls.find(
         ([url, opts]) => url.includes('/api/recipes/recipe-1') && opts?.method === 'PATCH',
       )
-      const body = JSON.parse(patchCall[1].body)
+      const body = JSON.parse(patchCall![1].body)
       expect(body.tags).toContain('Chicken')
       expect(body.tags).not.toContain('Soup')
     })

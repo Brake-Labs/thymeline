@@ -108,6 +108,7 @@ export interface Recipe {
   inactive_time_minutes: number | null
   servings:              number | null
   source: 'scraped' | 'manual' | 'generated'
+  step_photos: { stepIndex: number; imageUrl: string }[]
 }
 
 export interface RecipeListItem {

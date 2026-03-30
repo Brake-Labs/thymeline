@@ -64,7 +64,7 @@ describe('T22 - POST /api/pantry/scan returns { detected: [] } on invalid LLM re
 
   it('returns { detected: [] } when LLM returns invalid JSON', async () => {
     mockScanState.llmResponse = 'this is not valid json at all }{'
-    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as ReturnType<typeof createServerClient>)
+    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createServerClient>)
 
     const { POST } = await import('../scan/route')
     const res = await POST(
@@ -78,7 +78,7 @@ describe('T22 - POST /api/pantry/scan returns { detected: [] } on invalid LLM re
 
   it('returns { detected: [] } when LLM call throws', async () => {
     mockScanState.shouldThrow = true
-    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as ReturnType<typeof createServerClient>)
+    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createServerClient>)
 
     const { POST } = await import('../scan/route')
     const res = await POST(
@@ -91,7 +91,7 @@ describe('T22 - POST /api/pantry/scan returns { detected: [] } on invalid LLM re
   })
 
   it('returns { detected: [] } when no image is provided', async () => {
-    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as ReturnType<typeof createServerClient>)
+    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createServerClient>)
 
     const { POST } = await import('../scan/route')
     const res = await POST(makeReq({}) as Parameters<typeof POST>[0])

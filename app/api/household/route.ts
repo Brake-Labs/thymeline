@@ -37,7 +37,7 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
 
 // ── GET /api/household — get current user's household and members ─────────────
 
-export const GET = withAuth(async (req, { user, db, ctx }) => {
+export const GET = withAuth(async (req, { db, ctx }) => {
   if (!ctx) {
     return NextResponse.json({ household: null })
   }
@@ -73,7 +73,7 @@ export const GET = withAuth(async (req, { user, db, ctx }) => {
 
 // ── PATCH /api/household — update household name ──────────────────────────────
 
-export const PATCH = withAuth(async (req, { user, db, ctx }) => {
+export const PATCH = withAuth(async (req, { db, ctx }) => {
   if (!ctx) {
     return NextResponse.json({ error: 'Not in a household' }, { status: 404 })
   }
@@ -100,7 +100,7 @@ export const PATCH = withAuth(async (req, { user, db, ctx }) => {
 
 // ── DELETE /api/household — delete the household (owner only) ─────────────────
 
-export const DELETE = withAuth(async (req, { user, db, ctx }) => {
+export const DELETE = withAuth(async (req, { db, ctx }) => {
   if (!ctx) {
     return NextResponse.json({ error: 'Not in a household' }, { status: 404 })
   }

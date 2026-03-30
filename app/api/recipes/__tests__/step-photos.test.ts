@@ -100,11 +100,11 @@ vi.mock('@/lib/supabase-server', () => ({
 }))
 
 function makeReq(method: string, url: string, body?: unknown): NextRequest {
-  const opts: RequestInit = {
+  const opts: ConstructorParameters<typeof NextRequest>[1] = {
     method,
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer token' },
   }
-  if (body !== undefined) opts.body = JSON.stringify(body)
+  if (body !== undefined) opts!.body = JSON.stringify(body)
   return new NextRequest(url, opts)
 }
 

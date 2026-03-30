@@ -34,7 +34,7 @@ export default function GroceriesPageClient() {
     { label: 'Next 2 weeks', from: thisSunday,           to: addDays(thisSunday, 13) },
   ]
 
-  const fetchList = useCallback(async (from: string, to: string) => {
+  const fetchList = useCallback(async (from: string, _to: string) => {
     setList(undefined)  // loading
     try {
       const token = await getAccessToken()

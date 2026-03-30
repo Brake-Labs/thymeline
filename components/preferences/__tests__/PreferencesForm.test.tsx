@@ -94,7 +94,7 @@ describe('T12 - Section Save sends only its own fields', () => {
     await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2))
 
     const patchCall = mockFetch.mock.calls.find(
-      ([, opts]: [string, RequestInit]) => opts?.method === 'PATCH'
+      (call: unknown[]) => (call[1] as RequestInit)?.method === 'PATCH'
     )
     expect(patchCall).toBeDefined()
     const body = JSON.parse(patchCall![1].body as string)
@@ -122,7 +122,7 @@ describe('T12 - Section Save sends only its own fields', () => {
     await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2))
 
     const patchCall = mockFetch.mock.calls.find(
-      ([, opts]: [string, RequestInit]) => opts?.method === 'PATCH'
+      (call: unknown[]) => (call[1] as RequestInit)?.method === 'PATCH'
     )
     const body = JSON.parse(patchCall![1].body as string)
     expect(body).toHaveProperty('seasonal_mode')

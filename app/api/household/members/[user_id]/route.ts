@@ -57,7 +57,7 @@ export const DELETE = withAuth(async (req, { user, db, ctx }, params) => {
 
 // ── PATCH /api/household/members/[user_id] — change role (owner only) ─────────
 
-export const PATCH = withAuth(async (req, { user, db, ctx }, params) => {
+export const PATCH = withAuth(async (req, { db, ctx }, params) => {
   if (!ctx) {
     return NextResponse.json({ error: 'Not in a household' }, { status: 404 })
   }

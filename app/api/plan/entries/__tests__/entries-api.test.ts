@@ -103,11 +103,11 @@ const { POST: entriesPOST } = await import('@/app/api/plan/entries/route')
 const { DELETE: entryDELETE } = await import('@/app/api/plan/entries/[entry_id]/route')
 
 function makeReq(method: string, url: string, body?: unknown): NextRequest {
-  const opts: RequestInit = {
+  const opts: ConstructorParameters<typeof NextRequest>[1] = {
     method,
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer token' },
   }
-  if (body) opts.body = JSON.stringify(body)
+  if (body) opts!.body = JSON.stringify(body)
   return new NextRequest(url, opts)
 }
 

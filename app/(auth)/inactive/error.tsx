@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 
-export default function InactiveError({ error, reset }: { error: Error; reset: () => void }) {
+export default function InactiveError({ error: _error, reset }: { error: Error; reset: () => void }) {
   const router = useRouter()
 
   return (

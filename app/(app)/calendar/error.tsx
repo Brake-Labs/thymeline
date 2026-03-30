@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 
-export default function CalendarError({ error, reset }: { error: Error; reset: () => void }) {
+export default function CalendarError({ error: _error, reset }: { error: Error; reset: () => void }) {
   const router = useRouter()
 
   return (

@@ -6,6 +6,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import type { GroceryList } from '@/types'
 
 vi.mock('@/lib/supabase/browser', () => ({
   getAccessToken: async () => 'mock-token',
@@ -18,7 +19,7 @@ vi.mock('next/navigation', () => ({
 const mockFetch = vi.fn()
 vi.stubGlobal('fetch', mockFetch)
 
-const sampleList = {
+const sampleList: GroceryList = {
   id:            'list-1',
   user_id:       'user-1',
   meal_plan_id:  'plan-1',

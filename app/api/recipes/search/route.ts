@@ -106,7 +106,8 @@ Return ONLY a JSON array of recipe_id strings, e.g. ["uuid1","uuid2"]. No other 
   const validRankedIds = rankedIds.filter((id) => validIdSet.has(id))
 
   // Build candidate set in ranked order with full filter data
-  const recipeMap = new Map(
+  type Candidate = { recipe_id: string; recipe_title: string; tags: string[]; category: string; total_time_minutes: number | null; last_made: string | null }
+  const recipeMap = new Map<string, Candidate>(
     allRecipes.map((r) => [r.id, {
       recipe_id: r.id,
       recipe_title: r.title,
@@ -117,7 +118,7 @@ Return ONLY a JSON array of recipe_id strings, e.g. ["uuid1","uuid2"]. No other 
     }])
   )
 
-  let candidates = validRankedIds.map((id) => recipeMap.get(id)!)
+  let candidates: Candidate[] = validRankedIds.map((id) => recipeMap.get(id)!)
 
   // Apply filters if provided
   if (body.filters) {

@@ -60,7 +60,7 @@ const sampleRecipe = {
   cook_time_minutes: null,
   total_time_minutes: null,
   inactive_time_minutes: null,
-  step_photos: [],
+  step_photos: [] as { stepIndex: number; imageUrl: string }[],
   last_made: null,
   times_made: 0,
   dates_made: [],
@@ -157,7 +157,7 @@ describe('T01/T02 - Start Cooking button on detail page', () => {
       'utf-8'
     )
     // The link is wrapped in a steps-based conditional
-    expect(src).toMatch(/recipe\.steps.*Start Cooking|Start Cooking.*recipe\.steps/s)
+    expect(src).toMatch(/recipe\.steps[\s\S]*Start Cooking|Start Cooking[\s\S]*recipe\.steps/)
   })
 })
 

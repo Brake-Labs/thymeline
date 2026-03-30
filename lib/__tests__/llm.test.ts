@@ -23,8 +23,8 @@ vi.mock('@anthropic-ai/sdk', async (importOriginal) => {
   // Copy static members from the real Anthropic class. Object.assign only
   // copies own enumerable properties, but the error classes live on the
   // BaseAnthropic prototype. Walk the full chain to pick them all up.
-  let proto = actual.default as Record<string, unknown> | null
-  while (proto && proto !== Function.prototype) {
+  let proto = actual.default as unknown as Record<string, unknown> | null
+  while (proto && proto !== (Function.prototype as unknown)) {
     for (const key of Object.getOwnPropertyNames(proto)) {
       if (!(key in MockAnthropic)) {
         try {

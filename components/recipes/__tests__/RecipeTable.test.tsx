@@ -33,6 +33,7 @@ const baseRecipe: RecipeListItem = {
   last_made: null,
   times_made: 0,
   created_at: '2026-01-01T00:00:00Z',
+  total_time_minutes: null,
 }
 
 const recipes: RecipeListItem[] = [

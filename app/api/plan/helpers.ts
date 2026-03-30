@@ -1,12 +1,13 @@
 import { type SupabaseClient } from '@supabase/supabase-js'
 import { callLLM } from '@/lib/llm'
-import type { RecipeSuggestion, UserPreferences, LimitedTag, MealType, DaySuggestions, HouseholdContext, RecipeJoinResult } from '@/types'
+import type { UserPreferences, LimitedTag, MealType, DaySuggestions, HouseholdContext, RecipeJoinResult } from '@/types'
 
 export const MEAL_TYPE_CATEGORIES: Record<MealType, string[]> = {
   breakfast: ['breakfast'],
   lunch:     ['main_dish'],
   dinner:    ['main_dish'],
-  snack:     ['side_dish', 'dessert'],
+  snack:     ['side_dish'],
+  dessert:   ['dessert'],
 }
 
 // ── Week helpers ───────────────────────────────────────────────────────────────
@@ -141,7 +142,7 @@ export async function fetchRecentHistory(
     .limit(10)
 
   return (data ?? []).map((h: { made_on: string; recipes: unknown }) => ({
-    title: (h.recipes as RecipeJoinResult | null)?.title ?? '',
+    title: (h.recipes as unknown as RecipeJoinResult | null)?.title ?? '',
     made_on: h.made_on,
   }))
 }

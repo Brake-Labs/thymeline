@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 
-export default function HouseholdSettingsError({ error, reset }: { error: Error; reset: () => void }) {
+export default function HouseholdSettingsError({ error: _error, reset }: { error: Error; reset: () => void }) {
   const router = useRouter()
 
   return (

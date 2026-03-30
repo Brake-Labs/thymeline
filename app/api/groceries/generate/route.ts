@@ -81,7 +81,7 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
   const seenRecipeIds = new Set<string>()
   const recipes: RecipeEntry[] = []
   for (const entry of (entriesRaw ?? [])) {
-    const r = entry.recipes as RecipeJoinFull | null
+    const r = entry.recipes as unknown as RecipeJoinFull | null
     if (!r) continue
     if (seenRecipeIds.has(r.id)) continue
     seenRecipeIds.add(r.id)
@@ -155,7 +155,7 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
   const { resolved, ambiguous } = combineIngredients(combineInputs)
 
   // 5. Resolve ambiguous items via LLM
-  let llmResolved: GroceryItem[] = []
+  const llmResolved: GroceryItem[] = []
   if (ambiguous.length > 0) {
     try {
       const ambiguousPayload = ambiguous.map(({ parsed, recipeTitle, scaleFactor }) => ({

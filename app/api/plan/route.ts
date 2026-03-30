@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { createPlanSchema, parseBody } from '@/lib/schemas'
 import { isSunday } from './helpers'
@@ -120,13 +120,13 @@ export const GET = withAuth(async (req, { user, db, ctx }) => {
     id:              e.id,
     planned_date:    e.planned_date,
     recipe_id:       e.recipe_id,
-    recipe_title:    (e.recipes as RecipeJoinResult | null)?.title ?? '',
+    recipe_title:    (e.recipes as unknown as RecipeJoinResult | null)?.title ?? '',
     position:        e.position,
     confirmed:       e.confirmed,
     meal_type:       e.meal_type ?? 'dinner',
     is_side_dish:    e.is_side_dish ?? false,
     parent_entry_id:    e.parent_entry_id ?? null,
-    total_time_minutes: (e.recipes as RecipeJoinResult | null)?.total_time_minutes ?? null,
+    total_time_minutes: (e.recipes as unknown as RecipeJoinResult | null)?.total_time_minutes ?? null,
   }))
 
   return NextResponse.json({

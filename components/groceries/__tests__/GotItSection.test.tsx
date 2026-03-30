@@ -64,7 +64,7 @@ describe('T19 - Add to pantry from Got It section calls POST /api/pantry/import'
 
     await waitFor(() => {
       const importCalls = mockFetch.mock.calls.filter(
-        ([url]: [string]) => url === '/api/pantry/import',
+        ([url]) => url === '/api/pantry/import',
       )
       expect(importCalls.length).toBeGreaterThan(0)
       const body = JSON.parse(importCalls[0][1].body as string)
@@ -85,7 +85,7 @@ describe('T19 - Add to pantry from Got It section calls POST /api/pantry/import'
 
     await waitFor(() => {
       const importCalls = mockFetch.mock.calls.filter(
-        ([url]: [string]) => url === '/api/pantry/import',
+        ([url]) => url === '/api/pantry/import',
       )
       expect(importCalls.length).toBeGreaterThan(0)
       const body = JSON.parse(importCalls[0][1].body as string)

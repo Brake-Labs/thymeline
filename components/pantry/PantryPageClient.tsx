@@ -8,7 +8,7 @@ import PantrySection from './PantrySection'
 import AddPantryItemInput from './AddPantryItemInput'
 import ScanPantrySheet from './ScanPantrySheet'
 import PantryMatchSheet from './PantryMatchSheet'
-import AddRecipeModal from '@/components/recipes/AddRecipeModal'
+import GenerateRecipeModal from '@/components/recipes/GenerateRecipeModal'
 
 // Section render order (spec §6 rule 9)
 const SECTION_ORDER: (GrocerySection | 'Unsorted')[] = [
@@ -281,14 +281,13 @@ export default function PantryPageClient() {
 
       {/* Generate recipe modal (spec-13) */}
       {showGenerateModal && (
-        <AddRecipeModal
+        <GenerateRecipeModal
           onClose={() => setShowGenerateModal(false)}
           onSaved={() => {
             setShowGenerateModal(false)
             window.location.href = '/recipes'
           }}
           getToken={getAccessToken}
-          initialTab="generate"
           initialPantryEnabled={true}
         />
       )}

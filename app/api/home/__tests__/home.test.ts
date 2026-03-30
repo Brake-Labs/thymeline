@@ -4,12 +4,11 @@ import {
   mockHousehold,
   makeRequest,
   defaultGetUser,
-  tableMock,
 } from '@/test/helpers'
 
 // ── Mock state ────────────────────────────────────────────────────────────────
 const mockState = {
-  user: { id: 'user-1' } as { id: string } | null,
+  user: { id: 'user-1', email: 'test@example.com', user_metadata: {} } as { id: string; email?: string; user_metadata?: Record<string, unknown> } | null,
   plan: null as { id: string; week_start: string } | null,
   entries: [] as unknown[],
   history: [] as unknown[],
@@ -51,6 +50,24 @@ function makeFrom(table: string) {
       }),
     }
   }
+  if (table === 'recipes') {
+    return {
+      select: () => ({
+        eq: async () => ({ count: 5, error: null }),
+      }),
+    }
+  }
+  if (table === 'grocery_lists') {
+    return {
+      select: () => ({
+        order: () => ({
+          limit: () => ({
+            eq: async () => ({ data: [], error: null }),
+          }),
+        }),
+      }),
+    }
+  }
   return {}
 }
 
@@ -65,7 +82,7 @@ vi.mock('@/lib/household', () => mockHousehold())
 const { GET } = await import('@/app/api/home/route')
 
 beforeEach(() => {
-  mockState.user = { id: 'user-1' }
+  mockState.user = { id: 'user-1', email: 'test@example.com', user_metadata: {} }
   mockState.plan = null
   mockState.entries = []
   mockState.history = []
@@ -76,7 +93,7 @@ describe('T07 - GET /api/home returns current week plan', () => {
   it('returns currentWeekPlan with entries when a plan exists', async () => {
     mockState.plan = { id: 'plan-1', week_start: '2026-03-02' }
     mockState.entries = [
-      { planned_date: '2026-03-02', recipe_id: 'r1', position: 1, confirmed: false, recipes: { title: 'Pasta' } },
+      { planned_date: '2026-03-02', recipe_id: 'r1', position: 1, confirmed: false, recipes: { title: 'Pasta', total_time_minutes: null } },
     ]
     const res = await GET(makeRequest('GET', 'http://localhost/api/home'))
     expect(res.status).toBe(200)
@@ -102,9 +119,9 @@ describe('T08 - GET /api/home returns null plan when none exists', () => {
 describe('T09 - GET /api/home returns recently made recipes', () => {
   it('returns up to 3 recently made recipes', async () => {
     mockState.history = [
-      { recipe_id: 'r1', made_on: '2026-03-01', recipes: { title: 'Tacos' } },
-      { recipe_id: 'r2', made_on: '2026-02-28', recipes: { title: 'Soup' } },
-      { recipe_id: 'r3', made_on: '2026-02-27', recipes: { title: 'Pizza' } },
+      { recipe_id: 'r1', made_on: '2026-03-01', recipes: { title: 'Tacos', tags: [] } },
+      { recipe_id: 'r2', made_on: '2026-02-28', recipes: { title: 'Soup', tags: [] } },
+      { recipe_id: 'r3', made_on: '2026-02-27', recipes: { title: 'Pizza', tags: [] } },
     ]
     const res = await GET(makeRequest('GET', 'http://localhost/api/home'))
     const body = await res.json()

@@ -95,7 +95,7 @@ export function makeRequest(
   body?: unknown,
   headers?: Record<string, string>,
 ): NextRequest {
-  const opts: RequestInit = {
+  const opts: { method: string; headers: Record<string, string>; body?: string } = {
     method,
     headers: {
       'Content-Type': 'application/json',

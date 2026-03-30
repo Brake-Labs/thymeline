@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen, fireEvent } from '@testing-library/react'
 import DayCard from '../DayCard'
 import MealSlot from '../MealSlot'
-import type { PlanEntry, MealType } from '@/types'
+import type { PlanEntry } from '@/types'
 
 vi.mock('@/lib/supabase/browser', () => ({
   getAccessToken: async () => 'mock-token',

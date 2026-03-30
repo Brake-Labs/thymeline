@@ -111,7 +111,7 @@ describe('T12 - POST /api/tags returns 400 when name matches first-class tag', (
 
 describe('T13 - POST /api/tags returns 409 for duplicate custom tag', () => {
   it('returns 409 when a matching custom tag already exists (case-insensitive)', async () => {
-    mockState.customTags = [{ id: 'ct1', name: 'MyTag' }]
+    mockState.customTags = [{ id: 'ct1', name: 'MyTag', section: 'cuisine' }]
     const res = await POST(makeRequest('POST', 'http://localhost/api/tags', { name: 'mytag' }))
     expect(res.status).toBe(409)
   })

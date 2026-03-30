@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { createPantryItemSchema, deletePantryItemsSchema, parseBody } from '@/lib/schemas'
 import { parseIngredientLine, assignSection } from '@/lib/grocery'

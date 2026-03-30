@@ -105,8 +105,8 @@ describe('T15 - POST /api/pantry/match returns ranked matches', () => {
   })
 
   it('returns matches array from LLM response', async () => {
-    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(makeDbMock() as ReturnType<typeof createAdminClient>)
+    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(makeDbMock() as unknown as ReturnType<typeof createAdminClient>)
 
     const { POST } = await import('../match/route')
     const res = await POST(makeReq({}) as Parameters<typeof POST>[0])
@@ -130,8 +130,8 @@ describe('T16 - POST /api/pantry/match returns empty array gracefully', () => {
 
   it('returns { matches: [] } when LLM returns invalid JSON', async () => {
     mockMatchState.llmResponse = 'not valid json {{{'
-    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(makeDbMock() as ReturnType<typeof createAdminClient>)
+    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(makeDbMock() as unknown as ReturnType<typeof createAdminClient>)
 
     const { POST } = await import('../match/route')
     const res = await POST(makeReq({}) as Parameters<typeof POST>[0])
@@ -142,8 +142,8 @@ describe('T16 - POST /api/pantry/match returns empty array gracefully', () => {
   })
 
   it('returns { matches: [] } when pantry is empty', async () => {
-    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(makeDbMock({ pantryItems: [] }) as ReturnType<typeof createAdminClient>)
+    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(makeDbMock({ pantryItems: [] }) as unknown as ReturnType<typeof createAdminClient>)
 
     const { POST } = await import('../match/route')
     const res = await POST(makeReq({}) as Parameters<typeof POST>[0])

@@ -4,7 +4,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
-import VoiceControl, { type VoiceCommand } from '../VoiceControl'
+import VoiceControl from '../VoiceControl'
 
 // ── SpeechRecognition mock ────────────────────────────────────────────────────
 
@@ -12,7 +12,7 @@ interface MockRecognitionInstance {
   continuous: boolean
   interimResults: boolean
   lang: string
-  onresult: ((e: SpeechRecognitionEvent) => void) | null
+  onresult: ((e: unknown) => void) | null
   onerror: (() => void) | null
   onend: (() => void) | null
   start: ReturnType<typeof vi.fn>
@@ -27,7 +27,7 @@ function setupSpeechRecognition() {
     continuous = false
     interimResults = false
     lang = 'en-US'
-    onresult: ((e: SpeechRecognitionEvent) => void) | null = null
+    onresult: ((e: unknown) => void) | null = null
     onerror: (() => void) | null = null
     onend: (() => void) | null = null
     start = vi.fn()
@@ -62,7 +62,7 @@ function removeSpeechRecognition() {
 function simulateResult(instance: MockRecognitionInstance, transcript: string) {
   const event = {
     results: [[{ transcript }]],
-  } as unknown as SpeechRecognitionEvent
+  } as unknown
   instance.onresult?.(event)
 }
 

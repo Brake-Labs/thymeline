@@ -166,11 +166,11 @@ const { POST: matchPOST } = await import('@/app/api/plan/match/route')
 const { POST: planPOST, GET: planGET } = await import('@/app/api/plan/route')
 
 function makeReq(method: string, url: string, body?: unknown): NextRequest {
-  const opts: RequestInit = {
+  const opts: ConstructorParameters<typeof NextRequest>[1] = {
     method,
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer token' },
   }
-  if (body) opts.body = JSON.stringify(body)
+  if (body) opts!.body = JSON.stringify(body)
   return new NextRequest(url, opts)
 }
 
@@ -487,8 +487,8 @@ describe('POST /api/plan validation', () => {
 
 // ── T30: Snack suggestions come only from side_dish + dessert recipes ──────────
 
-describe('T30 - Snack suggestions use only side_dish and dessert recipes', () => {
-  it('does not include main_dish recipes when active_meal_types is [snack]', async () => {
+describe('T30 - Snack suggestions use only side_dish recipes', () => {
+  it('does not include main_dish or dessert recipes when active_meal_types is [snack]', async () => {
     mockState.llmResponse = JSON.stringify({
       days: [{
         date: '2026-03-01',
@@ -515,9 +515,10 @@ describe('T30 - Snack suggestions use only side_dish and dessert recipes', () =>
     expect(res.status).toBe(200)
     const body = await res.json()
     const snackOptions = body.days[0].meal_types[0].options
-    // r4 (side_dish) and r5 (dessert) pass validation; r1 (main_dish) is stripped
-    expect(snackOptions.map((o: { recipe_id: string }) => o.recipe_id).sort()).toEqual(['r4', 'r5'])
+    // r4 (side_dish) passes validation; r5 (dessert) and r1 (main_dish) are stripped
+    expect(snackOptions.map((o: { recipe_id: string }) => o.recipe_id)).toEqual(['r4'])
     expect(snackOptions.find((o: { recipe_id: string }) => o.recipe_id === 'r1')).toBeUndefined()
+    expect(snackOptions.find((o: { recipe_id: string }) => o.recipe_id === 'r5')).toBeUndefined()
   })
 })
 
@@ -530,7 +531,6 @@ describe('T20 - POST /api/plan/suggest includes pantry context in LLM prompt', (
       { name: 'spinach', expiry_date: null },
     ]
 
-    let capturedPrompt = ''
     const anthropicMod = await import('@anthropic-ai/sdk')
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const mockAnthropicInstance = (anthropicMod as any).default
