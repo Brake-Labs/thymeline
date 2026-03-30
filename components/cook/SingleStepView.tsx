@@ -84,6 +84,7 @@ export default function SingleStepView({
       {/* Ingredients for this step */}
       {ingredients && (
         <StepIngredientPanel
+          key={currentStep}
           stepText={steps[currentStep]}
           ingredients={ingredients}
           baseServings={baseServings}

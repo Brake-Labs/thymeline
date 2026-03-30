@@ -681,6 +681,31 @@ describe('T52 - Panel collapsed by default when more than 3 ingredients match', 
   })
 })
 
+describe('T52b - Panel collapses after navigating to a step with >3 matching ingredients', () => {
+  it('remounts collapsed when navigating to a >3-match step from a 1-match step', async () => {
+    const recipe = {
+      ...sampleRecipe,
+      ingredients: '2 cups flour\n1/2 tsp salt\n1 cup sugar\n2 eggs\n1 tsp vanilla',
+      // Step 0: only "flour" matches (1 match → auto-expanded)
+      // Step 1: all five ingredients mentioned (>3 → should start collapsed)
+      steps: 'Add the flour to the bowl\nCombine flour, salt, sugar, eggs, and vanilla',
+      servings: 4,
+    }
+    await renderCookPage(recipe)
+
+    // Step 0: panel is auto-expanded, ingredient list visible
+    expect(screen.getByText('Ingredients for this step')).toBeDefined()
+    expect(screen.getByText('2 cups flour')).toBeDefined()
+
+    // Navigate to step 1
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /next →/i })) })
+
+    // Panel label still visible but list is collapsed (>3 matches)
+    expect(screen.getByText('Ingredients for this step')).toBeDefined()
+    expect(screen.queryByText('2 cups flour')).toBeNull()
+  })
+})
+
 describe('T53 - Scaled quantity appears correctly in the panel', () => {
   it('shows scaled quantities when targetServings differs from base', async () => {
     // The cook page starts servings at recipe.servings (4), but we test the
