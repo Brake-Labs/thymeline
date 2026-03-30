@@ -1,7 +1,1 @@
-export default function CookModeLoading() {
-  return (
-    <div className="min-h-screen bg-stone-50 flex items-center justify-center">
-      <p className="text-stone-400 font-sans text-sm">Loading recipe...</p>
-    </div>
-  )
-}
+export { default } from '@/components/SimpleLoading'

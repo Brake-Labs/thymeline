@@ -2,7 +2,20 @@
 
 import { useRouter } from 'next/navigation'
 
-export default function RecipeEditError({ error: _error, reset }: { error: Error; reset: () => void }) {
+interface ErrorFallbackProps {
+  error: Error
+  reset: () => void
+  message?: string
+  backHref?: string
+  backLabel?: string
+}
+
+export default function ErrorFallback({
+  reset,
+  message = "An unexpected error occurred. Let\u0027s get you back on track.",
+  backHref = '/home',
+  backLabel = 'Back to home',
+}: ErrorFallbackProps) {
   const router = useRouter()
 
   return (
@@ -11,7 +24,7 @@ export default function RecipeEditError({ error: _error, reset }: { error: Error
         <p className="text-stone-400 font-sans text-sm mb-2">Something went wrong</p>
         <h1 className="font-display text-2xl font-bold text-stone-900 mb-2">We hit a snag</h1>
         <p className="text-stone-500 font-sans text-sm mb-6">
-          We couldn&#39;t load the recipe editor. Let&#39;s try that again.
+          {message}
         </p>
         <button
           onClick={() => { reset(); router.refresh() }}
@@ -20,8 +33,8 @@ export default function RecipeEditError({ error: _error, reset }: { error: Error
           Try again
         </button>
         <div className="mt-4">
-          <a href="/recipes" className="text-stone-400 text-sm hover:text-stone-500 transition-colors">
-            Back to recipes
+          <a href={backHref} className="text-stone-400 text-sm hover:text-stone-500 transition-colors">
+            {backLabel}
           </a>
         </div>
       </div>
