@@ -29,6 +29,8 @@ export default function RecipeDetailPage({ params }: Props) {
   const [logStatus, setLogStatus] = useState<'idle' | 'loading' | 'success' | 'already_logged'>('idle')
   const [showLogModal, setShowLogModal] = useState(false)
   const [logDate, setLogDate] = useState('')
+  const [fetchError, setFetchError] = useState<string | null>(null)
+  const [logError, setLogError] = useState<string | null>(null)
 
   const isOwner = !!currentUserId && recipe?.user_id === currentUserId
 
@@ -46,13 +48,17 @@ export default function RecipeDetailPage({ params }: Props) {
           headers: { Authorization: `Bearer ${await getAccessToken()}` },
         })
         if (r.status === 404) { setNotFound(true); setLoading(false); return }
+        if (!r.ok) throw new Error('Failed to load recipe')
         const data: RecipeWithHistory = await r.json()
         if (data) {
           setRecipe(data)
           setDatesMade((data.dates_made ?? []).slice().sort().reverse())
         }
+        setFetchError(null)
         setLoading(false)
-      } catch {
+      } catch (err) {
+        setFetchError('Something went wrong loading this recipe.')
+        console.error(err)
         setLoading(false)
       }
     }
@@ -68,6 +74,7 @@ export default function RecipeDetailPage({ params }: Props) {
     if (!logDate) return
     setShowLogModal(false)
     setLogStatus('loading')
+    setLogError(null)
     try {
       const res = await fetch(`/api/recipes/${params.id}/log`, {
         method: 'POST',
@@ -89,9 +96,12 @@ export default function RecipeDetailPage({ params }: Props) {
         }
         setTimeout(() => setLogStatus('idle'), 2000)
       } else {
+        setLogError('Couldn\'t log this date. Please try again.')
         setLogStatus('idle')
       }
-    } catch {
+    } catch (err) {
+      setLogError('Couldn\'t log this date. Please try again.')
+      console.error(err)
       setLogStatus('idle')
     }
   }
@@ -100,6 +110,17 @@ export default function RecipeDetailPage({ params }: Props) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-8 font-sans text-stone-400">
         Loading…
+      </div>
+    )
+  }
+
+  if (fetchError && !recipe) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-8">
+        <p className="text-red-500 text-sm">{fetchError}</p>
+        <Link href="/recipes" className="text-blue-600 hover:underline text-sm mt-2 inline-block">
+          ← Back to recipes
+        </Link>
       </div>
     )
   }
@@ -283,6 +304,11 @@ export default function RecipeDetailPage({ params }: Props) {
           <div className="mx-6 border-t border-dashed border-stone-200" />
 
           {/* Footer */}
+          {logError && (
+            <div className="px-6">
+              <p className="text-red-500 text-sm mt-2">{logError}</p>
+            </div>
+          )}
           <div className="px-6 py-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
               {recipe.url && (

@@ -58,21 +58,23 @@ export async function fetchCooldownFilteredRecipes(
   } else {
     recipesQ = recipesQ.eq('user_id', userId)
   }
-  const { data: recipes } = await recipesQ
-
-  if (!recipes || recipes.length === 0) return []
 
   const today = new Date()
   const cutoff = new Date(today)
   cutoff.setDate(cutoff.getDate() - cooldownDays)
   const cutoffStr = cutoff.toISOString().split('T')[0]
 
-  // Fetch recent history to find cooldown violations
-  const { data: history } = await supabase
-    .from('recipe_history')
-    .select('recipe_id, made_on')
-    .eq('user_id', userId)
-    .gte('made_on', cutoffStr)
+  // Parallelize recipe fetch and history fetch — they are independent
+  const [{ data: recipes }, { data: history }] = await Promise.all([
+    recipesQ,
+    supabase
+      .from('recipe_history')
+      .select('recipe_id, made_on')
+      .eq('user_id', userId)
+      .gte('made_on', cutoffStr),
+  ])
+
+  if (!recipes || recipes.length === 0) return []
 
   const recentlyMadeIds = new Set((history ?? []).map((h: { recipe_id: string }) => h.recipe_id))
 
@@ -86,10 +88,46 @@ export async function fetchRecipesByMealTypes(
   mealTypes: MealType[],
   ctx?: HouseholdContext | null,
 ): Promise<Record<MealType, RecipeForLLM[]>> {
+  // Compute the cooldown cutoff once
+  const today = new Date()
+  const cutoff = new Date(today)
+  cutoff.setDate(cutoff.getDate() - cooldownDays)
+  const cutoffStr = cutoff.toISOString().split('T')[0]
+
+  // Fetch history ONCE (shared across all meal types) in parallel with all recipe queries
+  const historyPromise = supabase
+    .from('recipe_history')
+    .select('recipe_id, made_on')
+    .eq('user_id', userId)
+    .gte('made_on', cutoffStr)
+
+  const recipePromises = mealTypes.map((mt) => {
+    const cats = MEAL_TYPE_CATEGORIES[mt]
+    let q = supabase
+      .from('recipes')
+      .select('id, title, tags')
+      .in('category', cats)
+    if (ctx) {
+      q = q.eq('household_id', ctx.householdId)
+    } else {
+      q = q.eq('user_id', userId)
+    }
+    return q
+  })
+
+  // Fire all queries in parallel: one history + N recipe queries
+  const [{ data: history }, ...recipeResults] = await Promise.all([
+    historyPromise,
+    ...recipePromises,
+  ])
+
+  const recentlyMadeIds = new Set((history ?? []).map((h: { recipe_id: string }) => h.recipe_id))
+
   const result = {} as Record<MealType, RecipeForLLM[]>
-  for (const mt of mealTypes) {
-    result[mt] = await fetchCooldownFilteredRecipes(supabase, userId, cooldownDays, MEAL_TYPE_CATEGORIES[mt], ctx)
-  }
+  mealTypes.forEach((mt, i) => {
+    const recipes = recipeResults[i]?.data ?? []
+    result[mt] = (recipes as RecipeForLLM[]).filter((r) => !recentlyMadeIds.has(r.id))
+  })
   return result
 }
 

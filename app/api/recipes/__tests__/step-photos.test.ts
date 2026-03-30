@@ -23,6 +23,67 @@ const sampleRecipe = {
   step_photos: [],
 }
 
+function makeMockFrom() {
+  return (table: string) => {
+    if (table === 'recipes') {
+      return {
+        select: () => ({
+          eq: () => ({
+            order: () => Promise.resolve({ data: [], error: null }),
+          }),
+        }),
+        insert: (payload: Record<string, unknown>) => ({
+          select: () => ({
+            single: async () => ({
+              data: { ...sampleRecipe, ...payload, ...mockState.insertResult },
+              error: null,
+            }),
+          }),
+        }),
+        update: (payload: Record<string, unknown>) => ({
+          eq: () => ({
+            select: () => ({
+              single: async () => ({
+                data: { ...sampleRecipe, ...payload },
+                error: null,
+              }),
+            }),
+          }),
+        }),
+      }
+    }
+    if (table === 'recipe_history') {
+      return {
+        select: () => ({
+          eq: () => Promise.resolve({ data: [], error: null }),
+          in: () => Promise.resolve({ data: [], error: null }),
+        }),
+      }
+    }
+    if (table === 'custom_tags') {
+      return {
+        select: () => ({
+          eq: () => Promise.resolve({ data: [], error: null }),
+        }),
+      }
+    }
+    if (table === 'household_members') {
+      return {
+        select: () => ({
+          eq: () => ({
+            single: () => Promise.resolve({ data: null, error: { code: 'PGRST116' } }),
+          }),
+        }),
+      }
+    }
+    return {
+      select: () => ({
+        eq: () => Promise.resolve({ data: [], error: null }),
+      }),
+    }
+  }
+}
+
 vi.mock('@/lib/supabase-server', () => ({
   createServerClient: () => ({
     auth: {
@@ -31,55 +92,10 @@ vi.mock('@/lib/supabase-server', () => ({
         error: mockState.user ? null : { message: 'no user' },
       }),
     },
-    from: (table: string) => {
-      if (table === 'recipes') {
-        return {
-          select: () => ({
-            eq: () => ({
-              order: () => Promise.resolve({ data: [], error: null }),
-            }),
-          }),
-          insert: (payload: Record<string, unknown>) => ({
-            select: () => ({
-              single: async () => ({
-                data: { ...sampleRecipe, ...payload, ...mockState.insertResult },
-                error: null,
-              }),
-            }),
-          }),
-          update: (payload: Record<string, unknown>) => ({
-            eq: () => ({
-              select: () => ({
-                single: async () => ({
-                  data: { ...sampleRecipe, ...payload },
-                  error: null,
-                }),
-              }),
-            }),
-          }),
-        }
-      }
-      if (table === 'recipe_history') {
-        return {
-          select: () => ({
-            eq: () => Promise.resolve({ data: [], error: null }),
-            in: () => Promise.resolve({ data: [], error: null }),
-          }),
-        }
-      }
-      if (table === 'custom_tags') {
-        return {
-          select: () => ({
-            eq: () => Promise.resolve({ data: [], error: null }),
-          }),
-        }
-      }
-      return {
-        select: () => ({
-          eq: () => Promise.resolve({ data: [], error: null }),
-        }),
-      }
-    },
+    from: makeMockFrom(),
+  }),
+  createAdminClient: () => ({
+    from: makeMockFrom(),
   }),
 }))
 

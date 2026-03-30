@@ -102,6 +102,8 @@ export default function RecipePageContent() {
   const [searchResults, setSearchResults] = useState<{ recipe_id: string; recipe_title: string }[] | null>(null)
   const [searchLoading, setSearchLoading] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const [searchError, setSearchError] = useState<string | null>(null)
+  const [fetchError, setFetchError] = useState<string | null>(null)
 
   // Filters
   const [filterOpen, setFilterOpen] = useState(false)
@@ -132,12 +134,20 @@ export default function RecipePageContent() {
 
   const fetchRecipes = useCallback(async () => {
     setLoading(true)
-    const res = await fetch('/api/recipes', {
-      headers: { Authorization: `Bearer ${await getAccessToken()}` },
-    })
-    if (res.ok) {
-      const data: RecipeListItem[] = await res.json()
-      setRecipes(data)
+    try {
+      const res = await fetch('/api/recipes', {
+        headers: { Authorization: `Bearer ${await getAccessToken()}` },
+      })
+      if (res.ok) {
+        const data: RecipeListItem[] = await res.json()
+        setRecipes(data)
+        setFetchError(null)
+      } else {
+        setFetchError('Something went wrong loading your recipes.')
+      }
+    } catch (err) {
+      setFetchError('Something went wrong loading your recipes.')
+      console.error(err)
     }
     setLoading(false)
   }, [])
@@ -175,9 +185,11 @@ export default function RecipePageContent() {
     const q = searchQuery.trim()
     if (!q) {
       setSearchResults(null)
+      setSearchError(null)
       return
     }
     setSearchLoading(true)
+    setSearchError(null)
     try {
       const token = await getAccessToken()
       const res = await fetch('/api/recipes/search', {
@@ -188,7 +200,12 @@ export default function RecipePageContent() {
       if (res.ok) {
         const data: { results: { recipe_id: string; recipe_title: string }[] } = await res.json()
         setSearchResults(data.results)
+      } else {
+        setSearchError('Search failed. Please try again.')
       }
+    } catch (err) {
+      setSearchError('Search failed. Please try again.')
+      console.error(err)
     } finally {
       setSearchLoading(false)
     }
@@ -197,6 +214,7 @@ export default function RecipePageContent() {
   function clearSearch() {
     setSearchQuery('')
     setSearchResults(null)
+    setSearchError(null)
     searchInputRef.current?.focus()
   }
 
@@ -385,6 +403,16 @@ export default function RecipePageContent() {
           </button>
         </div>
       </div>
+
+      {/* Search error */}
+      {searchError && (
+        <p className="text-red-500 text-sm mt-2 mb-4">{searchError}</p>
+      )}
+
+      {/* Fetch error */}
+      {fetchError && (
+        <p className="text-red-500 text-sm mt-2 mb-4">{fetchError}</p>
+      )}
 
       {/* Search result indicator */}
       {searchResults !== null && (

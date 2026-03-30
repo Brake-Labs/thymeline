@@ -79,6 +79,7 @@ function PlanPageInner() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [savedWeekStart, setSavedWeekStart] = useState<string | null>(null)
+  const [generateError, setGenerateError] = useState<string | null>(null)
 
   // Reset active dates when week changes
   useEffect(() => {
@@ -105,6 +106,7 @@ function PlanPageInner() {
 
   async function fetchSuggestions(activeDates: string[], mergeWithPrev = false) {
     setIsGenerating(true)
+    setGenerateError(null)
     try {
       const token = await getAccessToken()
       const res = await fetch('/api/plan/suggest', {
@@ -151,12 +153,15 @@ function PlanPageInner() {
             }))
           }
         }
+      } else {
+        setGenerateError('Failed to generate suggestions. Please try again.')
       }
 
       applyDays(days)
       if (!mergeWithPrev) router.push('/plan?step=suggestions')
     } catch (err) {
-      console.error('Suggest error:', err)
+      setGenerateError('Failed to generate suggestions. Please try again.')
+      console.error(err)
     } finally {
       setIsGenerating(false)
     }
@@ -429,6 +434,10 @@ function PlanPageInner() {
     <div className="min-h-screen bg-stone-50 px-4 py-8 md:px-8">
       <div className="max-w-2xl mx-auto">
         <h1 className="font-display text-2xl font-bold text-stone-900 mb-6">Help Me Plan</h1>
+
+        {generateError && (
+          <p className="text-red-500 text-sm mt-2">{generateError}</p>
+        )}
 
         {step === 'setup' && (
           <SetupStep
