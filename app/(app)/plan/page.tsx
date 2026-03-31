@@ -7,20 +7,10 @@ import SuggestionsStep from '@/components/plan/SuggestionsStep'
 import SummaryStep from '@/components/plan/SummaryStep'
 import PostSaveModal from '@/components/plan/PostSaveModal'
 import { getAccessToken } from '@/lib/supabase/browser'
-import type { RecipeSuggestion, DaySelection, DaySuggestions, MealType, SavedPlanEntry } from '@/types'
+import type { RecipeSuggestion, DaySelection, DaySuggestions, MealType, SavedPlanEntry, PlanSetup, SelectionsMap } from '@/types'
 import type { MealTypeState } from '@/components/plan/SuggestionDayRow'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
-
-interface PlanSetup {
-  weekStart:        string
-  activeDates:      string[]
-  activeMealTypes:  MealType[]
-  preferThisWeek:   string[]
-  avoidThisWeek:    string[]
-  freeText:         string
-  specificRequests: string
-}
 
 interface DayState {
   date:       string
@@ -31,29 +21,9 @@ interface SuggestionsState {
   days: DayState[]
 }
 
-// Composite keys: "date:mealType"
-type SelectionsMap = Record<string, DaySelection | null>
+import { getMostRecentSunday, getWeekDates } from '@/lib/date-utils'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
-
-function getMostRecentSunday(): string {
-  const d = new Date()
-  d.setDate(d.getDate() - d.getDay())
-  const year = d.getFullYear()
-  const month = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-function getDefaultActiveDates(weekStart: string): string[] {
-  const dates: string[] = []
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(weekStart + 'T12:00:00Z')
-    d.setDate(d.getDate() + i)
-    dates.push(d.toISOString().split('T')[0])
-  }
-  return dates
-}
 
 // ── Inner page (needs Suspense for useSearchParams) ────────────────────────────
 
@@ -66,7 +36,7 @@ function PlanPageInner() {
 
   const [setup, setSetup] = useState<PlanSetup>({
     weekStart:        initialSunday,
-    activeDates:      getDefaultActiveDates(initialSunday),
+    activeDates:      getWeekDates(initialSunday),
     activeMealTypes:  ['dinner'],
     preferThisWeek:   [],
     avoidThisWeek:    [],
@@ -79,12 +49,13 @@ function PlanPageInner() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [savedWeekStart, setSavedWeekStart] = useState<string | null>(null)
+  const [generateError, setGenerateError] = useState<string | null>(null)
 
   // Reset active dates when week changes
   useEffect(() => {
     setSetup((prev) => ({
       ...prev,
-      activeDates: getDefaultActiveDates(prev.weekStart),
+      activeDates: getWeekDates(prev.weekStart),
     }))
   }, [setup.weekStart])
 
@@ -105,6 +76,7 @@ function PlanPageInner() {
 
   async function fetchSuggestions(activeDates: string[], mergeWithPrev = false) {
     setIsGenerating(true)
+    setGenerateError(null)
     try {
       const token = await getAccessToken()
       const res = await fetch('/api/plan/suggest', {
@@ -143,7 +115,7 @@ function PlanPageInner() {
         const data = await res.json() as { days: DaySuggestions[] }
         for (const dayData of data.days ?? []) {
           const idx = days.findIndex((d) => d.date === dayData.date)
-          if (idx >= 0) {
+          if (idx >= 0 && days[idx]) {
             days[idx].meal_types = (dayData.meal_types ?? []).map((mts) => ({
               meal_type:  mts.meal_type,
               options:    mts.options,
@@ -151,12 +123,15 @@ function PlanPageInner() {
             }))
           }
         }
+      } else {
+        setGenerateError('Failed to generate suggestions. Please try again.')
       }
 
       applyDays(days)
       if (!mergeWithPrev) router.push('/plan?step=suggestions')
     } catch (err) {
-      console.error('Suggest error:', err)
+      setGenerateError('Failed to generate suggestions. Please try again.')
+      console.error(err)
     } finally {
       setIsGenerating(false)
     }
@@ -429,6 +404,10 @@ function PlanPageInner() {
     <div className="min-h-screen bg-stone-50 px-4 py-8 md:px-8">
       <div className="max-w-2xl mx-auto">
         <h1 className="font-display text-2xl font-bold text-stone-900 mb-6">Help Me Plan</h1>
+
+        {generateError && (
+          <p className="text-red-500 text-sm mt-2">{generateError}</p>
+        )}
 
         {step === 'setup' && (
           <SetupStep

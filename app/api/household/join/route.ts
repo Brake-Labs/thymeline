@@ -1,31 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-import { resolveHouseholdScope } from '@/lib/household'
+import { NextResponse } from 'next/server'
+import { withAuth } from '@/lib/auth'
+import { joinHouseholdSchema, parseBody } from '@/lib/schemas'
 
 // ── POST /api/household/join — consume invite and join ────────────────────────
 
-export async function POST(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  let body: { token?: string }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
-
-  if (!body.token?.trim()) {
-    return NextResponse.json({ error: 'token is required' }, { status: 400 })
-  }
-
-  const db = createAdminClient()
+export const POST = withAuth(async (req, { user, db, ctx }) => {
+  const { data: body, error: parseError } = await parseBody(req, joinHouseholdSchema)
+  if (parseError) return parseError
 
   // Check if already in a household
-  const ctx = await resolveHouseholdScope(db, user.id)
   if (ctx) {
     return NextResponse.json({ error: 'Already in a household.' }, { status: 409 })
   }
@@ -34,7 +17,7 @@ export async function POST(req: NextRequest) {
   const { data: invite } = await db
     .from('household_invites')
     .select('id, household_id, used_by, expires_at')
-    .eq('token', body.token.trim())
+    .eq('token', body.token)
     .single()
 
   if (!invite) {
@@ -103,4 +86,4 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ household_id: household.id, household_name: household.name })
-}
+})

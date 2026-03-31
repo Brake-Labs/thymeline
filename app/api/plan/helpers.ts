@@ -1,27 +1,19 @@
 import { type SupabaseClient } from '@supabase/supabase-js'
-import Anthropic from '@anthropic-ai/sdk'
-import type { RecipeSuggestion, UserPreferences, LimitedTag, MealType, DaySuggestions, HouseholdContext } from '@/types'
+import { callLLM } from '@/lib/llm'
+import type { UserPreferences, LimitedTag, MealType, DaySuggestions, HouseholdContext, RecipeJoinResult } from '@/types'
 
 export const MEAL_TYPE_CATEGORIES: Record<MealType, string[]> = {
   breakfast: ['breakfast'],
   lunch:     ['main_dish'],
   dinner:    ['main_dish'],
-  snack:     ['side_dish', 'dessert'],
+  snack:     ['side_dish'],
+  dessert:   ['dessert'],
 }
-
-const anthropic = new Anthropic({ apiKey: process.env.LLM_API_KEY })
 
 // ── Week helpers ───────────────────────────────────────────────────────────────
 
-export function getMostRecentSunday(date: Date): string {
-  const d = new Date(date)
-  d.setDate(d.getDate() - d.getDay()) // getDay() === 0 for Sunday
-  return d.toISOString().split('T')[0]
-}
-
-export function isSunday(dateStr: string): boolean {
-  return new Date(dateStr + 'T12:00:00Z').getDay() === 0
-}
+export { getMostRecentSunday, isSunday } from '@/lib/date-utils'
+import { toDateString } from '@/lib/date-utils'
 
 // ── Season helpers ─────────────────────────────────────────────────────────────
 
@@ -58,21 +50,23 @@ export async function fetchCooldownFilteredRecipes(
   } else {
     recipesQ = recipesQ.eq('user_id', userId)
   }
-  const { data: recipes } = await recipesQ
-
-  if (!recipes || recipes.length === 0) return []
 
   const today = new Date()
   const cutoff = new Date(today)
   cutoff.setDate(cutoff.getDate() - cooldownDays)
-  const cutoffStr = cutoff.toISOString().split('T')[0]
+  const cutoffStr = toDateString(cutoff)
 
-  // Fetch recent history to find cooldown violations
-  const { data: history } = await supabase
-    .from('recipe_history')
-    .select('recipe_id, made_on')
-    .eq('user_id', userId)
-    .gte('made_on', cutoffStr)
+  // Parallelize recipe fetch and history fetch — they are independent
+  const [{ data: recipes }, { data: history }] = await Promise.all([
+    recipesQ,
+    supabase
+      .from('recipe_history')
+      .select('recipe_id, made_on')
+      .eq('user_id', userId)
+      .gte('made_on', cutoffStr),
+  ])
+
+  if (!recipes || recipes.length === 0) return []
 
   const recentlyMadeIds = new Set((history ?? []).map((h: { recipe_id: string }) => h.recipe_id))
 
@@ -86,10 +80,46 @@ export async function fetchRecipesByMealTypes(
   mealTypes: MealType[],
   ctx?: HouseholdContext | null,
 ): Promise<Record<MealType, RecipeForLLM[]>> {
+  // Compute the cooldown cutoff once
+  const today = new Date()
+  const cutoff = new Date(today)
+  cutoff.setDate(cutoff.getDate() - cooldownDays)
+  const cutoffStr = toDateString(cutoff)
+
+  // Fetch history ONCE (shared across all meal types) in parallel with all recipe queries
+  const historyPromise = supabase
+    .from('recipe_history')
+    .select('recipe_id, made_on')
+    .eq('user_id', userId)
+    .gte('made_on', cutoffStr)
+
+  const recipePromises = mealTypes.map((mt) => {
+    const cats = MEAL_TYPE_CATEGORIES[mt]
+    let q = supabase
+      .from('recipes')
+      .select('id, title, tags')
+      .in('category', cats)
+    if (ctx) {
+      q = q.eq('household_id', ctx.householdId)
+    } else {
+      q = q.eq('user_id', userId)
+    }
+    return q
+  })
+
+  // Fire all queries in parallel: one history + N recipe queries
+  const [{ data: history }, ...recipeResults] = await Promise.all([
+    historyPromise,
+    ...recipePromises,
+  ])
+
+  const recentlyMadeIds = new Set((history ?? []).map((h: { recipe_id: string }) => h.recipe_id))
+
   const result = {} as Record<MealType, RecipeForLLM[]>
-  for (const mt of mealTypes) {
-    result[mt] = await fetchCooldownFilteredRecipes(supabase, userId, cooldownDays, MEAL_TYPE_CATEGORIES[mt], ctx)
-  }
+  mealTypes.forEach((mt, i) => {
+    const recipes = recipeResults[i]?.data ?? []
+    result[mt] = (recipes as RecipeForLLM[]).filter((r) => !recentlyMadeIds.has(r.id))
+  })
   return result
 }
 
@@ -105,7 +135,7 @@ export async function fetchRecentHistory(
     .limit(10)
 
   return (data ?? []).map((h: { made_on: string; recipes: unknown }) => ({
-    title: ((h.recipes as unknown) as { title: string } | null)?.title ?? '',
+    title: (h.recipes as unknown as RecipeJoinResult | null)?.title ?? '',
     made_on: h.made_on,
   }))
 }
@@ -329,11 +359,9 @@ export async function callLLMNonStreaming(
   systemMessage: string,
   userMessage: string,
 ): Promise<string> {
-  const response = await anthropic.messages.create({
-    model: process.env.LLM_MODEL ?? 'claude-haiku-4-5-20251001',
-    max_tokens: 4096,
-    messages: [{ role: 'user', content: userMessage }],
+  return callLLM({
     system: systemMessage,
+    user: userMessage,
+    maxTokens: 4096,
   })
-  return response.content[0].type === 'text' ? response.content[0].text : ''
 }

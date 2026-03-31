@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase-server'
+import { withAuth } from '@/lib/auth'
 import { anthropic } from '@/lib/llm'
 import { FIRST_CLASS_TAGS } from '@/lib/tags'
-import type { GeneratedRecipe, MealTypeInput } from '@/types'
+import { generateRecipeSchema, parseBody } from '@/lib/schemas'
+import { RECIPE_CATEGORIES } from '@/types'
+import type { GeneratedRecipe, MealType, RecipeCategory } from '@/types'
 
-const VALID_CATEGORIES = ['main_dish', 'breakfast', 'dessert', 'side_dish'] as const
-type RecipeCategory = typeof VALID_CATEGORIES[number]
-
-function mealTypeToCategory(mealType: MealTypeInput): RecipeCategory {
+function mealTypeToCategory(mealType: MealType): RecipeCategory {
   switch (mealType) {
     case 'dinner':
     case 'lunch':     return 'main_dish'
@@ -27,33 +26,16 @@ function parseNonNegativeInt(val: unknown): number | null {
   return val
 }
 
-export async function POST(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  let body: {
-    use_pantry: boolean
-    specific_ingredients: string
-    meal_type: MealTypeInput
-    style_hints: string
-    dietary_restrictions: string[]
-  }
-
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
+export const POST = withAuth(async (req: NextRequest, { user, db }) => {
+  const { data: body, error: parseError } = await parseBody(req, generateRecipeSchema)
+  if (parseError) return parseError
 
   const { use_pantry, specific_ingredients, meal_type, style_hints, dietary_restrictions } = body
 
   // Fetch pantry items if requested
   let pantryLines: string[] = []
   if (use_pantry) {
-    const { data: pantryItems } = await supabase
+    const { data: pantryItems } = await db
       .from('pantry_items')
       .select('name, quantity')
       .eq('user_id', user.id)
@@ -71,9 +53,9 @@ export async function POST(req: NextRequest) {
     .filter(Boolean)
 
   // Deduplicate: pantry names take precedence
-  const pantryLower = new Set(pantryLines.map((l) => l.split(' ').slice(-1)[0].toLowerCase()))
+  const pantryLower = new Set(pantryLines.map((l) => l.split(' ').slice(-1)[0]!.toLowerCase()))
   const dedupedSpecific = specificLines.filter(
-    (l) => !pantryLower.has(l.toLowerCase().split(' ').slice(-1)[0])
+    (l) => !pantryLower.has(l.toLowerCase().split(' ').slice(-1)[0]!)
   )
 
   const combined = [...pantryLines, ...dedupedSpecific]
@@ -130,7 +112,7 @@ Make it practical and delicious.`
       messages: [{ role: 'user', content: userMessage }],
       system: systemMessage,
     })
-    raw = response.content[0].type === 'text' ? response.content[0].text : ''
+    raw = response.content[0]?.type === 'text' ? response.content[0].text : ''
   } catch (err) {
     console.error('[generate] LLM error:', err)
     return NextResponse.json({ error: 'Recipe generation failed — please try again' }, { status: 500 })
@@ -163,7 +145,7 @@ Make it practical and delicious.`
 
   // Category validation + fallback
   const llmCategory = typeof parsed.category === 'string' ? parsed.category : ''
-  const category: RecipeCategory = (VALID_CATEGORIES as readonly string[]).includes(llmCategory)
+  const category: RecipeCategory = (RECIPE_CATEGORIES as readonly string[]).includes(llmCategory)
     ? (llmCategory as RecipeCategory)
     : mealTypeToCategory(meal_type)
 
@@ -186,4 +168,4 @@ Make it practical and delicious.`
   }
 
   return NextResponse.json(result)
-}
+})

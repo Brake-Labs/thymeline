@@ -1,22 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-import { resolveHouseholdScope, canManage } from '@/lib/household'
-
-interface RouteContext {
-  params: { user_id: string }
-}
+import { NextResponse } from 'next/server'
+import { withAuth } from '@/lib/auth'
+import { updateMemberRoleSchema, parseBody } from '@/lib/schemas'
+import { canManage } from '@/lib/household'
 
 // ── DELETE /api/household/members/[user_id] — remove a member ────────────────
 
-export async function DELETE(req: NextRequest, { params }: RouteContext) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
+export const DELETE = withAuth(async (req, { user, db, ctx }, params) => {
   if (!ctx) {
     return NextResponse.json({ error: 'Not in a household' }, { status: 404 })
   }
@@ -64,19 +53,11 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
   }
 
   return new NextResponse(null, { status: 204 })
-}
+})
 
 // ── PATCH /api/household/members/[user_id] — change role (owner only) ─────────
 
-export async function PATCH(req: NextRequest, { params }: RouteContext) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
+export const PATCH = withAuth(async (req, { db, ctx }, params) => {
   if (!ctx) {
     return NextResponse.json({ error: 'Not in a household' }, { status: 404 })
   }
@@ -84,20 +65,8 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: 'Only the owner can change roles' }, { status: 403 })
   }
 
-  let body: { role?: string }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
-
-  const validRoles = ['co_owner', 'member']
-  if (!body.role || !validRoles.includes(body.role)) {
-    return NextResponse.json(
-      { error: 'role must be one of: co_owner, member' },
-      { status: 400 },
-    )
-  }
+  const { data: body, error: parseError } = await parseBody(req, updateMemberRoleSchema)
+  if (parseError) return parseError
 
   const { error: updateError } = await db
     .from('household_members')
@@ -110,4 +79,4 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
   }
 
   return NextResponse.json({ user_id: params.user_id, role: body.role })
-}
+})

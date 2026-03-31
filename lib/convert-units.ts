@@ -4,7 +4,7 @@ function parseQty(s: string): number {
   const clean = s.replace(/\s+/g, '')
   if (clean.includes('/')) {
     const [n, d] = clean.split('/')
-    return parseFloat(n) / parseFloat(d)
+    return parseFloat(n!) / parseFloat(d!)
   }
   return parseFloat(clean)
 }
@@ -93,7 +93,7 @@ export function convertIngredientLine(line: string, to: 'metric' | 'imperial'): 
   for (const rule of RULES) {
     const m = line.match(rule.re)
     if (m) {
-      const qtyStr = m[1]
+      const qtyStr = m[1]!
       const rest = m[m.length - 1] ?? ''
       return rule.convert(qtyStr, rest)
     }

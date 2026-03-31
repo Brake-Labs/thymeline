@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-import { resolveHouseholdScope } from '@/lib/household'
+import { withAuth } from '@/lib/auth'
+import { swapSchema, parseBody } from '@/lib/schemas'
 import {
   getSeason,
   fetchCooldownFilteredRecipes,
@@ -14,39 +14,18 @@ import {
 } from '../../helpers'
 import type { DaySuggestions, MealType } from '@/types'
 
-export async function POST(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  let body: {
-    date: string
-    meal_type?: MealType
-    week_start: string
-    already_selected: { date: string; recipe_id: string }[]
-    prefer_this_week: string[]
-    avoid_this_week: string[]
-    free_text: string
-  }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
-  }
+export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
+  const { data: body, error: parseError } = await parseBody(req, swapSchema)
+  if (parseError) return parseError
 
   const { date, already_selected, prefer_this_week, avoid_this_week, free_text } = body
   const meal_type: MealType = body.meal_type ?? 'dinner'
 
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
-
-  const prefs = await fetchUserPreferences(supabase, user.id, ctx)
+  const prefs = await fetchUserPreferences(db, user.id, ctx)
   const cooldownDays = prefs?.cooldown_days ?? 28
   const categories = MEAL_TYPE_CATEGORIES[meal_type]
-  const recipes = await fetchCooldownFilteredRecipes(supabase, user.id, cooldownDays, categories, ctx)
-  const recentHistory = await fetchRecentHistory(supabase, user.id)
+  const recipes = await fetchCooldownFilteredRecipes(db, user.id, cooldownDays, categories, ctx)
+  const recentHistory = await fetchRecentHistory(db, user.id)
 
   const today = new Date()
   const season = getSeason(today.getMonth())
@@ -76,4 +55,4 @@ export async function POST(req: NextRequest) {
     console.error('LLM swap error:', err)
     return NextResponse.json({ error: 'Swap failed. Please try again.' }, { status: 500 })
   }
-}
+})

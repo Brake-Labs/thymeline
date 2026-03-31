@@ -1,28 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
+import { NextResponse } from 'next/server'
+import { withAuth } from '@/lib/auth'
+import { updatePantryItemSchema, parseBody } from '@/lib/schemas'
 import type { PantryItem } from '@/types'
-
-interface RouteContext {
-  params: { id: string }
-}
 
 // ── PATCH /api/pantry/[id] ────────────────────────────────────────────────────
 
-export async function PATCH(req: NextRequest, { params }: RouteContext) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  let body: { quantity?: string | null; expiry_date?: string | null }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
-
-  const db = createAdminClient()
+export const PATCH = withAuth(async (req, { user, db }, params) => {
+  const { data: body, error: parseError } = await parseBody(req, updatePantryItemSchema)
+  if (parseError) return parseError
 
   // Build update payload — only include fields that were provided
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
@@ -42,19 +27,11 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
   }
 
   return NextResponse.json({ item: data as PantryItem })
-}
+})
 
 // ── DELETE /api/pantry/[id] ───────────────────────────────────────────────────
 
-export async function DELETE(req: NextRequest, { params }: RouteContext) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const db = createAdminClient()
-
+export const DELETE = withAuth(async (req, { user, db }, params) => {
   // Verify ownership before deleting
   const { data: item, error: fetchError } = await db
     .from('pantry_items')
@@ -78,4 +55,4 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
   }
 
   return new NextResponse(null, { status: 204 })
-}
+})

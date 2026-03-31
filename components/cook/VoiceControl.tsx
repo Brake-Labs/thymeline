@@ -30,13 +30,13 @@ function parseCommand(transcript: string): VoiceCommand | null {
   if (timerMatch) {
     return {
       type: 'setTimer',
-      minutes: parseInt(timerMatch[1], 10),
+      minutes: parseInt(timerMatch[1]!, 10),
       seconds: timerMatch[2] ? parseInt(timerMatch[2], 10) : 0,
     }
   }
 
   const checkMatch = t.match(/^check (.+)/i)
-  if (checkMatch) return { type: 'checkIngredient', name: checkMatch[1] }
+  if (checkMatch) return { type: 'checkIngredient', name: checkMatch[1]! }
 
   if (/read( this)? step/i.test(t)) return { type: 'readStep' }
 

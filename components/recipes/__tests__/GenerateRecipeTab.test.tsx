@@ -163,7 +163,7 @@ describe('T30 - Pantry items fetched only on first toggle-on, not on mount', () 
     render(<GenerateRecipeTab {...defaultProps} />)
     // Allow any async effects to settle
     await waitFor(() => {
-      const pantryFetches = mockFetch.mock.calls.filter(([url]: [string]) =>
+      const pantryFetches = mockFetch.mock.calls.filter(([url]: string[]) =>
         typeof url === 'string' && url.includes('/api/pantry')
       )
       expect(pantryFetches).toHaveLength(0)
@@ -177,7 +177,7 @@ describe('T30 - Pantry items fetched only on first toggle-on, not on mount', () 
       fireEvent.click(toggle)
     })
     await waitFor(() => {
-      const pantryFetches = mockFetch.mock.calls.filter(([url]: [string]) =>
+      const pantryFetches = mockFetch.mock.calls.filter(([url]: string[]) =>
         typeof url === 'string' && url.includes('/api/pantry')
       )
       expect(pantryFetches).toHaveLength(1)
@@ -196,7 +196,7 @@ describe('T30 - Pantry items fetched only on first toggle-on, not on mount', () 
     // First toggle-on: should fetch
     await act(async () => { fireEvent.click(toggle) })
     await waitFor(() => {
-      expect(mockFetch.mock.calls.filter(([u]: [string]) => u.includes('/api/pantry'))).toHaveLength(1)
+      expect(mockFetch.mock.calls.filter(([u]) => typeof u === 'string' && u.includes('/api/pantry'))).toHaveLength(1)
     })
 
     // Toggle off
@@ -206,7 +206,7 @@ describe('T30 - Pantry items fetched only on first toggle-on, not on mount', () 
 
     // Still only 1 fetch total (pantryItems.length > 0 skips re-fetch)
     await waitFor(() => {
-      expect(mockFetch.mock.calls.filter(([u]: [string]) => u.includes('/api/pantry'))).toHaveLength(1)
+      expect(mockFetch.mock.calls.filter(([u]) => typeof u === 'string' && u.includes('/api/pantry'))).toHaveLength(1)
     })
   })
 })

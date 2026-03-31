@@ -1,11 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-import { resolveHouseholdScope } from '@/lib/household'
+import { NextResponse } from 'next/server'
+import { withAuth } from '@/lib/auth'
 import { FIRST_CLASS_TAGS } from '@/lib/tags'
-
-interface RouteContext {
-  params: { id: string }
-}
+import { createAdminClient } from '@/lib/supabase-server'
+import { updateRecipeSchema, parseBody } from '@/lib/schemas'
 
 // Helper: attach last_made + times_made to a recipe row
 async function withHistory(
@@ -27,18 +24,13 @@ async function withHistory(
   return { ...recipe, last_made, times_made: rows.length, dates_made }
 }
 
-export async function GET(req: NextRequest, { params }: RouteContext) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+export const GET = withAuth(async (req, { db }, params) => {
+  const { id } = params
 
-  const db = createAdminClient()
   const { data: recipe, error } = await db
     .from('recipes')
     .select('*')
-    .eq('id', params.id)
+    .eq('id', id)
     .single()
 
   if (error || !recipe) {
@@ -46,23 +38,16 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
   }
 
   return NextResponse.json(await withHistory(db, recipe))
-}
+})
 
-export async function PATCH(req: NextRequest, { params }: RouteContext) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
+export const PATCH = withAuth(async (req, { user, db, ctx }, params) => {
+  const { id } = params
 
   // Ownership check
   const { data: existing, error: fetchError } = await db
     .from('recipes')
     .select('user_id, household_id')
-    .eq('id', params.id)
+    .eq('id', id)
     .single()
 
   if (fetchError || !existing) {
@@ -80,27 +65,8 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     }
   }
 
-  let body: {
-    title?: string
-    category?: string
-    tags?: string[]
-    ingredients?: string | null
-    steps?: string | null
-    notes?: string | null
-    url?: string | null
-    image_url?: string | null
-    prep_time_minutes?: number | null
-    cook_time_minutes?: number | null
-    total_time_minutes?: number | null
-    inactive_time_minutes?: number | null
-    servings?: number | null
-  }
-
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
+  const { data: body, error: parseError } = await parseBody(req, updateRecipeSchema)
+  if (parseError) return parseError
 
   // Validate tags against first-class list + scoped custom_tags
   if (body.tags !== undefined && body.tags.length > 0) {
@@ -125,14 +91,6 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     }
   }
 
-  const validCategories = ['main_dish', 'breakfast', 'dessert', 'side_dish']
-  if (body.category !== undefined && !validCategories.includes(body.category)) {
-    return NextResponse.json(
-      { error: 'category must be one of: main_dish, breakfast, dessert, side_dish' },
-      { status: 400 },
-    )
-  }
-
   // Build update payload — only fields present in the request
   const update: Record<string, unknown> = {}
   if (body.title !== undefined) update.title = body.title
@@ -152,7 +110,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
   const { data: updated, error: updateError } = await db
     .from('recipes')
     .update(update)
-    .eq('id', params.id)
+    .eq('id', id)
     .select()
     .single()
 
@@ -161,23 +119,16 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
   }
 
   return NextResponse.json(updated)
-}
+})
 
-export async function DELETE(req: NextRequest, { params }: RouteContext) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
+export const DELETE = withAuth(async (req, { user, db, ctx }, params) => {
+  const { id } = params
 
   // Ownership check
   const { data: existing, error: fetchError } = await db
     .from('recipes')
     .select('user_id, household_id')
-    .eq('id', params.id)
+    .eq('id', id)
     .single()
 
   if (fetchError || !existing) {
@@ -197,11 +148,11 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
   const { error: deleteError } = await db
     .from('recipes')
     .delete()
-    .eq('id', params.id)
+    .eq('id', id)
 
   if (deleteError) {
     return NextResponse.json({ error: deleteError.message }, { status: 500 })
   }
 
   return new NextResponse(null, { status: 204 })
-}
+})

@@ -1,26 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentWeekSunday } from '@/lib/grocery'
-
-function formatDate(iso: string): string {
-  const d = new Date(`${iso}T00:00:00Z`)
-  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', timeZone: 'UTC' })
-}
-
-function formatWeekRange(weekStart: string): string {
-  const start = new Date(`${weekStart}T00:00:00Z`)
-  const end = new Date(start)
-  end.setUTCDate(start.getUTCDate() + 6)
-  const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', timeZone: 'UTC' }
-  return `${start.toLocaleDateString('en-US', opts)} – ${end.toLocaleDateString('en-US', opts)}`
-}
-
-function addWeeks(weekStart: string, n: number): string {
-  const d = new Date(`${weekStart}T00:00:00Z`)
-  d.setUTCDate(d.getUTCDate() + n * 7)
-  return d.toISOString().slice(0, 10)
-}
+import { getMostRecentSunday, formatDayName as formatDate, formatWeekRange, addWeeks } from '@/lib/date-utils'
 
 interface Props {
   params: { week_start: string }
@@ -35,7 +16,7 @@ export default async function PlanWeekPage({ params }: Props) {
   // Week navigation
   const prevWeek     = addWeeks(week_start, -1)
   const nextWeek     = addWeeks(week_start, 1)
-  const maxWeek      = addWeeks(getCurrentWeekSunday(), 4)
+  const maxWeek      = addWeeks(getMostRecentSunday(), 4)
   const nextDisabled = nextWeek > maxWeek
 
   const weekNav = (

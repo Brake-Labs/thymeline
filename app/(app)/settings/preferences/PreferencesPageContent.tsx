@@ -6,6 +6,7 @@ import { getAccessToken } from '@/lib/supabase/browser'
 
 export default function PreferencesPageContent() {
   const [allTags, setAllTags] = useState<string[]>([])
+  const [tagError, setTagError] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchTags() {
@@ -13,10 +14,19 @@ export default function PreferencesPageContent() {
         const r = await fetch('/api/tags', { headers: { Authorization: `Bearer ${await getAccessToken()}` } })
         const data: { firstClass: string[]; custom: { name: string }[] } = await r.json()
         setAllTags([...(data.firstClass ?? []), ...(data.custom ?? []).map((t) => t.name)])
-      } catch {}
+        setTagError(null)
+      } catch (err) {
+        setTagError('Something went wrong loading your tags.')
+        console.error(err)
+      }
     }
     fetchTags()
   }, [])
 
-  return <PreferencesForm allTags={allTags} />
+  return (
+    <>
+      {tagError && <p className="text-red-500 text-sm mt-2 px-4">{tagError}</p>}
+      <PreferencesForm allTags={allTags} />
+    </>
+  )
 }

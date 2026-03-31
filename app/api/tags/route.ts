@@ -1,22 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-import { resolveHouseholdScope } from '@/lib/household'
+import { NextResponse } from 'next/server'
+import { withAuth } from '@/lib/auth'
 import { FIRST_CLASS_TAGS } from '@/lib/tags'
+import { createTagSchema, parseBody } from '@/lib/schemas'
 
 function toTitleCase(str: string): string {
   return str.replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-export async function GET(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
-
+export const GET = withAuth(async (req, { user, db, ctx }) => {
   let query = db.from('custom_tags').select('name, section').order('created_at', { ascending: true })
   if (ctx) {
     query = query.eq('household_id', ctx.householdId)
@@ -36,30 +27,14 @@ export async function GET(req: NextRequest) {
     .map((t: { name: string; section: string }) => ({ name: t.name, section: t.section }))
 
   return NextResponse.json({ firstClass: FIRST_CLASS_TAGS, custom })
-}
+})
 
-export async function POST(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+export const POST = withAuth(async (req, { user, db, ctx }) => {
+  const { data: body, error: parseError } = await parseBody(req, createTagSchema)
+  if (parseError) return parseError
 
-  let body: { name?: string; section?: string }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
-
-  const raw = body.name?.trim()
-  const validSections = ['style', 'dietary', 'seasonal', 'cuisine', 'protein']
-  const section = validSections.includes(body.section ?? '') ? body.section! : 'cuisine'
-  if (!raw) {
-    return NextResponse.json({ error: 'name is required' }, { status: 400 })
-  }
-
-  const normalized = toTitleCase(raw)
+  const normalized = toTitleCase(body.name)
+  const section = body.section
   const lc = normalized.toLowerCase()
 
   // Reject if it matches a first-class tag (case-insensitive)
@@ -70,9 +45,6 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     )
   }
-
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
 
   // Check for duplicate custom tag (case-insensitive) in scope
   let existingQuery = db.from('custom_tags').select('id, name')
@@ -103,4 +75,4 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json(created, { status: 201 })
-}
+})

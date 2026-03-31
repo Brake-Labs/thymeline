@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Recipe } from '@/types'
 import RecipeForm, { RecipeFormValues } from '@/components/recipes/RecipeForm'
 import { getAccessToken } from '@/lib/supabase/browser'
+import { getTodayISO } from '@/lib/date-utils'
 
 interface Props {
   params: { id: string }
@@ -23,6 +24,7 @@ export default function EditRecipePage({ params }: Props) {
   const [datesMade, setDatesMade] = useState<string[]>([])
   const [addDateValue, setAddDateValue] = useState('')
   const [dateError, setDateError] = useState<string | null>(null)
+  const [fetchError, setFetchError] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchRecipe() {
@@ -31,13 +33,17 @@ export default function EditRecipePage({ params }: Props) {
           headers: { Authorization: `Bearer ${await getAccessToken()}` },
         })
         if (r.status === 404) { setNotFound(true); setLoading(false); return }
+        if (!r.ok) throw new Error('Failed to load recipe')
         const data: Recipe = await r.json()
         if (data) {
           setRecipe(data)
           setDatesMade(data.dates_made ?? [])
         }
+        setFetchError(null)
         setLoading(false)
-      } catch {
+      } catch (err) {
+        setFetchError('Something went wrong loading this recipe.')
+        console.error(err)
         setLoading(false)
       }
     }
@@ -129,6 +135,17 @@ export default function EditRecipePage({ params }: Props) {
     return <div className="max-w-2xl mx-auto px-4 py-8 text-gray-400">Loading…</div>
   }
 
+  if (fetchError && !recipe) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-8">
+        <p className="text-red-500 text-sm">{fetchError}</p>
+        <Link href="/recipes" className="text-sage-600 hover:text-sage-700 text-sm mt-2 inline-block">
+          ← Back to recipes
+        </Link>
+      </div>
+    )
+  }
+
   if (notFound || !recipe) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-8">
@@ -184,7 +201,7 @@ export default function EditRecipePage({ params }: Props) {
             type="date"
             value={addDateValue}
             onChange={(e) => { setAddDateValue(e.target.value); setDateError(null) }}
-            max={new Date().toISOString().split('T')[0]}
+            max={getTodayISO()}
             className="border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500"
           />
           <button

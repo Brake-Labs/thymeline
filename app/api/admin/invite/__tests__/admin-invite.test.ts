@@ -7,6 +7,10 @@ const mockState = {
   insertError: null as { message: string } | null,
 }
 
+const makeMockFrom = () => ({
+  insert: async () => ({ error: mockState.insertError }),
+})
+
 vi.mock('@/lib/supabase-server', () => ({
   createServerClient: () => ({
     auth: {
@@ -15,10 +19,14 @@ vi.mock('@/lib/supabase-server', () => ({
         error: mockState.user ? null : { message: 'no user' },
       }),
     },
-    from: () => ({
-      insert: async () => ({ error: mockState.insertError }),
-    }),
+    from: makeMockFrom,
   }),
+  createAdminClient: () => ({ from: makeMockFrom }),
+}))
+
+vi.mock('@/lib/household', () => ({
+  resolveHouseholdScope: async () => null,
+  canManage: (role: string) => role === 'owner' || role === 'co_owner',
 }))
 
 const { POST } = await import('@/app/api/admin/invite/route')

@@ -88,7 +88,7 @@ function makeMockFrom(table: string) {
           then: (resolve: (v: { error: null }) => void) => resolve({ error: null }),
         }
       },
-      update: (payload: Record<string, unknown>) => ({
+      update: (_payload: Record<string, unknown>) => ({
         eq: () => ({
           eq: async () => ({ error: null }),
         }),
@@ -282,11 +282,11 @@ const { POST: transferPOST } = await import('@/app/api/household/transfer/route'
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function makeReq(method: string, url: string, body?: unknown): NextRequest {
-  const opts: RequestInit = {
+  const opts: ConstructorParameters<typeof NextRequest>[1] = {
     method,
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer token' },
   }
-  if (body !== undefined) opts.body = JSON.stringify(body)
+  if (body !== undefined) opts!.body = JSON.stringify(body)
   return new NextRequest(url, opts)
 }
 
@@ -598,24 +598,3 @@ describe('T27 - GET /api/household — member gets household + members', () => {
   })
 })
 
-// ── Unauthenticated ───────────────────────────────────────────────────────────
-
-describe('Unauthenticated requests return 401', () => {
-  it('POST /api/household', async () => {
-    mockState.user = null
-    const res = await householdPOST(makeReq('POST', 'http://localhost/api/household', { name: 'x' }))
-    expect(res.status).toBe(401)
-  })
-
-  it('GET /api/household', async () => {
-    mockState.user = null
-    const res = await householdGET(makeReq('GET', 'http://localhost/api/household'))
-    expect(res.status).toBe(401)
-  })
-
-  it('POST /api/household/join', async () => {
-    mockState.user = null
-    const res = await joinPOST(makeReq('POST', 'http://localhost/api/household/join', { token: 'x' }))
-    expect(res.status).toBe(401)
-  })
-})

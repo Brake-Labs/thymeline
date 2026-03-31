@@ -61,7 +61,7 @@ describe('T12 - Sign out', () => {
     mockPathname.mockReturnValue('/home')
     render(<AppNav />)
     const signOutButtons = screen.getAllByRole('button', { name: /sign out/i })
-    fireEvent.click(signOutButtons[0])
+    fireEvent.click(signOutButtons[0]!)
     await waitFor(() => {
       expect(mockSignOut).toHaveBeenCalled()
       expect(mockPush).toHaveBeenCalledWith('/login')

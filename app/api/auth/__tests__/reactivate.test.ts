@@ -8,6 +8,21 @@ const mockState = {
   updateError: null as { message: string } | null,
 }
 
+const makeMockFrom = () => ({
+  select: () => ({
+    eq: () => ({
+      single: async () => {
+        if (mockState.rowError) return { data: null, error: mockState.rowError }
+        if (!mockState.rowExists) return { data: null, error: { code: 'PGRST116', message: 'not found' } }
+        return { data: { user_id: 'user-1' }, error: null }
+      },
+    }),
+  }),
+  update: () => ({
+    eq: async () => ({ error: mockState.updateError }),
+  }),
+})
+
 vi.mock('@/lib/supabase-server', () => ({
   createServerClient: () => ({
     auth: {
@@ -16,21 +31,14 @@ vi.mock('@/lib/supabase-server', () => ({
         error: mockState.user ? null : { message: 'no user' },
       }),
     },
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          single: async () => {
-            if (mockState.rowError) return { data: null, error: mockState.rowError }
-            if (!mockState.rowExists) return { data: null, error: { code: 'PGRST116', message: 'not found' } }
-            return { data: { user_id: 'user-1' }, error: null }
-          },
-        }),
-      }),
-      update: () => ({
-        eq: async () => ({ error: mockState.updateError }),
-      }),
-    }),
+    from: makeMockFrom,
   }),
+  createAdminClient: () => ({ from: makeMockFrom }),
+}))
+
+vi.mock('@/lib/household', () => ({
+  resolveHouseholdScope: async () => null,
+  canManage: (role: string) => role === 'owner' || role === 'co_owner',
 }))
 
 const { POST } = await import('@/app/api/auth/reactivate/route')

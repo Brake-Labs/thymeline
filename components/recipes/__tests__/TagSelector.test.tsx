@@ -186,21 +186,21 @@ describe('T08 - + chip expands to inline text input', () => {
   it('clicking Style + shows a text input', () => {
     render(<TagSelector selected={[]} onChange={vi.fn()} />)
     const [styleChip] = screen.getAllByLabelText('Add custom tag')
-    fireEvent.click(styleChip)
+    fireEvent.click(styleChip!)
     expect(screen.getByPlaceholderText('Tag name')).toBeInTheDocument()
   })
 
   it('clicking Protein + shows a text input', () => {
     render(<TagSelector selected={[]} onChange={vi.fn()} />)
     const chips = screen.getAllByLabelText('Add custom tag')
-    fireEvent.click(chips[4])
+    fireEvent.click(chips[4]!)
     expect(screen.getByPlaceholderText('Tag name')).toBeInTheDocument()
   })
 
   it('opening Style + shows input there while other + chips stay visible', () => {
     render(<TagSelector selected={[]} onChange={vi.fn()} />)
     const [styleChip] = screen.getAllByLabelText('Add custom tag')
-    fireEvent.click(styleChip)
+    fireEvent.click(styleChip!)
     // Input replaces the Style + chip; Dietary, Seasonal, Cuisine, and Protein + chips stay
     expect(screen.getByPlaceholderText('Tag name')).toBeInTheDocument()
     expect(screen.getAllByLabelText('Add custom tag')).toHaveLength(4)
@@ -215,7 +215,7 @@ describe('T09 - Typing a name matching an existing tag selects it instead of cre
     render(<TagSelector selected={[]} onChange={onChange} />)
 
     const [styleChip] = screen.getAllByLabelText('Add custom tag')
-    fireEvent.click(styleChip)
+    fireEvent.click(styleChip!)
     const input = screen.getByPlaceholderText('Tag name')
     fireEvent.change(input, { target: { value: 'chicken' } })
     fireEvent.keyDown(input, { key: 'Enter' })
@@ -244,7 +244,7 @@ describe('T10 - Creating a new tag via + chip adds it to custom_tags and selects
     render(<TagSelector selected={[]} onChange={onChange} />)
 
     const [styleChip] = screen.getAllByLabelText('Add custom tag')
-    fireEvent.click(styleChip)
+    fireEvent.click(styleChip!)
     const input = screen.getByPlaceholderText('Tag name')
     fireEvent.change(input, { target: { value: 'BrandNew' } })
     fireEvent.keyDown(input, { key: 'Enter' })

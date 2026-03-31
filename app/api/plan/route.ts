@@ -1,38 +1,20 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-import { resolveHouseholdScope } from '@/lib/household'
+import { NextResponse } from 'next/server'
+import { withAuth } from '@/lib/auth'
+import { createPlanSchema, parseBody } from '@/lib/schemas'
 import { isSunday } from './helpers'
-import type { SavedPlanEntry } from '@/types'
+import type { SavedPlanEntry, RecipeJoinResult } from '@/types'
 
 // ── POST /api/plan — save confirmed plan ───────────────────────────────────────
 
-export async function POST(req: NextRequest) {
-  // Step 1: verify identity with user-scoped client
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  let body: { week_start: string; entries: { date: string; recipe_id: string; meal_type?: string; is_side_dish?: boolean; parent_entry_id?: string }[] }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
-  }
+export const POST = withAuth(async (req, { user, db, ctx }) => {
+  const { data: body, error: parseError } = await parseBody(req, createPlanSchema)
+  if (parseError) return parseError
 
   const { week_start, entries } = body
 
-  if (!entries || entries.length === 0) {
-    return NextResponse.json({ error: 'entries must be non-empty' }, { status: 400 })
-  }
   if (!isSunday(week_start)) {
     return NextResponse.json({ error: 'week_start must be a Sunday' }, { status: 400 })
   }
-
-  // Step 2: all DB operations use the admin client (bypasses RLS, scoped by user.id)
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
 
   // Find existing plan for this week, or create a new one
   let existingQ = db
@@ -91,26 +73,17 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ plan_id: planId, entries: savedEntries as SavedPlanEntry[] })
-}
+})
 
 // ── GET /api/plan?week_start=YYYY-MM-DD — fetch existing plan ──────────────────
 
-export async function GET(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+export const GET = withAuth(async (req, { user, db, ctx }) => {
   const { searchParams } = new URL(req.url)
   const week_start = searchParams.get('week_start')
 
   if (!week_start) {
     return NextResponse.json({ error: 'week_start is required' }, { status: 400 })
   }
-
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
 
   let planQ = db
     .from('meal_plans')
@@ -147,13 +120,13 @@ export async function GET(req: NextRequest) {
     id:              e.id,
     planned_date:    e.planned_date,
     recipe_id:       e.recipe_id,
-    recipe_title:    ((e.recipes as unknown) as { title: string } | null)?.title ?? '',
+    recipe_title:    (e.recipes as unknown as RecipeJoinResult | null)?.title ?? '',
     position:        e.position,
     confirmed:       e.confirmed,
     meal_type:       e.meal_type ?? 'dinner',
     is_side_dish:    e.is_side_dish ?? false,
     parent_entry_id:    e.parent_entry_id ?? null,
-    total_time_minutes: ((e.recipes as unknown) as { total_time_minutes: number | null } | null)?.total_time_minutes ?? null,
+    total_time_minutes: (e.recipes as unknown as RecipeJoinResult | null)?.total_time_minutes ?? null,
   }))
 
   return NextResponse.json({
@@ -163,4 +136,4 @@ export async function GET(req: NextRequest) {
       entries:    enrichedEntries,
     },
   })
-}
+})

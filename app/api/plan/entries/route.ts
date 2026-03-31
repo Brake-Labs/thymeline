@@ -1,29 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-import { resolveHouseholdScope } from '@/lib/household'
+import { NextResponse } from 'next/server'
+import { withAuth } from '@/lib/auth'
+import { createPlanEntrySchema, parseBody } from '@/lib/schemas'
 import { isSunday } from '../helpers'
-import type { MealType, PlanEntry } from '@/types'
+import type { MealType, PlanEntry, RecipeJoinResult } from '@/types'
 
-export async function POST(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  let body: {
-    week_start:        string
-    date:              string
-    recipe_id:         string
-    meal_type:         MealType
-    is_side_dish?:     boolean
-    parent_entry_id?:  string
-  }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
-  }
+export const POST = withAuth(async (req, { user, db, ctx }) => {
+  const { data: body, error: parseError } = await parseBody(req, createPlanEntrySchema)
+  if (parseError) return parseError
 
   const { week_start, date, recipe_id, meal_type, parent_entry_id } = body
   const is_side_dish = meal_type === 'dessert' ? true : (body.is_side_dish ?? false)
@@ -55,9 +38,6 @@ export async function POST(req: NextRequest) {
   if (meal_type === 'dessert' && !parent_entry_id) {
     return NextResponse.json({ error: 'parent_entry_id is required for dessert entries' }, { status: 400 })
   }
-
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
 
   // Dessert parent must be a Dinner or Lunch slot
   if (meal_type === 'dessert' && parent_entry_id) {
@@ -124,15 +104,15 @@ export async function POST(req: NextRequest) {
   const planEntry: PlanEntry = {
     id:              entry.id,
     recipe_id:       entry.recipe_id,
-    recipe_title:    ((entry.recipes as unknown) as { title: string } | null)?.title ?? '',
+    recipe_title:    (entry.recipes as unknown as RecipeJoinResult | null)?.title ?? '',
     planned_date:    entry.planned_date,
     meal_type:       entry.meal_type as MealType,
     is_side_dish:    entry.is_side_dish,
     parent_entry_id: entry.parent_entry_id,
     confirmed:       entry.confirmed,
     position:           entry.position,
-    total_time_minutes: ((entry.recipes as unknown) as { total_time_minutes: number | null } | null)?.total_time_minutes ?? null,
+    total_time_minutes: (entry.recipes as unknown as RecipeJoinResult | null)?.total_time_minutes ?? null,
   }
 
   return NextResponse.json(planEntry, { status: 201 })
-}
+})

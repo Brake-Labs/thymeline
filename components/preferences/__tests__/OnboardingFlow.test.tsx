@@ -75,7 +75,7 @@ describe('T06 - Skip for now saves only onboarding_completed', () => {
 
     await waitFor(() => expect(mockFetch).toHaveBeenCalled())
 
-    const [url, opts] = mockFetch.mock.calls[0]
+    const [url, opts] = mockFetch.mock.calls[0]!
     expect(url).toBe('/api/preferences')
     expect(opts.method).toBe('PATCH')
     const body = JSON.parse(opts.body)
@@ -106,7 +106,7 @@ describe('T07 - Done saves all collected values', () => {
 
     await waitFor(() => expect(mockFetch).toHaveBeenCalled())
 
-    const [url, opts] = mockFetch.mock.calls[0]
+    const [url, opts] = mockFetch.mock.calls[0]!
     expect(url).toBe('/api/preferences')
     expect(opts.method).toBe('PATCH')
     const body = JSON.parse(opts.body)

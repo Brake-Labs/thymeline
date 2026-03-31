@@ -1,14 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import FirecrawlApp from 'firecrawl'
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-import { resolveHouseholdScope } from '@/lib/household'
+import { withAuth } from '@/lib/auth'
 import { anthropic } from '@/lib/llm'
+import { generateGroceriesSchema, parseBody } from '@/lib/schemas'
+import type { RecipeJoinFull } from '@/types'
 import {
   parseIngredientLine,
   combineIngredients,
   assignSection,
   isPantryStaple,
 } from '@/lib/grocery'
+import { toDateString } from '@/lib/date-utils'
 import { GroceryItem, GrocerySection, RecipeScale } from '@/types'
 
 function uuidv4(): string {
@@ -26,19 +28,9 @@ interface RecipeEntry {
 
 // ── POST /api/groceries/generate ─────────────────────────────────────────────
 
-export async function POST(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  let body: { week_start?: string; date_from?: string; date_to?: string }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
+export const POST = withAuth(async (req, { user, db, ctx }) => {
+  const { data: body, error: parseError } = await parseBody(req, generateGroceriesSchema)
+  if (parseError) return parseError
 
   // Resolve date range — accept date_from/date_to directly, or derive from week_start
   let date_from: string
@@ -47,16 +39,13 @@ export async function POST(req: NextRequest) {
     date_from = body.week_start
     const d = new Date(body.week_start + 'T12:00:00Z')
     d.setDate(d.getDate() + 6)
-    date_to = d.toISOString().slice(0, 10)
+    date_to = toDateString(d)
   } else if (body.date_from && body.date_to) {
     date_from = body.date_from
     date_to   = body.date_to
   } else {
     return NextResponse.json({ error: 'date_from and date_to are required' }, { status: 400 })
   }
-
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
 
   // 1. Get all meal plan IDs for the user/household (ordered so primaryPlanId is deterministic)
   let plansQ = db.from('meal_plans').select('id').order('week_start')
@@ -93,7 +82,7 @@ export async function POST(req: NextRequest) {
   const seenRecipeIds = new Set<string>()
   const recipes: RecipeEntry[] = []
   for (const entry of (entriesRaw ?? [])) {
-    const r = (entry.recipes as unknown) as { id: string; title: string; ingredients: string | null; url: string | null; servings: number | null } | null
+    const r = entry.recipes as unknown as RecipeJoinFull | null
     if (!r) continue
     if (seenRecipeIds.has(r.id)) continue
     seenRecipeIds.add(r.id)
@@ -134,7 +123,7 @@ export async function POST(req: NextRequest) {
           messages: [{ role: 'user', content: extractionPrompt }],
         })
 
-        const rawText = response.content[0].type === 'text' ? response.content[0].text : ''
+        const rawText = response.content[0]?.type === 'text' ? response.content[0].text : ''
         const cleaned = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
         const parsed = JSON.parse(cleaned)
         if (typeof parsed.ingredients === 'string') {
@@ -167,7 +156,7 @@ export async function POST(req: NextRequest) {
   const { resolved, ambiguous } = combineIngredients(combineInputs)
 
   // 5. Resolve ambiguous items via LLM
-  let llmResolved: GroceryItem[] = []
+  const llmResolved: GroceryItem[] = []
   if (ambiguous.length > 0) {
     try {
       const ambiguousPayload = ambiguous.map(({ parsed, recipeTitle, scaleFactor }) => ({
@@ -195,7 +184,7 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
         messages:   [{ role: 'user', content: userPrompt }],
       })
 
-      const rawText = response.content[0].type === 'text' ? response.content[0].text : '[]'
+      const rawText = response.content[0]?.type === 'text' ? response.content[0].text : '[]'
       const cleaned = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
       const parsed: unknown[] = JSON.parse(cleaned)
 
@@ -303,4 +292,4 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
   }
 
   return NextResponse.json({ list: upserted, skipped_recipes })
-}
+})

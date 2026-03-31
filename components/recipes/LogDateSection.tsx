@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { getTodayISO, addDays } from '@/lib/date-utils'
 
 interface LogDateSectionProps {
   recipeId: string
@@ -11,13 +12,11 @@ interface LogDateSectionProps {
 type Status = 'idle' | 'loading' | 'success' | 'already_logged' | 'picking'
 
 function getToday(): string {
-  return new Date().toISOString().split('T')[0]
+  return getTodayISO()
 }
 
 function getYesterday(): string {
-  const d = new Date()
-  d.setDate(d.getDate() - 1)
-  return d.toISOString().split('T')[0]
+  return addDays(getTodayISO(), -1)
 }
 
 export default function LogDateSection({

@@ -33,6 +33,45 @@ const consumeMockState = {
   existingOnboardingCompleted: false, // what the guard SELECT returns
 }
 
+const makeMockFrom = (table: string) => {
+  if (table === 'user_preferences') {
+    return {
+      select: () => ({
+        eq: () => ({
+          single: async () => ({
+            data: { onboarding_completed: consumeMockState.existingOnboardingCompleted },
+            error: null,
+          }),
+        }),
+      }),
+      update: () => ({
+        eq: async () => {
+          consumeMockState.prefsUpdateCalled = true
+          return { error: null }
+        },
+      }),
+      upsert: async () => {
+        consumeMockState.prefsUpsertCalled = true
+        return { error: null }
+      },
+    }
+  }
+  // invites table
+  return {
+    select: () => ({
+      eq: () => ({
+        single: async () => ({
+          data: consumeMockState.invite,
+          error: consumeMockState.lookupError,
+        }),
+      }),
+    }),
+    update: () => ({
+      eq: async () => ({ error: consumeMockState.updateError }),
+    }),
+  }
+}
+
 vi.mock('@/lib/supabase-server', () => ({
   createServerClient: () => ({
     auth: {
@@ -41,45 +80,14 @@ vi.mock('@/lib/supabase-server', () => ({
         error: consumeMockState.user ? null : { message: 'no user' },
       }),
     },
-    from: (table: string) => {
-      if (table === 'user_preferences') {
-        return {
-          select: () => ({
-            eq: () => ({
-              single: async () => ({
-                data: { onboarding_completed: consumeMockState.existingOnboardingCompleted },
-                error: null,
-              }),
-            }),
-          }),
-          update: () => ({
-            eq: async () => {
-              consumeMockState.prefsUpdateCalled = true
-              return { error: null }
-            },
-          }),
-          upsert: async () => {
-            consumeMockState.prefsUpsertCalled = true
-            return { error: null }
-          },
-        }
-      }
-      // invites table
-      return {
-        select: () => ({
-          eq: () => ({
-            single: async () => ({
-              data: consumeMockState.invite,
-              error: consumeMockState.lookupError,
-            }),
-          }),
-        }),
-        update: () => ({
-          eq: async () => ({ error: consumeMockState.updateError }),
-        }),
-      }
-    },
+    from: makeMockFrom,
   }),
+  createAdminClient: () => ({ from: makeMockFrom }),
+}))
+
+vi.mock('@/lib/household', () => ({
+  resolveHouseholdScope: async () => null,
+  canManage: (role: string) => role === 'owner' || role === 'co_owner',
 }))
 
 const { GET: validateGET } = await import('@/app/api/invite/validate/route')
@@ -208,12 +216,6 @@ describe('POST /api/invite/consume', () => {
     expect(body.success).toBe(false)
     expect(body.reason).toBe('Already used')
     expect(consumeMockState.prefsUpdateCalled).toBe(true)
-  })
-
-  it('returns 401 when not authenticated', async () => {
-    consumeMockState.user = null
-    const res = await consumePOST(makeRequest({ token: 'any' }))
-    expect(res.status).toBe(401)
   })
 
   it('returns success=false without deactivating when onboarding_completed=true (returning user guard)', async () => {

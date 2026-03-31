@@ -1,18 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-import { resolveHouseholdScope, canManage } from '@/lib/household'
+import { NextResponse } from 'next/server'
+import { withAuth } from '@/lib/auth'
+import { canManage } from '@/lib/household'
 
 // ── POST /api/household/invite — generate invite link ─────────────────────────
 
-export async function POST(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
+export const POST = withAuth(async (req, { user, db, ctx }) => {
   if (!ctx) {
     return NextResponse.json({ error: 'Not in a household' }, { status: 404 })
   }
@@ -34,4 +26,4 @@ export async function POST(req: NextRequest) {
   const invite_url = `${siteUrl}/household/join?token=${invite.token}`
 
   return NextResponse.json({ invite_url, expires_at: invite.expires_at }, { status: 201 })
-}
+})
