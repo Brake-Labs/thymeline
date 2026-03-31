@@ -10,6 +10,23 @@ export interface DiscoveryResult {
   }
 }
 
+/** Scraped recipe data — returned by POST /api/recipes/scrape and used in the discover flow */
+export interface ScrapeResult {
+  title:               string | null
+  ingredients:         string | null
+  steps:               string | null
+  imageUrl:            string | null
+  sourceUrl:           string
+  partial:             boolean
+  suggestedTags:       string[]
+  suggestedNewTags:    { name: string; section: string }[]
+  prepTimeMinutes:     number | null
+  cookTimeMinutes:     number | null
+  totalTimeMinutes:    number | null
+  inactiveTimeMinutes: number | null
+  servings:            number | null
+}
+
 export interface LimitedTag {
   tag: string
   cap: number  // 1–7

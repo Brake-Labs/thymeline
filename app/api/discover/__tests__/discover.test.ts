@@ -48,6 +48,11 @@ vi.mock('@/lib/llm', () => ({
       create: (...args: unknown[]) => mockAnthropicCreate(...args),
     },
   },
+  // parseLLMJson: strip markdown fences and parse JSON (mirrors the real implementation)
+  parseLLMJson: (text: string) => {
+    const stripped = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '')
+    return JSON.parse(stripped)
+  },
 }))
 
 import { createServerClient, createAdminClient } from '@/lib/supabase-server'

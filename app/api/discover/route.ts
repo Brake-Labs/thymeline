@@ -1,17 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-import { resolveHouseholdScope } from '@/lib/household'
-import { anthropic } from '@/lib/llm'
+import { withAuth } from '@/lib/auth'
+import { anthropic, parseLLMJson } from '@/lib/llm'
 import { FIRST_CLASS_TAGS } from '@/lib/tags'
 import type { DiscoveryResult } from '@/types'
 
-export async function POST(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+const MODEL = process.env.LLM_MODEL ?? 'claude-haiku-4-5-20251001'
 
+export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   let body: { query?: string; site_filter?: string }
   try {
     body = await req.json()
@@ -28,9 +23,6 @@ export async function POST(req: NextRequest) {
 
   try {
     // ── Step 1: Fetch vault context ────────────────────────────────────────────
-    const db = createAdminClient()
-    const ctx = await resolveHouseholdScope(db, user.id)
-
     let vaultQuery = db
       .from('recipes')
       .select('title, tags, category')
@@ -50,7 +42,7 @@ export async function POST(req: NextRequest) {
     let searchQueries: string[] = [query]
     try {
       const queryGenMsg = await anthropic.messages.create({
-        model: 'claude-haiku-4-5-20251001',
+        model: MODEL,
         max_tokens: 512,
         temperature: 0,
         messages: [
@@ -68,12 +60,13 @@ Extract key ingredients, cooking method, and cuisine style from the request. Ret
         .map((b) => (b as { type: 'text'; text: string }).text)
         .join('')
 
-      const match = rawText.match(/\[[\s\S]*\]/)
-      if (match) {
-        const parsed = JSON.parse(match[0])
+      try {
+        const parsed = parseLLMJson<string[]>(rawText)
         if (Array.isArray(parsed) && parsed.length > 0 && parsed.every((s) => typeof s === 'string')) {
           searchQueries = parsed
         }
+      } catch {
+        // Fall back to raw query — already set as default
       }
     } catch (err) {
       console.error('[discover] query-gen failed, using raw query:', err)
@@ -90,7 +83,7 @@ Extract key ingredients, cooking method, and cuisine style from the request. Ret
     let rawResults: RawResult[] = []
     try {
       const searchMsg = await anthropic.messages.create({
-        model: 'claude-haiku-4-5-20251001',
+        model: MODEL,
         max_tokens: 4096,
         tools: [{ type: 'web_search_20250305' as const, name: 'web_search', max_uses: 6 }],
         messages: [
@@ -106,11 +99,9 @@ Extract key ingredients, cooking method, and cuisine style from the request. Ret
         .map((b) => (b as { type: 'text'; text: string }).text)
         .join('')
 
-      const arrayMatch = textBlock.match(/\[[\s\S]*\]/)
-      if (arrayMatch) {
-        const parsed = JSON.parse(arrayMatch[0])
+      try {
+        const parsed = parseLLMJson<RawResult[]>(textBlock)
         if (Array.isArray(parsed)) {
-          // Deduplicate by URL, keep up to 10
           const seen = new Set<string>()
           for (const item of parsed) {
             if (item && typeof item.url === 'string' && !seen.has(item.url)) {
@@ -125,6 +116,8 @@ Extract key ingredients, cooking method, and cuisine style from the request. Ret
             }
           }
         }
+      } catch {
+        // No parseable results — rawResults stays empty
       }
     } catch (err) {
       console.error('[discover] web search failed:', err)
@@ -147,7 +140,7 @@ Extract key ingredients, cooking method, and cuisine style from the request. Ret
     let rankedResults: RankedResult[] = []
     try {
       const rankMsg = await anthropic.messages.create({
-        model: 'claude-haiku-4-5-20251001',
+        model: MODEL,
         max_tokens: 2048,
         temperature: 0,
         messages: [
@@ -181,7 +174,7 @@ Return ONLY a JSON array with this shape (no explanation):
   "site_name": "...",
   "description": "..." or null,
   "suggested_tags": [...],
-  "vault_match": { "similar_recipe_title": "...", "similarity": "exact" | "similar" }  // omit if complementary
+  "vault_match": { "similar_recipe_title": "...", "similarity": "exact" | "similar" }
 }]`,
           },
         ],
@@ -192,16 +185,16 @@ Return ONLY a JSON array with this shape (no explanation):
         .map((b) => (b as { type: 'text'; text: string }).text)
         .join('')
 
-      const rankMatch = rankText.match(/\[[\s\S]*\]/)
-      if (rankMatch) {
-        const parsed = JSON.parse(rankMatch[0])
+      try {
+        const parsed = parseLLMJson<RankedResult[]>(rankText)
         if (Array.isArray(parsed)) {
           rankedResults = parsed.slice(0, 6)
         }
+      } catch {
+        rankedResults = rawResults.slice(0, 6).map((r) => ({ ...r, suggested_tags: [] }))
       }
     } catch (err) {
       console.error('[discover] ranking failed:', err)
-      // Fall back to raw results without tags
       rankedResults = rawResults.slice(0, 6).map((r) => ({ ...r, suggested_tags: [] }))
     }
 
@@ -214,7 +207,7 @@ Return ONLY a JSON array with this shape (no explanation):
       site_name: r.site_name ?? '',
       description: r.description ?? null,
       suggested_tags: (r.suggested_tags ?? []).filter(
-        (t) => typeof t === 'string' && firstClassSet.has(t.toLowerCase())
+        (t) => typeof t === 'string' && firstClassSet.has(t.toLowerCase()),
       ),
       ...(r.vault_match
         ? {
@@ -231,4 +224,4 @@ Return ONLY a JSON array with this shape (no explanation):
     console.error('[discover] unexpected error:', err)
     return NextResponse.json({ error: 'Search failed — please try again' }, { status: 500 })
   }
-}
+})

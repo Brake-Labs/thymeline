@@ -1,35 +1,19 @@
 'use client'
 
 import { useState } from 'react'
-import type { DiscoveryResult } from '@/types'
+import type { DiscoveryResult, ScrapeResult } from '@/types'
 import DiscoveryCard from './DiscoveryCard'
 import PreviewSheet from './PreviewSheet'
 
-interface ScrapeResult {
-  title:               string | null
-  ingredients:         string | null
-  steps:               string | null
-  imageUrl:            string | null
-  sourceUrl:           string
-  partial:             boolean
-  suggestedTags:       string[]
-  suggestedNewTags:    { name: string; section: string }[]
-  prepTimeMinutes:     number | null
-  cookTimeMinutes:     number | null
-  totalTimeMinutes:    number | null
-  inactiveTimeMinutes: number | null
-  servings:            number | null
-}
-
 interface DiscoveryResultsProps {
-  results:           DiscoveryResult[]
-  dismissedUrls:     Set<string>
-  status:            'idle' | 'loading' | 'done' | 'error'
-  siteFilter:        string
-  onDismiss:         (url: string) => void
-  onClearSiteFilter: () => void
-  getToken:          () => Promise<string>
-  onSaved:           () => void
+  results:            DiscoveryResult[]
+  dismissedUrls:      Set<string>
+  status:             'idle' | 'loading' | 'done' | 'error'
+  siteFilter:         string
+  onDismiss:          (url: string) => void
+  onClearSiteFilter:  () => void
+  getToken:           () => Promise<string>
+  onSaved:            () => void
   onEditBeforeSaving: (scrapeResult: ScrapeResult) => void
 }
 
@@ -109,6 +93,23 @@ export default function DiscoveryResults({
 
   return (
     <>
+      {/* Active site filter pill */}
+      {siteFilter && (
+        <div className="mb-4">
+          <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full bg-sage-50 text-sage-700 border border-sage-200">
+            Site: {siteFilter}
+            <button
+              type="button"
+              onClick={onClearSiteFilter}
+              aria-label="Clear site filter"
+              className="hover:text-sage-900 leading-none"
+            >
+              ×
+            </button>
+          </span>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {visibleResults.map((result) => (
           <DiscoveryCard

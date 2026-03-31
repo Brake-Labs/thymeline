@@ -2,26 +2,10 @@
 
 import { useState, useCallback } from 'react'
 import { getSupabaseClient } from '@/lib/supabase/browser'
-import type { DiscoveryResult } from '@/types'
+import type { DiscoveryResult, ScrapeResult } from '@/types'
 import DiscoverySearch from './DiscoverySearch'
 import DiscoveryResults from './DiscoveryResults'
 import AddRecipeModal from '@/components/recipes/AddRecipeModal'
-
-interface ScrapeResult {
-  title:               string | null
-  ingredients:         string | null
-  steps:               string | null
-  imageUrl:            string | null
-  sourceUrl:           string
-  partial:             boolean
-  suggestedTags:       string[]
-  suggestedNewTags:    { name: string; section: string }[]
-  prepTimeMinutes:     number | null
-  cookTimeMinutes:     number | null
-  totalTimeMinutes:    number | null
-  inactiveTimeMinutes: number | null
-  servings:            number | null
-}
 
 type Status = 'idle' | 'loading' | 'done' | 'error'
 

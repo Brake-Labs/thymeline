@@ -1,23 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import type { DiscoveryResult, RecipeListItem } from '@/types'
-
-interface ScrapeResult {
-  title:               string | null
-  ingredients:         string | null
-  steps:               string | null
-  imageUrl:            string | null
-  sourceUrl:           string
-  partial:             boolean
-  suggestedTags:       string[]
-  suggestedNewTags:    { name: string; section: string }[]
-  prepTimeMinutes:     number | null
-  cookTimeMinutes:     number | null
-  totalTimeMinutes:    number | null
-  inactiveTimeMinutes: number | null
-  servings:            number | null
-}
+import type { DiscoveryResult, RecipeListItem, ScrapeResult } from '@/types'
 
 interface PreviewSheetProps {
   result:             DiscoveryResult
