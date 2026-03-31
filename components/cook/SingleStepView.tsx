@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef } from 'react'
+import type React from 'react'
 import StepTimer, { type TimerState } from './StepTimer'
 import { injectStepQuantities } from '@/lib/inject-step-quantities'
 import { renderHighlighted } from './renderHighlighted'
@@ -16,7 +17,6 @@ interface Props {
   baseServings?: number
   targetServings?: number
 }
-
 
 export default function SingleStepView({
   steps,
