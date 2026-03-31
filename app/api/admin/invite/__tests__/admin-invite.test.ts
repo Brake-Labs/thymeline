@@ -7,6 +7,11 @@ const mockState = {
   insertError: null as { message: string } | null,
 }
 
+const mockConfig = {
+  adminUserId: 'admin-uuid' as string | undefined,
+  siteUrl: 'https://example.com',
+}
+
 const makeMockFrom = () => ({
   insert: async () => ({ error: mockState.insertError }),
 })
@@ -29,6 +34,18 @@ vi.mock('@/lib/household', () => ({
   canManage: (role: string) => role === 'owner' || role === 'co_owner',
 }))
 
+vi.mock('@/lib/config', () => ({
+  config: {
+    supabase: {
+      url: 'http://localhost:54321',
+      anonKey: 'test-anon-key',
+      serviceRoleKey: 'test-service-role-key',
+    },
+    get admin() { return { userId: mockConfig.adminUserId } },
+    get siteUrl() { return mockConfig.siteUrl },
+  },
+}))
+
 const { POST } = await import('@/app/api/admin/invite/route')
 
 function makeRequest(): NextRequest {
@@ -41,8 +58,8 @@ function makeRequest(): NextRequest {
 beforeEach(() => {
   mockState.user = { id: 'admin-uuid' }
   mockState.insertError = null
-  process.env.ADMIN_USER_ID = 'admin-uuid'
-  process.env.NEXT_PUBLIC_SITE_URL = 'https://example.com'
+  mockConfig.adminUserId = 'admin-uuid'
+  mockConfig.siteUrl = 'https://example.com'
 })
 
 // ── T18: POST /api/admin/invite returns invite URL for admin ──────────────────
@@ -71,14 +88,14 @@ describe('T19 - POST /api/admin/invite returns 403 for non-admin', () => {
 
 // ── T20: POST /api/admin/invite returns 403 when ADMIN_USER_ID not set ───────
 describe('T20 - POST /api/admin/invite returns 403 when ADMIN_USER_ID not set', () => {
-  it('returns 403 when ADMIN_USER_ID env var is missing', async () => {
-    delete process.env.ADMIN_USER_ID
+  it('returns 403 when ADMIN_USER_ID is not configured', async () => {
+    mockConfig.adminUserId = undefined
     const res = await POST(makeRequest())
     expect(res.status).toBe(403)
   })
 
   it('returns 403 when ADMIN_USER_ID is empty string', async () => {
-    process.env.ADMIN_USER_ID = ''
+    mockConfig.adminUserId = ''
     const res = await POST(makeRequest())
     expect(res.status).toBe(403)
   })

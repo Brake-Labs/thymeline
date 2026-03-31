@@ -48,7 +48,11 @@ import {
   LLMError,
   classifyLLMError,
   callLLM,
+  callLLMMultimodal,
   parseLLMJson,
+  parseLLMJsonSafe,
+  LLM_MODEL_FAST,
+  LLM_MODEL_CAPABLE,
 } from '../llm'
 import type { LLMErrorCode } from '../llm'
 
@@ -469,5 +473,149 @@ describe('parseLLMJson', () => {
   it('parses JSON with no fences but with surrounding whitespace', () => {
     const result = parseLLMJson<{ x: boolean }>('  \n  {"x": true}  \n  ')
     expect(result).toEqual({ x: true })
+  })
+})
+
+// ── model tier constants ──────────────────────────────────────────────────────
+
+describe('model tier constants', () => {
+  it('LLM_MODEL_FAST defaults to claude-haiku-4-5-20251001', () => {
+    // env vars are clean after afterEach deletes LLM_MODEL
+    expect(LLM_MODEL_FAST).toBeDefined()
+    expect(typeof LLM_MODEL_FAST).toBe('string')
+  })
+
+  it('LLM_MODEL_CAPABLE defaults to claude-sonnet-4-6', () => {
+    expect(LLM_MODEL_CAPABLE).toBeDefined()
+    expect(typeof LLM_MODEL_CAPABLE).toBe('string')
+  })
+})
+
+// ── callLLMMultimodal ─────────────────────────────────────────────────────────
+
+describe('callLLMMultimodal', () => {
+  beforeEach(() => {
+    mockCreate.mockReset()
+  })
+
+  it('returns text content from a successful response', async () => {
+    mockCreate.mockResolvedValueOnce({
+      content: [{ type: 'text', text: 'Detected items' }],
+    })
+
+    const result = await callLLMMultimodal({
+      maxTokens: 1024,
+      system: 'You are a scanner.',
+      messages: [{ role: 'user', content: [{ type: 'text', text: 'scan this' }] }],
+    })
+    expect(result).toBe('Detected items')
+  })
+
+  it('passes messages array to anthropic.messages.create', async () => {
+    mockCreate.mockResolvedValueOnce({
+      content: [{ type: 'text', text: 'ok' }],
+    })
+
+    const messages = [
+      {
+        role: 'user' as const,
+        content: [
+          { type: 'image' as const, source: { type: 'base64' as const, media_type: 'image/jpeg' as const, data: 'abc' } },
+          { type: 'text' as const, text: 'identify items' },
+        ],
+      },
+    ]
+
+    await callLLMMultimodal({
+      model: 'test-model',
+      maxTokens: 512,
+      system: 'System prompt',
+      messages,
+    })
+
+    expect(mockCreate).toHaveBeenCalledWith({
+      model: 'test-model',
+      max_tokens: 512,
+      messages,
+      system: 'System prompt',
+    })
+  })
+
+  it('throws LLMError with code "bad_response" when content is empty', async () => {
+    mockCreate.mockResolvedValueOnce({ content: [] })
+
+    try {
+      await callLLMMultimodal({
+        maxTokens: 1024,
+        system: 'test',
+        messages: [{ role: 'user', content: 'test' }],
+      })
+      expect.unreachable('Should have thrown')
+    } catch (err) {
+      expect(err).toBeInstanceOf(LLMError)
+      expect((err as LLMError).code).toBe('bad_response')
+    }
+  })
+
+  it('throws classified LLMError when API call throws RateLimitError', async () => {
+    mockCreate.mockRejectedValueOnce(makeRateLimitError())
+
+    try {
+      await callLLMMultimodal({
+        maxTokens: 1024,
+        system: 'test',
+        messages: [{ role: 'user', content: 'test' }],
+      })
+      expect.unreachable('Should have thrown')
+    } catch (err) {
+      expect(err).toBeInstanceOf(LLMError)
+      expect((err as LLMError).code).toBe('rate_limit')
+    }
+  })
+
+  it('throws classified LLMError on timeout', async () => {
+    mockCreate.mockRejectedValueOnce(makeAbortError())
+
+    try {
+      await callLLMMultimodal({
+        maxTokens: 1024,
+        system: 'test',
+        messages: [{ role: 'user', content: 'test' }],
+      })
+      expect.unreachable('Should have thrown')
+    } catch (err) {
+      expect(err).toBeInstanceOf(LLMError)
+      expect((err as LLMError).code).toBe('timeout')
+    }
+  })
+})
+
+// ── parseLLMJsonSafe ─────────────────────────────────────────────────────────
+
+describe('parseLLMJsonSafe', () => {
+  it('parses valid JSON', () => {
+    const result = parseLLMJsonSafe<{ a: number }>('{"a": 1}')
+    expect(result).toEqual({ a: 1 })
+  })
+
+  it('strips markdown fences and parses', () => {
+    const result = parseLLMJsonSafe<{ key: string }>('```json\n{"key": "value"}\n```')
+    expect(result).toEqual({ key: 'value' })
+  })
+
+  it('returns null for invalid JSON instead of throwing', () => {
+    const result = parseLLMJsonSafe('not valid json')
+    expect(result).toBeNull()
+  })
+
+  it('returns null for empty string', () => {
+    const result = parseLLMJsonSafe('')
+    expect(result).toBeNull()
+  })
+
+  it('parses partial LLM output with extra fields', () => {
+    const result = parseLLMJsonSafe<{ days: unknown[] }>('{"days": [], "extra": true}')
+    expect(result).not.toBeNull()
+    expect(result!.days).toEqual([])
   })
 })

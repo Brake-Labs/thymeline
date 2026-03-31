@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import type { MessageParam } from '@anthropic-ai/sdk/resources/messages'
 
 /**
  * Centralized Anthropic client with retry and timeout.
@@ -9,6 +10,11 @@ export const anthropic = new Anthropic({
   maxRetries: 2,
   timeout: 60_000,
 })
+
+// ── Model tier constants ──────────────────────────────────────────────────────
+
+export const LLM_MODEL_FAST = process.env.LLM_MODEL ?? 'claude-haiku-4-5-20251001'
+export const LLM_MODEL_CAPABLE = process.env.LLM_MODEL_CAPABLE ?? 'claude-sonnet-4-6'
 
 // ── Structured error types ──────────────────────────────────────────────────────
 
@@ -69,8 +75,7 @@ export interface CallLLMOptions {
  * Uses the centralized Anthropic client (retry + timeout included).
  *
  * For calls with images or other multi-content messages, use
- * `anthropic.messages.create()` directly and wrap errors with
- * `classifyLLMError()`.
+ * `callLLMMultimodal()` instead.
  */
 export async function callLLM(opts: CallLLMOptions): Promise<string> {
   const model = opts.model ?? process.env.LLM_MODEL ?? 'claude-haiku-4-5-20251001'
@@ -79,6 +84,39 @@ export async function callLLM(opts: CallLLMOptions): Promise<string> {
       model,
       max_tokens: opts.maxTokens,
       messages: [{ role: 'user', content: opts.user }],
+      system: opts.system,
+    })
+    const text =
+      response.content[0]?.type === 'text' ? response.content[0].text : ''
+    if (!text) {
+      throw new LLMError('Empty response from LLM', 'bad_response')
+    }
+    return text
+  } catch (err) {
+    throw classifyLLMError(err)
+  }
+}
+
+// ── Multimodal helper ─────────────────────────────────────────────────────────
+
+export interface CallLLMMultimodalOptions {
+  model?: string
+  maxTokens: number
+  system: string
+  messages: MessageParam[]
+}
+
+/**
+ * Make an LLM call with multi-content messages (images, etc.).
+ * Uses the centralized Anthropic client (retry + timeout included).
+ */
+export async function callLLMMultimodal(opts: CallLLMMultimodalOptions): Promise<string> {
+  const model = opts.model ?? LLM_MODEL_FAST
+  try {
+    const response = await anthropic.messages.create({
+      model,
+      max_tokens: opts.maxTokens,
+      messages: opts.messages,
       system: opts.system,
     })
     const text =
@@ -109,5 +147,23 @@ export function parseLLMJson<T>(text: string): T {
       'bad_response',
       err,
     )
+  }
+}
+
+/**
+ * Parse LLM JSON with defensive per-field extraction.
+ * Unlike parseLLMJson which throws on malformed input, this returns null
+ * for fields that can't be extracted, allowing partial results.
+ */
+export function parseLLMJsonSafe<T>(text: string): T | null {
+  try {
+    const stripped = text
+      .trim()
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/\s*```\s*$/i, '')
+    return JSON.parse(stripped) as T
+  } catch (err) {
+    console.warn('[parseLLMJsonSafe] Failed to parse:', err instanceof Error ? err.message : err)
+    return null
   }
 }

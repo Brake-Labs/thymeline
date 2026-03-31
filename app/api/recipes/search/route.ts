@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
-import { anthropic } from '@/lib/llm'
+import { callLLM, LLM_MODEL_FAST } from '@/lib/llm'
 import { searchRecipesSchema, parseBody } from '@/lib/schemas'
 import type { RecipeFilters } from '@/types'
 
@@ -88,13 +88,12 @@ Return ONLY a JSON array of recipe_id strings, e.g. ["uuid1","uuid2"]. No other 
 
   let rankedIds: string[] = []
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 512,
-      temperature: 0,
-      messages: [{ role: 'user', content: prompt }],
+    const rawText = await callLLM({
+      model: LLM_MODEL_FAST,
+      maxTokens: 512,
+      system: 'You are a recipe search assistant. Return only valid JSON arrays.',
+      user: prompt,
     })
-    const rawText = response.content[0]?.type === 'text' ? response.content[0].text : '[]'
     const cleaned = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
     const parsed = JSON.parse(cleaned)
     rankedIds = Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : []

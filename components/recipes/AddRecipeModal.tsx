@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import RecipeForm, { RecipeFormValues } from './RecipeForm'
-import type { PendingNewTag } from './TagSelector'
+import type { ScrapeResult } from '@/types'
 
 type Tab = 'url' | 'manual'
 
@@ -11,22 +11,7 @@ interface AddRecipeModalProps {
   onSaved:   () => void
   getToken:  () => Promise<string> | string
   initialTab?: Tab
-}
-
-interface ScrapeResult {
-  title: string | null
-  ingredients: string | null
-  steps: string | null
-  imageUrl: string | null
-  sourceUrl: string
-  partial: boolean
-  suggestedTags:       string[]
-  suggestedNewTags:    PendingNewTag[]
-  prepTimeMinutes:     number | null
-  cookTimeMinutes:     number | null
-  totalTimeMinutes:    number | null
-  inactiveTimeMinutes: number | null
-  servings: number | null
+  prefillScrapeResult?: ScrapeResult
 }
 
 export default function AddRecipeModal({
@@ -34,11 +19,12 @@ export default function AddRecipeModal({
   onSaved,
   getToken,
   initialTab = 'url',
+  prefillScrapeResult,
 }: AddRecipeModalProps) {
-  const [tab, setTab] = useState<Tab>(initialTab)
+  const [tab, setTab] = useState<Tab>(prefillScrapeResult ? 'url' : initialTab)
   const [urlInput, setUrlInput] = useState('')
   const [scraping, setScraping] = useState(false)
-  const [scrapeResult, setScrapeResult] = useState<ScrapeResult | null>(null)
+  const [scrapeResult, setScrapeResult] = useState<ScrapeResult | null>(prefillScrapeResult ?? null)
   const [scrapeError, setScrapeError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 

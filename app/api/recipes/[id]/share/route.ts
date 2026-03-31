@@ -1,22 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { shareRecipeSchema, parseBody } from '@/lib/schemas'
+import { checkOwnership } from '@/lib/household'
 
-export const PATCH = withAuth(async (req: NextRequest, { user, db }, params) => {
+export const PATCH = withAuth(async (req: NextRequest, { user, db, ctx }, params) => {
   const id = params.id!
 
   // Ownership check
-  const { data: existing, error: fetchError } = await db
-    .from('recipes')
-    .select('user_id')
-    .eq('id', id)
-    .single()
-
-  if (fetchError || !existing) {
-    return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  }
-  if (existing.user_id !== user.id) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const ownership = await checkOwnership(db, 'recipes', id, user.id, ctx)
+  if (!ownership.owned) {
+    const msg = ownership.status === 404 ? 'Not found' : 'Forbidden'
+    return NextResponse.json({ error: msg }, { status: ownership.status })
   }
 
   const { data: body, error: parseError } = await parseBody(req, shareRecipeSchema)

@@ -1,7 +1,9 @@
 'use client'
 
+import type React from 'react'
 import StepTimer, { type TimerState } from './StepTimer'
-import StepIngredientPanel from './StepIngredientPanel'
+import { injectStepQuantities } from '@/lib/inject-step-quantities'
+import { renderHighlighted } from './renderHighlighted'
 
 interface Props {
   steps: string[]
@@ -33,6 +35,11 @@ export default function ScrollStepView({
         const isCurrent = i === currentStep
         const isPast = i < currentStep
 
+        const { text: stepText, highlights } =
+          ingredients
+            ? injectStepQuantities(step, ingredients, targetServings, baseServings)
+            : { text: step, highlights: [] }
+
         return (
           <div
             key={i}
@@ -56,17 +63,10 @@ export default function ScrollStepView({
               <span className="flex-shrink-0 w-6 h-6 rounded-full bg-sage-500 flex items-center justify-center text-white text-xs font-semibold">
                 {i + 1}
               </span>
-              <p className="text-stone-700 text-sm leading-relaxed">{step}</p>
+              <p className="text-[#3D3028] text-sm leading-relaxed">
+                {renderHighlighted(stepText, highlights)}
+              </p>
             </div>
-            {ingredients && (
-              <StepIngredientPanel
-                stepText={step}
-                ingredients={ingredients}
-                baseServings={baseServings}
-                targetServings={targetServings}
-                defaultExpanded={false}
-              />
-            )}
             <StepTimer
               stepIndex={i}
               timerState={timers.get(i)}

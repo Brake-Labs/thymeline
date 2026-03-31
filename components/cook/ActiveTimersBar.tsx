@@ -15,53 +15,65 @@ export default function ActiveTimersBar({ timers, onPause, onReset, onDismiss }:
   if (visible.length === 0) return null
 
   return (
-    <div
-      className="bg-sage-900 px-4 py-2 flex flex-col gap-2"
-    >
-      {visible.map((timer) => (
-        <div key={timer.stepIndex} className="flex items-center gap-2 min-h-[32px]">
-          <span
-            className="bg-sage-500/40 text-xs rounded px-1.5 py-0.5 font-medium shrink-0 text-white/90"
-          >
-            {timer.label}
-          </span>
-          {timer.isExpired ? (
-            <span className="text-red-400 text-sm font-semibold flex-1">Time&apos;s up!</span>
-          ) : (
-            <span className="font-mono text-white text-sm flex-1">
-              {formatTime(timer.remaining)}
+    <div className="bg-sage-900 px-4 py-2 flex flex-col gap-2">
+      {visible.map((timer) => {
+        const originalDuration = formatTime(timer.minutes * 60 + timer.seconds)
+
+        return (
+          <div key={timer.stepIndex} className="flex items-center gap-3 min-h-[40px]">
+            {/* Action + original duration badge */}
+            <span className="bg-sage-500/40 text-xs rounded px-1.5 py-0.5 font-medium shrink-0 text-white/90">
+              {timer.label} for {originalDuration}
             </span>
-          )}
-          {!timer.isExpired && (
+
+            {/* Countdown or expired */}
+            {timer.isExpired ? (
+              <span className="text-red-400 text-sm font-semibold flex-1">Time&apos;s up!</span>
+            ) : (
+              <span
+                className="text-white flex-1 tabular-nums"
+                style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 700, fontSize: '1rem' }}
+              >
+                {formatTime(timer.remaining)}
+              </span>
+            )}
+
+            {/* Pause / Resume */}
+            {!timer.isExpired && (
+              <button
+                type="button"
+                onClick={() => onPause(timer.stepIndex)}
+                aria-label={timer.running ? 'Pause timer' : 'Resume timer'}
+                className="text-white/70 hover:text-white text-sm w-7 h-7 flex items-center justify-center"
+              >
+                {timer.running ? '⏸' : '▶'}
+              </button>
+            )}
+
+            {/* Reset */}
             <button
               type="button"
-              onClick={() => onPause(timer.stepIndex)}
-              aria-label={timer.running ? 'Pause timer' : 'Resume timer'}
+              onClick={() => onReset(timer.stepIndex)}
+              aria-label="Reset timer"
               className="text-white/70 hover:text-white text-sm w-7 h-7 flex items-center justify-center"
             >
-              {timer.running ? '⏸' : '▶'}
+              ↺
             </button>
-          )}
-          <button
-            type="button"
-            onClick={() => onReset(timer.stepIndex)}
-            aria-label="Reset timer"
-            className="text-white/70 hover:text-white text-sm w-7 h-7 flex items-center justify-center"
-          >
-            ↺
-          </button>
-          {timer.isExpired && (
-            <button
-              type="button"
-              onClick={() => onDismiss(timer.stepIndex)}
-              aria-label="Dismiss timer"
-              className="text-white/70 hover:text-white text-sm w-7 h-7 flex items-center justify-center"
-            >
-              ×
-            </button>
-          )}
-        </div>
-      ))}
+
+            {/* Dismiss (expired only) */}
+            {timer.isExpired && (
+              <button
+                type="button"
+                onClick={() => onDismiss(timer.stepIndex)}
+                aria-label="Dismiss timer"
+                className="text-white/70 hover:text-white text-sm w-7 h-7 flex items-center justify-center"
+              >
+                ×
+              </button>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }

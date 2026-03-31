@@ -12,6 +12,7 @@ import AIGeneratedBadge from '@/components/recipes/AIGeneratedBadge'
 import GenerateRecipeModal from '@/components/recipes/GenerateRecipeModal'
 import { getAccessToken, getSupabaseClient } from '@/lib/supabase/browser'
 import { getTodayISO } from '@/lib/date-utils'
+import { TOAST_DURATION_MS } from '@/lib/constants'
 import { convertIngredients } from '@/lib/convert-units'
 
 type RecipeWithHistory = Recipe & { last_made: string | null; times_made: number }
@@ -97,7 +98,7 @@ export default function RecipeDetailPage({ params }: Props) {
             prev.includes(data.made_on) ? prev : [data.made_on, ...prev].sort().reverse()
           )
         }
-        setTimeout(() => setLogStatus('idle'), 2000)
+        setTimeout(() => setLogStatus('idle'), TOAST_DURATION_MS)
       } else {
         setLogError('Couldn\'t log this date. Please try again.')
         setLogStatus('idle')

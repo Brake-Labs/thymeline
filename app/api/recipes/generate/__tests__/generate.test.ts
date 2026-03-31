@@ -25,16 +25,16 @@ const mockLLMState = {
   shouldThrow: false,
 }
 
-vi.mock('@anthropic-ai/sdk', () => ({
-  default: function MockAnthropic(this: { messages: { create: () => Promise<unknown> } }) {
-    this.messages = {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      create: async (): Promise<any> => {
-        if (mockLLMState.shouldThrow) throw new Error('LLM error')
-        return { content: [{ type: 'text', text: mockLLMState.response }] }
-      },
-    }
-  },
+vi.mock('@/lib/llm', () => ({
+  callLLM: vi.fn().mockImplementation(async () => {
+    if (mockLLMState.shouldThrow) throw new Error('LLM error')
+    return mockLLMState.response
+  }),
+  classifyLLMError: (err: unknown) => ({
+    code: 'unknown',
+    message: err instanceof Error ? err.message : 'LLM error',
+  }),
+  LLM_MODEL_CAPABLE: 'claude-sonnet-4-6',
 }))
 
 vi.mock('@/lib/supabase-server', () => ({
@@ -45,6 +45,7 @@ vi.mock('@/lib/supabase-server', () => ({
 vi.mock('@/lib/household', () => ({
   resolveHouseholdScope: async () => null,
   canManage: (role: string) => role === 'owner' || role === 'co_owner',
+  scopeQuery: (query: { eq: (col: string, val: string) => unknown }) => query.eq('user_id', 'user-1'),
 }))
 
 import { createServerClient, createAdminClient } from '@/lib/supabase-server'

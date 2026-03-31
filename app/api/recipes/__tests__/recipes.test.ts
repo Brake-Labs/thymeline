@@ -176,6 +176,9 @@ vi.mock('@/lib/supabase-server', () => ({
 vi.mock('@/lib/household', () => ({
   resolveHouseholdScope: vi.fn().mockResolvedValue(null),
   canManage: (role: string) => role === 'owner' || role === 'co_owner',
+  scopeQuery: (query: unknown) => query,
+  scopeInsert: (_userId: string, _ctx: unknown, payload: unknown) => ({ user_id: 'user-1', ...(payload as object) }),
+  checkOwnership: vi.fn().mockResolvedValue({ owned: true }),
 }))
 
 import { createServerClient, createAdminClient } from '@/lib/supabase-server'

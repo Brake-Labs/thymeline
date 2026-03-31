@@ -5,6 +5,7 @@ import Link from 'next/link'
 import type { RecipeListItem } from '@/types'
 import { CATEGORY_LABELS } from '@/lib/category-labels'
 import { formatMinutes } from '@/lib/format-time'
+import { MAX_VISIBLE_TAGS } from '@/lib/constants'
 
 interface RecipeCardProps {
   recipe: RecipeListItem
@@ -54,8 +55,8 @@ export default function RecipeCard({
     onSelect(recipe.id, e.target.checked)
   }
 
-  const visibleTags = recipe.tags.slice(0, 3)
-  const extraCount = recipe.tags.length - 3
+  const visibleTags = recipe.tags.slice(0, MAX_VISIBLE_TAGS)
+  const extraCount = recipe.tags.length - MAX_VISIBLE_TAGS
 
   const isOwner = currentUserId && recipe.user_id === currentUserId
 

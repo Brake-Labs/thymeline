@@ -83,6 +83,14 @@ interface Props {
   onChange: (state: TimerState | null) => void
 }
 
+const INPUT_STYLE: React.CSSProperties = {
+  appearance: 'none',
+  MozAppearance: 'textfield',
+  fontFamily: 'Plus Jakarta Sans, sans-serif',
+  color: '#1F2D26',
+  fontWeight: 500,
+}
+
 export default function StepTimer({ stepIndex, stepText, timerState, onChange }: Props) {
   const [pickMinutes, setPickMinutes] = useState(5)
   const [pickSeconds, setPickSeconds] = useState(0)
@@ -128,18 +136,110 @@ export default function StepTimer({ stepIndex, stepText, timerState, onChange }:
   }
 
   if (showPicker) {
+    const handleMinutesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const v = parseInt(e.target.value)
+      if (!isNaN(v)) setPickMinutes(v)
+      else if (e.target.value === '') setPickMinutes(0)
+    }
+
+    const handleMinutesBlur = () => {
+      setPickMinutes((m) => Math.min(999, Math.max(0, m)))
+    }
+
+    const handleSecondsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const v = parseInt(e.target.value)
+      if (!isNaN(v)) setPickSeconds(v)
+      else if (e.target.value === '') setPickSeconds(0)
+    }
+
+    const handleSecondsBlur = () => {
+      if (pickSeconds > 59) {
+        const carry = Math.floor(pickSeconds / 60)
+        const rem = pickSeconds % 60
+        setPickMinutes((m) => Math.min(999, m + carry))
+        setPickSeconds(rem)
+      } else {
+        setPickSeconds((s) => Math.max(0, s))
+      }
+    }
+
+    const handleSecondsIncrement = () => {
+      if (pickSeconds >= 59) {
+        setPickMinutes((m) => Math.min(999, m + 1))
+        setPickSeconds(0)
+      } else {
+        setPickSeconds((s) => s + 1)
+      }
+    }
+
     return (
-      <div className="flex items-center gap-2 mt-2">
-        <div className="flex items-center gap-1">
-          <button type="button" onClick={() => setPickMinutes((m) => Math.max(0, m - 1))} className="border rounded px-1">−</button>
-          <span className="w-8 text-center text-sm">{pickMinutes}m</span>
-          <button type="button" onClick={() => setPickMinutes((m) => m + 1)} className="border rounded px-1">+</button>
+      <div className="flex items-center gap-3 mt-2">
+        {/* Minutes field */}
+        <div className="flex flex-col items-center gap-0.5">
+          <button
+            type="button"
+            aria-label="Increment minutes"
+            onClick={() => setPickMinutes((m) => Math.min(999, m + 1))}
+            className="text-stone-400 hover:text-stone-700 text-[10px] leading-none px-1"
+          >
+            ▲
+          </button>
+          <input
+            type="number"
+            aria-label="Minutes"
+            value={pickMinutes}
+            onChange={handleMinutesChange}
+            onBlur={handleMinutesBlur}
+            onFocus={(e) => e.target.select()}
+            min="0"
+            max="999"
+            className="w-12 text-center text-base border border-stone-300 rounded focus:outline-none focus:border-sage-500"
+            style={INPUT_STYLE}
+          />
+          <button
+            type="button"
+            aria-label="Decrement minutes"
+            onClick={() => setPickMinutes((m) => Math.max(0, m - 1))}
+            className="text-stone-400 hover:text-stone-700 text-[10px] leading-none px-1"
+          >
+            ▼
+          </button>
         </div>
-        <div className="flex items-center gap-1">
-          <button type="button" onClick={() => setPickSeconds((s) => Math.max(0, s - 5))} className="border rounded px-1">−</button>
-          <span className="w-8 text-center text-sm">{pickSeconds}s</span>
-          <button type="button" onClick={() => setPickSeconds((s) => s + 5)} className="border rounded px-1">+</button>
+
+        <span className="text-stone-500 font-medium text-lg self-center">:</span>
+
+        {/* Seconds field */}
+        <div className="flex flex-col items-center gap-0.5">
+          <button
+            type="button"
+            aria-label="Increment seconds"
+            onClick={handleSecondsIncrement}
+            className="text-stone-400 hover:text-stone-700 text-[10px] leading-none px-1"
+          >
+            ▲
+          </button>
+          <input
+            type="number"
+            aria-label="Seconds"
+            value={pickSeconds}
+            onChange={handleSecondsChange}
+            onBlur={handleSecondsBlur}
+            onFocus={(e) => e.target.select()}
+            min="0"
+            max="59"
+            className="w-12 text-center text-base border border-stone-300 rounded focus:outline-none focus:border-sage-500"
+            style={INPUT_STYLE}
+          />
+          <button
+            type="button"
+            aria-label="Decrement seconds"
+            onClick={() => setPickSeconds((s) => Math.max(0, s - 1))}
+            className="text-stone-400 hover:text-stone-700 text-[10px] leading-none px-1"
+          >
+            ▼
+          </button>
         </div>
+
         <button
           type="button"
           onClick={() => {
@@ -157,14 +257,14 @@ export default function StepTimer({ stepIndex, stepText, timerState, onChange }:
               setShowPicker(false)
             }
           }}
-          className="text-xs bg-sage-500 text-white rounded px-2 py-1"
+          className="text-xs bg-sage-500 text-white rounded px-2 py-1 self-center"
         >
           Start
         </button>
         <button
           type="button"
           onClick={() => setShowPicker(false)}
-          className="text-xs border rounded px-2 py-1"
+          className="text-xs border rounded px-2 py-1 self-center"
         >
           Cancel
         </button>
