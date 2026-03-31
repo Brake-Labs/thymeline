@@ -155,18 +155,9 @@ export async function fetchUserPreferences(
   const { data } = await q.single()
   if (!data) return null
   return {
-    id: data.id,
-    user_id: data.user_id,
-    options_per_day: data.options_per_day,
-    cooldown_days: data.cooldown_days,
-    seasonal_mode: data.seasonal_mode,
-    preferred_tags: data.preferred_tags,
-    avoided_tags: data.avoided_tags,
+    ...data,
     limited_tags: data.limited_tags as unknown as LimitedTag[],
     seasonal_rules: data.seasonal_rules as UserPreferences['seasonal_rules'],
-    is_active: data.is_active,
-    onboarding_completed: data.onboarding_completed,
-    created_at: data.created_at,
   } satisfies UserPreferences
 }
 
