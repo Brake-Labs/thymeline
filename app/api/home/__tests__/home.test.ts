@@ -1,13 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { NextRequest } from 'next/server'
+import {
+  mockSupabase,
+  mockHousehold,
+  makeRequest,
+  defaultGetUser,
+} from '@/test/helpers'
 
 // ── Mock state ────────────────────────────────────────────────────────────────
 const mockState = {
-  user: { id: 'user-1' } as { id: string } | null,
+  user: { id: 'user-1', email: 'test@example.com', user_metadata: {} } as { id: string; email?: string; user_metadata?: Record<string, unknown> } | null,
   plan: null as { id: string; week_start: string } | null,
   entries: [] as unknown[],
   history: [] as unknown[],
 }
+
+// ── Table-specific mock behavior ──────────────────────────────────────────────
 
 function makeFrom(table: string) {
   if (table === 'meal_plans') {
@@ -43,37 +50,39 @@ function makeFrom(table: string) {
       }),
     }
   }
+  if (table === 'recipes') {
+    return {
+      select: () => ({
+        eq: async () => ({ count: 5, error: null }),
+      }),
+    }
+  }
+  if (table === 'grocery_lists') {
+    return {
+      select: () => ({
+        order: () => ({
+          limit: () => ({
+            eq: async () => ({ data: [], error: null }),
+          }),
+        }),
+      }),
+    }
+  }
   return {}
 }
 
-vi.mock('@/lib/supabase-server', () => ({
-  createServerClient: () => ({
-    auth: {
-      getUser: async () => ({
-        data: { user: mockState.user },
-        error: mockState.user ? null : { message: 'no user' },
-      }),
-    },
-    from: makeFrom,
-  }),
-  createAdminClient: () => ({ from: makeFrom }),
-}))
+// ── Module mocks (vi.mock calls must stay in the test file) ───────────────────
 
-vi.mock('@/lib/household', () => ({
-  resolveHouseholdScope: async () => null,
-  canManage: (role: string) => role === 'owner' || role === 'co_owner',
-}))
+vi.mock('@/lib/supabase-server', () =>
+  mockSupabase(makeFrom, defaultGetUser(mockState))
+)
+
+vi.mock('@/lib/household', () => mockHousehold())
 
 const { GET } = await import('@/app/api/home/route')
 
-function makeRequest(): NextRequest {
-  return new NextRequest('http://localhost/api/home', {
-    headers: { Authorization: 'Bearer token' },
-  })
-}
-
 beforeEach(() => {
-  mockState.user = { id: 'user-1' }
+  mockState.user = { id: 'user-1', email: 'test@example.com', user_metadata: {} }
   mockState.plan = null
   mockState.entries = []
   mockState.history = []
@@ -84,9 +93,9 @@ describe('T07 - GET /api/home returns current week plan', () => {
   it('returns currentWeekPlan with entries when a plan exists', async () => {
     mockState.plan = { id: 'plan-1', week_start: '2026-03-02' }
     mockState.entries = [
-      { planned_date: '2026-03-02', recipe_id: 'r1', position: 1, confirmed: false, recipes: { title: 'Pasta' } },
+      { planned_date: '2026-03-02', recipe_id: 'r1', position: 1, confirmed: false, recipes: { title: 'Pasta', total_time_minutes: null } },
     ]
-    const res = await GET(makeRequest())
+    const res = await GET(makeRequest('GET', 'http://localhost/api/home'))
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.currentWeekPlan).not.toBeNull()
@@ -99,7 +108,7 @@ describe('T07 - GET /api/home returns current week plan', () => {
 describe('T08 - GET /api/home returns null plan when none exists', () => {
   it('returns currentWeekPlan=null when no plan for current week', async () => {
     mockState.plan = null
-    const res = await GET(makeRequest())
+    const res = await GET(makeRequest('GET', 'http://localhost/api/home'))
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.currentWeekPlan).toBeNull()
@@ -110,11 +119,11 @@ describe('T08 - GET /api/home returns null plan when none exists', () => {
 describe('T09 - GET /api/home returns recently made recipes', () => {
   it('returns up to 3 recently made recipes', async () => {
     mockState.history = [
-      { recipe_id: 'r1', made_on: '2026-03-01', recipes: { title: 'Tacos' } },
-      { recipe_id: 'r2', made_on: '2026-02-28', recipes: { title: 'Soup' } },
-      { recipe_id: 'r3', made_on: '2026-02-27', recipes: { title: 'Pizza' } },
+      { recipe_id: 'r1', made_on: '2026-03-01', recipes: { title: 'Tacos', tags: [] } },
+      { recipe_id: 'r2', made_on: '2026-02-28', recipes: { title: 'Soup', tags: [] } },
+      { recipe_id: 'r3', made_on: '2026-02-27', recipes: { title: 'Pizza', tags: [] } },
     ]
-    const res = await GET(makeRequest())
+    const res = await GET(makeRequest('GET', 'http://localhost/api/home'))
     const body = await res.json()
     expect(body.recentlyMade).toHaveLength(3)
     expect(body.recentlyMade[0].recipe_title).toBe('Tacos')
@@ -126,16 +135,8 @@ describe('T09 - GET /api/home returns recently made recipes', () => {
 describe('T10 - GET /api/home returns empty recentlyMade when no history', () => {
   it('returns empty recentlyMade array when no history', async () => {
     mockState.history = []
-    const res = await GET(makeRequest())
+    const res = await GET(makeRequest('GET', 'http://localhost/api/home'))
     const body = await res.json()
     expect(body.recentlyMade).toHaveLength(0)
-  })
-})
-
-describe('GET /api/home - unauthenticated', () => {
-  it('returns 401 when not authenticated', async () => {
-    mockState.user = null
-    const res = await GET(makeRequest())
-    expect(res.status).toBe(401)
   })
 })

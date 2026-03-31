@@ -1,10 +1,6 @@
 'use client'
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr + 'T12:00:00Z').toLocaleDateString('en-US', {
-    weekday: 'long', month: 'short', day: 'numeric', timeZone: 'UTC',
-  })
-}
+import { formatDayName as formatDate } from '@/lib/date-utils'
 
 interface AssignDayPickerProps {
   activeDates: string[]

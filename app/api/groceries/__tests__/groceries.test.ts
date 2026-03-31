@@ -4,6 +4,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { NextRequest } from 'next/server'
 
 // ── Shared mock state ──────────────────────────────────────────────────────────
 
@@ -56,7 +57,7 @@ function makeDbMock(opts: {
       // Supports both query patterns:
       //   old GET/PATCH: .eq(user_id).eq(week_start).single()
       //   new generate:  .eq(user_id).lte(week_start, date_to).gte(week_start, sixDays).order()
-      const plansList = opts.plans ?? (plan ? [plan] : [])
+      const plansList = (opts as Record<string, unknown>).plans ?? (plan ? [plan] : [])
       const plansResult  = { data: planError ? null : plansList, error: planError ? { message: 'not found' } : null }
       const singleResult = planError ? { data: null, error: { message: 'not found' } } : { data: plan, error: null }
 
@@ -174,13 +175,13 @@ const authMock = {
 
 function setupMocks(dbOpts: Parameters<typeof makeDbMock>[0] = {}) {
   const db = makeDbMock(dbOpts)
-  vi.mocked(createServerClient).mockReturnValue(authMock as ReturnType<typeof createServerClient>)
-  vi.mocked(createAdminClient).mockReturnValue(db as ReturnType<typeof createAdminClient>)
+  vi.mocked(createServerClient).mockReturnValue(authMock as unknown as ReturnType<typeof createServerClient>)
+  vi.mocked(createAdminClient).mockReturnValue(db as unknown as ReturnType<typeof createAdminClient>)
   return db
 }
 
-function makeReq(url: string, method = 'GET', body?: unknown): Request {
-  return new Request(url, {
+function makeReq(url: string, method = 'GET', body?: unknown): NextRequest {
+  return new NextRequest(url, {
     method,
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test' },
     body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -449,7 +450,7 @@ describe('T10 - Plan-level scaling: 4 people doubles amounts from base 2', () =>
     ]
     const { resolved } = combineIngredients(inputs)
     const pasta = resolved[0]
-    expect(pasta.amount).toBe(400)
+    expect(pasta!.amount).toBe(400)
   })
 })
 
@@ -770,7 +771,7 @@ describe('T25 - POST /api/groceries/generate uses household_id in upsert when in
       .filter(({ table }) => table === 'grocery_lists')
     const upsertCalls = groceryObjs.flatMap(({ obj }) => obj.upsert?.mock?.calls ?? [])
     expect(upsertCalls.length).toBeGreaterThan(0)
-    const [upsertPayload, upsertOpts] = upsertCalls[0]
+    const [upsertPayload, upsertOpts] = upsertCalls[0]!
     expect(upsertPayload.household_id).toBe('hh-1')
     expect(upsertOpts?.onConflict).toBe('household_id,week_start')
   })

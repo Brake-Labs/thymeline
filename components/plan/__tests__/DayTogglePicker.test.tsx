@@ -9,7 +9,7 @@ function allDates(): string[] {
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date('2026-03-01T12:00:00Z')
     d.setDate(d.getDate() + i)
-    return d.toISOString().split('T')[0]
+    return d.toISOString().split('T')[0]!
   })
 }
 
@@ -22,7 +22,7 @@ describe('T05 - Toggling a day off', () => {
     render(<DayTogglePicker weekStart={WEEK_START} activeDates={dates} onChange={onChange} />)
 
     fireEvent.click(screen.getByText('Mon'))
-    const called = onChange.mock.calls[0][0] as string[]
+    const called = onChange.mock.calls[0]![0] as string[]
     expect(called).not.toContain('2026-03-02')
   })
 
@@ -32,7 +32,7 @@ describe('T05 - Toggling a day off', () => {
       <DayTogglePicker weekStart={WEEK_START} activeDates={['2026-03-01']} onChange={onChange} />
     )
     fireEvent.click(screen.getByText('Mon'))
-    const called = onChange.mock.calls[0][0] as string[]
+    const called = onChange.mock.calls[0]![0] as string[]
     expect(called).toContain('2026-03-02')
   })
 })

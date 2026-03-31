@@ -5,56 +5,8 @@ import { HomeData } from '@/types'
 import { getMostRecentSunday, getTodayISO, isToday } from './utils'
 import GreetingHeading from './GreetingHeading'
 
-// ── Formatting helpers ────────────────────────────────────────────────────────
-
-function getDayAbbrev(iso: string): string {
-  return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-US', {
-    weekday: 'short',
-    timeZone: 'UTC',
-  })
-}
-
-function getDayNum(iso: string): string {
-  return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-US', {
-    day: 'numeric',
-    timeZone: 'UTC',
-  })
-}
-
-function formatShortDate(iso: string): string {
-  return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    timeZone: 'UTC',
-  })
-}
-
-function formatWeekRange(weekStart: string): string {
-  const start = new Date(`${weekStart}T00:00:00Z`)
-  const end = new Date(start)
-  end.setUTCDate(start.getUTCDate() + 6)
-  const fmt = (d: Date) =>
-    d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
-  return `${fmt(start)} \u2013 ${fmt(end)}`
-}
-
-function formatTime(minutes: number | null): string | null {
-  if (minutes === null) return null
-  if (minutes < 60) return `${minutes} min`
-  const hrs = minutes / 60
-  return Number.isInteger(hrs) ? `${hrs} hr` : `${Math.round(hrs * 10) / 10} hr`
-}
-
-function buildWeekDays(weekStart: string): string[] {
-  const days: string[] = []
-  const base = new Date(`${weekStart}T00:00:00Z`)
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(base)
-    d.setUTCDate(base.getUTCDate() + i)
-    days.push(d.toISOString().slice(0, 10))
-  }
-  return days
-}
+import { getDayAbbrev, getDayNum, formatShortDate, formatWeekRange, getWeekDates } from '@/lib/date-utils'
+import { formatMinutes } from '@/lib/format-time'
 
 // ── Section header component ──────────────────────────────────────────────────
 
@@ -82,7 +34,7 @@ async function getHomeData(): Promise<HomeData & { weekStart: string }> {
 
   const fullName = (user.user_metadata?.full_name as string | undefined) ?? null
   const userName = fullName
-    ? fullName.split(' ')[0]
+    ? (fullName.split(' ')[0] ?? fullName)
     : (user.email?.split('@')[0] ?? null)
 
   const [planResult, historyResult, recipeCountResult, groceryResult] = await Promise.all([
@@ -164,7 +116,7 @@ export default async function HomePage() {
     await getHomeData()
 
   const today    = getTodayISO()
-  const weekDays = buildWeekDays(weekStart)
+  const weekDays = getWeekDates(weekStart)
 
   const entriesByDay = new Map<
     string,
@@ -262,9 +214,9 @@ export default async function HomePage() {
                               >
                                 {e.recipe_title}
                               </Link>
-                              {formatTime(e.total_time_minutes) && (
+                              {e.total_time_minutes != null && (
                                 <p className="text-[10px] text-stone-400 mt-0.5">
-                                  {formatTime(e.total_time_minutes)}
+                                  {formatMinutes(e.total_time_minutes)}
                                 </p>
                               )}
                             </div>

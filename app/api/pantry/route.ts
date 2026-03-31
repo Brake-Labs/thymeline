@@ -1,21 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-import { resolveHouseholdScope } from '@/lib/household'
+import { NextResponse } from 'next/server'
+import { withAuth } from '@/lib/auth'
+import { createPantryItemSchema, deletePantryItemsSchema, parseBody } from '@/lib/schemas'
 import { parseIngredientLine, assignSection } from '@/lib/grocery'
 import type { PantryItem } from '@/types'
 
 // ── GET /api/pantry ───────────────────────────────────────────────────────────
 
-export async function GET(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
-
+export const GET = withAuth(async (req, { user, db, ctx }) => {
   let query = db
     .from('pantry_items')
     .select('*')
@@ -35,30 +26,16 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json({ items: data as PantryItem[] })
-}
+})
 
 // ── POST /api/pantry ──────────────────────────────────────────────────────────
 
-export async function POST(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  let body: { name?: string; quantity?: string; section?: string; expiry_date?: string }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
-
-  if (!body.name || typeof body.name !== 'string' || !body.name.trim()) {
-    return NextResponse.json({ error: 'name is required' }, { status: 400 })
-  }
+export const POST = withAuth(async (req, { user, db, ctx }) => {
+  const { data: body, error: parseError } = await parseBody(req, createPantryItemSchema)
+  if (parseError) return parseError
 
   // Free-text parsing: extract leading amount + unit token from the name field
-  const parsed = parseIngredientLine(body.name.trim())
+  const parsed = parseIngredientLine(body.name)
 
   let name: string
   let quantity: string | null
@@ -71,14 +48,11 @@ export async function POST(req: NextRequest) {
     ].filter(Boolean).join(' ')
     quantity = body.quantity !== undefined ? body.quantity : (parsedQty || null)
   } else {
-    name = body.name.trim()
+    name = body.name
     quantity = body.quantity !== undefined ? body.quantity : null
   }
 
   const section = body.section !== undefined ? body.section : assignSection(name)
-
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
 
   const insertPayload = ctx
     ? { household_id: ctx.householdId, user_id: user.id, name, quantity, section, expiry_date: body.expiry_date ?? null }
@@ -95,30 +69,13 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ item: data as PantryItem }, { status: 201 })
-}
+})
 
 // ── DELETE /api/pantry (bulk) ─────────────────────────────────────────────────
 
-export async function DELETE(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  let body: { ids?: string[] }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
-
-  if (!Array.isArray(body.ids) || body.ids.length === 0) {
-    return NextResponse.json({ error: 'ids array is required' }, { status: 400 })
-  }
-
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
+export const DELETE = withAuth(async (req, { user, db, ctx }) => {
+  const { data: body, error: parseError } = await parseBody(req, deletePantryItemsSchema)
+  if (parseError) return parseError
 
   // Verify all IDs belong to this user/household
   const { data: owned, error: fetchError } = await db
@@ -151,4 +108,4 @@ export async function DELETE(req: NextRequest) {
   }
 
   return new NextResponse(null, { status: 204 })
-}
+})

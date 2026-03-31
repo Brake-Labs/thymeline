@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import TagSelector, { type PendingNewTag } from './TagSelector'
+import { CATEGORY_OPTIONS } from '@/lib/category-labels'
+import { getTodayISO } from '@/lib/date-utils'
 
 export interface RecipeFormValues {
   title: string
@@ -30,12 +32,9 @@ interface RecipeFormProps {
   isSubmitting: boolean
 }
 
-const CATEGORY_OPTIONS = [
-  { value: '', label: 'Select category...' },
-  { value: 'main_dish', label: 'Main Dish' },
-  { value: 'breakfast', label: 'Breakfast' },
-  { value: 'dessert', label: 'Dessert' },
-  { value: 'side_dish', label: 'Side Dish' },
+const FORM_CATEGORY_OPTIONS = [
+  { value: '' as const, label: 'Select category...' },
+  ...CATEGORY_OPTIONS,
 ]
 
 const PLACEHOLDER = "Couldn't find this — add it manually"
@@ -113,7 +112,7 @@ export default function RecipeForm({
           onChange={(e) => set('category', e.target.value as RecipeFormValues['category'])}
           className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sage-500"
         >
-          {CATEGORY_OPTIONS.map((opt) => (
+          {FORM_CATEGORY_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>
           ))}
         </select>
@@ -227,7 +226,7 @@ export default function RecipeForm({
           type="date"
           value={values.lastMade}
           onChange={(e) => set('lastMade', e.target.value)}
-          max={new Date().toISOString().split('T')[0]}
+          max={getTodayISO()}
           className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500"
         />
       </div>

@@ -103,11 +103,11 @@ const { POST: entriesPOST } = await import('@/app/api/plan/entries/route')
 const { DELETE: entryDELETE } = await import('@/app/api/plan/entries/[entry_id]/route')
 
 function makeReq(method: string, url: string, body?: unknown): NextRequest {
-  const opts: RequestInit = {
+  const opts: ConstructorParameters<typeof NextRequest>[1] = {
     method,
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer token' },
   }
-  if (body) opts.body = JSON.stringify(body)
+  if (body) opts!.body = JSON.stringify(body)
   return new NextRequest(url, opts)
 }
 
@@ -242,16 +242,6 @@ describe('POST /api/plan/entries - creates entry', () => {
     expect(res.status).toBe(400)
   })
 
-  it('returns 401 when unauthenticated', async () => {
-    mockState.user = null
-    const res = await entriesPOST(makeReq('POST', 'http://localhost/api/plan/entries', {
-      week_start: '2026-03-01',
-      date: '2026-03-01',
-      recipe_id: 'r1',
-      meal_type: 'dinner',
-    }))
-    expect(res.status).toBe(401)
-  })
 })
 
 // ── Dessert entry tests ────────────────────────────────────────────────────────

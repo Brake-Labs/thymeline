@@ -122,8 +122,8 @@ describe('T01 - GET /api/pantry returns only current user items', () => {
   beforeEach(() => { vi.resetModules() })
 
   it('returns items for the authenticated user', async () => {
-    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(makeDbMock({ items: [sampleItem] }) as ReturnType<typeof createAdminClient>)
+    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(makeDbMock({ items: [sampleItem] }) as unknown as ReturnType<typeof createAdminClient>)
 
     const { GET } = await import('../route')
     const res = await GET(makeReq('http://localhost/api/pantry') as Parameters<typeof GET>[0])
@@ -142,8 +142,8 @@ describe('T02 - POST /api/pantry parses "2 cans tomatoes"', () => {
 
   it('extracts name "tomatoes" and quantity "2 cans"', async () => {
     const insertResult = { ...sampleItem, name: 'tomatoes', quantity: '2 cans' }
-    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(makeDbMock({ insertResult }) as ReturnType<typeof createAdminClient>)
+    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(makeDbMock({ insertResult }) as unknown as ReturnType<typeof createAdminClient>)
 
     const { POST } = await import('../route')
     const res = await POST(
@@ -165,9 +165,9 @@ describe('T03 - POST /api/pantry auto-assigns section for "diced tomatoes"', () 
   it('assigns "Canned & Jarred" section for canned tomatoes', async () => {
     // The actual section assignment happens in the route via assignSection — verify
     // that when name contains "tomato", the insert is called (section will be auto-assigned)
-    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as ReturnType<typeof createServerClient>)
+    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createServerClient>)
     const db = makeDbMock({ insertResult: { ...sampleItem, name: 'diced tomatoes', section: 'Canned & Jarred' } })
-    vi.mocked(createAdminClient).mockReturnValue(db as ReturnType<typeof createAdminClient>)
+    vi.mocked(createAdminClient).mockReturnValue(db as unknown as ReturnType<typeof createAdminClient>)
 
     const { POST } = await import('../route')
     const res = await POST(
@@ -188,8 +188,8 @@ describe('T04 - PATCH /api/pantry/[id] updates quantity and expiry_date', () => 
 
   it('returns updated item on success', async () => {
     const updated = { ...sampleItem, quantity: '3 cans', expiry_date: '2026-04-01' }
-    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(makeDbMock({ updateResult: updated }) as ReturnType<typeof createAdminClient>)
+    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(makeDbMock({ updateResult: updated }) as unknown as ReturnType<typeof createAdminClient>)
 
     const { PATCH } = await import('../[id]/route')
     const res = await PATCH(
@@ -210,8 +210,8 @@ describe('T05 - DELETE /api/pantry/[id] removes item', () => {
   beforeEach(() => { vi.resetModules() })
 
   it('returns 204 on success', async () => {
-    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(makeDbMock({ single: sampleItem, singleError: null }) as ReturnType<typeof createAdminClient>)
+    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(makeDbMock({ single: sampleItem, singleError: null }) as unknown as ReturnType<typeof createAdminClient>)
 
     const { DELETE } = await import('../[id]/route')
     const res = await DELETE(
@@ -229,9 +229,9 @@ describe('T06 - DELETE /api/pantry (bulk) removes all specified items', () => {
   beforeEach(() => { vi.resetModules() })
 
   it('returns 204 on success', async () => {
-    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as ReturnType<typeof createServerClient>)
+    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createServerClient>)
     vi.mocked(createAdminClient).mockReturnValue(
-      makeDbMock({ owned: [{ ...sampleItem, user_id: 'user-1' }] }) as ReturnType<typeof createAdminClient>,
+      makeDbMock({ owned: [{ ...sampleItem, user_id: 'user-1' }] }) as unknown as ReturnType<typeof createAdminClient>,
     )
 
     const { DELETE } = await import('../route')
@@ -250,9 +250,9 @@ describe('T07 - DELETE /api/pantry bulk returns 403 for cross-user IDs', () => {
 
   it('returns 403 and does not delete when one ID belongs to another user', async () => {
     const ownedByOtherUser = [{ id: 'pantry-1', user_id: otherUser.id }]
-    vi.mocked(createServerClient).mockReturnValue(makeAuthMock(mockUser.id) as ReturnType<typeof createServerClient>)
+    vi.mocked(createServerClient).mockReturnValue(makeAuthMock(mockUser.id) as unknown as ReturnType<typeof createServerClient>)
     vi.mocked(createAdminClient).mockReturnValue(
-      makeDbMock({ owned: ownedByOtherUser }) as ReturnType<typeof createAdminClient>,
+      makeDbMock({ owned: ownedByOtherUser }) as unknown as ReturnType<typeof createAdminClient>,
     )
 
     const { DELETE } = await import('../route')
@@ -270,7 +270,7 @@ describe('T08 - POST /api/pantry/import inserts new item', () => {
   beforeEach(() => { vi.resetModules() })
 
   it('returns { imported: 1, updated: 0 } when item is new', async () => {
-    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as ReturnType<typeof createServerClient>)
+    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createServerClient>)
     // No existing items → will insert
     const db = {
       from: vi.fn(() => ({
@@ -283,7 +283,7 @@ describe('T08 - POST /api/pantry/import inserts new item', () => {
         }),
       })),
     }
-    vi.mocked(createAdminClient).mockReturnValue(db as ReturnType<typeof createAdminClient>)
+    vi.mocked(createAdminClient).mockReturnValue(db as unknown as ReturnType<typeof createAdminClient>)
 
     const { POST } = await import('../import/route')
     const res = await POST(
@@ -305,7 +305,7 @@ describe('T09 - POST /api/pantry/import updates existing item (case-insensitive)
   beforeEach(() => { vi.resetModules() })
 
   it('returns { imported: 0, updated: 1 } when item already exists', async () => {
-    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as ReturnType<typeof createServerClient>)
+    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createServerClient>)
     // Existing item with lowercase name matches the import
     const existing = [{ id: 'pantry-1', name: 'Chicken Breast' }]
     const db = {
@@ -319,7 +319,7 @@ describe('T09 - POST /api/pantry/import updates existing item (case-insensitive)
         insert: vi.fn().mockResolvedValue({ data: null, error: null }),
       })),
     }
-    vi.mocked(createAdminClient).mockReturnValue(db as ReturnType<typeof createAdminClient>)
+    vi.mocked(createAdminClient).mockReturnValue(db as unknown as ReturnType<typeof createAdminClient>)
 
     const { POST } = await import('../import/route')
     const res = await POST(
@@ -341,9 +341,9 @@ describe('T27 - PATCH /api/pantry/[id] returns 404 for non-existent or non-owned
   beforeEach(() => { vi.resetModules() })
 
   it('returns 404 when item not found', async () => {
-    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as ReturnType<typeof createServerClient>)
+    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createServerClient>)
     vi.mocked(createAdminClient).mockReturnValue(
-      makeDbMock({ updateResult: null, singleError: { message: 'not found' } }) as ReturnType<typeof createAdminClient>,
+      makeDbMock({ updateResult: null, singleError: { message: 'not found' } }) as unknown as ReturnType<typeof createAdminClient>,
     )
 
     const { PATCH } = await import('../[id]/route')

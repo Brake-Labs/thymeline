@@ -33,6 +33,7 @@ const baseRecipe: RecipeListItem = {
   last_made: null,
   times_made: 0,
   created_at: '2026-01-01T00:00:00Z',
+  total_time_minutes: null,
 }
 
 const recipes: RecipeListItem[] = [
@@ -134,7 +135,7 @@ describe('RecipeTable', () => {
   })
 
   it('T14: recipes render in the order they are passed (sort is caller responsibility)', () => {
-    const sorted = [recipes[1], recipes[2], recipes[0]] // Apple Pie, Bacon Eggs, Zucchini Soup
+    const sorted = [recipes[1]!, recipes[2]!, recipes[0]!] // Apple Pie, Bacon Eggs, Zucchini Soup
     render(
       <RecipeTable
         recipes={sorted}

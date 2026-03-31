@@ -31,18 +31,15 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
 }))
 
-vi.mock('@/components/recipes/AddRecipeModal', () => ({
+vi.mock('@/components/recipes/GenerateRecipeModal', () => ({
   default: ({
-    initialTab,
     initialPantryEnabled,
     onClose,
   }: {
-    initialTab: string
     initialPantryEnabled: boolean
     onClose: () => void
   }) => (
     <div data-testid="add-recipe-modal">
-      <span data-testid="modal-tab">{initialTab}</span>
       <span data-testid="modal-pantry-enabled">{String(initialPantryEnabled)}</span>
       <button onClick={onClose}>Close</button>
     </div>
@@ -164,11 +161,11 @@ describe('T14 - "Clear expired" removes only expired items', () => {
 
     await waitFor(() => {
       const deleteCalls = mockFetch.mock.calls.filter(
-        ([url, opts]: [string, RequestInit]) =>
-          url === '/api/pantry' && opts?.method === 'DELETE',
+        (call: unknown[]) =>
+          call[0] === '/api/pantry' && (call[1] as RequestInit)?.method === 'DELETE',
       )
       expect(deleteCalls.length).toBeGreaterThan(0)
-      const body = JSON.parse(deleteCalls[0][1].body as string)
+      const body = JSON.parse(deleteCalls[0]![1].body as string)
       // Should only include the expired item (p3), not p1 or p2
       expect(body.ids).toContain('p3')
       expect(body.ids).not.toContain('p1')
@@ -187,7 +184,7 @@ describe('T28 - Pantry page "Generate new recipe" button opens modal at generate
     })
   })
 
-  it('opens AddRecipeModal when button is clicked', async () => {
+  it('opens GenerateRecipeModal when button is clicked', async () => {
     render(<PantryPageClient />)
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /generate new recipe/i })).toBeInTheDocument()
@@ -196,18 +193,6 @@ describe('T28 - Pantry page "Generate new recipe" button opens modal at generate
 
     await waitFor(() => {
       expect(screen.getByTestId('add-recipe-modal')).toBeInTheDocument()
-    })
-  })
-
-  it('opens modal with initialTab="generate"', async () => {
-    render(<PantryPageClient />)
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /generate new recipe/i })).toBeInTheDocument()
-    })
-    fireEvent.click(screen.getByRole('button', { name: /generate new recipe/i }))
-
-    await waitFor(() => {
-      expect(screen.getByTestId('modal-tab').textContent).toBe('generate')
     })
   })
 

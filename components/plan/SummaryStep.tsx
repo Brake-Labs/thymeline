@@ -1,41 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import type { DaySelection, MealType } from '@/types'
-
-interface PlanSetup {
-  weekStart:       string
-  activeDates:     string[]
-  activeMealTypes: MealType[]
-}
+import { formatWeekRange, formatDayName, formatWeekday as formatShortDay } from '@/lib/date-utils'
+import type { DaySelection, MealType, PlanSetup, SelectionsMap } from '@/types'
 
 interface SummaryStepProps {
-  setup:      PlanSetup
-  selections: Record<string, DaySelection | null>  // composite keys "date:mealType"
+  setup:      Pick<PlanSetup, 'weekStart' | 'activeDates' | 'activeMealTypes'>
+  selections: SelectionsMap
   onSave:     () => Promise<void>
   isSaving:   boolean
   onBack:     () => void
-}
-
-function formatWeekRange(weekStart: string): string {
-  const start = new Date(weekStart + 'T12:00:00Z')
-  const end = new Date(start)
-  end.setDate(start.getDate() + 6)
-  const fmt = (d: Date) =>
-    d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
-  return `${fmt(start)} – ${fmt(end)}`
-}
-
-function formatDayName(dateStr: string): string {
-  return new Date(dateStr + 'T12:00:00Z').toLocaleDateString('en-US', {
-    weekday: 'long', month: 'short', day: 'numeric', timeZone: 'UTC',
-  })
-}
-
-function formatShortDay(dateStr: string): string {
-  return new Date(dateStr + 'T12:00:00Z').toLocaleDateString('en-US', {
-    weekday: 'long', timeZone: 'UTC',
-  })
 }
 
 const MEAL_TYPE_LABELS: Record<MealType, string> = {
@@ -71,7 +45,7 @@ export default function SummaryStep({ setup, selections, onSave, isSaving, onBac
   // Group confirmed by date for display
   const byDate = confirmed.reduce<Record<string, typeof confirmed>>((acc, item) => {
     if (!acc[item.date]) acc[item.date] = []
-    acc[item.date].push(item)
+    acc[item.date]!.push(item)
     return acc
   }, {})
   const sortedDates = Object.keys(byDate).sort()
@@ -99,7 +73,7 @@ export default function SummaryStep({ setup, selections, onSave, isSaving, onBac
               <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-1">
                 {formatDayName(date)}
               </p>
-              {byDate[date].map(({ mealType, sel }) => (
+              {byDate[date]?.map(({ mealType, sel }) => (
                 <div
                   key={`${date}:${mealType}`}
                   className="flex items-center gap-3 py-1.5 border-b border-stone-100 last:border-0"

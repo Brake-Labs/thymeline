@@ -105,6 +105,8 @@ export default function RecipePageContent() {
   const [searchResults, setSearchResults] = useState<{ recipe_id: string; recipe_title: string }[] | null>(null)
   const [searchLoading, setSearchLoading] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const [searchError, setSearchError] = useState<string | null>(null)
+  const [fetchError, setFetchError] = useState<string | null>(null)
 
   // Sidebar
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -143,12 +145,20 @@ export default function RecipePageContent() {
 
   const fetchRecipes = useCallback(async () => {
     setLoading(true)
-    const res = await fetch('/api/recipes', {
-      headers: { Authorization: `Bearer ${await getAccessToken()}` },
-    })
-    if (res.ok) {
-      const data: RecipeListItem[] = await res.json()
-      setRecipes(data)
+    try {
+      const res = await fetch('/api/recipes', {
+        headers: { Authorization: `Bearer ${await getAccessToken()}` },
+      })
+      if (res.ok) {
+        const data: RecipeListItem[] = await res.json()
+        setRecipes(data)
+        setFetchError(null)
+      } else {
+        setFetchError('Something went wrong loading your recipes.')
+      }
+    } catch (err) {
+      setFetchError('Something went wrong loading your recipes.')
+      console.error(err)
     }
     setLoading(false)
   }, [])
@@ -186,9 +196,11 @@ export default function RecipePageContent() {
     const q = searchQuery.trim()
     if (!q) {
       setSearchResults(null)
+      setSearchError(null)
       return
     }
     setSearchLoading(true)
+    setSearchError(null)
     try {
       const token = await getAccessToken()
       const res = await fetch('/api/recipes/search', {
@@ -199,7 +211,12 @@ export default function RecipePageContent() {
       if (res.ok) {
         const data: { results: { recipe_id: string; recipe_title: string }[] } = await res.json()
         setSearchResults(data.results)
+      } else {
+        setSearchError('Search failed. Please try again.')
       }
+    } catch (err) {
+      setSearchError('Search failed. Please try again.')
+      console.error(err)
     } finally {
       setSearchLoading(false)
     }
@@ -208,6 +225,7 @@ export default function RecipePageContent() {
   function clearSearch() {
     setSearchQuery('')
     setSearchResults(null)
+    setSearchError(null)
     searchInputRef.current?.focus()
   }
 
@@ -294,6 +312,55 @@ export default function RecipePageContent() {
     <div className="max-w-7xl mx-auto px-4 py-6">
       {/* Toolbar */}
       <div className="flex items-center gap-2 mb-6">
+        {/* Filters toggle */}
+        <button
+          type="button"
+          onClick={toggleSidebar}
+          className={`flex items-center gap-1.5 px-3 py-2 rounded text-sm font-medium border transition-colors ${
+            sidebarOpen || activeFilterCount > 0
+              ? 'border-sage-500 text-sage-700 bg-sage-50'
+              : 'border-stone-200 text-stone-600 bg-white hover:border-stone-300'
+          }`}
+        >
+          <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M2.628 1.601C5.028 1.206 7.49 1 10 1s4.973.206 7.372.601a.75.75 0 01.628.74v2.288a2.25 2.25 0 01-.659 1.59l-4.682 4.683a2.25 2.25 0 00-.659 1.59v3.037c0 .684-.31 1.33-.844 1.757l-1.937 1.55A.75.75 0 018 18.25v-5.757a2.25 2.25 0 00-.659-1.591L2.659 6.22A2.25 2.25 0 002 4.629V2.34a.75.75 0 01.628-.74z" clipRule="evenodd" />
+          </svg>
+          Filters
+          {activeFilterCount > 0 && (
+            <span className="ml-0.5 text-xs font-semibold bg-sage-500 text-white rounded-full w-4 h-4 flex items-center justify-center">
+              {activeFilterCount}
+            </span>
+          )}
+        </button>
+
+        {/* View mode toggle */}
+        <div className="flex border border-stone-200 rounded overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setAndPersistViewMode('grid')}
+            className={`px-3 py-2 transition-colors ${viewMode === 'grid' ? 'bg-sage-500 text-white' : 'bg-white text-stone-500 hover:bg-stone-50'}`}
+            aria-label="Grid view"
+            title="Grid view"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M4.25 2A2.25 2.25 0 002 4.25v2.5A2.25 2.25 0 004.25 9h2.5A2.25 2.25 0 009 6.75v-2.5A2.25 2.25 0 006.75 2h-2.5zm0 9A2.25 2.25 0 002 13.25v2.5A2.25 2.25 0 004.25 18h2.5A2.25 2.25 0 009 15.75v-2.5A2.25 2.25 0 006.75 11h-2.5zm6.5-9A2.25 2.25 0 008.5 4.25v2.5A2.25 2.25 0 0010.75 9h2.5A2.25 2.25 0 0015.5 6.75v-2.5A2.25 2.25 0 0013.25 2h-2.5zm0 9A2.25 2.25 0 008.5 13.25v2.5A2.25 2.25 0 0010.75 18h2.5A2.25 2.25 0 0015.5 15.75v-2.5A2.25 2.25 0 0013.25 11h-2.5z" clipRule="evenodd" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => setAndPersistViewMode('list')}
+            className={`px-3 py-2 transition-colors ${viewMode === 'list' ? 'bg-sage-500 text-white' : 'bg-white text-stone-500 hover:bg-stone-50'}`}
+            aria-label="List view"
+            title="List view"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M2 4.75A.75.75 0 012.75 4h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 4.75zm0 10.5a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75a.75.75 0 01-.75-.75zM2 10a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 10z" clipRule="evenodd" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="flex-1" />
+
         {/* Search */}
         <div className="relative flex-1 max-w-sm">
           <input
@@ -348,56 +415,17 @@ export default function RecipePageContent() {
           <span className="text-sage-500">✦</span>
           Generate with AI
         </button>
-
-        <div className="flex-1" />
-
-        {/* Filters toggle */}
-        <button
-          type="button"
-          onClick={toggleSidebar}
-          className={`flex items-center gap-1.5 px-3 py-2 rounded text-sm font-medium border transition-colors ${
-            sidebarOpen || activeFilterCount > 0
-              ? 'border-sage-500 text-sage-700 bg-sage-50'
-              : 'border-stone-200 text-stone-600 bg-white hover:border-stone-300'
-          }`}
-        >
-          <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M2.628 1.601C5.028 1.206 7.49 1 10 1s4.973.206 7.372.601a.75.75 0 01.628.74v2.288a2.25 2.25 0 01-.659 1.59l-4.682 4.683a2.25 2.25 0 00-.659 1.59v3.037c0 .684-.31 1.33-.844 1.757l-1.937 1.55A.75.75 0 018 18.25v-5.757a2.25 2.25 0 00-.659-1.591L2.659 6.22A2.25 2.25 0 002 4.629V2.34a.75.75 0 01.628-.74z" clipRule="evenodd" />
-          </svg>
-          Filters
-          {activeFilterCount > 0 && (
-            <span className="ml-0.5 text-xs font-semibold bg-sage-500 text-white rounded-full w-4 h-4 flex items-center justify-center">
-              {activeFilterCount}
-            </span>
-          )}
-        </button>
-
-        {/* View mode toggle */}
-        <div className="flex border border-stone-200 rounded overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setAndPersistViewMode('grid')}
-            className={`px-3 py-2 transition-colors ${viewMode === 'grid' ? 'bg-sage-500 text-white' : 'bg-white text-stone-500 hover:bg-stone-50'}`}
-            aria-label="Grid view"
-            title="Grid view"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M4.25 2A2.25 2.25 0 002 4.25v2.5A2.25 2.25 0 004.25 9h2.5A2.25 2.25 0 009 6.75v-2.5A2.25 2.25 0 006.75 2h-2.5zm0 9A2.25 2.25 0 002 13.25v2.5A2.25 2.25 0 004.25 18h2.5A2.25 2.25 0 009 15.75v-2.5A2.25 2.25 0 006.75 11h-2.5zm6.5-9A2.25 2.25 0 008.5 4.25v2.5A2.25 2.25 0 0010.75 9h2.5A2.25 2.25 0 0015.5 6.75v-2.5A2.25 2.25 0 0013.25 2h-2.5zm0 9A2.25 2.25 0 008.5 13.25v2.5A2.25 2.25 0 0010.75 18h2.5A2.25 2.25 0 0015.5 15.75v-2.5A2.25 2.25 0 0013.25 11h-2.5z" clipRule="evenodd" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            onClick={() => setAndPersistViewMode('list')}
-            className={`px-3 py-2 transition-colors ${viewMode === 'list' ? 'bg-sage-500 text-white' : 'bg-white text-stone-500 hover:bg-stone-50'}`}
-            aria-label="List view"
-            title="List view"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M2 4.75A.75.75 0 012.75 4h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 4.75zm0 10.5a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75a.75.75 0 01-.75-.75zM2 10a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 10z" clipRule="evenodd" />
-            </svg>
-          </button>
-        </div>
       </div>
+
+      {/* Search error */}
+      {searchError && (
+        <p className="text-red-500 text-sm mt-2 mb-4">{searchError}</p>
+      )}
+
+      {/* Fetch error */}
+      {fetchError && (
+        <p className="text-red-500 text-sm mt-2 mb-4">{fetchError}</p>
+      )}
 
       {/* Search result indicator */}
       {searchResults !== null && (

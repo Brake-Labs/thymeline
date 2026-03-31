@@ -33,12 +33,14 @@ export default function SingleStepView({
 
   function handleTouchStart(e: React.TouchEvent) {
     const t = e.touches[0]
+    if (!t) return
     touchStartRef.current = { x: t.clientX, y: t.clientY }
   }
 
   function handleTouchEnd(e: React.TouchEvent) {
     if (!touchStartRef.current) return
     const t = e.changedTouches[0]
+    if (!t) return
     const dx = t.clientX - touchStartRef.current.x
     const dy = Math.abs(t.clientY - touchStartRef.current.y)
     touchStartRef.current = null
@@ -85,7 +87,7 @@ export default function SingleStepView({
       {ingredients && (
         <StepIngredientPanel
           key={currentStep}
-          stepText={steps[currentStep]}
+          stepText={steps[currentStep]!}
           ingredients={ingredients}
           baseServings={baseServings}
           targetServings={targetServings}

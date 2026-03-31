@@ -12,27 +12,40 @@ interface SectionSaveButtonProps {
 }
 
 function SectionSaveButton({ onSave }: SectionSaveButtonProps) {
-  const [state, setState] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   async function handleClick() {
     setState('saving')
-    await onSave()
-    setState('saved')
-    setTimeout(() => setState('idle'), 2000)
+    setErrorMsg(null)
+    try {
+      await onSave()
+      setState('saved')
+      setTimeout(() => setState('idle'), 2000)
+    } catch (err) {
+      setState('error')
+      setErrorMsg('Changes couldn\'t be saved. Please try again.')
+      console.error(err)
+    }
   }
 
   return (
-    <div className="flex items-center gap-3">
-      <button
-        type="button"
-        onClick={handleClick}
-        disabled={state === 'saving'}
-        className="px-4 py-1.5 bg-sage-500 text-white text-sm font-medium rounded-lg hover:bg-sage-600 disabled:opacity-60"
-      >
-        {state === 'saving' ? 'Saving…' : 'Save'}
-      </button>
-      {state === 'saved' && (
-        <span className="text-sm text-sage-600 font-medium">Saved ✓</span>
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={handleClick}
+          disabled={state === 'saving'}
+          className="px-4 py-1.5 bg-sage-500 text-white text-sm font-medium rounded-lg hover:bg-sage-600 disabled:opacity-60"
+        >
+          {state === 'saving' ? 'Saving…' : 'Save'}
+        </button>
+        {state === 'saved' && (
+          <span className="text-sm text-sage-600 font-medium">Saved ✓</span>
+        )}
+      </div>
+      {errorMsg && (
+        <p className="text-red-500 text-sm mt-2">{errorMsg}</p>
       )}
     </div>
   )
@@ -80,6 +93,7 @@ export default function PreferencesForm({ allTags }: PreferencesFormProps) {
     limited_tags: [],
   })
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchPrefs() {
@@ -87,10 +101,14 @@ export default function PreferencesForm({ allTags }: PreferencesFormProps) {
         const r = await fetch('/api/preferences', {
           headers: { Authorization: `Bearer ${await getAccessToken()}` },
         })
+        if (!r.ok) throw new Error('Failed to load preferences')
         const data: PrefsState = await r.json()
         setPrefs(data)
+        setLoadError(null)
         setLoading(false)
-      } catch {
+      } catch (err) {
+        setLoadError('Something went wrong loading your preferences.')
+        console.error(err)
         setLoading(false)
       }
     }
@@ -109,6 +127,8 @@ export default function PreferencesForm({ allTags }: PreferencesFormProps) {
     if (res.ok) {
       // Only merge the saved fields — don't overwrite unsaved selections in other sections
       setPrefs((prev) => ({ ...prev, ...fields }))
+    } else {
+      throw new Error('Save failed')
     }
   }
 
@@ -129,6 +149,10 @@ export default function PreferencesForm({ allTags }: PreferencesFormProps) {
     <div className="min-h-screen bg-stone-50 py-8 px-4">
       <div className="max-w-2xl mx-auto space-y-5">
         <h1 className="font-display text-2xl font-bold text-stone-900">Preferences</h1>
+
+        {loadError && (
+          <p className="text-red-500 text-sm mt-2">{loadError}</p>
+        )}
 
         {/* Section 1: Planning Defaults */}
         <SectionCard>

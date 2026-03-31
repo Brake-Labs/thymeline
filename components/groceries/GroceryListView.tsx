@@ -7,7 +7,7 @@ import RecipeSectionGroup from './RecipeSectionGroup'
 import GotItSection from './GotItSection'
 import AddItemInput from './AddItemInput'
 import { getAccessToken } from '@/lib/supabase/browser'
-import { effectiveServings, formatWeekLabel, buildPlainTextList, scaleItem } from '@/lib/grocery'
+import { effectiveServings, formatWeekLabel, buildPlainTextList } from '@/lib/grocery'
 
 interface GroceryListViewProps {
   initialList:    GroceryList
@@ -24,8 +24,6 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
   const [confirmRegenerate, setConfirmRegenerate] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
   const [shareToast, setShareToast] = useState<string | null>(null)
-  const [gotItCollapsed, setGotItCollapsed] = useState(true)
-
   const weekStart = initialList.week_start
 
   // ── Persist helpers ─────────────────────────────────────────────────────────

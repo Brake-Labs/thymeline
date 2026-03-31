@@ -2,17 +2,8 @@
 
 import { useState } from 'react'
 import SuggestionDayRow, { type MealTypeState } from './SuggestionDayRow'
-import type { RecipeSuggestion, DaySelection, MealType } from '@/types'
-
-interface PlanSetup {
-  weekStart:        string
-  activeDates:      string[]
-  activeMealTypes:  MealType[]
-  preferThisWeek:   string[]
-  avoidThisWeek:    string[]
-  freeText:         string
-  specificRequests: string
-}
+import { formatWeekRange } from '@/lib/date-utils'
+import type { RecipeSuggestion, MealType, PlanSetup, SelectionsMap } from '@/types'
 
 interface DayState {
   date:       string
@@ -22,8 +13,6 @@ interface DayState {
 interface SuggestionsState {
   days: DayState[]
 }
-
-type SelectionsMap = Record<string, DaySelection | null>
 
 interface SuggestionsStepProps {
   setup:            PlanSetup
@@ -40,15 +29,6 @@ interface SuggestionsStepProps {
   onRegenerate:     (onlyUnselected?: boolean) => void
   onConfirm:        () => void
   onBack:           () => void
-}
-
-function formatWeekRange(weekStart: string): string {
-  const start = new Date(weekStart + 'T12:00:00Z')
-  const end = new Date(start)
-  end.setDate(start.getDate() + 6)
-  const fmt = (d: Date) =>
-    d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
-  return `${fmt(start)} – ${fmt(end)}`
 }
 
 type RegeneratePromptState = 'none' | 'prompt'

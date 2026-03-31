@@ -152,12 +152,12 @@ function parseFraction(s: string): number | null {
   // Mixed number like "1½" or "1 1/2"
   const mixedMatch = s.match(/^(\d+)\s*([½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞]|(\d+\/\d+))/)
   if (mixedMatch) {
-    const whole = parseInt(mixedMatch[1], 10)
-    const frac = mixedMatch[2]
-    if (frac in unicodeFractions) return whole + unicodeFractions[frac]
+    const whole = parseInt(mixedMatch[1]!, 10)
+    const frac = mixedMatch[2]!
+    if (frac in unicodeFractions) return whole + unicodeFractions[frac]!
     if (frac.includes('/')) {
       const [n, d] = frac.split('/').map(Number)
-      return whole + n / d
+      return whole + n! / d!
     }
   }
   // Unicode fraction alone
@@ -166,10 +166,10 @@ function parseFraction(s: string): number | null {
   }
   // Simple fraction
   const fracMatch = s.match(/^(\d+)\/(\d+)$/)
-  if (fracMatch) return parseInt(fracMatch[1], 10) / parseInt(fracMatch[2], 10)
+  if (fracMatch) return parseInt(fracMatch[1]!, 10) / parseInt(fracMatch[2]!, 10)
   // Range like "2-3" → take lower
   const rangeMatch = s.match(/^(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$/)
-  if (rangeMatch) return parseFloat(rangeMatch[1])
+  if (rangeMatch) return parseFloat(rangeMatch[1]!)
   // Plain number
   const n = parseFloat(s)
   return isNaN(n) ? null : n
@@ -202,7 +202,7 @@ export function parseIngredientLine(line: string): ParsedIngredient {
   const amountPattern = /^(\d+(?:\.\d+)?(?:[½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞]|\s+\d+\/\d+)?(?:\/\d+)?(?:\s*[-–]\s*\d+(?:\.\d+)?)?|[½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞])\s*/
   const amountMatch = remainder.match(amountPattern)
   if (amountMatch) {
-    amount = parseFraction(amountMatch[1].trim())
+    amount = parseFraction(amountMatch[1]!.trim())
     remainder = remainder.slice(amountMatch[0].length)
   }
 
@@ -254,7 +254,7 @@ export function combineIngredients(inputs: CombineInput[]): {
 
   for (const [, group] of byName) {
     if (group.length === 1) {
-      const { parsed, recipeTitle, scaleFactor } = group[0]
+      const { parsed, recipeTitle, scaleFactor } = group[0]!
       const scaled = parsed.amount !== null ? parsed.amount * scaleFactor : null
       resolved.push({
         id:        uuidv4(),
@@ -273,7 +273,7 @@ export function combineIngredients(inputs: CombineInput[]): {
     const units = new Set(group.map((g) => g.parsed.unit))
     if (units.size === 1) {
       // Same unit (or all null) → sum
-      const [unit] = Array.from(units)
+      const unit = Array.from(units)[0] ?? null
       let total: number | null = null
       const recipeNames: string[] = []
       let isAmbiguous = false
@@ -284,7 +284,7 @@ export function combineIngredients(inputs: CombineInput[]): {
         total = (total ?? 0) + scaled
       }
       if (!isAmbiguous) {
-        const first = group[0].parsed
+        const first = group[0]!.parsed
         resolved.push({
           id:        uuidv4(),
           name:      first.rawName || first.name,
@@ -353,38 +353,6 @@ export function buildPlainTextList(
     .join('\n')
 }
 
-// ── Week helpers ──────────────────────────────────────────────────────────────
+// ── Week helpers (re-exported from date-utils) ───────────────────────────────
 
-/** Return the most recent Sunday (or today if Sunday) as "YYYY-MM-DD". */
-export function getCurrentWeekSunday(): string {
-  const now = new Date()
-  const day = now.getUTCDay() // 0=Sun
-  const diff = day // days back to Sunday
-  const sunday = new Date(now)
-  sunday.setUTCDate(now.getUTCDate() - diff)
-  return sunday.toISOString().slice(0, 10)
-}
-
-/** Add N days to a YYYY-MM-DD string and return the new date string. */
-export function addDays(dateStr: string, days: number): string {
-  const d = new Date(`${dateStr}T00:00:00Z`)
-  d.setUTCDate(d.getUTCDate() + days)
-  return d.toISOString().slice(0, 10)
-}
-
-/** Format a flexible date range as "Mar 1 – Mar 14". */
-export function formatDateRangeLabel(from: string, to: string): string {
-  const start = new Date(`${from}T00:00:00Z`)
-  const end   = new Date(`${to}T00:00:00Z`)
-  const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', timeZone: 'UTC' }
-  return `${start.toLocaleDateString('en-US', opts)} – ${end.toLocaleDateString('en-US', opts)}`
-}
-
-/** Format ISO date range as "Mar 1 – Mar 7". */
-export function formatWeekLabel(weekStart: string): string {
-  const start = new Date(`${weekStart}T00:00:00Z`)
-  const end = new Date(start)
-  end.setUTCDate(end.getUTCDate() + 6)
-  const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', timeZone: 'UTC' }
-  return `${start.toLocaleDateString('en-US', opts)} – ${end.toLocaleDateString('en-US', opts)}`
-}
+export { getMostRecentSunday as getCurrentWeekSunday, addDays, formatDateRange as formatDateRangeLabel, formatWeekRange as formatWeekLabel } from '@/lib/date-utils'

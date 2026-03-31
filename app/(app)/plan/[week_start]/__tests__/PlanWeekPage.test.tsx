@@ -54,9 +54,9 @@ vi.mock('next/link', () => ({
 }))
 
 // Fixed current Sunday so cap tests are deterministic
-vi.mock('@/lib/grocery', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/grocery')>()
-  return { ...actual, getCurrentWeekSunday: () => '2026-03-15' }
+vi.mock('@/lib/date-utils', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/date-utils')>()
+  return { ...actual, getMostRecentSunday: () => '2026-03-15' }
 })
 
 import PlanWeekPage from '../page'

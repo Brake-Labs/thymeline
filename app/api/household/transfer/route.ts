@@ -1,29 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-import { resolveHouseholdScope } from '@/lib/household'
+import { NextResponse } from 'next/server'
+import { withAuth } from '@/lib/auth'
+import { transferOwnershipSchema, parseBody } from '@/lib/schemas'
 
 // ── POST /api/household/transfer — transfer ownership ─────────────────────────
 
-export async function POST(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+export const POST = withAuth(async (req, { user, db, ctx }) => {
+  const { data: body, error: parseError } = await parseBody(req, transferOwnershipSchema)
+  if (parseError) return parseError
 
-  let body: { new_owner_id?: string }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
-
-  if (!body.new_owner_id) {
-    return NextResponse.json({ error: 'new_owner_id is required' }, { status: 400 })
-  }
-
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
   if (!ctx) {
     return NextResponse.json({ error: 'Not in a household' }, { status: 404 })
   }
@@ -64,4 +48,4 @@ export async function POST(req: NextRequest) {
     .eq('id', ctx.householdId)
 
   return NextResponse.json({ new_owner_id: body.new_owner_id, previous_owner_id: user.id })
-}
+})

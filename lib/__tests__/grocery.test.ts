@@ -177,7 +177,7 @@ describe('T10 - Scale factor doubles amounts at 4 people (base 2)', () => {
       { parsed: parseIngredientLine('200g pasta'), recipeTitle: 'Pasta', scaleFactor: 2 },
     ]
     const { resolved } = combineIngredients(inputs)
-    expect(resolved[0].amount).toBe(400)
+    expect(resolved[0]!.amount).toBe(400)
   })
 })
 

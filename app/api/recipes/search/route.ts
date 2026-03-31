@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-import { resolveHouseholdScope } from '@/lib/household'
+import { withAuth } from '@/lib/auth'
 import { anthropic } from '@/lib/llm'
+import { searchRecipesSchema, parseBody } from '@/lib/schemas'
 import type { RecipeFilters } from '@/types'
 
 function applyFilters(
@@ -24,27 +24,14 @@ function applyFilters(
   })
 }
 
-export async function POST(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  let body: { query?: string; filters?: RecipeFilters }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
+export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
+  const { data: body, error: parseError } = await parseBody(req, searchRecipesSchema)
+  if (parseError) return parseError
 
   const query = body.query?.trim() ?? ''
   if (!query) {
     return NextResponse.json({ results: [] })
   }
-
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
 
   let recipesQuery = db
     .from('recipes')
@@ -106,7 +93,7 @@ Return ONLY a JSON array of recipe_id strings, e.g. ["uuid1","uuid2"]. No other 
       temperature: 0,
       messages: [{ role: 'user', content: prompt }],
     })
-    const rawText = response.content[0].type === 'text' ? response.content[0].text : '[]'
+    const rawText = response.content[0]?.type === 'text' ? response.content[0].text : '[]'
     const cleaned = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
     const parsed = JSON.parse(cleaned)
     rankedIds = Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : []
@@ -119,7 +106,8 @@ Return ONLY a JSON array of recipe_id strings, e.g. ["uuid1","uuid2"]. No other 
   const validRankedIds = rankedIds.filter((id) => validIdSet.has(id))
 
   // Build candidate set in ranked order with full filter data
-  const recipeMap = new Map(
+  type Candidate = { recipe_id: string; recipe_title: string; tags: string[]; category: string; total_time_minutes: number | null; last_made: string | null }
+  const recipeMap = new Map<string, Candidate>(
     allRecipes.map((r) => [r.id, {
       recipe_id: r.id,
       recipe_title: r.title,
@@ -130,7 +118,7 @@ Return ONLY a JSON array of recipe_id strings, e.g. ["uuid1","uuid2"]. No other 
     }])
   )
 
-  let candidates = validRankedIds.map((id) => recipeMap.get(id)!)
+  let candidates: Candidate[] = validRankedIds.map((id) => recipeMap.get(id)!)
 
   // Apply filters if provided
   if (body.filters) {
@@ -143,4 +131,4 @@ Return ONLY a JSON array of recipe_id strings, e.g. ["uuid1","uuid2"]. No other 
   }))
 
   return NextResponse.json({ results })
-}
+})

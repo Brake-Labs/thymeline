@@ -88,13 +88,13 @@ describe('T12 - Section Save sends only its own fields', () => {
     // Click first Save button (Planning Defaults section)
     const saveButtons = screen.getAllByText('Save')
     await act(async () => {
-      fireEvent.click(saveButtons[0])
+      fireEvent.click(saveButtons[0]!)
     })
 
     await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2))
 
     const patchCall = mockFetch.mock.calls.find(
-      ([, opts]: [string, RequestInit]) => opts?.method === 'PATCH'
+      (call: unknown[]) => (call[1] as RequestInit)?.method === 'PATCH'
     )
     expect(patchCall).toBeDefined()
     const body = JSON.parse(patchCall![1].body as string)
@@ -116,13 +116,13 @@ describe('T12 - Section Save sends only its own fields', () => {
     // Last Save button = Seasonal Mode section
     const saveButtons = screen.getAllByText('Save')
     await act(async () => {
-      fireEvent.click(saveButtons[saveButtons.length - 1])
+      fireEvent.click(saveButtons[saveButtons.length - 1]!)
     })
 
     await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2))
 
     const patchCall = mockFetch.mock.calls.find(
-      ([, opts]: [string, RequestInit]) => opts?.method === 'PATCH'
+      (call: unknown[]) => (call[1] as RequestInit)?.method === 'PATCH'
     )
     const body = JSON.parse(patchCall![1].body as string)
     expect(body).toHaveProperty('seasonal_mode')
@@ -144,7 +144,7 @@ describe('T13 - Saved ✓ success state', () => {
 
     const saveButtons = screen.getAllByText('Save')
     await act(async () => {
-      fireEvent.click(saveButtons[0])
+      fireEvent.click(saveButtons[0]!)
     })
 
     await waitFor(() => {

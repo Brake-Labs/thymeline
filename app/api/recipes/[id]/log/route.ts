@@ -1,23 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
+import { withAuth } from '@/lib/auth'
+import { createAdminClient } from '@/lib/supabase-server'
 import { parseIngredientLine } from '@/lib/grocery'
+import { logRecipeSchema, deleteLogSchema, parseBody } from '@/lib/schemas'
+import { getTodayISO } from '@/lib/date-utils'
 
-interface RouteContext {
-  params: { id: string }
-}
+export const POST = withAuth(async (req: NextRequest, { user, db }, params) => {
+  const { id } = params
 
-export async function POST(req: NextRequest, { params }: RouteContext) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  // Verify the recipe exists and the user can access it (RLS enforces shared/owned)
-  const { data: recipe, error: fetchError } = await supabase
+  // Verify the recipe exists and the user can access it
+  const { data: recipe, error: fetchError } = await db
     .from('recipes')
     .select('id')
-    .eq('id', params.id)
+    .eq('id', id)
     .single()
 
   if (fetchError || !recipe) {
@@ -25,18 +20,13 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   }
 
   // Accept optional made_on from body; default to today
-  const today = new Date().toISOString().split('T')[0]
-  let madeOn = today
-  try {
-    const body = await req.json()
-    if (body.made_on && typeof body.made_on === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.made_on)) {
-      madeOn = body.made_on
-    }
-  } catch { /* no body — use today */ }
+  const today = getTodayISO()
+  const { data: body } = await parseBody(req, logRecipeSchema)
+  const madeOn = body?.made_on ?? today
 
-  const { error: insertError } = await supabase
+  const { error: insertError } = await db
     .from('recipe_history')
-    .insert({ recipe_id: params.id, user_id: user.id, made_on: madeOn })
+    .insert({ recipe_id: id, user_id: user.id, made_on: madeOn })
 
   // Unique constraint violation = already logged today — treat as idempotent
   const alreadyLogged =
@@ -48,10 +38,10 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   }
 
   // Silent pantry deduction — fire and forget, never affects the HTTP response
-  void deductPantryIngredients(params.id, user.id).catch(() => {})
+  if (id) void deductPantryIngredients(id, user.id).catch(() => {})
 
   return NextResponse.json({ made_on: madeOn, already_logged: alreadyLogged })
-}
+})
 
 // Pattern for clearly singular quantities (null quantity is also deductible)
 const SINGULAR_QTY_PATTERN = /^\d+\s*(can|cans|lb|lbs|oz|piece|pieces|item|items|pack|packs)$/i
@@ -103,28 +93,16 @@ async function deductPantryIngredients(recipeId: string, userId: string): Promis
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: RouteContext) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+export const DELETE = withAuth(async (req: NextRequest, { user, db }, params) => {
+  const { id } = params
 
-  let body: { made_on?: string }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
+  const { data: body, error: parseError } = await parseBody(req, deleteLogSchema)
+  if (parseError) return parseError
 
-  if (!body.made_on || !/^\d{4}-\d{2}-\d{2}$/.test(body.made_on)) {
-    return NextResponse.json({ error: 'made_on (YYYY-MM-DD) is required' }, { status: 400 })
-  }
-
-  const { error: deleteError } = await supabase
+  const { error: deleteError } = await db
     .from('recipe_history')
     .delete()
-    .eq('recipe_id', params.id)
+    .eq('recipe_id', id)
     .eq('user_id', user.id)
     .eq('made_on', body.made_on)
 
@@ -133,4 +111,4 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
   }
 
   return new NextResponse(null, { status: 204 })
-}
+})

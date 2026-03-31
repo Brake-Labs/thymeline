@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase-server'
+import { NextResponse } from 'next/server'
+import { withAuth } from '@/lib/auth'
 
 /**
  * Restores is_active = true for a user who was previously provisioned.
@@ -13,15 +13,9 @@ import { createServerClient } from '@/lib/supabase-server'
  * This handles accounts where both onboarding_completed and is_active were
  * corrupted to false by the old plain-upsert bug in invite/consume.
  */
-export async function POST(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+export const POST = withAuth(async (req, { user, db }) => {
   // Check whether a preferences row exists for this user
-  const { error: prefsError } = await supabase
+  const { error: prefsError } = await db
     .from('user_preferences')
     .select('user_id')
     .eq('user_id', user.id)
@@ -35,7 +29,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: prefsError.message }, { status: 500 })
   }
 
-  const { error } = await supabase
+  const { error } = await db
     .from('user_preferences')
     .update({ is_active: true })
     .eq('user_id', user.id)
@@ -45,4 +39,4 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ success: true })
-}
+})

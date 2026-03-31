@@ -1,34 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
+import { NextResponse } from 'next/server'
+import { withAuth } from '@/lib/auth'
+import { importPantrySchema, parseBody } from '@/lib/schemas'
 import { assignSection } from '@/lib/grocery'
-
-interface ImportItem {
-  name: string
-  quantity: string | null
-  section: string | null
-}
 
 // ── POST /api/pantry/import ───────────────────────────────────────────────────
 
-export async function POST(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  let body: { items?: ImportItem[] }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
-
-  if (!Array.isArray(body.items) || body.items.length === 0) {
-    return NextResponse.json({ error: 'items array is required' }, { status: 400 })
-  }
-
-  const db = createAdminClient()
+export const POST = withAuth(async (req, { user, db }) => {
+  const { data: body, error: parseError } = await parseBody(req, importPantrySchema)
+  if (parseError) return parseError
 
   // Fetch existing pantry items for this user (for dedup check)
   const { data: existing } = await db
@@ -47,7 +26,6 @@ export async function POST(req: NextRequest) {
   const now = new Date().toISOString()
 
   for (const item of body.items) {
-    if (!item.name || typeof item.name !== 'string') continue
     const normalizedName = item.name.trim().toLowerCase()
     const section = item.section ?? assignSection(item.name.trim())
     const existingId = existingByName.get(normalizedName)
@@ -75,4 +53,4 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ imported, updated })
-}
+})

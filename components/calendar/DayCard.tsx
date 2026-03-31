@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import MealSlot from './MealSlot'
+import { getDayAbbrev, formatShortDate as getMonthDay, isTodayLocal as isTodayDate } from '@/lib/date-utils'
 import type { PlanEntry, MealType } from '@/types'
 
 const MEAL_TYPE_ORDER: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack']
@@ -13,24 +14,6 @@ interface DayCardProps {
   onToggle:      () => void
   onAddEntry:    (date: string, mealType: MealType, recipeId: string, recipeTitle: string, isSideDish?: boolean, parentEntryId?: string) => void
   onDeleteEntry: (entryId: string) => void
-}
-
-function getDayAbbrev(dateStr: string): string {
-  return new Date(dateStr + 'T12:00:00Z').toLocaleDateString('en-US', {
-    weekday: 'short', timeZone: 'UTC',
-  })
-}
-
-function getMonthDay(dateStr: string): string {
-  return new Date(dateStr + 'T12:00:00Z').toLocaleDateString('en-US', {
-    month: 'short', day: 'numeric', timeZone: 'UTC',
-  })
-}
-
-function isTodayDate(dateStr: string): boolean {
-  const today = new Date()
-  const local = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-  return dateStr === local
 }
 
 export default function DayCard({ date, entries, isExpanded, onToggle, onAddEntry, onDeleteEntry }: DayCardProps) {

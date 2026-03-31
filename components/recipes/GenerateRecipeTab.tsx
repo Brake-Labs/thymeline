@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { getSupabaseClient } from '@/lib/supabase/browser'
 import { DIETARY_TAGS } from '@/lib/tags'
-import type { GeneratedRecipe, MealTypeInput, PantryItem } from '@/types'
+import type { GeneratedRecipe, MealType, PantryItem } from '@/types'
 
 interface GenerateRecipeTabProps {
   getToken:               () => Promise<string> | string
@@ -12,7 +12,7 @@ interface GenerateRecipeTabProps {
   initialIngredients?:    string
 }
 
-const MEAL_TYPES: { value: MealTypeInput; label: string }[] = [
+const MEAL_TYPES: { value: MealType; label: string }[] = [
   { value: 'breakfast', label: 'Breakfast' },
   { value: 'lunch',     label: 'Lunch' },
   { value: 'dinner',    label: 'Dinner' },
@@ -31,7 +31,7 @@ export default function GenerateRecipeTab({
   const [pantryLoading, setPantryLoading] = useState(false)
   const [pantryExpanded, setPantryExpanded] = useState(false)
   const [specificIngredients, setSpecificIngredients] = useState(initialIngredients)
-  const [mealType, setMealType] = useState<MealTypeInput>('dinner')
+  const [mealType, setMealType] = useState<MealType>('dinner')
   const [styleHints, setStyleHints] = useState('')
   const [dietaryRestrictions, setDietaryRestrictions] = useState<string[]>([])
   const [generating, setGenerating] = useState(false)

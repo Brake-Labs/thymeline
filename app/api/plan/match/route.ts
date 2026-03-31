@@ -1,26 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-import { resolveHouseholdScope } from '@/lib/household'
+import { withAuth } from '@/lib/auth'
+import { matchSchema, parseBody } from '@/lib/schemas'
 import { callLLMNonStreaming } from '../helpers'
 
-export async function POST(req: NextRequest) {
-  const supabase = createServerClient(req)
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  let body: { query: string; date: string }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
-  }
+export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
+  const { data: body, error: parseError } = await parseBody(req, matchSchema)
+  if (parseError) return parseError
 
   const { query } = body
-
-  const db = createAdminClient()
-  const ctx = await resolveHouseholdScope(db, user.id)
 
   // Fetch all recipes scoped by household or user (all categories)
   let recipesQ = db.from('recipes').select('id, title, tags')
@@ -47,10 +34,12 @@ export async function POST(req: NextRequest) {
       ),
     )
     if (keywordMatches.length === 1) {
-      return NextResponse.json({ match: { recipe_id: keywordMatches[0].id, recipe_title: keywordMatches[0].title } })
+      const m = keywordMatches[0]!
+      return NextResponse.json({ match: { recipe_id: m.id, recipe_title: m.title } })
     }
     // Multiple keyword matches: pass only those to the LLM to narrow down
     if (keywordMatches.length > 1) {
+      const first = keywordMatches[0]!
       try {
         const systemMessage = `You are helping find a recipe from a user's personal recipe vault.
 Pick the single best match from the list for the search phrase. Return ONLY valid JSON: { "recipe_id": "uuid" }`
@@ -60,9 +49,9 @@ Pick the single best match from the list for the search phrase. Return ONLY vali
         const found = keywordMatches.find((r) => r.id === parsed.recipe_id)
         if (found) return NextResponse.json({ match: { recipe_id: found.id, recipe_title: found.title } })
         // Fall through to return first keyword match if LLM fails
-        return NextResponse.json({ match: { recipe_id: keywordMatches[0].id, recipe_title: keywordMatches[0].title } })
+        return NextResponse.json({ match: { recipe_id: first.id, recipe_title: first.title } })
       } catch {
-        return NextResponse.json({ match: { recipe_id: keywordMatches[0].id, recipe_title: keywordMatches[0].title } })
+        return NextResponse.json({ match: { recipe_id: first.id, recipe_title: first.title } })
       }
     }
   }
@@ -96,4 +85,4 @@ Recipes: ${JSON.stringify(recipeList)}`
     console.error('LLM match error:', err)
     return NextResponse.json({ match: null })
   }
-}
+})

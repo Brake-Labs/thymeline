@@ -3,36 +3,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import DayCard from './DayCard'
 import { getAccessToken } from '@/lib/supabase/browser'
+import { getMostRecentSunday, addWeeks, getWeekDates, formatWeekRange } from '@/lib/date-utils'
 import type { PlanEntry, MealType } from '@/types'
-
-function getMostRecentSunday(): string {
-  const d = new Date()
-  d.setDate(d.getDate() - d.getDay())
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-function addWeeks(dateStr: string, weeks: number): string {
-  const d = new Date(dateStr + 'T12:00:00Z')
-  d.setDate(d.getDate() + weeks * 7)
-  return d.toISOString().split('T')[0]
-}
-
-function getWeekDates(weekStart: string): string[] {
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(weekStart + 'T12:00:00Z')
-    d.setDate(d.getDate() + i)
-    return d.toISOString().split('T')[0]
-  })
-}
-
-function formatWeekRange(weekStart: string): string {
-  const start = new Date(weekStart + 'T12:00:00Z')
-  const end = new Date(start)
-  end.setDate(start.getDate() + 6)
-  const fmt = (d: Date) =>
-    d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
-  return `${fmt(start)} – ${fmt(end)}`
-}
 
 export default function WeekCalendar() {
   const currentSunday = getMostRecentSunday()

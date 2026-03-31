@@ -55,7 +55,7 @@ function MealItem({ entry, indented, onDelete }: MealItemProps) {
   )
 }
 
-export default function MealSlot({ mealType, entries, onAdd, onDelete, onAddSideDish }: MealSlotProps) {
+export default function MealSlot({ mealType, entries, onAdd, onDelete }: MealSlotProps) {
   const [vaultOpen, setVaultOpen] = useState(false)
   const [sideDishVaultForParent, setSideDishVaultForParent] = useState<string | null>(null)
   const [dessertVaultForParent, setDessertVaultForParent] = useState<string | null>(null)

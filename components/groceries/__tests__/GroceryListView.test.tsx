@@ -6,6 +6,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import type { GroceryList } from '@/types'
 
 vi.mock('@/lib/supabase/browser', () => ({
   getAccessToken: async () => 'mock-token',
@@ -18,7 +19,7 @@ vi.mock('next/navigation', () => ({
 const mockFetch = vi.fn()
 vi.stubGlobal('fetch', mockFetch)
 
-const sampleList = {
+const sampleList: GroceryList = {
   id:            'list-1',
   user_id:       'user-1',
   meal_plan_id:  'plan-1',
@@ -90,7 +91,7 @@ describe('T21 - Remove item removes from list and saves', () => {
   it('calls PATCH when a remove button is clicked', async () => {
     render(<GroceryListView initialList={sampleList} />)
     // Hover to reveal the × button
-    const removeBtn = screen.getAllByLabelText(/Remove/)[0]
+    const removeBtn = screen.getAllByLabelText(/Remove/)[0]!
     fireEvent.click(removeBtn)
     await waitFor(() => {
       const patchCalls = mockFetch.mock.calls.filter(([, opts]) => opts?.method === 'PATCH')
@@ -177,7 +178,7 @@ describe('T18 - Confirming regenerate replaces items and resets recipe_scales', 
     // Click the confirm button inside the dialog
     const confirmBtn = screen.getAllByText('Regenerate').find((el) =>
       el.closest('[class*="flex gap-3"]'),
-    ) ?? screen.getAllByText('Regenerate')[1]
+    ) ?? screen.getAllByText('Regenerate')[1]!
     fireEvent.click(confirmBtn)
 
     await waitFor(() => {
@@ -195,13 +196,13 @@ describe('T33 - Got it button marks item as bought', () => {
   it('moves item to Got it section and calls PATCH with bought:true', async () => {
     render(<GroceryListView initialList={sampleList} />)
 
-    const gotItBtn = screen.getAllByLabelText(/Got it pasta/i)[0]
+    const gotItBtn = screen.getAllByLabelText(/Got it pasta/i)[0]!
     fireEvent.click(gotItBtn)
 
     await waitFor(() => {
       const patchCalls = mockFetch.mock.calls.filter(([, opts]) => opts?.method === 'PATCH')
       expect(patchCalls.length).toBeGreaterThan(0)
-      const body = JSON.parse(patchCalls[0][1].body)
+      const body = JSON.parse(patchCalls[0]![1].body)
       const pastaItem = body.items.find((i: { name: string }) => i.name === 'pasta')
       expect(pastaItem?.bought).toBe(true)
     })
@@ -212,24 +213,24 @@ describe('T33 - Got it button marks item as bought', () => {
 
     // Find the "Mark all as bought" button for Pasta
     const markAllBtns = screen.getAllByText('Mark all as bought')
-    fireEvent.click(markAllBtns[0])
+    fireEvent.click(markAllBtns[0]!)
 
     await waitFor(() => {
       const patchCalls = mockFetch.mock.calls.filter(([, opts]) => opts?.method === 'PATCH')
       expect(patchCalls.length).toBeGreaterThan(0)
-      const body = JSON.parse(patchCalls[0][1].body)
+      const body = JSON.parse(patchCalls[0]![1].body)
       const pastaItems = body.items.filter((i: { recipes: string[] }) => i.recipes.includes('Pasta'))
       expect(pastaItems.every((i: { bought: boolean }) => i.bought)).toBe(true)
     })
   })
 
   it('shows Got it section with bought items and Undo button', () => {
-    const listWithBought = {
+    const listWithBought: GroceryList = {
       ...sampleList,
       items: [
-        { ...sampleList.items[0], bought: true },
-        sampleList.items[1],
-        sampleList.items[2],
+        { ...sampleList.items[0]!, bought: true },
+        sampleList.items[1]!,
+        sampleList.items[2]!,
       ],
     }
     render(<GroceryListView initialList={listWithBought} />)
@@ -245,7 +246,7 @@ describe('T34 - Got it auto-imports item into pantry', () => {
   it('fires POST /api/pantry/import silently when item is marked bought', async () => {
     render(<GroceryListView initialList={sampleList} />)
 
-    const gotItBtn = screen.getAllByLabelText(/Got it pasta/i)[0]
+    const gotItBtn = screen.getAllByLabelText(/Got it pasta/i)[0]!
     fireEvent.click(gotItBtn)
 
     await waitFor(() => {
@@ -253,15 +254,15 @@ describe('T34 - Got it auto-imports item into pantry', () => {
         typeof url === 'string' && url.includes('/api/pantry/import'),
       )
       expect(importCalls.length).toBeGreaterThan(0)
-      const body = JSON.parse(importCalls[0][1].body)
+      const body = JSON.parse(importCalls[0]![1].body)
       expect(body.items[0].name).toBe('pasta')
     })
   })
 
   it('does not fire pantry import when item is unmarked (bought → false)', async () => {
-    const listWithBought = {
+    const listWithBought: GroceryList = {
       ...sampleList,
-      items: [{ ...sampleList.items[0], bought: true }, sampleList.items[1], sampleList.items[2]],
+      items: [{ ...sampleList.items[0]!, bought: true }, sampleList.items[1]!, sampleList.items[2]!],
     }
     render(<GroceryListView initialList={listWithBought} />)
 
@@ -292,7 +293,7 @@ describe('T22 - Share invokes Web Share API with correct format', () => {
 
     await waitFor(() => {
       expect(shareMock).toHaveBeenCalled()
-      const args = shareMock.mock.calls[0][0]
+      const args = shareMock.mock.calls[0]![0]
       // Each item on its own line, no headers or bullets
       const lines = args.text.split('\n')
       expect(lines.length).toBeGreaterThan(0)
@@ -306,12 +307,12 @@ describe('T22 - Share invokes Web Share API with correct format', () => {
     const shareMock = vi.fn().mockResolvedValue(undefined)
     vi.stubGlobal('navigator', { ...navigator, share: shareMock })
 
-    const listWithBought = {
+    const listWithBought: GroceryList = {
       ...sampleList,
       items: [
-        { ...sampleList.items[0], bought: true },   // pasta — bought, should be excluded
-        { ...sampleList.items[1], bought: false },  // lettuce — not bought, should be included
-        sampleList.items[2],
+        { ...sampleList.items[0]!, bought: true },   // pasta — bought, should be excluded
+        { ...sampleList.items[1]!, bought: false },  // lettuce — not bought, should be included
+        sampleList.items[2]!,
       ],
     }
 
@@ -320,7 +321,7 @@ describe('T22 - Share invokes Web Share API with correct format', () => {
 
     await waitFor(() => {
       expect(shareMock).toHaveBeenCalled()
-      const { text } = shareMock.mock.calls[0][0]
+      const { text } = shareMock.mock.calls[0]![0]
       expect(text).not.toContain('pasta')
       expect(text).toContain('lettuce')
     })

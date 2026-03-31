@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import RecipeForm, { RecipeFormValues } from './RecipeForm'
+import type { PendingNewTag } from './TagSelector'
 
 type Tab = 'url' | 'manual'
 
@@ -20,7 +21,7 @@ interface ScrapeResult {
   sourceUrl: string
   partial: boolean
   suggestedTags:       string[]
-  suggestedNewTags:    { name: string; section: string }[]
+  suggestedNewTags:    PendingNewTag[]
   prepTimeMinutes:     number | null
   cookTimeMinutes:     number | null
   totalTimeMinutes:    number | null

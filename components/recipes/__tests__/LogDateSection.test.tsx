@@ -44,7 +44,7 @@ describe('LogDateSection - Today button', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Today' }))
 
     await waitFor(() => {
-      const [url, opts] = mockFetch.mock.calls[0]
+      const [url, opts] = mockFetch.mock.calls[0]!
       expect(url).toContain('/api/recipes/recipe-1/log')
       expect(JSON.parse(opts.body).made_on).toBe(today)
     })
@@ -61,7 +61,7 @@ describe('LogDateSection - Today button', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Yesterday' }))
 
     await waitFor(() => {
-      const [, opts] = mockFetch.mock.calls[0]
+      const [, opts] = mockFetch.mock.calls[0]!
       expect(JSON.parse(opts.body).made_on).toBe(yesterday)
     })
   })
@@ -139,7 +139,7 @@ describe('LogDateSection - Pick a date', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Log' }))
 
     await waitFor(() => {
-      const [, opts] = mockFetch.mock.calls[0]
+      const [, opts] = mockFetch.mock.calls[0]!
       expect(JSON.parse(opts.body).made_on).toBe('2025-11-01')
     })
   })
