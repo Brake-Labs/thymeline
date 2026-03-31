@@ -10,6 +10,7 @@ import {
   PROTEIN_TAGS,
 } from '@/lib/tags'
 import { CATEGORY_OPTIONS } from '@/lib/category-labels'
+import { toDateString } from '@/lib/date-utils'
 
 const KNOWN_TAGS = new Set<string>([
   ...STYLE_TAGS,
@@ -74,7 +75,6 @@ export default function FilterPanel({
   function applyPreset(preset: string) {
     setLastMadePreset(preset)
     const today = new Date()
-    const fmt = (d: Date) => d.toISOString().split('T')[0]!
 
     if (preset === 'never') {
       onPendingChange({ ...pendingFilters, neverMade: true, lastMadeFrom: null, lastMadeTo: null })
@@ -83,13 +83,13 @@ export default function FilterPanel({
 
     let from: string | null = null
     if (preset === 'week') {
-      const d = new Date(today); d.setDate(d.getDate() - 7); from = fmt(d)
+      const d = new Date(today); d.setDate(d.getDate() - 7); from = toDateString(d)
     } else if (preset === 'month') {
-      const d = new Date(today); d.setMonth(d.getMonth() - 1); from = fmt(d)
+      const d = new Date(today); d.setMonth(d.getMonth() - 1); from = toDateString(d)
     } else if (preset === '3months') {
-      const d = new Date(today); d.setMonth(d.getMonth() - 3); from = fmt(d)
+      const d = new Date(today); d.setMonth(d.getMonth() - 3); from = toDateString(d)
     }
-    onPendingChange({ ...pendingFilters, neverMade: false, lastMadeFrom: from, lastMadeTo: fmt(today) })
+    onPendingChange({ ...pendingFilters, neverMade: false, lastMadeFrom: from, lastMadeTo: toDateString(today) })
   }
 
   const otherTags = vaultTags.filter((t) => !KNOWN_TAGS.has(t))

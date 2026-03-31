@@ -4,22 +4,10 @@ import { useState, useEffect, useCallback } from 'react'
 import { GroceryList } from '@/types'
 import GroceryListView from './GroceryListView'
 import { getAccessToken } from '@/lib/supabase/browser'
-import { addDays } from '@/lib/grocery'
-
-function getSunday(d: Date): string {
-  const copy = new Date(d)
-  copy.setDate(copy.getDate() - copy.getDay())
-  return copy.toISOString().slice(0, 10)
-}
-
-function formatDate(s: string) {
-  return new Date(s + 'T12:00:00Z').toLocaleDateString('en-US', {
-    month: 'short', day: 'numeric', timeZone: 'UTC',
-  })
-}
+import { getMostRecentSunday, addDays, formatShortDate as formatDate } from '@/lib/date-utils'
 
 export default function GroceriesPageClient() {
-  const thisSunday = getSunday(new Date())
+  const thisSunday = getMostRecentSunday()
   const nextSunday = addDays(thisSunday, 7)
 
   const [dateFrom, setDateFrom] = useState(thisSunday)

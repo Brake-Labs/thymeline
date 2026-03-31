@@ -13,6 +13,7 @@ export const MEAL_TYPE_CATEGORIES: Record<MealType, string[]> = {
 // ── Week helpers ───────────────────────────────────────────────────────────────
 
 export { getMostRecentSunday, isSunday } from '@/lib/date-utils'
+import { toDateString } from '@/lib/date-utils'
 
 // ── Season helpers ─────────────────────────────────────────────────────────────
 
@@ -53,7 +54,7 @@ export async function fetchCooldownFilteredRecipes(
   const today = new Date()
   const cutoff = new Date(today)
   cutoff.setDate(cutoff.getDate() - cooldownDays)
-  const cutoffStr = cutoff.toISOString().split('T')[0]
+  const cutoffStr = toDateString(cutoff)
 
   // Parallelize recipe fetch and history fetch — they are independent
   const [{ data: recipes }, { data: history }] = await Promise.all([
@@ -83,7 +84,7 @@ export async function fetchRecipesByMealTypes(
   const today = new Date()
   const cutoff = new Date(today)
   cutoff.setDate(cutoff.getDate() - cooldownDays)
-  const cutoffStr = cutoff.toISOString().split('T')[0]
+  const cutoffStr = toDateString(cutoff)
 
   // Fetch history ONCE (shared across all meal types) in parallel with all recipe queries
   const historyPromise = supabase

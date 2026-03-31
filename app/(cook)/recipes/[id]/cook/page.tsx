@@ -9,6 +9,7 @@ import VoiceControl, { type VoiceCommand } from '@/components/cook/VoiceControl'
 import ActiveTimersBar from '@/components/cook/ActiveTimersBar'
 import { type TimerState, deriveTimerLabel } from '@/components/cook/StepTimer'
 import { getAccessToken } from '@/lib/supabase/browser'
+import { getTodayISO } from '@/lib/date-utils'
 import { type Recipe } from '@/types'
 
 type RecipeWithHistory = Recipe & { last_made: string | null; times_made: number }
@@ -164,7 +165,7 @@ export default function CookModePage({ params }: Props) {
   async function handleLog() {
     setLogStatus('loading')
     try {
-      const today = new Date().toISOString().split('T')[0]
+      const today = getTodayISO()
       const res = await fetch(`/api/recipes/${params.id}/log`, {
         method: 'POST',
         headers: {

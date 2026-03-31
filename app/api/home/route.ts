@@ -1,18 +1,10 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
+import { getMostRecentSunday } from '@/lib/date-utils'
 import type { HomeData, RecipeJoinResult } from '@/types'
 
-function getCurrentWeekStart(): string {
-  const now = new Date()
-  const day = now.getUTCDay()
-  const diff = day === 0 ? 6 : day - 1
-  const monday = new Date(now)
-  monday.setUTCDate(now.getUTCDate() - diff)
-  return monday.toISOString().slice(0, 10)
-}
-
 export const GET = withAuth(async (req, { user, db, ctx }) => {
-  const weekStart = getCurrentWeekStart()
+  const weekStart = getMostRecentSunday()
 
   let planQ = db.from('meal_plans').select('id, week_start').eq('week_start', weekStart)
   if (ctx) {

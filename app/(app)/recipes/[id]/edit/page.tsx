@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Recipe } from '@/types'
 import RecipeForm, { RecipeFormValues } from '@/components/recipes/RecipeForm'
 import { getAccessToken } from '@/lib/supabase/browser'
+import { getTodayISO } from '@/lib/date-utils'
 
 interface Props {
   params: { id: string }
@@ -200,7 +201,7 @@ export default function EditRecipePage({ params }: Props) {
             type="date"
             value={addDateValue}
             onChange={(e) => { setAddDateValue(e.target.value); setDateError(null) }}
-            max={new Date().toISOString().split('T')[0]}
+            max={getTodayISO()}
             className="border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500"
           />
           <button

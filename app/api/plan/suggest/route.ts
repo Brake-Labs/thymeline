@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { suggestSchema, parseBody } from '@/lib/schemas'
+import { getTodayISO } from '@/lib/date-utils'
 import {
   getSeason,
   isSunday,
@@ -26,7 +27,7 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
     return NextResponse.json({ error: 'week_start must be a Sunday' }, { status: 400 })
   }
 
-  const todayISO = new Date().toISOString().slice(0, 10)
+  const todayISO = getTodayISO()
 
   const prefs = await fetchUserPreferences(db, user.id, ctx)
   const cooldownDays = prefs?.cooldown_days ?? 28

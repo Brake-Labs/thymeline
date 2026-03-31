@@ -16,8 +16,8 @@ export default function RecipeDetailLoading() {
         <div className="rounded-xl border border-stone-200 bg-white p-6 space-y-4">
           <div className="h-5 w-28 bg-stone-200 animate-pulse rounded" />
           <div className="space-y-2">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-4 bg-stone-200 animate-pulse rounded" style={{ width: `${70 + Math.random() * 30}%` }} />
+            {['w-3/4', 'w-5/6', 'w-2/3', 'w-4/5', 'w-3/4', 'w-5/6'].map((w, i) => (
+              <div key={i} className={`h-4 bg-stone-200 animate-pulse rounded ${w}`} />
             ))}
           </div>
         </div>

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import TagSelector, { type PendingNewTag } from './TagSelector'
 import { CATEGORY_OPTIONS } from '@/lib/category-labels'
+import { getTodayISO } from '@/lib/date-utils'
 
 export interface RecipeFormValues {
   title: string
@@ -225,7 +226,7 @@ export default function RecipeForm({
           type="date"
           value={values.lastMade}
           onChange={(e) => set('lastMade', e.target.value)}
-          max={new Date().toISOString().split('T')[0]}
+          max={getTodayISO()}
           className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500"
         />
       </div>

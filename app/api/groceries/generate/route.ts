@@ -10,6 +10,7 @@ import {
   assignSection,
   isPantryStaple,
 } from '@/lib/grocery'
+import { toDateString } from '@/lib/date-utils'
 import { GroceryItem, GrocerySection, RecipeScale } from '@/types'
 
 function uuidv4(): string {
@@ -38,7 +39,7 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
     date_from = body.week_start
     const d = new Date(body.week_start + 'T12:00:00Z')
     d.setDate(d.getDate() + 6)
-    date_to = d.toISOString().slice(0, 10)
+    date_to = toDateString(d)
   } else if (body.date_from && body.date_to) {
     date_from = body.date_from
     date_to   = body.date_to

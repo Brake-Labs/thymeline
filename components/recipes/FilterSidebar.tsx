@@ -10,6 +10,7 @@ import {
   PROTEIN_TAGS,
 } from '@/lib/tags'
 import { CATEGORY_OPTIONS } from '@/lib/category-labels'
+import { toDateString, getTodayISO } from '@/lib/date-utils'
 
 const TIME_BUCKETS: { max: number | null; label: string }[] = [
   { max: null,  label: 'Any time' },
@@ -120,7 +121,6 @@ export default function FilterSidebar({ filters, onChange, onClearAll, vaultTags
 
   function applyLastMadePreset(preset: string) {
     const today = new Date()
-    const fmt = (d: Date) => d.toISOString().split('T')[0]!
 
     if (preset === 'never') {
       onChange({ ...filters, neverMade: true, lastMadeFrom: null, lastMadeTo: null })
@@ -129,13 +129,13 @@ export default function FilterSidebar({ filters, onChange, onClearAll, vaultTags
 
     let from: string | null = null
     if (preset === 'week') {
-      const d = new Date(today); d.setDate(d.getDate() - 7); from = fmt(d)
+      const d = new Date(today); d.setDate(d.getDate() - 7); from = toDateString(d)
     } else if (preset === 'month') {
-      const d = new Date(today); d.setMonth(d.getMonth() - 1); from = fmt(d)
+      const d = new Date(today); d.setMonth(d.getMonth() - 1); from = toDateString(d)
     } else if (preset === '3months') {
-      const d = new Date(today); d.setMonth(d.getMonth() - 3); from = fmt(d)
+      const d = new Date(today); d.setMonth(d.getMonth() - 3); from = toDateString(d)
     }
-    onChange({ ...filters, neverMade: false, lastMadeFrom: from, lastMadeTo: fmt(today) })
+    onChange({ ...filters, neverMade: false, lastMadeFrom: from, lastMadeTo: toDateString(today) })
   }
 
   function clearLastMade() {
@@ -162,7 +162,7 @@ export default function FilterSidebar({ filters, onChange, onClearAll, vaultTags
   const otherTags = vaultTags.filter((t) => !KNOWN_TAGS.has(t))
 
   // Derive active last-made preset key
-  const today = new Date().toISOString().split('T')[0]
+  const today = getTodayISO()
   let activeLastMadePreset: string | null = null
   if (filters.neverMade) {
     activeLastMadePreset = 'never'

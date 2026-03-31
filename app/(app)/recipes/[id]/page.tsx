@@ -11,6 +11,7 @@ import ShareToggle from '@/components/recipes/ShareToggle'
 import AIGeneratedBadge from '@/components/recipes/AIGeneratedBadge'
 import GenerateRecipeModal from '@/components/recipes/GenerateRecipeModal'
 import { getAccessToken, getSupabaseClient } from '@/lib/supabase/browser'
+import { getTodayISO } from '@/lib/date-utils'
 import { convertIngredients } from '@/lib/convert-units'
 
 type RecipeWithHistory = Recipe & { last_made: string | null; times_made: number }
@@ -68,7 +69,7 @@ export default function RecipeDetailPage({ params }: Props) {
   }, [params.id])
 
   function openLogModal() {
-    setLogDate(new Date().toISOString().split('T')[0]!)
+    setLogDate(getTodayISO())
     setShowLogModal(true)
   }
 
@@ -407,7 +408,7 @@ export default function RecipeDetailPage({ params }: Props) {
             <input
               type="date"
               value={logDate}
-              max={new Date().toISOString().split('T')[0]}
+              max={getTodayISO()}
               onChange={(e) => setLogDate(e.target.value)}
               className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-700 focus:outline-none focus:ring-2 focus:ring-sage-400"
             />

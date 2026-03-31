@@ -3,6 +3,7 @@ import { withAuth } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase-server'
 import { parseIngredientLine } from '@/lib/grocery'
 import { logRecipeSchema, deleteLogSchema, parseBody } from '@/lib/schemas'
+import { getTodayISO } from '@/lib/date-utils'
 
 export const POST = withAuth(async (req: NextRequest, { user, db }, params) => {
   const { id } = params
@@ -19,7 +20,7 @@ export const POST = withAuth(async (req: NextRequest, { user, db }, params) => {
   }
 
   // Accept optional made_on from body; default to today
-  const today = new Date().toISOString().split('T')[0]!
+  const today = getTodayISO()
   const { data: body } = await parseBody(req, logRecipeSchema)
   const madeOn = body?.made_on ?? today
 

@@ -6,15 +6,7 @@ import { getMostRecentSunday, getTodayISO, isToday } from './utils'
 import GreetingHeading from './GreetingHeading'
 
 import { getDayAbbrev, getDayNum, formatShortDate, formatWeekRange, getWeekDates } from '@/lib/date-utils'
-
-// ── Formatting helpers ────────────────────────────────────────────────────────
-
-function formatTime(minutes: number | null): string | null {
-  if (minutes === null) return null
-  if (minutes < 60) return `${minutes} min`
-  const hrs = minutes / 60
-  return Number.isInteger(hrs) ? `${hrs} hr` : `${Math.round(hrs * 10) / 10} hr`
-}
+import { formatMinutes } from '@/lib/format-time'
 
 // ── Section header component ──────────────────────────────────────────────────
 
@@ -222,9 +214,9 @@ export default async function HomePage() {
                               >
                                 {e.recipe_title}
                               </Link>
-                              {formatTime(e.total_time_minutes) && (
+                              {e.total_time_minutes != null && (
                                 <p className="text-[10px] text-stone-400 mt-0.5">
-                                  {formatTime(e.total_time_minutes)}
+                                  {formatMinutes(e.total_time_minutes)}
                                 </p>
                               )}
                             </div>
