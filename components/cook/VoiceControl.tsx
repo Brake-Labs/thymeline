@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import { TOAST_DURATION_MS } from '@/lib/constants'
 
 export type VoiceCommand =
   | { type: 'next' }
@@ -55,7 +56,7 @@ export default function VoiceControl({ onCommand }: VoiceControlProps) {
 
   function showToast(msg: string) {
     setToast(msg)
-    setTimeout(() => setToast(null), 2000)
+    setTimeout(() => setToast(null), TOAST_DURATION_MS)
   }
 
   function startRecognition() {

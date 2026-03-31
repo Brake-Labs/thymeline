@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { TOAST_DURATION_MS } from '@/lib/constants'
 
 interface LogMadeTodayButtonProps {
   recipeId: string
@@ -32,8 +33,8 @@ export default function LogMadeTodayButton({
           setStatus('success')
           onLogged?.()
         }
-        // Reset after 2 seconds
-        setTimeout(() => setStatus('idle'), 2000)
+        // Reset after toast duration
+        setTimeout(() => setStatus('idle'), TOAST_DURATION_MS)
       } else {
         setStatus('idle')
       }

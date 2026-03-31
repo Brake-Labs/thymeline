@@ -5,6 +5,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { tableMockWithChain } from '@/test/helpers'
 
 // ── Shared mock state ──────────────────────────────────────────────────────────
 
@@ -53,22 +54,9 @@ function makeSupabaseMock(opts: {
         error: user ? null : new Error('No user'),
       }),
     },
-    from: vi.fn((table: string) => {
-      if (table === 'recipes') {
-        return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockResolvedValue({ data: recipes, error: null }),
-          }),
-        }
-      }
-      if (table === 'recipe_history') {
-        return {
-          select: vi.fn().mockReturnValue({
-            in: vi.fn().mockResolvedValue({ data: history, error: null }),
-          }),
-        }
-      }
-      return {}
+    from: tableMockWithChain({
+      recipes: { select: { data: recipes } },
+      recipe_history: { select: { data: history } },
     }),
   }
 }

@@ -11,11 +11,8 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
   if (parseError) return parseError
 
   // Fetch existing pantry items for this user/household (for dedup check)
-  const existingQ = scopeQuery(
-    db.from('pantry_items').select('id, name'),
-    user.id,
-    ctx,
-  )
+  let existingQ = db.from('pantry_items').select('id, name')
+  existingQ = scopeQuery(existingQ, user.id, ctx)
   const { data: existing } = await existingQ
 
   // Build a map of normalized name → id for case-insensitive dedup

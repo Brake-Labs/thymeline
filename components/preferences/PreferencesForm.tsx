@@ -6,6 +6,7 @@ import StepperInput from './StepperInput'
 import CooldownSlider from './CooldownSlider'
 import TagBucketPicker from './TagBucketPicker'
 import { getAccessToken } from '@/lib/supabase/browser'
+import { TOAST_DURATION_MS } from '@/lib/constants'
 
 interface SectionSaveButtonProps {
   onSave: () => Promise<void>
@@ -21,7 +22,7 @@ function SectionSaveButton({ onSave }: SectionSaveButtonProps) {
     try {
       await onSave()
       setState('saved')
-      setTimeout(() => setState('idle'), 2000)
+      setTimeout(() => setState('idle'), TOAST_DURATION_MS)
     } catch (err) {
       setState('error')
       setErrorMsg('Changes couldn\'t be saved. Please try again.')

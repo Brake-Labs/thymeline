@@ -4,6 +4,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { tableMockWithChain } from '@/test/helpers'
 
 const mockUser = { id: 'user-1' }
 
@@ -41,22 +42,9 @@ function makeDbMock(opts: {
   const { pantryItems = samplePantryItems, recipes = sampleRecipes } = opts
 
   return {
-    from: vi.fn((table: string) => {
-      if (table === 'pantry_items') {
-        return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockResolvedValue({ data: pantryItems, error: null }),
-          }),
-        }
-      }
-      if (table === 'recipes') {
-        return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockResolvedValue({ data: recipes, error: null }),
-          }),
-        }
-      }
-      return {}
+    from: tableMockWithChain({
+      pantry_items: { select: { data: pantryItems } },
+      recipes: { select: { data: recipes } },
     }),
   }
 }

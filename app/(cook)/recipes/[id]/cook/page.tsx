@@ -10,6 +10,7 @@ import ActiveTimersBar from '@/components/cook/ActiveTimersBar'
 import { type TimerState, deriveTimerLabel } from '@/components/cook/StepTimer'
 import { getAccessToken } from '@/lib/supabase/browser'
 import { getTodayISO } from '@/lib/date-utils'
+import { TOAST_DURATION_LONG_MS } from '@/lib/constants'
 import { type Recipe } from '@/types'
 
 type RecipeWithHistory = Recipe & { last_made: string | null; times_made: number }
@@ -177,7 +178,7 @@ export default function CookModePage({ params }: Props) {
       if (res.ok) {
         const data: { made_on: string; already_logged: boolean } = await res.json()
         setLogStatus(data.already_logged ? 'already_logged' : 'success')
-        setTimeout(() => setLogStatus('idle'), 3000)
+        setTimeout(() => setLogStatus('idle'), TOAST_DURATION_LONG_MS)
       } else {
         setLogStatus('idle')
       }

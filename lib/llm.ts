@@ -150,3 +150,20 @@ export function parseLLMJson<T>(text: string): T {
     )
   }
 }
+
+/**
+ * Parse LLM JSON with defensive per-field extraction.
+ * Unlike parseLLMJson which throws on malformed input, this returns null
+ * for fields that can't be extracted, allowing partial results.
+ */
+export function parseLLMJsonSafe<T>(text: string): T | null {
+  try {
+    const stripped = text
+      .trim()
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/\s*```\s*$/i, '')
+    return JSON.parse(stripped) as T
+  } catch {
+    return null
+  }
+}

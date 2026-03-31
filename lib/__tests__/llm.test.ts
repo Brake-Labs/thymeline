@@ -50,6 +50,7 @@ import {
   callLLM,
   callLLMMultimodal,
   parseLLMJson,
+  parseLLMJsonSafe,
   LLM_MODEL_FAST,
   LLM_MODEL_CAPABLE,
 } from '../llm'
@@ -586,5 +587,35 @@ describe('callLLMMultimodal', () => {
       expect(err).toBeInstanceOf(LLMError)
       expect((err as LLMError).code).toBe('timeout')
     }
+  })
+})
+
+// ── parseLLMJsonSafe ─────────────────────────────────────────────────────────
+
+describe('parseLLMJsonSafe', () => {
+  it('parses valid JSON', () => {
+    const result = parseLLMJsonSafe<{ a: number }>('{"a": 1}')
+    expect(result).toEqual({ a: 1 })
+  })
+
+  it('strips markdown fences and parses', () => {
+    const result = parseLLMJsonSafe<{ key: string }>('```json\n{"key": "value"}\n```')
+    expect(result).toEqual({ key: 'value' })
+  })
+
+  it('returns null for invalid JSON instead of throwing', () => {
+    const result = parseLLMJsonSafe('not valid json')
+    expect(result).toBeNull()
+  })
+
+  it('returns null for empty string', () => {
+    const result = parseLLMJsonSafe('')
+    expect(result).toBeNull()
+  })
+
+  it('parses partial LLM output with extra fields', () => {
+    const result = parseLLMJsonSafe<{ days: unknown[] }>('{"days": [], "extra": true}')
+    expect(result).not.toBeNull()
+    expect(result!.days).toEqual([])
   })
 })

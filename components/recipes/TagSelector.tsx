@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { STYLE_TAGS, DIETARY_TAGS, SEASONAL_TAGS, CUISINE_TAGS, PROTEIN_TAGS, FIRST_CLASS_TAGS } from '@/lib/tags'
 import { getAccessToken } from '@/lib/supabase/browser'
+import { TOAST_DURATION_LONG_MS } from '@/lib/constants'
 
 type Section = 'style' | 'dietary' | 'seasonal' | 'cuisine' | 'protein'
 
@@ -133,7 +134,7 @@ export default function TagSelector({
       setDedupHint(`'${existing}' already exists — selected it for you.`)
       setInputValue('')
       setShowInput(false)
-      setTimeout(() => setDedupHint(null), 3000)
+      setTimeout(() => setDedupHint(null), TOAST_DURATION_LONG_MS)
       return
     }
 

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { getTodayISO, addDays } from '@/lib/date-utils'
+import { TOAST_DURATION_MS } from '@/lib/constants'
 
 interface LogDateSectionProps {
   recipeId: string
@@ -42,7 +43,7 @@ export default function LogDateSection({
         const data: { made_on: string; already_logged: boolean } = await res.json()
         setStatus(data.already_logged ? 'already_logged' : 'success')
         if (!data.already_logged) onLogged?.(data.made_on)
-        setTimeout(() => setStatus('idle'), 2000)
+        setTimeout(() => setStatus('idle'), TOAST_DURATION_MS)
       } else {
         setStatus('idle')
       }

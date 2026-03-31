@@ -167,3 +167,75 @@ export function defaultGetUser(mockState: { user: MockUser | null }) {
     error: mockState.user ? null : { message: 'no user' },
   })
 }
+
+// ---------------------------------------------------------------------------
+// 7. chainMock — builds a chainable Supabase query mock
+// ---------------------------------------------------------------------------
+
+/**
+ * Creates a deeply chainable mock that supports any sequence of Supabase
+ * query builder methods (.eq(), .in(), .order(), .select(), .single(), etc.).
+ *
+ * Terminal methods:
+ * - `.single()` resolves with `{ data, error }`
+ * - Awaiting the chain resolves with `{ data, error }`
+ *
+ * @param data     The data to resolve with
+ * @param error    Optional error to resolve with (default: null)
+ */
+export function chainMock(data: unknown, error: unknown = null) {
+  const chain: Record<string, unknown> = {}
+  const terminal = { data, error }
+
+  // All chainable methods return the same chain object
+  for (const method of ['eq', 'neq', 'in', 'order', 'select', 'limit', 'gte', 'lte', 'contains', 'is', 'not', 'filter', 'match', 'maybeSingle', 'update', 'delete', 'insert', 'upsert']) {
+    chain[method] = vi.fn().mockReturnValue(chain)
+  }
+
+  // Terminal methods
+  chain.single = vi.fn().mockResolvedValue(terminal)
+  chain.maybeSingle = vi.fn().mockResolvedValue(terminal)
+  chain.then = vi.fn().mockImplementation(
+    (resolve: (v: unknown) => void) => Promise.resolve(terminal).then(resolve),
+  )
+
+  return chain
+}
+
+// ---------------------------------------------------------------------------
+// 8. tableMockWithChain — builds a from() dispatch with chainable mocks
+// ---------------------------------------------------------------------------
+
+/** Config for tableMockWithChain: maps table names to their resolved data. */
+export type ChainTableConfig = Record<string, {
+  select?: { data: unknown; error?: unknown }
+  insert?: { data: unknown; error?: unknown }
+  update?: { data: unknown; error?: unknown }
+  delete?: { data: unknown; error?: unknown }
+  upsert?: { data: unknown; error?: unknown }
+}>
+
+/**
+ * Build a `from(table)` mock function where each table method returns
+ * a deeply chainable query builder.
+ *
+ * @example
+ * ```ts
+ * const from = tableMockWithChain({
+ *   recipes: { select: { data: [recipe1, recipe2] } },
+ *   custom_tags: { select: { data: [] } },
+ * })
+ * ```
+ */
+export function tableMockWithChain(config: ChainTableConfig): (table: string) => Record<string, unknown> {
+  return (table: string) => {
+    const tableConfig = config[table]
+    if (!tableConfig) return chainMock(null)
+
+    const result: Record<string, unknown> = {}
+    for (const [method, cfg] of Object.entries(tableConfig)) {
+      result[method] = vi.fn().mockReturnValue(chainMock(cfg.data, cfg.error ?? null))
+    }
+    return result
+  }
+}
