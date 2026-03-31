@@ -355,7 +355,7 @@ export interface ScrapeResult {
   sourceUrl:           string
   partial:             boolean
   suggestedTags:       string[]
-  suggestedNewTags:    { name: string; section: string }[]
+  suggestedNewTags:    { name: string; section: 'style' | 'dietary' | 'seasonal' | 'cuisine' | 'protein' }[]
   prepTimeMinutes:     number | null
   cookTimeMinutes:     number | null
   totalTimeMinutes:    number | null
