@@ -222,34 +222,23 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
 
   // 7. Upsert grocery_lists
   const now = new Date().toISOString()
-  const upsertPayload = ctx
-    ? {
-        household_id:  ctx.householdId,
-        user_id:       user.id,
-        meal_plan_id:  planIds[0],
-        week_start:    date_from,
-        date_from,
-        date_to,
-        servings:      planServings,
-        recipe_scales: recipe_scales as unknown as Json,
-        items:         allItems as unknown as Json,
-        updated_at:    now,
-      }
-    : {
-        user_id:       user.id,
-        meal_plan_id:  planIds[0],
-        week_start:    date_from,
-        date_from,
-        date_to,
-        servings:      planServings,
-        recipe_scales: recipe_scales as unknown as Json,
-        items:         allItems as unknown as Json,
-        updated_at:    now,
-      }
+  const upsertPayload: Record<string, unknown> = {
+    user_id:       user.id,
+    meal_plan_id:  planIds[0],
+    week_start:    date_from,
+    date_from,
+    date_to,
+    servings:      planServings,
+    recipe_scales: recipe_scales as unknown as Json,
+    items:         allItems as unknown as Json,
+    updated_at:    now,
+  }
+  if (ctx) upsertPayload.household_id = ctx.householdId
   const onConflict = ctx ? 'household_id,week_start' : 'user_id,week_start'
   const { data: upserted, error: upsertError } = await db
     .from('grocery_lists')
-    .upsert(upsertPayload, { onConflict })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic field selection for household/user scoping
+    .upsert(upsertPayload as any, { onConflict })
     .select('*')
     .single()
 

@@ -31,16 +31,6 @@ export interface UserPreferences {
   created_at: string
 }
 
-export interface Invite {
-  id:         string
-  token:      string
-  created_by: string | null
-  used_by:    string | null
-  used_at:    string | null
-  expires_at: string
-  created_at: string
-}
-
 export interface HomeData {
   userName:              string | null
   recipeCount:           number
@@ -110,30 +100,6 @@ export interface RecipeFilters {
   neverMade: boolean
 }
 
-export interface RecipeHistory {
-  id: string
-  recipe_id: string
-  user_id: string
-  made_on: string  // ISO date "YYYY-MM-DD"
-  created_at: string
-}
-
-export interface MealPlan {
-  id: string
-  user_id: string
-  week_start: string
-  created_at: string
-}
-
-export interface MealPlanEntry {
-  id: string
-  meal_plan_id: string
-  recipe_id: string
-  planned_date: string
-  position: number
-  confirmed: boolean
-}
-
 export interface RecipeSuggestion {
   recipe_id:    string
   recipe_title: string
@@ -148,10 +114,6 @@ export interface MealTypeSuggestions {
 export interface DaySuggestions {
   date:       string
   meal_types: MealTypeSuggestions[]
-}
-
-export interface SuggestionsResponse {
-  days: DaySuggestions[]
 }
 
 export interface DaySelection {
@@ -292,16 +254,6 @@ export interface HouseholdMember {
   joined_at:     string
   email?:        string
   display_name?: string
-}
-
-export interface HouseholdInvite {
-  id:           string
-  household_id: string
-  token:        string
-  invited_by:   string
-  expires_at:   string
-  used_by:      string | null
-  created_at:   string
 }
 
 export interface HouseholdContext {
