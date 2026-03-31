@@ -26,7 +26,7 @@ jobs:
             echo "✅ Generated types are up to date"
           else
             echo "⚠️ Generated types are stale — database schema has changed"
-            echo "Run: SUPABASE_PROJECT_REF=vshpgcipbgnetzghzmyi npm run update-types"
+            echo "Run: npm run update-types (with SUPABASE_PROJECT_REF set)"
             git diff types/database.ts
             exit 1
           fi
