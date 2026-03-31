@@ -11,6 +11,7 @@ interface AddRecipeModalProps {
   onSaved:   () => void
   getToken:  () => Promise<string> | string
   initialTab?: Tab
+  prefillScrapeResult?: ScrapeResult
 }
 
 interface ScrapeResult {
@@ -34,11 +35,12 @@ export default function AddRecipeModal({
   onSaved,
   getToken,
   initialTab = 'url',
+  prefillScrapeResult,
 }: AddRecipeModalProps) {
-  const [tab, setTab] = useState<Tab>(initialTab)
+  const [tab, setTab] = useState<Tab>(prefillScrapeResult ? 'url' : initialTab)
   const [urlInput, setUrlInput] = useState('')
   const [scraping, setScraping] = useState(false)
-  const [scrapeResult, setScrapeResult] = useState<ScrapeResult | null>(null)
+  const [scrapeResult, setScrapeResult] = useState<ScrapeResult | null>(prefillScrapeResult ?? null)
   const [scrapeError, setScrapeError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
