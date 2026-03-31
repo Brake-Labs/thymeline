@@ -12,8 +12,8 @@ import AddRecipeModal from '@/components/recipes/AddRecipeModal'
 import GenerateRecipeModal from '@/components/recipes/GenerateRecipeModal'
 import { getAccessToken, getSupabaseClient } from '@/lib/supabase/browser'
 
-const VIEW_KEY = 'forkcast:recipe-view'
-const FILTER_OPEN_KEY = 'forkcast:filter-sidebar'
+const VIEW_KEY = 'thymeline:recipe-view'
+const FILTER_OPEN_KEY = 'thymeline:filter-sidebar'
 
 const EMPTY_FILTERS: RecipeFilters = {
   tags: [],
