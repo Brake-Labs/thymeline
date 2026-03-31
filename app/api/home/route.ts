@@ -7,8 +7,7 @@ import type { HomeData } from '@/types'
 export const GET = withAuth(async (req, { user, db, ctx }) => {
   const weekStart = getMostRecentSunday()
 
-  let planQ = scopeQuery(db.from('meal_plans').select('id, week_start').eq('week_start', weekStart), user.id, ctx)
-  const { data: plan } = await planQ.single()
+  const { data: plan } = await scopeQuery(db.from('meal_plans').select('id, week_start').eq('week_start', weekStart), user.id, ctx).single()
 
   let currentWeekPlan: HomeData['currentWeekPlan'] = null
 

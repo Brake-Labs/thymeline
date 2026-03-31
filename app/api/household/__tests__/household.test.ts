@@ -267,6 +267,7 @@ vi.mock('@/lib/household', () => ({
     return { householdId: mockState.membership.household_id, role: mockState.membership.role }
   },
   canManage: (role: string) => role === 'owner' || role === 'co_owner',
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   scopeQuery: (query: any, userId: string, ctx: any) => {
     if (ctx) return query.eq('household_id', ctx.householdId)
     return query.eq('user_id', userId)
