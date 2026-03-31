@@ -106,16 +106,16 @@ export const GET = withAuth(async (req, { user, db, ctx }) => {
     .eq('meal_plan_id', plan.id)
     .order('planned_date')
 
-  const enrichedEntries = (entries ?? []).filter((e) => e.recipe_id != null).map((e) => ({
+  const enrichedEntries = (entries ?? []).map((e) => ({
     id:              e.id,
     planned_date:    e.planned_date,
-    recipe_id:       e.recipe_id!,
+    recipe_id:       e.recipe_id,
     recipe_title:    e.recipes?.title ?? '',
     position:        e.position,
-    confirmed:       e.confirmed ?? false,
-    meal_type:       e.meal_type ?? 'dinner',
-    is_side_dish:    e.is_side_dish ?? false,
-    parent_entry_id:    e.parent_entry_id ?? null,
+    confirmed:       e.confirmed,
+    meal_type:       e.meal_type,
+    is_side_dish:    e.is_side_dish,
+    parent_entry_id:    e.parent_entry_id,
     total_time_minutes: e.recipes?.total_time_minutes ?? null,
   }))
 

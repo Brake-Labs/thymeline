@@ -69,9 +69,9 @@ export async function fetchCooldownFilteredRecipes(
 
   if (!recipes || recipes.length === 0) return []
 
-  const recentlyMadeIds = new Set((history ?? []).filter((h) => h.recipe_id != null).map((h) => h.recipe_id!))
+  const recentlyMadeIds = new Set((history ?? []).map((h) => h.recipe_id))
 
-  return (recipes ?? []).filter((r): r is RecipeForLLM => r.id != null && r.title != null && !recentlyMadeIds.has(r.id))
+  return (recipes ?? []).filter((r) => !recentlyMadeIds.has(r.id))
 }
 
 export async function fetchRecipesByMealTypes(
@@ -114,12 +114,12 @@ export async function fetchRecipesByMealTypes(
     ...recipePromises,
   ])
 
-  const recentlyMadeIds = new Set((history ?? []).filter((h) => h.recipe_id != null).map((h) => h.recipe_id!))
+  const recentlyMadeIds = new Set((history ?? []).map((h) => h.recipe_id))
 
   const result = {} as Record<MealType, RecipeForLLM[]>
   mealTypes.forEach((mt, i) => {
     const recipes = recipeResults[i]?.data ?? []
-    result[mt] = recipes.filter((r): r is RecipeForLLM => r.id != null && r.title != null && !recentlyMadeIds.has(r.id))
+    result[mt] = recipes.filter((r) => !recentlyMadeIds.has(r.id))
   })
   return result
 }
@@ -156,17 +156,17 @@ export async function fetchUserPreferences(
   if (!data) return null
   return {
     id: data.id,
-    user_id: data.user_id ?? '',
-    options_per_day: data.options_per_day ?? 3,
-    cooldown_days: data.cooldown_days ?? 28,
-    seasonal_mode: data.seasonal_mode ?? true,
-    preferred_tags: data.preferred_tags ?? [],
-    avoided_tags: data.avoided_tags ?? [],
+    user_id: data.user_id,
+    options_per_day: data.options_per_day,
+    cooldown_days: data.cooldown_days,
+    seasonal_mode: data.seasonal_mode,
+    preferred_tags: data.preferred_tags,
+    avoided_tags: data.avoided_tags,
     limited_tags: data.limited_tags as unknown as LimitedTag[],
     seasonal_rules: data.seasonal_rules as UserPreferences['seasonal_rules'],
-    is_active: data.is_active ?? true,
-    onboarding_completed: data.onboarding_completed ?? false,
-    created_at: data.created_at ?? '',
+    is_active: data.is_active,
+    onboarding_completed: data.onboarding_completed,
+    created_at: data.created_at,
   } satisfies UserPreferences
 }
 

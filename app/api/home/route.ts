@@ -27,12 +27,12 @@ export const GET = withAuth(async (req, { user, db, ctx }) => {
     currentWeekPlan = {
       id: plan.id,
       week_start: plan.week_start,
-      entries: (entries ?? []).filter((e) => e.recipe_id != null).map((e) => ({
+      entries: (entries ?? []).map((e) => ({
         planned_date:       e.planned_date,
-        recipe_id:          e.recipe_id!,
+        recipe_id:          e.recipe_id,
         recipe_title:       e.recipes?.title ?? '',
         position:           e.position,
-        confirmed:          e.confirmed ?? false,
+        confirmed:          e.confirmed,
         total_time_minutes: e.recipes?.total_time_minutes ?? null,
       })),
     }
@@ -67,8 +67,8 @@ export const GET = withAuth(async (req, { user, db, ctx }) => {
     groceryQ,
   ])
 
-  const recentlyMade = (history ?? []).filter((h) => h.recipe_id != null).map((h) => ({
-    recipe_id:    h.recipe_id!,
+  const recentlyMade = (history ?? []).map((h) => ({
+    recipe_id:    h.recipe_id,
     recipe_title: h.recipes?.title ?? '',
     made_on:      h.made_on,
     tags:         h.recipes?.tags ?? [],

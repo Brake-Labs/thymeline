@@ -103,13 +103,13 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
 
   const planEntry: PlanEntry = {
     id:              entry.id,
-    recipe_id:       entry.recipe_id!,
+    recipe_id:       entry.recipe_id,
     recipe_title:    entry.recipes?.title ?? '',
     planned_date:    entry.planned_date,
-    meal_type:       (entry.meal_type ?? 'dinner') as MealType,
+    meal_type:       entry.meal_type as MealType,
     is_side_dish:    entry.is_side_dish,
     parent_entry_id: entry.parent_entry_id,
-    confirmed:       entry.confirmed ?? false,
+    confirmed:       entry.confirmed,
     position:           entry.position,
     total_time_minutes: entry.recipes?.total_time_minutes ?? null,
   }
