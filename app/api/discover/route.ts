@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { anthropic, parseLLMJson } from '@/lib/llm'
 import { FIRST_CLASS_TAGS } from '@/lib/tags'
+import { scopeQuery } from '@/lib/household'
 import type { DiscoveryResult } from '@/types'
 
 const MODEL = process.env.LLM_MODEL ?? 'claude-haiku-4-5-20251001'
@@ -23,17 +24,11 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
 
   try {
     // ── Step 1: Fetch vault context ────────────────────────────────────────────
-    let vaultQuery = db
+    const vaultQuery = scopeQuery(db
       .from('recipes')
       .select('title, tags, category')
       .order('created_at', { ascending: false })
-      .limit(50)
-
-    if (ctx) {
-      vaultQuery = vaultQuery.eq('household_id', ctx.householdId)
-    } else {
-      vaultQuery = vaultQuery.eq('user_id', user.id)
-    }
+      .limit(50), user.id, ctx)
 
     const { data: vaultRecipes } = await vaultQuery
     const vaultContext = (vaultRecipes ?? []).map((r) => ({ title: r.title, tags: r.tags }))

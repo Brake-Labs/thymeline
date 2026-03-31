@@ -24,7 +24,7 @@ export default function SetupStep({ setup, onSetupChange, onGetSuggestions, isGe
       const res = await fetch('/api/tags', { headers: { Authorization: `Bearer ${token}` } })
       if (res.ok) {
         const data = await res.json()
-        setAllTags([...(data.firstClass ?? []), ...(data.custom ?? []).map((t: { name: string }) => t.name)])
+        setAllTags([...(data.firstClass ?? []), ...(data.custom ?? []).map((t: { name: string; section: string }) => t.name)])
       }
     }
     loadTags()

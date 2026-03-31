@@ -1,6 +1,8 @@
 import { type SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '@/types/database'
 import { callLLM } from '@/lib/llm'
-import type { UserPreferences, LimitedTag, MealType, DaySuggestions, HouseholdContext, RecipeJoinResult } from '@/types'
+import { scopeQuery } from '@/lib/household'
+import type { UserPreferences, LimitedTag, MealType, DaySuggestions, HouseholdContext } from '@/types'
 
 export const MEAL_TYPE_CATEGORIES: Record<MealType, string[]> = {
   breakfast: ['breakfast'],
@@ -14,6 +16,36 @@ export const MEAL_TYPE_CATEGORIES: Record<MealType, string[]> = {
 
 export { getMostRecentSunday, isSunday } from '@/lib/date-utils'
 import { toDateString } from '@/lib/date-utils'
+
+// ── Meal plan helpers ─────────────────────────────────────────────────────────
+
+/**
+ * Find an existing meal plan for the given week, or create a new one.
+ * Returns the plan ID, or null if creation failed.
+ */
+export async function getOrCreateMealPlan(
+  db: SupabaseClient<Database>,
+  userId: string,
+  weekStart: string,
+  ctx?: HouseholdContext | null,
+): Promise<{ planId: string } | { error: string }> {
+  const q = scopeQuery(db.from('meal_plans').select('id').eq('week_start', weekStart), userId, ctx ?? null)
+  const { data: existing } = await q.maybeSingle()
+
+  if (existing?.id) return { planId: existing.id }
+
+  const insertPayload = ctx
+    ? { household_id: ctx.householdId, user_id: userId, week_start: weekStart }
+    : { user_id: userId, week_start: weekStart }
+  const { data: created, error } = await db
+    .from('meal_plans')
+    .insert(insertPayload)
+    .select('id')
+    .single()
+
+  if (error || !created) return { error: error?.message ?? 'unknown' }
+  return { planId: created.id }
+}
 
 // ── Season helpers ─────────────────────────────────────────────────────────────
 
@@ -33,7 +65,7 @@ export interface RecipeForLLM {
 }
 
 export async function fetchCooldownFilteredRecipes(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
   userId: string,
   cooldownDays: number,
   categories?: string[],
@@ -41,15 +73,10 @@ export async function fetchCooldownFilteredRecipes(
 ): Promise<RecipeForLLM[]> {
   const cats = categories ?? ['main_dish']
   // Fetch recipes scoped by household or user
-  let recipesQ = supabase
+  const recipesQ = scopeQuery(supabase
     .from('recipes')
     .select('id, title, tags')
-    .in('category', cats)
-  if (ctx) {
-    recipesQ = recipesQ.eq('household_id', ctx.householdId)
-  } else {
-    recipesQ = recipesQ.eq('user_id', userId)
-  }
+    .in('category', cats), userId, ctx ?? null)
 
   const today = new Date()
   const cutoff = new Date(today)
@@ -68,13 +95,13 @@ export async function fetchCooldownFilteredRecipes(
 
   if (!recipes || recipes.length === 0) return []
 
-  const recentlyMadeIds = new Set((history ?? []).map((h: { recipe_id: string }) => h.recipe_id))
+  const recentlyMadeIds = new Set((history ?? []).map((h) => h.recipe_id))
 
-  return recipes.filter((r: RecipeForLLM) => !recentlyMadeIds.has(r.id))
+  return (recipes ?? []).filter((r) => !recentlyMadeIds.has(r.id))
 }
 
 export async function fetchRecipesByMealTypes(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
   userId: string,
   cooldownDays: number,
   mealTypes: MealType[],
@@ -95,16 +122,10 @@ export async function fetchRecipesByMealTypes(
 
   const recipePromises = mealTypes.map((mt) => {
     const cats = MEAL_TYPE_CATEGORIES[mt]
-    let q = supabase
+    return scopeQuery(supabase
       .from('recipes')
       .select('id, title, tags')
-      .in('category', cats)
-    if (ctx) {
-      q = q.eq('household_id', ctx.householdId)
-    } else {
-      q = q.eq('user_id', userId)
-    }
-    return q
+      .in('category', cats), userId, ctx ?? null)
   })
 
   // Fire all queries in parallel: one history + N recipe queries
@@ -113,18 +134,18 @@ export async function fetchRecipesByMealTypes(
     ...recipePromises,
   ])
 
-  const recentlyMadeIds = new Set((history ?? []).map((h: { recipe_id: string }) => h.recipe_id))
+  const recentlyMadeIds = new Set((history ?? []).map((h) => h.recipe_id))
 
   const result = {} as Record<MealType, RecipeForLLM[]>
   mealTypes.forEach((mt, i) => {
     const recipes = recipeResults[i]?.data ?? []
-    result[mt] = (recipes as RecipeForLLM[]).filter((r) => !recentlyMadeIds.has(r.id))
+    result[mt] = recipes.filter((r) => !recentlyMadeIds.has(r.id))
   })
   return result
 }
 
 export async function fetchRecentHistory(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
   userId: string,
 ): Promise<{ title: string; made_on: string }[]> {
   const { data } = await supabase
@@ -134,25 +155,25 @@ export async function fetchRecentHistory(
     .order('made_on', { ascending: false })
     .limit(10)
 
-  return (data ?? []).map((h: { made_on: string; recipes: unknown }) => ({
-    title: (h.recipes as unknown as RecipeJoinResult | null)?.title ?? '',
+  return (data ?? []).map((h) => ({
+    title: h.recipes?.title ?? '',
     made_on: h.made_on,
   }))
 }
 
 export async function fetchUserPreferences(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
   userId: string,
   ctx?: HouseholdContext | null,
 ): Promise<UserPreferences | null> {
-  let q = supabase.from('user_preferences').select('*')
-  if (ctx) {
-    q = q.eq('household_id', ctx.householdId)
-  } else {
-    q = q.eq('user_id', userId)
-  }
+  const q = scopeQuery(supabase.from('user_preferences').select('*'), userId, ctx ?? null)
   const { data } = await q.single()
-  return data as UserPreferences | null
+  if (!data) return null
+  return {
+    ...data,
+    limited_tags: data.limited_tags as unknown as LimitedTag[],
+    seasonal_rules: data.seasonal_rules as UserPreferences['seasonal_rules'],
+  } satisfies UserPreferences
 }
 
 // ── Prompt construction ─────────────────────────────────────────────────────────
@@ -237,19 +258,14 @@ Return ONLY valid JSON in this exact format, with no prose, no markdown:
 }
 
 export async function fetchPantryContext(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
   userId: string,
   ctx?: HouseholdContext | null,
 ): Promise<string> {
   try {
-    let q = supabase
+    const q = scopeQuery(supabase
       .from('pantry_items')
-      .select('name, expiry_date')
-    if (ctx) {
-      q = q.eq('household_id', ctx.householdId)
-    } else {
-      q = q.eq('user_id', userId)
-    }
+      .select('name, expiry_date'), userId, ctx ?? null)
     const { data: items } = await q
       .order('expiry_date', { ascending: true, nullsFirst: false })
       .order('name', { ascending: true })
@@ -257,7 +273,7 @@ export async function fetchPantryContext(
 
     if (!items?.length) return ''
 
-    const lines = (items as { name: string; expiry_date: string | null }[]).map((item) => {
+    const lines = items.map((item) => {
       const expiry = item.expiry_date ? ` (expires ${item.expiry_date})` : ''
       return `- ${item.name}${expiry}`
     })

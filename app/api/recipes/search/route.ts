@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { callLLM, LLM_MODEL_FAST } from '@/lib/llm'
 import { searchRecipesSchema, parseBody } from '@/lib/schemas'
+import { scopeQuery } from '@/lib/household'
 import type { RecipeFilters } from '@/types'
 
 function applyFilters(
@@ -33,14 +34,9 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
     return NextResponse.json({ results: [] })
   }
 
-  let recipesQuery = db
+  const recipesQuery = scopeQuery(db
     .from('recipes')
-    .select('id, title, category, tags, total_time_minutes, ingredients')
-  if (ctx) {
-    recipesQuery = recipesQuery.eq('household_id', ctx.householdId)
-  } else {
-    recipesQuery = recipesQuery.eq('user_id', user.id)
-  }
+    .select('id, title, category, tags, total_time_minutes, ingredients'), user.id, ctx)
 
   const { data: recipes, error: recipesError } = await recipesQuery
 
@@ -72,7 +68,7 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   const compactList = allRecipes
     .map((r) => {
       const ingredients = r.ingredients ? r.ingredients.slice(0, 200) : ''
-      return `id:${r.id} | title:${r.title} | tags:${(r.tags ?? []).join(',')} | ingredients:${ingredients}`
+      return `id:${r.id} | title:${r.title} | tags:${r.tags.join(',')} | ingredients:${ingredients}`
     })
     .join('\n')
 
@@ -110,7 +106,7 @@ Return ONLY a JSON array of recipe_id strings, e.g. ["uuid1","uuid2"]. No other 
     allRecipes.map((r) => [r.id, {
       recipe_id: r.id,
       recipe_title: r.title,
-      tags: r.tags ?? [],
+      tags: r.tags,
       category: r.category,
       total_time_minutes: r.total_time_minutes ?? null,
       last_made: lastMadeMap[r.id] ?? null,

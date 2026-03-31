@@ -31,7 +31,7 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   let customTagsQ = db.from('custom_tags').select('name')
   customTagsQ = scopeQuery(customTagsQ, user.id, ctx)
   const { data: userCustomTagRows } = await customTagsQ
-  const userCustomTags: string[] = (userCustomTagRows ?? []).map((t: { name: string }) => t.name)
+  const userCustomTags: string[] = (userCustomTagRows ?? []).map((t) => t.name)
 
   // Extract recipe data via LLM
   const firstClassList = FIRST_CLASS_TAGS.join(', ')

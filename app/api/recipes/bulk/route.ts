@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { bulkUpdateRecipesSchema, parseBody } from '@/lib/schemas'
+import { validateTags } from '@/lib/tags'
 
 export const PATCH = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   const { data: body, error: parseError } = await parseBody(req, bulkUpdateRecipesSchema)
@@ -30,28 +31,14 @@ export const PATCH = withAuth(async (req: NextRequest, { user, db, ctx }) => {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  // Validate add_tags against user's tag library
-  if (addTags.length > 0) {
-    let customTagsQuery = db.from('custom_tags').select('name')
-    if (ctx) {
-      customTagsQuery = customTagsQuery.eq('household_id', ctx.householdId)
-    } else {
-      customTagsQuery = customTagsQuery.eq('user_id', user.id)
-    }
-    const { data: customTags } = await customTagsQuery
-
-    const knownNames = new Set(
-      (customTags ?? []).map((t: { name: string }) => t.name.toLowerCase()),
-    )
-    const unknownTags = addTags.filter((t) => !knownNames.has(t.toLowerCase()))
-    if (unknownTags.length > 0) {
-      return NextResponse.json({ error: `Unknown tags: ${unknownTags.join(', ')}` }, { status: 400 })
-    }
+  const tagResult = await validateTags(db, addTags, user.id, ctx)
+  if (!tagResult.valid) {
+    return NextResponse.json({ error: `Unknown tags: ${tagResult.unknownTags.join(', ')}` }, { status: 400 })
   }
 
   // Merge tags for each recipe and update
   const updates = found.map((r) => {
-    const existing = r.tags ?? []
+    const existing = r.tags
     const merged = [...existing]
     for (const tag of addTags) {
       if (!merged.includes(tag)) merged.push(tag)

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
-import { canManage } from '@/lib/household'
+import { canManage, scopeQuery } from '@/lib/household'
 import { LimitedTag } from '@/types'
 import { updatePreferencesSchema, parseBody } from '@/lib/schemas'
 import { FIRST_CLASS_TAGS } from '@/lib/tags'
@@ -17,15 +17,9 @@ const DEFAULT_PREFS = {
 }
 
 export const GET = withAuth(async (req, { user, db, ctx }) => {
-  let query = db
+  const query = scopeQuery(db
     .from('user_preferences')
-    .select('options_per_day, cooldown_days, seasonal_mode, preferred_tags, avoided_tags, limited_tags, onboarding_completed, is_active')
-
-  if (ctx) {
-    query = query.eq('household_id', ctx.householdId)
-  } else {
-    query = query.eq('user_id', user.id)
-  }
+    .select('options_per_day, cooldown_days, seasonal_mode, preferred_tags, avoided_tags, limited_tags, onboarding_completed, is_active'), user.id, ctx)
 
   const { data, error } = await query.single()
 
@@ -54,95 +48,48 @@ export const PATCH = withAuth(async (req, { user, db, ctx }) => {
   const { data: body, error: parseError } = await parseBody(req, updatePreferencesSchema)
   if (parseError) return parseError
 
-  // Validate tag arrays against user's tag library — scope to household or user.
-  // First-class tags are always valid; only unknown (potentially custom) tags need a DB lookup.
-  const tagArrayFields = ['preferred_tags', 'avoided_tags'] as const
-  for (const field of tagArrayFields) {
-    if (field in body) {
-      const tags = body[field] as string[]
-      if (tags.length > 0) {
-        const needsLookup = tags.filter((t) => !FIRST_CLASS_TAGS.includes(t))
-        if (needsLookup.length > 0) {
-          let tagsQuery = db.from('custom_tags').select('name')
-          if (ctx) {
-            tagsQuery = tagsQuery.eq('household_id', ctx.householdId)
-          } else {
-            tagsQuery = tagsQuery.eq('user_id', user.id)
-          }
-          const { data: userTags } = await tagsQuery
-          const customTagNames = new Set((userTags ?? []).map((t: { name: string }) => t.name))
-          const unknown = needsLookup.filter((t) => !customTagNames.has(t))
-          if (unknown.length > 0) {
-            const validationError = `Unknown tags: ${unknown.join(', ')}`
-            console.warn('[PATCH /api/preferences] validation error:', validationError)
-            return NextResponse.json({ error: validationError }, { status: 400 })
-          }
-        }
-      }
-    }
+  // Validate all tag references against user's tag library (single DB lookup).
+  // First-class tags are always valid; only unknown (potentially custom) tags need a check.
+  const allTagsToValidate: string[] = []
+  for (const field of ['preferred_tags', 'avoided_tags'] as const) {
+    if (field in body) allTagsToValidate.push(...(body[field] as string[]))
   }
-
-  // Validate limited_tags against user's tag library
   if ('limited_tags' in body) {
-    const lt = body.limited_tags as LimitedTag[]
-    if (lt.length > 0) {
-      const tagNames = lt.map((i) => i.tag)
-      const needsLookup = tagNames.filter((t) => !FIRST_CLASS_TAGS.includes(t))
-      if (needsLookup.length > 0) {
-        let tagsQuery = db.from('custom_tags').select('name')
-        if (ctx) {
-          tagsQuery = tagsQuery.eq('household_id', ctx.householdId)
-        } else {
-          tagsQuery = tagsQuery.eq('user_id', user.id)
-        }
-        const { data: userTags } = await tagsQuery
-        const customTagNames = new Set((userTags ?? []).map((t: { name: string }) => t.name))
-        const unknown = needsLookup.filter((t) => !customTagNames.has(t))
-        if (unknown.length > 0) {
-          const validationError = `Unknown tags in limited_tags: ${unknown.join(', ')}`
-          console.warn('[PATCH /api/preferences] validation error:', validationError)
-          return NextResponse.json({ error: validationError }, { status: 400 })
-        }
-      }
+    allTagsToValidate.push(...(body.limited_tags as LimitedTag[]).map((i) => i.tag))
+  }
+  const needsLookup = allTagsToValidate.filter((t) => !FIRST_CLASS_TAGS.includes(t))
+  if (needsLookup.length > 0) {
+    const tagsQuery = scopeQuery(db.from('custom_tags').select('name'), user.id, ctx)
+    const { data: userTags } = await tagsQuery
+    const customTagNames = new Set((userTags ?? []).map((t) => t.name))
+    const unknown = needsLookup.filter((t) => !customTagNames.has(t))
+    if (unknown.length > 0) {
+      const validationError = `Unknown tags: ${unknown.join(', ')}`
+      console.warn('[PATCH /api/preferences] validation error:', validationError)
+      return NextResponse.json({ error: validationError }, { status: 400 })
     }
   }
 
   const allowed = ['options_per_day', 'cooldown_days', 'seasonal_mode', 'preferred_tags', 'avoided_tags', 'limited_tags', 'onboarding_completed'] as const
   const bodyRecord = body as Record<string, unknown>
 
-  if (ctx) {
-    const update: Record<string, unknown> = { household_id: ctx.householdId }
-    for (const key of allowed) {
-      if (key in body) update[key] = bodyRecord[key]
-    }
-
-    const { data, error } = await db
-      .from('user_preferences')
-      .upsert(update, { onConflict: 'household_id' })
-      .select('options_per_day, cooldown_days, seasonal_mode, preferred_tags, avoided_tags, limited_tags, onboarding_completed, is_active')
-      .single()
-
-    if (error || !data) {
-      console.warn('[PATCH /api/preferences] upsert error (household):', error?.message, error?.code)
-      return NextResponse.json({ error: 'Failed to update preferences' }, { status: 500 })
-    }
-    return NextResponse.json(data)
-  } else {
-    const update: Record<string, unknown> = { user_id: user.id }
-    for (const key of allowed) {
-      if (key in body) update[key] = bodyRecord[key]
-    }
-
-    const { data, error } = await db
-      .from('user_preferences')
-      .upsert(update, { onConflict: 'user_id' })
-      .select('options_per_day, cooldown_days, seasonal_mode, preferred_tags, avoided_tags, limited_tags, onboarding_completed, is_active')
-      .single()
-
-    if (error || !data) {
-      console.warn('[PATCH /api/preferences] upsert error (solo):', error?.message, error?.code)
-      return NextResponse.json({ error: 'Failed to update preferences' }, { status: 500 })
-    }
-    return NextResponse.json(data)
+  const update: Record<string, unknown> = { user_id: user.id }
+  if (ctx) update.household_id = ctx.householdId
+  for (const key of allowed) {
+    if (key in body) update[key] = bodyRecord[key]
   }
+
+  const onConflict = ctx ? 'household_id' : 'user_id'
+  const { data, error } = await db
+    .from('user_preferences')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic field selection from validated body
+    .upsert(update as any, { onConflict })
+    .select('options_per_day, cooldown_days, seasonal_mode, preferred_tags, avoided_tags, limited_tags, onboarding_completed, is_active')
+    .single()
+
+  if (error || !data) {
+    console.warn('[PATCH /api/preferences] upsert error:', error?.message, error?.code)
+    return NextResponse.json({ error: 'Failed to update preferences' }, { status: 500 })
+  }
+  return NextResponse.json(data)
 })

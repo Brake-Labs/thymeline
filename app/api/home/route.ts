@@ -1,18 +1,13 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { getMostRecentSunday } from '@/lib/date-utils'
-import type { HomeData, RecipeJoinResult } from '@/types'
+import { scopeQuery } from '@/lib/household'
+import type { HomeData } from '@/types'
 
 export const GET = withAuth(async (req, { user, db, ctx }) => {
   const weekStart = getMostRecentSunday()
 
-  let planQ = db.from('meal_plans').select('id, week_start').eq('week_start', weekStart)
-  if (ctx) {
-    planQ = planQ.eq('household_id', ctx.householdId)
-  } else {
-    planQ = planQ.eq('user_id', user.id)
-  }
-  const { data: plan } = await planQ.single()
+  const { data: plan } = await scopeQuery(db.from('meal_plans').select('id, week_start').eq('week_start', weekStart), user.id, ctx).single()
 
   let currentWeekPlan: HomeData['currentWeekPlan'] = null
 
@@ -27,34 +22,21 @@ export const GET = withAuth(async (req, { user, db, ctx }) => {
     currentWeekPlan = {
       id: plan.id,
       week_start: plan.week_start,
-      entries: (entries ?? []).map((e) => {
-        const recipe = e.recipes as unknown as RecipeJoinResult | null
-        return {
-          planned_date:       e.planned_date,
-          recipe_id:          e.recipe_id,
-          recipe_title:       recipe?.title ?? '',
-          position:           e.position,
-          confirmed:          e.confirmed,
-          total_time_minutes: recipe?.total_time_minutes ?? null,
-        }
-      }),
+      entries: (entries ?? []).map((e) => ({
+        planned_date:       e.planned_date,
+        recipe_id:          e.recipe_id,
+        recipe_title:       e.recipes?.title ?? '',
+        position:           e.position,
+        confirmed:          e.confirmed,
+        total_time_minutes: e.recipes?.total_time_minutes ?? null,
+      })),
     }
   }
 
   // Fetch history, recipe count, user name, and grocery list in parallel
-  let recipeCountQ = db.from('recipes').select('id', { count: 'exact', head: true })
-  if (ctx) {
-    recipeCountQ = recipeCountQ.eq('household_id', ctx.householdId)
-  } else {
-    recipeCountQ = recipeCountQ.eq('user_id', user.id)
-  }
+  const recipeCountQ = scopeQuery(db.from('recipes').select('id', { count: 'exact', head: true }), user.id, ctx)
 
-  let groceryQ = db.from('grocery_lists').select('week_start').order('week_start', { ascending: false }).limit(1)
-  if (ctx) {
-    groceryQ = groceryQ.eq('household_id', ctx.householdId)
-  } else {
-    groceryQ = groceryQ.eq('user_id', user.id)
-  }
+  const groceryQ = scopeQuery(db.from('grocery_lists').select('week_start').order('week_start', { ascending: false }).limit(1), user.id, ctx)
 
   const [
     { data: history },
@@ -70,18 +52,15 @@ export const GET = withAuth(async (req, { user, db, ctx }) => {
     groceryQ,
   ])
 
-  const recentlyMade = (history ?? []).map((h) => {
-    const recipe = h.recipes as unknown as { title: string; tags: string[] } | null
-    return {
-      recipe_id:    h.recipe_id,
-      recipe_title: recipe?.title ?? '',
-      made_on:      h.made_on,
-      tags:         recipe?.tags ?? [],
-    }
-  })
+  const recentlyMade = (history ?? []).map((h) => ({
+    recipe_id:    h.recipe_id,
+    recipe_title: h.recipes?.title ?? '',
+    made_on:      h.made_on,
+    tags:         h.recipes?.tags ?? [],
+  }))
 
   const userName = user.user_metadata?.full_name ?? user.email ?? null
-  const groceryListWeekStart = (groceryLists as { week_start: string }[] | null)?.[0]?.week_start ?? null
+  const groceryListWeekStart = groceryLists?.[0]?.week_start ?? null
 
   const result: HomeData = {
     userName,

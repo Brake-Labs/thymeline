@@ -17,7 +17,7 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
 
   // Build a map of normalized name → id for case-insensitive dedup
   const existingByName = new Map<string, string>()
-  for (const item of (existing ?? []) as { id: string; name: string }[]) {
+  for (const item of existing ?? []) {
     existingByName.set(item.name.trim().toLowerCase(), item.id)
   }
 
@@ -46,7 +46,8 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
         section,
         updated_at: now,
       })
-      const { error } = await db.from('pantry_items').insert(insertPayload)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- scopeInsert returns Record<string, unknown>
+      const { error } = await db.from('pantry_items').insert(insertPayload as any)
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
       imported++
     }

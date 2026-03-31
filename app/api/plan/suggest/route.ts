@@ -15,6 +15,7 @@ import {
   validateSuggestions,
   callLLMNonStreaming,
 } from '../helpers'
+import { scopeQuery } from '@/lib/household'
 import type { DaySuggestions, MealType } from '@/types'
 
 export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
@@ -36,15 +37,10 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   const recentHistory = await fetchRecentHistory(db, user.id)
 
   // Exclude recipes already confirmed for future dates (including today) in the current week
-  let currentPlanQ = db
+  const currentPlanQ = scopeQuery(db
     .from('meal_plans')
     .select('id')
-    .eq('week_start', week_start)
-  if (ctx) {
-    currentPlanQ = currentPlanQ.eq('household_id', ctx.householdId)
-  } else {
-    currentPlanQ = currentPlanQ.eq('user_id', user.id)
-  }
+    .eq('week_start', week_start), user.id, ctx)
   const { data: currentPlan } = await currentPlanQ.maybeSingle()
 
   const alreadyPlannedIds = new Set<string>()

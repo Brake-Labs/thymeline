@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient, createAdminClient } from './supabase-server'
 import { resolveHouseholdScope } from './household'
 import type { SupabaseClient, User } from '@supabase/supabase-js'
+import type { Database } from '@/types/database'
 import type { HouseholdContext } from '@/types'
 
 export interface AuthContext {
   user: User
-  db: SupabaseClient
+  db: SupabaseClient<Database>
   ctx: HouseholdContext | null
 }
 
