@@ -9,6 +9,7 @@ import ForkcastLogo from './ForkcastLogo'
 const CENTER_NAV = [
   { href: '/home',      label: 'Home' },
   { href: '/recipes',   label: 'Recipes' },
+  { href: '/discover',  label: 'Discover' },
   { href: '/plan',      label: 'Plan' },
   { href: '/calendar',  label: 'Calendar' },
   { href: '/groceries', label: 'Groceries' },
@@ -18,6 +19,7 @@ const CENTER_NAV = [
 const MOBILE_NAV = [
   { href: '/home',                  label: 'Home',      icon: '🏠' },
   { href: '/recipes',               label: 'Recipes',   icon: '📖' },
+  { href: '/discover',              label: 'Discover',  icon: '🧭' },
   { href: '/plan',                  label: 'Plan',      icon: '📅' },
   { href: '/calendar',              label: 'Calendar',  icon: '🗓️' },
   { href: '/groceries',             label: 'Groceries', icon: '🛒' },

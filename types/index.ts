@@ -331,3 +331,34 @@ export interface HouseholdContext {
   householdId: string
   role:        HouseholdRole
 }
+
+// ─── Discover ────────────────────────────────────────────────────────────────
+
+export interface DiscoveryResult {
+  title:          string
+  url:            string
+  site_name:      string
+  description:    string | null
+  suggested_tags: string[]
+  vault_match?: {
+    similar_recipe_title: string
+    similarity: 'exact' | 'similar'
+  }
+}
+
+/** Scraped recipe data — returned by POST /api/recipes/scrape and used in the discover flow */
+export interface ScrapeResult {
+  title:               string | null
+  ingredients:         string | null
+  steps:               string | null
+  imageUrl:            string | null
+  sourceUrl:           string
+  partial:             boolean
+  suggestedTags:       string[]
+  suggestedNewTags:    { name: string; section: 'style' | 'dietary' | 'seasonal' | 'cuisine' | 'protein' }[]
+  prepTimeMinutes:     number | null
+  cookTimeMinutes:     number | null
+  totalTimeMinutes:    number | null
+  inactiveTimeMinutes: number | null
+  servings:            number | null
+}
