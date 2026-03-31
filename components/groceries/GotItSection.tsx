@@ -3,6 +3,7 @@
 import { useCallback, useState } from 'react'
 import { GroceryItem } from '@/types'
 import { getAccessToken } from '@/lib/supabase/browser'
+import { TOAST_DURATION_MS } from '@/lib/constants'
 
 interface GotItSectionProps {
   items:  GroceryItem[]
@@ -30,7 +31,7 @@ export default function GotItSection({ items, onUndo }: GotItSectionProps) {
       }),
     })
     setShowToast(true)
-    setTimeout(() => setShowToast(false), 2000)
+    setTimeout(() => setShowToast(false), TOAST_DURATION_MS)
   }, [])
 
   if (items.length === 0) return null

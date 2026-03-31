@@ -362,7 +362,7 @@ export default function RecipePageContent() {
         <div className="flex-1" />
 
         {/* Search */}
-        <div className="relative flex-1 max-w-sm">
+        <div className="relative max-w-sm w-64">
           <input
             ref={searchInputRef}
             type="text"

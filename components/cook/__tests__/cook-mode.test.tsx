@@ -506,8 +506,8 @@ describe('T43 - Step with time reference pre-fills timer to 20:00', () => {
     await renderCookPage(recipe)
 
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /set timer/i })) })
-    // Picker should be pre-filled to 20m
-    expect(screen.getByText('20m')).toBeDefined()
+    // Picker should be pre-filled: minutes input shows 20
+    expect(screen.getByDisplayValue('20')).toBeDefined()
 
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /start/i })) })
     expect(screen.getAllByText('20:00').length).toBeGreaterThan(0)
@@ -521,8 +521,8 @@ describe('T44 - Step with "1 hour 30 minutes" pre-fills to 1:30:00', () => {
     await renderCookPage(recipe)
 
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /set timer/i })) })
-    // Picker pre-filled: 90m (= 1hr 30min in minutes)
-    expect(screen.getByText('90m')).toBeDefined()
+    // Picker pre-filled: minutes input shows 90 (= 1hr 30min total minutes)
+    expect(screen.getByDisplayValue('90')).toBeDefined()
 
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /start/i })) })
     expect(screen.getAllByText('1:30:00').length).toBeGreaterThan(0)
@@ -536,7 +536,8 @@ describe('T45 - Step with "10–15 minutes" pre-fills to 15:00', () => {
     await renderCookPage(recipe)
 
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /set timer/i })) })
-    expect(screen.getByText('15m')).toBeDefined()
+    // Minutes input shows 15 (higher bound of the range)
+    expect(screen.getByDisplayValue('15')).toBeDefined()
 
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /start/i })) })
     expect(screen.getAllByText('15:00').length).toBeGreaterThan(0)
@@ -554,8 +555,8 @@ describe('T46 - Step with no time reference leaves timer unchanged', () => {
     await renderCookPage()
     // sampleRecipe step 0 is "Mix ingredients" — no time ref
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /set timer/i })) })
-    // Default picker shows 5m (unchanged behavior)
-    expect(screen.getByText('5m')).toBeDefined()
+    // Default picker: minutes input shows 5
+    expect(screen.getByDisplayValue('5')).toBeDefined()
   })
 })
 
@@ -568,9 +569,9 @@ describe('T47 - Running timer appears in ActiveTimersBar with step label', () =>
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /set timer/i })) })
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /start/i })) })
 
-    // Bar should show derived label "Simmer"
-    expect(screen.getByText('Simmer')).toBeDefined()
-    // Bar and inline timer both show 20:00
+    // Bar shows "Simmer for 20:00" label (action + original duration)
+    expect(screen.getByText(/Simmer for 20:00/)).toBeDefined()
+    // Countdown shows remaining time
     const countdowns = screen.getAllByText('20:00')
     expect(countdowns.length).toBeGreaterThan(0)
   })
@@ -594,8 +595,8 @@ describe('T48 - Navigating to a different step keeps timer running in bar', () =
 
     // Step 2 content is visible
     expect(screen.getByText('Add the vegetables and stir')).toBeDefined()
-    // Bar still shows the Simmer timer at 19:57
-    expect(screen.getByText('Simmer')).toBeDefined()
+    // Bar still shows "Simmer for 20:00" label and remaining countdown
+    expect(screen.getByText(/Simmer for 20:00/)).toBeDefined()
     expect(screen.getByText('19:57')).toBeDefined()
   })
 })
@@ -632,10 +633,26 @@ describe('T49 - Expired timer shows "Time\'s up!" in bar until dismissed', () =>
   })
 })
 
-// ── T50-T53: Step ingredient panel ───────────────────────────────────────────
+// ── T50-T54: Inline quantity injection ───────────────────────────────────────
 
-describe('T50 - Step containing "flour" shows matched ingredient in panel', () => {
-  it('renders the ingredient line when a step references it', async () => {
+describe('T50 - Step with no matching ingredient name renders unchanged', () => {
+  it('step text without an ingredient name match shows no injected quantity', async () => {
+    const recipe = {
+      ...sampleRecipe,
+      ingredients: '2 cups flour\n1/2 tsp salt',
+      // "Preheat the oven" matches neither "flour" nor "salt"
+      steps: 'Preheat the oven to 350°F\nAdd the flour',
+      servings: 4,
+    }
+    await renderCookPage(recipe)
+    // No "2 cups" or "1/2 tsp" text injected into step 0
+    expect(screen.queryByText(/2 cups/)).toBeNull()
+    expect(screen.queryByText(/1\/2 tsp/)).toBeNull()
+  })
+})
+
+describe('T51 - Scroll view also injects quantities inline', () => {
+  it('all-steps view renders injected quantity for a matching step', async () => {
     const recipe = {
       ...sampleRecipe,
       ingredients: '2 cups flour\n1/2 tsp salt',
@@ -643,78 +660,151 @@ describe('T50 - Step containing "flour" shows matched ingredient in panel', () =
       servings: 4,
     }
     await renderCookPage(recipe)
-
-    // Panel is auto-expanded (1 match ≤ 3)
-    expect(screen.getByText('2 cups flour')).toBeDefined()
+    // Switch to all-steps view
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /all steps/i })) })
+    expect(screen.getByText(/2 cups/)).toBeDefined()
   })
 })
 
-describe('T51 - Step with no matching ingredients shows no panel', () => {
-  it('hides the panel when no ingredients match the step text', async () => {
+describe('T52 - Injected quantity is wrapped in a highlighted span', () => {
+  it('quantity text renders inside a <span> element (not as plain text)', async () => {
     const recipe = {
       ...sampleRecipe,
       ingredients: '2 cups flour\n1/2 tsp salt',
-      // Step 0 "Preheat the oven" matches neither flour nor salt
-      steps: 'Preheat the oven to 350°F\nAdd the flour and mix',
+      steps: 'Add the flour and mix well\nBake for 30 minutes',
       servings: 4,
     }
     await renderCookPage(recipe)
-
-    expect(screen.queryByText('Ingredients for this step')).toBeNull()
+    // "2 cups" appears inside a <span>, not as a bare text node
+    const quantityEl = screen.getByText(/2 cups/)
+    expect(quantityEl.tagName).toBe('SPAN')
   })
 })
 
-describe('T52 - Panel collapsed by default when more than 3 ingredients match', () => {
-  it('does not expand list when >3 ingredients match', async () => {
-    const recipe = {
-      ...sampleRecipe,
-      ingredients: '2 cups flour\n1/2 tsp salt\n1 cup sugar\n2 eggs\n1 tsp vanilla',
-      // Step mentions all five ingredients
-      steps: 'Combine flour, salt, sugar, eggs, and vanilla in a bowl',
-      servings: 4,
-    }
-    await renderCookPage(recipe)
-
-    // Label is visible but the list items are not (collapsed)
-    expect(screen.getByText('Ingredients for this step')).toBeDefined()
-    expect(screen.queryByText('2 cups flour')).toBeNull()
+describe('T53 - Quantities scale with servings when doubled', () => {
+  it('injectStepQuantities returns doubled quantity at 2× servings', async () => {
+    const { injectStepQuantities } = await import('@/lib/inject-step-quantities')
+    const result = injectStepQuantities(
+      'Add the flour and mix',
+      '2 cups flour',
+      8, // targetServings
+      4, // baseServings
+    )
+    // 2 cups × (8/4) = 4 cups injected before "flour"
+    expect(result.text).toContain('4 cups')
+    expect(result.highlights.length).toBeGreaterThan(0)
   })
 })
 
-describe('T52b - Panel collapses after navigating to a step with >3 matching ingredients', () => {
-  it('remounts collapsed when navigating to a >3-match step from a 1-match step', async () => {
+describe('T54 - cook page renders step text with injected inline quantity', () => {
+  it('single-step view injects quantity before ingredient name', async () => {
     const recipe = {
       ...sampleRecipe,
-      ingredients: '2 cups flour\n1/2 tsp salt\n1 cup sugar\n2 eggs\n1 tsp vanilla',
-      // Step 0: only "flour" matches (1 match → auto-expanded)
-      // Step 1: all five ingredients mentioned (>3 → should start collapsed)
-      steps: 'Add the flour to the bowl\nCombine flour, salt, sugar, eggs, and vanilla',
+      ingredients: '2 cups flour\n1/2 tsp salt',
+      steps: 'Add the flour and mix well\nBake for 30 minutes',
       servings: 4,
     }
     await renderCookPage(recipe)
+    // "2 cups" is injected inline before "flour" — confirm it renders in the DOM
+    expect(screen.getByText(/2 cups/)).toBeDefined()
+  })
+})
 
-    // Step 0: panel is auto-expanded, ingredient list visible
-    expect(screen.getByText('Ingredients for this step')).toBeDefined()
-    expect(screen.getByText('2 cups flour')).toBeDefined()
+// ── T55-T59: Editable timer input + bar label format ─────────────────────────
 
-    // Navigate to step 1
+describe('T55 - Typing into minutes field sets correct timer duration', () => {
+  it('typing "25" into minutes field then Start creates a 25:00 timer', async () => {
+    vi.useFakeTimers()
+    await renderCookPage()
+
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /set timer/i })) })
+
+    const minsInput = screen.getByRole('spinbutton', { name: /minutes/i })
+    await act(async () => {
+      fireEvent.change(minsInput, { target: { value: '25' } })
+    })
+    expect(screen.getByDisplayValue('25')).toBeDefined()
+
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /start/i })) })
+    expect(screen.getAllByText('25:00').length).toBeGreaterThan(0)
+  })
+})
+
+describe('T56 - Typing > 59 into seconds field carries over into minutes', () => {
+  it('typing "90" in seconds and blurring yields 1 min 30 sec', async () => {
+    vi.useFakeTimers()
+    await renderCookPage()
+
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /set timer/i })) })
+
+    // Clear minutes to 0 first
+    const minsInput = screen.getByRole('spinbutton', { name: /minutes/i })
+    await act(async () => { fireEvent.change(minsInput, { target: { value: '0' } }) })
+
+    // Type 90 in seconds then blur to trigger carry-over
+    const secsInput = screen.getByRole('spinbutton', { name: /seconds/i })
+    await act(async () => { fireEvent.change(secsInput, { target: { value: '90' } }) })
+    await act(async () => { fireEvent.blur(secsInput) })
+
+    // Should have carried over: 1 minute, 30 seconds
+    expect(screen.getByDisplayValue('1')).toBeDefined()
+    expect(screen.getByDisplayValue('30')).toBeDefined()
+
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /start/i })) })
+    expect(screen.getAllByText('01:30').length).toBeGreaterThan(0)
+  })
+})
+
+describe('T57 - Arrow up on minutes increments by 1', () => {
+  it('clicking ▲ on minutes increments the minutes field by 1', async () => {
+    await renderCookPage()
+
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /set timer/i })) })
+
+    // Default is 5 minutes
+    expect(screen.getByDisplayValue('5')).toBeDefined()
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /increment minutes/i }))
+    })
+
+    expect(screen.getByDisplayValue('6')).toBeDefined()
+  })
+})
+
+describe('T58 - Active timer bar shows "Action for MM:SS" label format', () => {
+  it('shows "Simmer for 20:00" badge alongside live countdown after starting', async () => {
+    vi.useFakeTimers()
+    const recipe = { ...sampleRecipe, steps: 'Simmer for 20 minutes over low heat' }
+    await renderCookPage(recipe)
+
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /set timer/i })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /start/i })) })
+
+    // Badge shows action + original duration
+    expect(screen.getByText(/Simmer for 20:00/)).toBeDefined()
+    // Countdown is present
+    expect(screen.getAllByText('20:00').length).toBeGreaterThan(0)
+  })
+})
+
+describe('T59 - Timer bar label persists when navigating between steps', () => {
+  it('label stays "Simmer for 20:00" after navigating to a different step', async () => {
+    vi.useFakeTimers()
+    const recipe = {
+      ...sampleRecipe,
+      steps: 'Simmer for 20 minutes over low heat\nAdd the vegetables and stir',
+    }
+    await renderCookPage(recipe)
+
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /set timer/i })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /start/i })) })
+
+    // Navigate to step 2
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /next →/i })) })
 
-    // Panel label still visible but list is collapsed (>3 matches)
-    expect(screen.getByText('Ingredients for this step')).toBeDefined()
-    expect(screen.queryByText('2 cups flour')).toBeNull()
-  })
-})
-
-describe('T53 - Scaled quantity appears correctly in the panel', () => {
-  it('shows scaled quantities when targetServings differs from base', async () => {
-    // The cook page starts servings at recipe.servings (4), but we test the
-    // matchStepIngredients utility directly with a different target to keep
-    // the test deterministic without driving the full UI stepper.
-    const { matchStepIngredients } = await import('@/components/cook/StepIngredientPanel')
-    const ingredients = '2 cups flour\n1/2 tsp salt'
-    const result = matchStepIngredients('Add the flour and mix', ingredients, 4, 8)
-    // 2 cups * (8/4) = 4 cups
-    expect(result).toContain('4 cups flour')
+    expect(screen.getByText('Add the vegetables and stir')).toBeDefined()
+    // Bar label unchanged — still shows original action + duration
+    expect(screen.getByText(/Simmer for 20:00/)).toBeDefined()
   })
 })

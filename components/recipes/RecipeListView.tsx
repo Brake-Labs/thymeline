@@ -4,6 +4,7 @@ import Link from 'next/link'
 import type { RecipeListItem } from '@/types'
 import { CATEGORY_LABELS } from '@/lib/category-labels'
 import { formatMinutes } from '@/lib/format-time'
+import { MAX_VISIBLE_TAGS } from '@/lib/constants'
 
 export type ListSortKey = 'title' | 'category' | 'total_time_minutes' | 'last_made' | null
 
@@ -19,9 +20,9 @@ interface RecipeListViewProps {
 }
 
 const COLUMNS: { key: ListSortKey; label: string; className: string }[] = [
-  { key: 'title', label: 'Recipe', className: 'flex-1 min-w-0' },
+  { key: 'title', label: 'Recipe', className: 'w-52 min-w-0' },
   { key: 'category', label: 'Category', className: 'w-28' },
-  { key: null, label: 'Tags', className: 'w-36' },
+  { key: null, label: 'Tags', className: 'w-52' },
   { key: 'total_time_minutes', label: 'Time', className: 'w-20' },
   { key: 'last_made', label: 'Last Made', className: 'w-24' },
   { key: null, label: '', className: 'w-12' },
@@ -84,8 +85,8 @@ export default function RecipeListView({
         <tbody>
           {recipes.map((recipe) => {
             const isOwner = currentUserId && recipe.user_id === currentUserId
-            const visibleTags = recipe.tags.slice(0, 3)
-            const extraCount = recipe.tags.length - 3
+            const visibleTags = recipe.tags.slice(0, MAX_VISIBLE_TAGS)
+            const extraCount = recipe.tags.length - MAX_VISIBLE_TAGS
 
             return (
               <tr
@@ -103,7 +104,7 @@ export default function RecipeListView({
                     aria-label={`Select ${recipe.title}`}
                   />
                 </td>
-                <td className="py-3 pr-4 flex-1 min-w-0">
+                <td className="py-3 pr-4 w-52 min-w-0">
                   <Link
                     href={`/recipes/${recipe.id}`}
                     className="font-medium text-[#1F2D26] hover:text-sage-700 truncate block"
@@ -114,7 +115,7 @@ export default function RecipeListView({
                 <td className="py-3 pr-4 w-28 text-stone-500 text-xs">
                   {CATEGORY_LABELS[recipe.category]}
                 </td>
-                <td className="py-3 pr-4 w-36">
+                <td className="py-3 pr-4 w-52">
                   <div className="flex flex-wrap gap-1">
                     {visibleTags.map((tag) => (
                       <span

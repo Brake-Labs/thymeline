@@ -1,8 +1,10 @@
 'use client'
 
 import { useRef } from 'react'
+import type React from 'react'
 import StepTimer, { type TimerState } from './StepTimer'
-import StepIngredientPanel from './StepIngredientPanel'
+import { injectStepQuantities } from '@/lib/inject-step-quantities'
+import { renderHighlighted } from './renderHighlighted'
 
 interface Props {
   steps: string[]
@@ -30,6 +32,11 @@ export default function SingleStepView({
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
 
   const photo = stepPhotos.find((p) => p.stepIndex === currentStep)
+
+  const { text: stepText, highlights } =
+    ingredients
+      ? injectStepQuantities(steps[currentStep] ?? '', ingredients, targetServings, baseServings)
+      : { text: steps[currentStep] ?? '', highlights: [] }
 
   function handleTouchStart(e: React.TouchEvent) {
     const t = e.touches[0]
@@ -76,28 +83,17 @@ export default function SingleStepView({
           {currentStep + 1}
         </span>
         <p
-          className="text-stone-800 font-sans"
+          className="text-[#3D3028] font-sans"
           style={{ fontSize: 20, lineHeight: 1.7 }}
         >
-          {steps[currentStep]}
+          {renderHighlighted(stepText, highlights)}
         </p>
       </div>
-
-      {/* Ingredients for this step */}
-      {ingredients && (
-        <StepIngredientPanel
-          key={currentStep}
-          stepText={steps[currentStep]!}
-          ingredients={ingredients}
-          baseServings={baseServings}
-          targetServings={targetServings}
-        />
-      )}
 
       {/* Timer */}
       <StepTimer
         stepIndex={currentStep}
-        stepText={steps[currentStep]}
+        stepText={steps[currentStep] ?? ''}
         timerState={timers.get(currentStep)}
         onChange={(state) => onTimerChange(currentStep, state)}
       />

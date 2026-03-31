@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
-import FirecrawlApp from 'firecrawl'
 import { withAuth } from '@/lib/auth'
-import { anthropic } from '@/lib/llm'
+import { callLLM, LLM_MODEL_FAST } from '@/lib/llm'
 import { generateGroceriesSchema, parseBody } from '@/lib/schemas'
 import type { RecipeJoinFull } from '@/types'
 import {
@@ -10,6 +9,7 @@ import {
   assignSection,
   isPantryStaple,
 } from '@/lib/grocery'
+import { resolveRecipeIngredients } from '@/lib/grocery-scrape'
 import { toDateString } from '@/lib/date-utils'
 import { GroceryItem, GrocerySection, RecipeScale } from '@/types'
 
@@ -102,37 +102,7 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
   const combineInputs: Parameters<typeof combineIngredients>[0] = []
 
   for (const recipe of recipes) {
-    let ingredientsText: string | null = null
-
-    if (recipe.ingredients) {
-      // Vault ingredients available
-      ingredientsText = recipe.ingredients
-    } else if (recipe.url && firecrawlKey) {
-      // Attempt scrape + LLM extraction
-      try {
-        const firecrawl = new FirecrawlApp({ apiKey: firecrawlKey })
-        const result = await firecrawl.scrape(recipe.url, { formats: ['markdown'] })
-        const pageContent = result.markdown ?? ''
-
-        const extractionPrompt = `Extract the ingredients list from this recipe page. Return ONLY a JSON object with a single field "ingredients": a newline-separated string of ingredients (one per line), or null if not found.\n\nPage content:\n${pageContent.slice(0, 10000)}`
-
-        const response = await anthropic.messages.create({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 1024,
-          temperature: 0,
-          messages: [{ role: 'user', content: extractionPrompt }],
-        })
-
-        const rawText = response.content[0]?.type === 'text' ? response.content[0].text : ''
-        const cleaned = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
-        const parsed = JSON.parse(cleaned)
-        if (typeof parsed.ingredients === 'string') {
-          ingredientsText = parsed.ingredients
-        }
-      } catch (err) {
-        console.warn(`Failed to scrape/extract ingredients for "${recipe.recipe_title}":`, err)
-      }
-    }
+    const ingredientsText = await resolveRecipeIngredients(recipe, firecrawlKey)
 
     if (!ingredientsText) {
       skipped_recipes.push(recipe.recipe_title)
@@ -176,15 +146,12 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
 
       const userPrompt = `Resolve these ambiguous grocery items:\n${JSON.stringify(ambiguousPayload, null, 2)}\n\nReturn a JSON array with objects: { name, amount, unit, section, is_pantry, recipes }`
 
-      const response = await anthropic.messages.create({
-        model:      'claude-haiku-4-5-20251001',
-        max_tokens: 2048,
-        temperature: 0,
-        system:     systemPrompt,
-        messages:   [{ role: 'user', content: userPrompt }],
+      const rawText = await callLLM({
+        model: LLM_MODEL_FAST,
+        maxTokens: 2048,
+        system: systemPrompt,
+        user: userPrompt,
       })
-
-      const rawText = response.content[0]?.type === 'text' ? response.content[0].text : '[]'
       const cleaned = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
       const parsed: unknown[] = JSON.parse(cleaned)
 

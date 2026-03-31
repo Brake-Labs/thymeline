@@ -4,19 +4,15 @@ import { createAdminClient } from '@/lib/supabase-server'
 import { parseIngredientLine } from '@/lib/grocery'
 import { logRecipeSchema, deleteLogSchema, parseBody } from '@/lib/schemas'
 import { getTodayISO } from '@/lib/date-utils'
+import { checkOwnership } from '@/lib/household'
 
-export const POST = withAuth(async (req: NextRequest, { user, db }, params) => {
-  const { id } = params
+export const POST = withAuth(async (req: NextRequest, { user, db, ctx }, params) => {
+  const id = params.id!
 
-  // Verify the recipe exists and the user can access it
-  const { data: recipe, error: fetchError } = await db
-    .from('recipes')
-    .select('id')
-    .eq('id', id)
-    .single()
-
-  if (fetchError || !recipe) {
-    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  const ownership = await checkOwnership(db, 'recipes', id, user.id, ctx)
+  if (!ownership.owned) {
+    const msg = ownership.status === 404 ? 'Not found' : 'Forbidden'
+    return NextResponse.json({ error: msg }, { status: ownership.status })
   }
 
   // Accept optional made_on from body; default to today
@@ -93,7 +89,7 @@ async function deductPantryIngredients(recipeId: string, userId: string): Promis
   }
 }
 
-export const DELETE = withAuth(async (req: NextRequest, { user, db }, params) => {
+export const DELETE = withAuth(async (req: NextRequest, { user, db, ctx: _ctx }, params) => {
   const { id } = params
 
   const { data: body, error: parseError } = await parseBody(req, deleteLogSchema)

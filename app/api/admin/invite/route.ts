@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
+import { config } from '@/lib/config'
 
 export const POST = withAuth(async (req, { user, db }) => {
-  const adminId = process.env.ADMIN_USER_ID
+  const adminId = config.admin.userId
   if (!adminId || user.id !== adminId) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
@@ -18,9 +19,8 @@ export const POST = withAuth(async (req, { user, db }) => {
     return NextResponse.json({ error: 'Failed to create invite' }, { status: 500 })
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
   return NextResponse.json({
-    invite_url: `${siteUrl}/invite?token=${token}`,
+    invite_url: `${config.siteUrl}/invite?token=${token}`,
     expires_at: expiresAt,
   })
 })
