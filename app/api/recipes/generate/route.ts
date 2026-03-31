@@ -36,12 +36,9 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   // Fetch pantry items if requested
   let pantryLines: string[] = []
   if (use_pantry) {
-    const pantryQ = scopeQuery(
-      db.from('pantry_items').select('name, quantity'),
-      user.id,
-      ctx,
-    ).order('name')
-    const { data: pantryItems } = await pantryQ
+    let pantryQ = db.from('pantry_items').select('name, quantity')
+    pantryQ = scopeQuery(pantryQ, user.id, ctx)
+    const { data: pantryItems } = await pantryQ.order('name')
 
     pantryLines = (pantryItems ?? []).map((item: { name: string; quantity: string | null }) =>
       item.quantity ? `${item.quantity} ${item.name}` : item.name

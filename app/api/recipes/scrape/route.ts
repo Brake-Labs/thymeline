@@ -28,11 +28,8 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   }
 
   // Fetch user's custom tags for tag suggestion matching
-  const customTagsQ = scopeQuery(
-    db.from('custom_tags').select('name'),
-    user.id,
-    ctx,
-  )
+  let customTagsQ = db.from('custom_tags').select('name')
+  customTagsQ = scopeQuery(customTagsQ, user.id, ctx)
   const { data: userCustomTagRows } = await customTagsQ
   const userCustomTags: string[] = (userCustomTagRows ?? []).map((t: { name: string }) => t.name)
 

@@ -1,5 +1,3 @@
-import 'server-only'
-
 import { callLLM, LLM_MODEL_FAST } from './llm'
 
 interface RecipeForIngredients {
