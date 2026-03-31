@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
-import { FIRST_CLASS_TAGS } from '@/lib/tags'
+import { validateTags } from '@/lib/tags'
 import { createAdminClient } from '@/lib/supabase-server'
 import { updateRecipeSchema, parseBody } from '@/lib/schemas'
 
@@ -68,26 +68,10 @@ export const PATCH = withAuth(async (req, { user, db, ctx }, params) => {
   const { data: body, error: parseError } = await parseBody(req, updateRecipeSchema)
   if (parseError) return parseError
 
-  // Validate tags against first-class list + scoped custom_tags
-  if (body.tags !== undefined && body.tags.length > 0) {
-    let customTagsQuery = db.from('custom_tags').select('name')
-    if (ctx) {
-      customTagsQuery = customTagsQuery.eq('household_id', ctx.householdId)
-    } else {
-      customTagsQuery = customTagsQuery.eq('user_id', user.id)
-    }
-    const { data: customTags } = await customTagsQuery
-
-    const knownNames = new Set([
-      ...FIRST_CLASS_TAGS.map((t) => t.toLowerCase()),
-      ...(customTags ?? []).map((t) => t.name.toLowerCase()),
-    ])
-    const unknownTags = body.tags.filter((t) => !knownNames.has(t.toLowerCase()))
-    if (unknownTags.length > 0) {
-      return NextResponse.json(
-        { error: `Unknown tags: ${unknownTags.join(', ')}` },
-        { status: 400 },
-      )
+  if (body.tags !== undefined) {
+    const tagResult = await validateTags(db, body.tags, user.id, ctx)
+    if (!tagResult.valid) {
+      return NextResponse.json({ error: `Unknown tags: ${tagResult.unknownTags.join(', ')}` }, { status: 400 })
     }
   }
 

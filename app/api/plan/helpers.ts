@@ -16,6 +16,41 @@ export const MEAL_TYPE_CATEGORIES: Record<MealType, string[]> = {
 export { getMostRecentSunday, isSunday } from '@/lib/date-utils'
 import { toDateString } from '@/lib/date-utils'
 
+// ── Meal plan helpers ─────────────────────────────────────────────────────────
+
+/**
+ * Find an existing meal plan for the given week, or create a new one.
+ * Returns the plan ID, or null if creation failed.
+ */
+export async function getOrCreateMealPlan(
+  db: SupabaseClient<Database>,
+  userId: string,
+  weekStart: string,
+  ctx?: HouseholdContext | null,
+): Promise<{ planId: string } | { error: string }> {
+  let q = db.from('meal_plans').select('id').eq('week_start', weekStart)
+  if (ctx) {
+    q = q.eq('household_id', ctx.householdId)
+  } else {
+    q = q.eq('user_id', userId)
+  }
+  const { data: existing } = await q.maybeSingle()
+
+  if (existing?.id) return { planId: existing.id }
+
+  const insertPayload = ctx
+    ? { household_id: ctx.householdId, user_id: userId, week_start: weekStart }
+    : { user_id: userId, week_start: weekStart }
+  const { data: created, error } = await db
+    .from('meal_plans')
+    .insert(insertPayload)
+    .select('id')
+    .single()
+
+  if (error || !created) return { error: error?.message ?? 'unknown' }
+  return { planId: created.id }
+}
+
 // ── Season helpers ─────────────────────────────────────────────────────────────
 
 export function getSeason(month: number): 'spring' | 'summer' | 'autumn' | 'winter' {

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { createPlanEntrySchema, parseBody } from '@/lib/schemas'
-import { isSunday } from '../helpers'
+import { isSunday, getOrCreateMealPlan } from '../helpers'
 import type { MealType, PlanEntry } from '@/types'
 
 export const POST = withAuth(async (req, { user, db, ctx }) => {
@@ -51,35 +51,11 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
     }
   }
 
-  // Upsert meal_plans on (household_id, week_start) or (user_id, week_start)
-  let existingPlanQ = db
-    .from('meal_plans')
-    .select('id')
-    .eq('week_start', week_start)
-  if (ctx) {
-    existingPlanQ = existingPlanQ.eq('household_id', ctx.householdId)
-  } else {
-    existingPlanQ = existingPlanQ.eq('user_id', user.id)
+  const planResult = await getOrCreateMealPlan(db, user.id, week_start, ctx)
+  if ('error' in planResult) {
+    return NextResponse.json({ error: 'Failed to create plan' }, { status: 500 })
   }
-  const { data: existingPlan } = await existingPlanQ.maybeSingle()
-
-  let planId: string
-  if (existingPlan?.id) {
-    planId = existingPlan.id
-  } else {
-    const insertPayload = ctx
-      ? { household_id: ctx.householdId, user_id: user.id, week_start }
-      : { user_id: user.id, week_start }
-    const { data: newPlan, error: planError } = await db
-      .from('meal_plans')
-      .insert(insertPayload)
-      .select('id')
-      .single()
-    if (planError || !newPlan) {
-      return NextResponse.json({ error: 'Failed to create plan' }, { status: 500 })
-    }
-    planId = newPlan.id
-  }
+  const { planId } = planResult
 
   // Insert the entry
   const { data: entry, error: entryError } = await db
