@@ -101,37 +101,22 @@ export const PATCH = withAuth(async (req, { user, db, ctx }) => {
   const allowed = ['options_per_day', 'cooldown_days', 'seasonal_mode', 'preferred_tags', 'avoided_tags', 'limited_tags', 'onboarding_completed'] as const
   const bodyRecord = body as Record<string, unknown>
 
-  if (ctx) {
-    const update: Record<string, unknown> = { household_id: ctx.householdId }
-    for (const key of allowed) {
-      if (key in body) update[key] = bodyRecord[key]
-    }
-
-    const { data, error } = await db
-      .from('user_preferences')
-      .upsert(update, { onConflict: 'household_id' })
-      .select('options_per_day, cooldown_days, seasonal_mode, preferred_tags, avoided_tags, limited_tags, onboarding_completed, is_active')
-      .single()
-
-    if (error || !data) {
-      return NextResponse.json({ error: 'Failed to update preferences' }, { status: 500 })
-    }
-    return NextResponse.json(data)
-  } else {
-    const update: Record<string, unknown> = { user_id: user.id }
-    for (const key of allowed) {
-      if (key in body) update[key] = bodyRecord[key]
-    }
-
-    const { data, error } = await db
-      .from('user_preferences')
-      .upsert(update, { onConflict: 'user_id' })
-      .select('options_per_day, cooldown_days, seasonal_mode, preferred_tags, avoided_tags, limited_tags, onboarding_completed, is_active')
-      .single()
-
-    if (error || !data) {
-      return NextResponse.json({ error: 'Failed to update preferences' }, { status: 500 })
-    }
-    return NextResponse.json(data)
+  const update: Record<string, unknown> = { user_id: user.id }
+  if (ctx) update.household_id = ctx.householdId
+  for (const key of allowed) {
+    if (key in body) update[key] = bodyRecord[key]
   }
+
+  const onConflict = ctx ? 'household_id' : 'user_id'
+  const { data, error } = await db
+    .from('user_preferences')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic field selection from validated body
+    .upsert(update as any, { onConflict })
+    .select('options_per_day, cooldown_days, seasonal_mode, preferred_tags, avoided_tags, limited_tags, onboarding_completed, is_active')
+    .single()
+
+  if (error || !data) {
+    return NextResponse.json({ error: 'Failed to update preferences' }, { status: 500 })
+  }
+  return NextResponse.json(data)
 })

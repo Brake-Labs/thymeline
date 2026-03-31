@@ -51,7 +51,7 @@ export type Database = {
       }
       grocery_lists: {
         Row: {
-          created_at: string | null
+          created_at: string
           date_from: string | null
           date_to: string | null
           household_id: string | null
@@ -60,12 +60,12 @@ export type Database = {
           meal_plan_id: string | null
           recipe_scales: Json
           servings: number
-          updated_at: string | null
+          updated_at: string
           user_id: string
           week_start: string
         }
         Insert: {
-          created_at?: string | null
+          created_at?: string
           date_from?: string | null
           date_to?: string | null
           household_id?: string | null
@@ -74,12 +74,12 @@ export type Database = {
           meal_plan_id?: string | null
           recipe_scales?: Json
           servings?: number
-          updated_at?: string | null
+          updated_at?: string
           user_id: string
           week_start: string
         }
         Update: {
-          created_at?: string | null
+          created_at?: string
           date_from?: string | null
           date_to?: string | null
           household_id?: string | null
@@ -88,7 +88,7 @@ export type Database = {
           meal_plan_id?: string | null
           recipe_scales?: Json
           servings?: number
-          updated_at?: string | null
+          updated_at?: string
           user_id?: string
           week_start?: string
         }
@@ -229,37 +229,37 @@ export type Database = {
       }
       meal_plan_entries: {
         Row: {
-          confirmed: boolean | null
+          confirmed: boolean
           id: string
           is_side_dish: boolean
-          meal_plan_id: string | null
-          meal_type: string | null
+          meal_plan_id: string
+          meal_type: string
           parent_entry_id: string | null
           planned_date: string
           position: number
-          recipe_id: string | null
+          recipe_id: string
         }
         Insert: {
-          confirmed?: boolean | null
+          confirmed?: boolean
           id?: string
           is_side_dish?: boolean
-          meal_plan_id?: string | null
-          meal_type?: string | null
+          meal_plan_id: string
+          meal_type?: string
           parent_entry_id?: string | null
           planned_date: string
           position: number
-          recipe_id?: string | null
+          recipe_id: string
         }
         Update: {
-          confirmed?: boolean | null
+          confirmed?: boolean
           id?: string
           is_side_dish?: boolean
-          meal_plan_id?: string | null
-          meal_type?: string | null
+          meal_plan_id?: string
+          meal_type?: string
           parent_entry_id?: string | null
           planned_date?: string
           position?: number
-          recipe_id?: string | null
+          recipe_id?: string
         }
         Relationships: [
           {
@@ -287,27 +287,27 @@ export type Database = {
       }
       meal_plans: {
         Row: {
-          created_at: string | null
+          created_at: string
           household_id: string | null
           id: string
           servings: number | null
-          user_id: string | null
+          user_id: string
           week_start: string
         }
         Insert: {
-          created_at?: string | null
+          created_at?: string
           household_id?: string | null
           id?: string
           servings?: number | null
-          user_id?: string | null
+          user_id: string
           week_start: string
         }
         Update: {
-          created_at?: string | null
+          created_at?: string
           household_id?: string | null
           id?: string
           servings?: number | null
-          user_id?: string | null
+          user_id?: string
           week_start?: string
         }
         Relationships: [
@@ -322,36 +322,36 @@ export type Database = {
       }
       pantry_items: {
         Row: {
-          added_at: string | null
+          added_at: string
           expiry_date: string | null
           household_id: string | null
           id: string
           name: string
           quantity: string | null
           section: string | null
-          updated_at: string | null
+          updated_at: string
           user_id: string
         }
         Insert: {
-          added_at?: string | null
+          added_at?: string
           expiry_date?: string | null
           household_id?: string | null
           id?: string
           name: string
           quantity?: string | null
           section?: string | null
-          updated_at?: string | null
+          updated_at?: string
           user_id: string
         }
         Update: {
-          added_at?: string | null
+          added_at?: string
           expiry_date?: string | null
           household_id?: string | null
           id?: string
           name?: string
           quantity?: string | null
           section?: string | null
-          updated_at?: string | null
+          updated_at?: string
           user_id?: string
         }
         Relationships: [
@@ -366,25 +366,25 @@ export type Database = {
       }
       recipe_history: {
         Row: {
-          created_at: string | null
+          created_at: string
           id: string
           made_on: string
-          recipe_id: string | null
-          user_id: string | null
+          recipe_id: string
+          user_id: string
         }
         Insert: {
-          created_at?: string | null
+          created_at?: string
           id?: string
           made_on: string
-          recipe_id?: string | null
-          user_id?: string | null
+          recipe_id: string
+          user_id: string
         }
         Update: {
-          created_at?: string | null
+          created_at?: string
           id?: string
           made_on?: string
-          recipe_id?: string | null
-          user_id?: string | null
+          recipe_id?: string
+          user_id?: string
         }
         Relationships: [
           {
@@ -398,70 +398,70 @@ export type Database = {
       }
       recipes: {
         Row: {
-          category: string | null
+          category: string
           cook_time_minutes: number | null
-          created_at: string | null
+          created_at: string
           household_id: string | null
           id: string
           image_url: string | null
           inactive_time_minutes: number | null
           ingredients: string | null
-          is_shared: boolean | null
+          is_shared: boolean
           notes: string | null
           prep_time_minutes: number | null
           servings: number | null
-          source: string | null
+          source: string
           step_photos: Json
           steps: string | null
-          tags: string[] | null
+          tags: string[]
           title: string
           total_time_minutes: number | null
           url: string | null
-          user_id: string | null
+          user_id: string
         }
         Insert: {
-          category?: string | null
+          category: string
           cook_time_minutes?: number | null
-          created_at?: string | null
+          created_at?: string
           household_id?: string | null
           id?: string
           image_url?: string | null
           inactive_time_minutes?: number | null
           ingredients?: string | null
-          is_shared?: boolean | null
+          is_shared?: boolean
           notes?: string | null
           prep_time_minutes?: number | null
           servings?: number | null
-          source?: string | null
+          source?: string
           step_photos?: Json
           steps?: string | null
-          tags?: string[] | null
+          tags?: string[]
           title: string
           total_time_minutes?: number | null
           url?: string | null
-          user_id?: string | null
+          user_id: string
         }
         Update: {
-          category?: string | null
+          category?: string
           cook_time_minutes?: number | null
-          created_at?: string | null
+          created_at?: string
           household_id?: string | null
           id?: string
           image_url?: string | null
           inactive_time_minutes?: number | null
           ingredients?: string | null
-          is_shared?: boolean | null
+          is_shared?: boolean
           notes?: string | null
           prep_time_minutes?: number | null
           servings?: number | null
-          source?: string | null
+          source?: string
           step_photos?: Json
           steps?: string | null
-          tags?: string[] | null
+          tags?: string[]
           title?: string
           total_time_minutes?: number | null
           url?: string | null
-          user_id?: string | null
+          user_id?: string
         }
         Relationships: [
           {
@@ -475,58 +475,58 @@ export type Database = {
       }
       user_preferences: {
         Row: {
-          avoided_tags: string[] | null
+          avoided_tags: string[]
           cadence_rules: Json | null
           comfort_limit_per_week: number | null
-          cooldown_days: number | null
-          created_at: string | null
+          cooldown_days: number
+          created_at: string
           healthy_bias: boolean | null
           household_id: string | null
           id: string
           is_active: boolean
           limited_tags: Json
           onboarding_completed: boolean
-          options_per_day: number | null
-          preferred_tags: string[] | null
-          seasonal_mode: boolean | null
+          options_per_day: number
+          preferred_tags: string[]
+          seasonal_mode: boolean
           seasonal_rules: Json | null
-          user_id: string | null
+          user_id: string
         }
         Insert: {
-          avoided_tags?: string[] | null
+          avoided_tags?: string[]
           cadence_rules?: Json | null
           comfort_limit_per_week?: number | null
-          cooldown_days?: number | null
-          created_at?: string | null
+          cooldown_days?: number
+          created_at?: string
           healthy_bias?: boolean | null
           household_id?: string | null
           id?: string
           is_active?: boolean
           limited_tags?: Json
           onboarding_completed?: boolean
-          options_per_day?: number | null
-          preferred_tags?: string[] | null
-          seasonal_mode?: boolean | null
+          options_per_day?: number
+          preferred_tags?: string[]
+          seasonal_mode?: boolean
           seasonal_rules?: Json | null
-          user_id?: string | null
+          user_id: string
         }
         Update: {
-          avoided_tags?: string[] | null
+          avoided_tags?: string[]
           cadence_rules?: Json | null
           comfort_limit_per_week?: number | null
-          cooldown_days?: number | null
-          created_at?: string | null
+          cooldown_days?: number
+          created_at?: string
           healthy_bias?: boolean | null
           household_id?: string | null
           id?: string
           is_active?: boolean
           limited_tags?: Json
           onboarding_completed?: boolean
-          options_per_day?: number | null
-          preferred_tags?: string[] | null
-          seasonal_mode?: boolean | null
+          options_per_day?: number
+          preferred_tags?: string[]
+          seasonal_mode?: boolean
           seasonal_rules?: Json | null
-          user_id?: string | null
+          user_id?: string
         }
         Relationships: [
           {
