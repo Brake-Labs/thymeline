@@ -15,10 +15,10 @@ describe('T50 - ingredient names replaced with scaled quantity + name', () => {
     // Two quantity spans highlighted
     expect(result.highlights).toHaveLength(2)
     // First highlight covers "2 cups"
-    const firstSpan = result.text.slice(result.highlights[0].start, result.highlights[0].end)
+    const firstSpan = result.text.slice(result.highlights[0]!.start, result.highlights[0]!.end)
     expect(firstSpan).toBe('2 cups')
     // Second highlight covers "1/2 cup"
-    const secondSpan = result.text.slice(result.highlights[1].start, result.highlights[1].end)
+    const secondSpan = result.text.slice(result.highlights[1]!.start, result.highlights[1]!.end)
     expect(secondSpan).toBe('1/2 cup')
   })
 })
@@ -50,7 +50,7 @@ describe('T52 - scaled quantities reflect current servings', () => {
     )
     expect(result.text).toBe('add 4 cups flour to the bowl')
     expect(result.highlights).toHaveLength(1)
-    const span = result.text.slice(result.highlights[0].start, result.highlights[0].end)
+    const span = result.text.slice(result.highlights[0]!.start, result.highlights[0]!.end)
     expect(span).toBe('4 cups')
   })
 })

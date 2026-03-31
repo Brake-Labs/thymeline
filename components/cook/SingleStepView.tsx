@@ -35,8 +35,8 @@ export default function SingleStepView({
 
   const { text: stepText, highlights } =
     ingredients
-      ? injectStepQuantities(steps[currentStep], ingredients, targetServings, baseServings)
-      : { text: steps[currentStep], highlights: [] }
+      ? injectStepQuantities(steps[currentStep] ?? '', ingredients, targetServings, baseServings)
+      : { text: steps[currentStep] ?? '', highlights: [] }
 
   function handleTouchStart(e: React.TouchEvent) {
     const t = e.touches[0]
@@ -93,7 +93,7 @@ export default function SingleStepView({
       {/* Timer */}
       <StepTimer
         stepIndex={currentStep}
-        stepText={steps[currentStep]}
+        stepText={steps[currentStep] ?? ''}
         timerState={timers.get(currentStep)}
         onChange={(state) => onTimerChange(currentStep, state)}
       />

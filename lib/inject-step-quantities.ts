@@ -67,7 +67,7 @@ export function injectStepQuantities(
   matches.sort((a, b) => a.start - b.start)
   const deduped: Match[] = []
   for (const m of matches) {
-    if (deduped.length === 0 || m.start >= deduped[deduped.length - 1].end) {
+    if (deduped.length === 0 || m.start >= deduped[deduped.length - 1]!.end) {
       deduped.push(m)
     }
   }
