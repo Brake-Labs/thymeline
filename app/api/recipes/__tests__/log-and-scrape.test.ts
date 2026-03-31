@@ -70,6 +70,9 @@ vi.mock('@/lib/supabase-server', () => ({
 vi.mock('@/lib/household', () => ({
   resolveHouseholdScope: async () => null,
   canManage: (role: string) => role === 'owner' || role === 'co_owner',
+  scopeQuery: (query: any, userId: string, _ctx: any) => query.eq('user_id', userId),
+  scopeInsert: (_userId: string, _ctx: any, payload: any) => ({ user_id: 'user-1', ...payload }),
+  checkOwnership: vi.fn().mockResolvedValue({ owned: true }),
 }))
 
 // Firecrawl class mock (must mock before importing route)
@@ -82,15 +85,12 @@ vi.mock('firecrawl', () => ({
 }))
 
 vi.mock('@/lib/llm', () => ({
-  anthropic: {
-    messages: {
-      create: vi.fn(),
-    },
-  },
+  callLLM: vi.fn(),
+  LLM_MODEL_FAST: 'claude-haiku-4-5-20251001',
 }))
 
 import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-import { anthropic } from '@/lib/llm'
+import { callLLM } from '@/lib/llm'
 
 // Admin DB mock for pantry deduction tests
 function makeAdminMock(opts: {
@@ -257,19 +257,17 @@ describe('POST /api/recipes/scrape', () => {
     const mock = makeSupabaseMock()
     vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
     vi.mocked(createAdminClient).mockReturnValue(makeAdminMock() as unknown as ReturnType<typeof createAdminClient>)
-    vi.mocked(anthropic.messages.create).mockResolvedValue({
-      content: [{ type: 'text', text: JSON.stringify({
-        title: 'Pasta Carbonara',
-        ingredients: '200g pasta\n100g pancetta',
-        steps: 'Cook pasta\nFry pancetta\nCombine',
-        imageUrl: 'https://example.com/pasta.jpg',
-        suggestedTags: [],
-        prepTimeMinutes: 10,
-        cookTimeMinutes: 20,
-        totalTimeMinutes: 30,
-        inactiveTimeMinutes: null,
-      }) }],
-    } as unknown as Awaited<ReturnType<typeof anthropic.messages.create>>)
+    vi.mocked(callLLM).mockResolvedValueOnce(JSON.stringify({
+      title: 'Pasta Carbonara',
+      ingredients: '200g pasta\n100g pancetta',
+      steps: 'Cook pasta\nFry pancetta\nCombine',
+      imageUrl: 'https://example.com/pasta.jpg',
+      suggestedTags: [],
+      prepTimeMinutes: 10,
+      cookTimeMinutes: 20,
+      totalTimeMinutes: 30,
+      inactiveTimeMinutes: null,
+    }))
 
     const { POST } = await import('@/app/api/recipes/scrape/route')
     const req = makeReq('http://localhost/api/recipes/scrape', 'POST', {
@@ -290,14 +288,12 @@ describe('POST /api/recipes/scrape', () => {
     const mock = makeSupabaseMock()
     vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
     vi.mocked(createAdminClient).mockReturnValue(makeAdminMock() as unknown as ReturnType<typeof createAdminClient>)
-    vi.mocked(anthropic.messages.create).mockResolvedValue({
-      content: [{ type: 'text', text: JSON.stringify({
-        title: 'Pasta Carbonara',
-        ingredients: '200g pasta',
-        steps: null,
-        imageUrl: null,
-      }) }],
-    } as unknown as Awaited<ReturnType<typeof anthropic.messages.create>>)
+    vi.mocked(callLLM).mockResolvedValueOnce(JSON.stringify({
+      title: 'Pasta Carbonara',
+      ingredients: '200g pasta',
+      steps: null,
+      imageUrl: null,
+    }))
 
     const { POST } = await import('@/app/api/recipes/scrape/route')
     const req = makeReq('http://localhost/api/recipes/scrape', 'POST', {
@@ -349,16 +345,14 @@ describe('POST /api/recipes/scrape', () => {
     })
     vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
     vi.mocked(createAdminClient).mockReturnValue(makeAdminMock({ customTags: [{ name: 'My-Custom-Sauce' }] }) as unknown as ReturnType<typeof createAdminClient>)
-    vi.mocked(anthropic.messages.create).mockResolvedValue({
-      content: [{ type: 'text', text: JSON.stringify({
-        title: 'Pasta',
-        ingredients: '200g pasta',
-        steps: 'Cook it',
-        imageUrl: null,
-        suggestedTags: ['chicken', 'my-custom-sauce', 'weird-technique'],
-        suggestedNewTags: [{ name: 'weird-technique', section: 'style' }],
-      }) }],
-    } as unknown as Awaited<ReturnType<typeof anthropic.messages.create>>)
+    vi.mocked(callLLM).mockResolvedValueOnce(JSON.stringify({
+      title: 'Pasta',
+      ingredients: '200g pasta',
+      steps: 'Cook it',
+      imageUrl: null,
+      suggestedTags: ['chicken', 'my-custom-sauce', 'weird-technique'],
+      suggestedNewTags: [{ name: 'weird-technique', section: 'style' }],
+    }))
 
     const { POST } = await import('@/app/api/recipes/scrape/route')
     const res = await POST(
@@ -377,19 +371,17 @@ describe('POST /api/recipes/scrape', () => {
   it('T01b (spec-06): suggestedNewTags with invalid section are filtered out', async () => {
     vi.mocked(createServerClient).mockReturnValue(makeSupabaseMock({}) as unknown as ReturnType<typeof createServerClient>)
     vi.mocked(createAdminClient).mockReturnValue(makeAdminMock() as unknown as ReturnType<typeof createAdminClient>)
-    vi.mocked(anthropic.messages.create).mockResolvedValue({
-      content: [{ type: 'text', text: JSON.stringify({
-        title: 'Pasta',
-        ingredients: '200g pasta',
-        steps: 'Cook it',
-        imageUrl: null,
-        suggestedTags: [],
-        suggestedNewTags: [
-          { name: 'ValidTag', section: 'protein' },
-          { name: 'BadTag', section: 'invalid-bucket' },
-        ],
-      }) }],
-    } as unknown as Awaited<ReturnType<typeof anthropic.messages.create>>)
+    vi.mocked(callLLM).mockResolvedValueOnce(JSON.stringify({
+      title: 'Pasta',
+      ingredients: '200g pasta',
+      steps: 'Cook it',
+      imageUrl: null,
+      suggestedTags: [],
+      suggestedNewTags: [
+        { name: 'ValidTag', section: 'protein' },
+        { name: 'BadTag', section: 'invalid-bucket' },
+      ],
+    }))
 
     const { POST } = await import('@/app/api/recipes/scrape/route')
     const res = await POST(
@@ -411,20 +403,18 @@ describe('T_servings - Scrape route returns servings from LLM', () => {
     const mock = makeSupabaseMock({ customTags: [] })
     vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
     vi.mocked(createAdminClient).mockReturnValue(makeAdminMock() as unknown as ReturnType<typeof createAdminClient>)
-    vi.mocked(anthropic.messages.create).mockResolvedValue({
-      content: [{ type: 'text', text: JSON.stringify({
-        title: 'Pasta',
-        ingredients: '200g pasta',
-        steps: 'Cook it',
-        imageUrl: null,
-        suggestedTags: [],
-        servings: 4,
-        prepTimeMinutes: null,
-        cookTimeMinutes: null,
-        totalTimeMinutes: null,
-        inactiveTimeMinutes: null,
-      }) }],
-    } as unknown as Awaited<ReturnType<typeof anthropic.messages.create>>)
+    vi.mocked(callLLM).mockResolvedValueOnce(JSON.stringify({
+      title: 'Pasta',
+      ingredients: '200g pasta',
+      steps: 'Cook it',
+      imageUrl: null,
+      suggestedTags: [],
+      servings: 4,
+      prepTimeMinutes: null,
+      cookTimeMinutes: null,
+      totalTimeMinutes: null,
+      inactiveTimeMinutes: null,
+    }))
 
     const { POST } = await import('@/app/api/recipes/scrape/route')
     const res = await POST(
@@ -439,20 +429,18 @@ describe('T_servings - Scrape route returns servings from LLM', () => {
     const mock = makeSupabaseMock({ customTags: [] })
     vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
     vi.mocked(createAdminClient).mockReturnValue(makeAdminMock() as unknown as ReturnType<typeof createAdminClient>)
-    vi.mocked(anthropic.messages.create).mockResolvedValue({
-      content: [{ type: 'text', text: JSON.stringify({
-        title: 'Pasta',
-        ingredients: '200g pasta',
-        steps: 'Cook it',
-        imageUrl: null,
-        suggestedTags: [],
-        servings: null,
-        prepTimeMinutes: null,
-        cookTimeMinutes: null,
-        totalTimeMinutes: null,
-        inactiveTimeMinutes: null,
-      }) }],
-    } as unknown as Awaited<ReturnType<typeof anthropic.messages.create>>)
+    vi.mocked(callLLM).mockResolvedValueOnce(JSON.stringify({
+      title: 'Pasta',
+      ingredients: '200g pasta',
+      steps: 'Cook it',
+      imageUrl: null,
+      suggestedTags: [],
+      servings: null,
+      prepTimeMinutes: null,
+      cookTimeMinutes: null,
+      totalTimeMinutes: null,
+      inactiveTimeMinutes: null,
+    }))
 
     const { POST } = await import('@/app/api/recipes/scrape/route')
     const res = await POST(

@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import type { MessageParam } from '@anthropic-ai/sdk/resources/messages'
 
 /**
  * Centralized Anthropic client with retry and timeout.
@@ -9,6 +10,11 @@ export const anthropic = new Anthropic({
   maxRetries: 2,
   timeout: 60_000,
 })
+
+// ── Model tier constants ──────────────────────────────────────────────────────
+
+export const LLM_MODEL_FAST = process.env.LLM_MODEL ?? 'claude-haiku-4-5-20251001'
+export const LLM_MODEL_CAPABLE = process.env.LLM_MODEL_CAPABLE ?? 'claude-sonnet-4-6'
 
 // ── Structured error types ──────────────────────────────────────────────────────
 
@@ -79,6 +85,39 @@ export async function callLLM(opts: CallLLMOptions): Promise<string> {
       model,
       max_tokens: opts.maxTokens,
       messages: [{ role: 'user', content: opts.user }],
+      system: opts.system,
+    })
+    const text =
+      response.content[0]?.type === 'text' ? response.content[0].text : ''
+    if (!text) {
+      throw new LLMError('Empty response from LLM', 'bad_response')
+    }
+    return text
+  } catch (err) {
+    throw classifyLLMError(err)
+  }
+}
+
+// ── Multimodal helper ─────────────────────────────────────────────────────────
+
+export interface CallLLMMultimodalOptions {
+  model?: string
+  maxTokens: number
+  system: string
+  messages: MessageParam[]
+}
+
+/**
+ * Make an LLM call with multi-content messages (images, etc.).
+ * Uses the centralized Anthropic client (retry + timeout included).
+ */
+export async function callLLMMultimodal(opts: CallLLMMultimodalOptions): Promise<string> {
+  const model = opts.model ?? LLM_MODEL_FAST
+  try {
+    const response = await anthropic.messages.create({
+      model,
+      max_tokens: opts.maxTokens,
+      messages: opts.messages,
       system: opts.system,
     })
     const text =

@@ -24,16 +24,14 @@ const mockMatchState = {
   shouldThrow:  false,
 }
 
-vi.mock('@anthropic-ai/sdk', () => ({
-  default: function MockAnthropic(this: { messages: { create: () => Promise<unknown> } }) {
-    this.messages = {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      create: async (): Promise<any> => {
-        if (mockMatchState.shouldThrow) throw new Error('LLM error')
-        return { content: [{ type: 'text', text: mockMatchState.llmResponse }] }
-      },
-    }
-  },
+vi.mock('@/lib/llm', () => ({
+  callLLM: vi.fn().mockImplementation(async () => {
+    if (mockMatchState.shouldThrow) throw new Error('LLM error')
+    return mockMatchState.llmResponse
+  }),
+  classifyLLMError: (err: unknown) => err,
+  parseLLMJson: (text: string) => JSON.parse(text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()),
+  LLM_MODEL_CAPABLE: 'claude-sonnet-4-6',
 }))
 
 function makeDbMock(opts: {
@@ -71,6 +69,7 @@ vi.mock('@/lib/supabase-server', () => ({
 vi.mock('@/lib/household', () => ({
   resolveHouseholdScope: async () => null,
   canManage: (role: string) => role === 'owner' || role === 'co_owner',
+  scopeQuery: (query: any, userId: string) => query.eq('user_id', userId),
 }))
 
 import { createServerClient, createAdminClient } from '@/lib/supabase-server'

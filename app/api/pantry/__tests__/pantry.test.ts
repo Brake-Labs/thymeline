@@ -40,47 +40,63 @@ function makeDbMock(opts: {
     owned = [sampleItem],
   } = opts
 
-  // Chainable eq/order factory — supports .eq().../.order()... at any depth
-  function makeEqChain(terminal: Record<string, unknown>): Record<string, unknown> {
-    const chain: Record<string, unknown> = {
-      eq:    vi.fn().mockImplementation(() => makeEqChain(terminal)),
-      order: vi.fn().mockImplementation(() => makeEqChain(terminal)),
-      single: vi.fn().mockResolvedValue({ data: single, error: singleError }),
-      // Terminal await resolves with items
-      then: vi.fn().mockImplementation((resolve: (v: unknown) => void) =>
-        Promise.resolve({ data: items, error: null }).then(resolve)),
-      ...terminal,
-    }
+  // Deeply chainable mock: every method returns the same chain object.
+  // .single() and thenable resolution provide terminal results.
+  // The `singleResult` param controls what .single() returns for that chain.
+  function makeChain(singleResult: { data: unknown; error: unknown }, awaitResult: { data?: unknown; error: unknown }): Record<string, unknown> {
+    const chain: Record<string, unknown> = {}
+    const self = () => chain
+    chain.eq     = vi.fn().mockImplementation(self)
+    chain.order  = vi.fn().mockImplementation(self)
+    chain.select = vi.fn().mockImplementation(self)
+    chain.in     = vi.fn().mockImplementation(self)
+    chain.single = vi.fn().mockResolvedValue(singleResult)
+    chain.then   = vi.fn().mockImplementation((resolve: (v: unknown) => void) =>
+      Promise.resolve(awaitResult).then(resolve))
     return chain
   }
+
+  // Track call count to from('pantry_items') so we can return different chains
+  // for sequential calls (e.g., DELETE does ownership check then actual delete).
+  let pantryCallCount = 0
 
   return {
     from: vi.fn((table: string) => {
       if (table === 'pantry_items') {
+        pantryCallCount++
+        const callNum = pantryCallCount
+
+        // Build a select chain for reads (GET list, ownership checks)
+        const selectChain = makeChain(
+          { data: single, error: singleError },
+          { data: items, error: null },
+        )
+        // Add `in` for bulk operations that resolves with owned items
+        selectChain.in = vi.fn().mockResolvedValue({ data: owned, error: null })
+
+        // Build an update chain — supports .eq() -> scopeQuery -> .select('*').single()
+        const updateChain = makeChain(
+          { data: updateResult, error: singleError },
+          { data: updateResult, error: singleError },
+        )
+
+        // Build a delete chain — supports .eq() -> scopeQuery -> await
+        const deleteChain = makeChain(
+          { data: null, error: deleteResult.error },
+          deleteResult,
+        )
+
+        // Build an insert chain — supports .select('*').single()
+        const insertChain = makeChain(
+          { data: insertResult, error: null },
+          { data: null, error: null },
+        )
+
         return {
-          select: vi.fn().mockReturnValue(makeEqChain({
-            in: vi.fn().mockResolvedValue({ data: owned, error: null }),
-          })),
-          insert: vi.fn().mockReturnValue({
-            select: vi.fn().mockReturnValue({
-              single: vi.fn().mockResolvedValue({ data: insertResult, error: null }),
-            }),
-          }),
-          update: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                select: vi.fn().mockReturnValue({
-                  single: vi.fn().mockResolvedValue({ data: updateResult, error: singleError }),
-                }),
-              }),
-            }),
-          }),
-          delete: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              eq: vi.fn().mockResolvedValue(deleteResult),
-            }),
-            in: vi.fn().mockResolvedValue(deleteResult),
-          }),
+          select: vi.fn().mockReturnValue(selectChain),
+          insert: vi.fn().mockReturnValue(insertChain),
+          update: vi.fn().mockReturnValue(updateChain),
+          delete: vi.fn().mockReturnValue(deleteChain),
         }
       }
       return {}
@@ -96,6 +112,9 @@ vi.mock('@/lib/supabase-server', () => ({
 vi.mock('@/lib/household', () => ({
   resolveHouseholdScope: async () => null,
   canManage: (role: string) => role === 'owner' || role === 'co_owner',
+  scopeQuery: (query: unknown, _userId: string, _ctx: unknown) => query,
+  scopeInsert: (_userId: string, _ctx: unknown, payload: Record<string, unknown>) => ({ user_id: 'user-1', ...payload }),
+  checkOwnership: vi.fn(),
 }))
 
 import { createServerClient, createAdminClient } from '@/lib/supabase-server'
@@ -272,11 +291,15 @@ describe('T08 - POST /api/pantry/import inserts new item', () => {
   it('returns { imported: 1, updated: 0 } when item is new', async () => {
     vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createServerClient>)
     // No existing items → will insert
+    const emptyResult = { data: [], error: null }
+    const selectChain = {
+      eq: vi.fn().mockResolvedValue(emptyResult),
+      then: vi.fn().mockImplementation((resolve: (v: unknown) => void) =>
+        Promise.resolve(emptyResult).then(resolve)),
+    }
     const db = {
       from: vi.fn(() => ({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockResolvedValue({ data: [], error: null }),
-        }),
+        select: vi.fn().mockReturnValue(selectChain),
         insert: vi.fn().mockResolvedValue({ data: null, error: null }),
         update: vi.fn().mockReturnValue({
           eq: vi.fn().mockResolvedValue({ data: null, error: null }),
@@ -308,11 +331,15 @@ describe('T09 - POST /api/pantry/import updates existing item (case-insensitive)
     vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createServerClient>)
     // Existing item with lowercase name matches the import
     const existing = [{ id: 'pantry-1', name: 'Chicken Breast' }]
+    const selectResult = { data: existing, error: null }
+    const selectChain = {
+      eq: vi.fn().mockResolvedValue(selectResult),
+      then: vi.fn().mockImplementation((resolve: (v: unknown) => void) =>
+        Promise.resolve(selectResult).then(resolve)),
+    }
     const db = {
       from: vi.fn(() => ({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockResolvedValue({ data: existing, error: null }),
-        }),
+        select: vi.fn().mockReturnValue(selectChain),
         update: vi.fn().mockReturnValue({
           eq: vi.fn().mockResolvedValue({ data: null, error: null }),
         }),

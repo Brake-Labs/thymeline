@@ -76,11 +76,8 @@ function makeSupabaseMock(opts: {
 // ── LLM mock ─────────────────────────────────────────────────────────────────
 
 vi.mock('@/lib/llm', () => ({
-  anthropic: {
-    messages: {
-      create: vi.fn(),
-    },
-  },
+  callLLM: vi.fn(),
+  LLM_MODEL_FAST: 'claude-haiku-4-5-20251001',
 }))
 
 vi.mock('@/lib/supabase-server', () => ({
@@ -94,7 +91,7 @@ vi.mock('@/lib/household', () => ({
 }))
 
 import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-import { anthropic } from '@/lib/llm'
+import { callLLM } from '@/lib/llm'
 
 function makeReq(body?: unknown, headers: Record<string, string> = {}): Request {
   return new Request('http://localhost/api/recipes/search', {
@@ -115,9 +112,7 @@ describe('POST /api/recipes/search', () => {
     const mock = makeSupabaseMock({})
     vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
     vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
-    vi.mocked(anthropic.messages.create).mockResolvedValue({
-      content: [{ type: 'text', text: '[]' }],
-    } as Awaited<ReturnType<typeof anthropic.messages.create>>)
+    vi.mocked(callLLM).mockResolvedValueOnce('[]')
 
     const { POST } = await import('../route')
     const req = makeReq({ query: 'xyzzy nothing matches' })
@@ -131,9 +126,7 @@ describe('POST /api/recipes/search', () => {
     const mock = makeSupabaseMock({})
     vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
     vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
-    vi.mocked(anthropic.messages.create).mockResolvedValue({
-      content: [{ type: 'text', text: '["recipe-1","recipe-3"]' }],
-    } as Awaited<ReturnType<typeof anthropic.messages.create>>)
+    vi.mocked(callLLM).mockResolvedValueOnce('["recipe-1","recipe-3"]')
 
     const { POST } = await import('../route')
     const req = makeReq({ query: 'chicken or beef' })
@@ -149,9 +142,7 @@ describe('POST /api/recipes/search', () => {
     const mock = makeSupabaseMock({})
     vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
     vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
-    vi.mocked(anthropic.messages.create).mockResolvedValue({
-      content: [{ type: 'text', text: '["recipe-1","evil-injected-uuid"]' }],
-    } as Awaited<ReturnType<typeof anthropic.messages.create>>)
+    vi.mocked(callLLM).mockResolvedValueOnce('["recipe-1","evil-injected-uuid"]')
 
     const { POST } = await import('../route')
     const req = makeReq({ query: 'anything' })
@@ -167,9 +158,7 @@ describe('POST /api/recipes/search', () => {
     vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
     vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
     // LLM ranks all three; filters should remove the slow recipes
-    vi.mocked(anthropic.messages.create).mockResolvedValue({
-      content: [{ type: 'text', text: '["recipe-1","recipe-2","recipe-3"]' }],
-    } as Awaited<ReturnType<typeof anthropic.messages.create>>)
+    vi.mocked(callLLM).mockResolvedValueOnce('["recipe-1","recipe-2","recipe-3"]')
 
     const { POST } = await import('../route')
     const req = makeReq({

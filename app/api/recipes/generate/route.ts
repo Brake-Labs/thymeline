@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
-import { anthropic } from '@/lib/llm'
+import { callLLM, classifyLLMError, LLM_MODEL_CAPABLE } from '@/lib/llm'
+import { scopeQuery } from '@/lib/household'
 import { FIRST_CLASS_TAGS } from '@/lib/tags'
 import { generateRecipeSchema, parseBody } from '@/lib/schemas'
 import { RECIPE_CATEGORIES } from '@/types'
@@ -26,7 +27,7 @@ function parseNonNegativeInt(val: unknown): number | null {
   return val
 }
 
-export const POST = withAuth(async (req: NextRequest, { user, db }) => {
+export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   const { data: body, error: parseError } = await parseBody(req, generateRecipeSchema)
   if (parseError) return parseError
 
@@ -35,11 +36,12 @@ export const POST = withAuth(async (req: NextRequest, { user, db }) => {
   // Fetch pantry items if requested
   let pantryLines: string[] = []
   if (use_pantry) {
-    const { data: pantryItems } = await db
-      .from('pantry_items')
-      .select('name, quantity')
-      .eq('user_id', user.id)
-      .order('name')
+    const pantryQ = scopeQuery(
+      db.from('pantry_items').select('name, quantity'),
+      user.id,
+      ctx,
+    ).order('name')
+    const { data: pantryItems } = await pantryQ
 
     pantryLines = (pantryItems ?? []).map((item: { name: string; quantity: string | null }) =>
       item.quantity ? `${item.quantity} ${item.name}` : item.name
@@ -104,18 +106,17 @@ Make it practical and delicious.`
 
   let raw: string
   try {
-    const response = await anthropic.messages.create({
-      model: process.env.LLM_MODEL ?? 'claude-sonnet-4-6',
-      max_tokens: 2048,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      temperature: 0.8 as any,
-      messages: [{ role: 'user', content: userMessage }],
+    raw = await callLLM({
+      model: LLM_MODEL_CAPABLE,
+      maxTokens: 2048,
       system: systemMessage,
+      user: userMessage,
     })
-    raw = response.content[0]?.type === 'text' ? response.content[0].text : ''
   } catch (err) {
-    console.error('[generate] LLM error:', err)
-    return NextResponse.json({ error: 'Recipe generation failed — please try again' }, { status: 500 })
+    const llmErr = classifyLLMError(err)
+    console.error('[generate] LLM error:', llmErr.code, llmErr.message)
+    const status = llmErr.code === 'rate_limit' ? 429 : llmErr.code === 'timeout' ? 504 : 500
+    return NextResponse.json({ error: 'Recipe generation failed — please try again' }, { status })
   }
 
   // Strip markdown code fences

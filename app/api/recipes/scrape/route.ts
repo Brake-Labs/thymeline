@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import FirecrawlApp from 'firecrawl'
 import { withAuth } from '@/lib/auth'
-import { anthropic } from '@/lib/llm'
+import { callLLM, LLM_MODEL_FAST } from '@/lib/llm'
+import { scopeQuery } from '@/lib/household'
 import { FIRST_CLASS_TAGS } from '@/lib/tags'
 import { scrapeRecipeSchema, parseBody } from '@/lib/schemas'
 
-export const POST = withAuth(async (req: NextRequest, { user, db }) => {
+export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   const firecrawlKey = process.env.FIRECRAWL_API_KEY
   if (!firecrawlKey) {
     console.error('FIRECRAWL_API_KEY is not set')
@@ -27,10 +28,12 @@ export const POST = withAuth(async (req: NextRequest, { user, db }) => {
   }
 
   // Fetch user's custom tags for tag suggestion matching
-  const { data: userCustomTagRows } = await db
-    .from('custom_tags')
-    .select('name')
-    .eq('user_id', user.id)
+  const customTagsQ = scopeQuery(
+    db.from('custom_tags').select('name'),
+    user.id,
+    ctx,
+  )
+  const { data: userCustomTagRows } = await customTagsQ
   const userCustomTags: string[] = (userCustomTagRows ?? []).map((t: { name: string }) => t.name)
 
   // Extract recipe data via LLM
@@ -90,14 +93,12 @@ ${pageContent.slice(0, 20000)}`
   }
 
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 2048,
-      temperature: 0,
-      messages: [{ role: 'user', content: extractionPrompt }],
+    const rawText = await callLLM({
+      model: LLM_MODEL_FAST,
+      maxTokens: 2048,
+      system: 'You are a recipe extraction assistant. Extract recipe information from web page content and return ONLY valid JSON.',
+      user: extractionPrompt,
     })
-
-    const rawText = response.content[0]?.type === 'text' ? response.content[0].text : ''
     // Strip markdown code fences if present
     const cleaned = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
     const parsed = JSON.parse(cleaned)
