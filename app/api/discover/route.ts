@@ -80,7 +80,7 @@ Extract key ingredients, cooking method, and cuisine style from the request. Ret
       description: string | null
     }
 
-    let rawResults: RawResult[] = []
+    const rawResults: RawResult[] = []
     try {
       const searchMsg = await anthropic.messages.create({
         model: MODEL,

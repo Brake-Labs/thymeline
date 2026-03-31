@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import RecipeForm, { RecipeFormValues } from './RecipeForm'
-import type { PendingNewTag } from './TagSelector'
+import type { ScrapeResult } from '@/types'
 
 type Tab = 'url' | 'manual'
 
@@ -12,22 +12,6 @@ interface AddRecipeModalProps {
   getToken:  () => Promise<string> | string
   initialTab?: Tab
   prefillScrapeResult?: ScrapeResult
-}
-
-interface ScrapeResult {
-  title: string | null
-  ingredients: string | null
-  steps: string | null
-  imageUrl: string | null
-  sourceUrl: string
-  partial: boolean
-  suggestedTags:       string[]
-  suggestedNewTags:    PendingNewTag[]
-  prepTimeMinutes:     number | null
-  cookTimeMinutes:     number | null
-  totalTimeMinutes:    number | null
-  inactiveTimeMinutes: number | null
-  servings: number | null
 }
 
 export default function AddRecipeModal({

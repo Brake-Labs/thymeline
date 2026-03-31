@@ -122,8 +122,8 @@ describe('POST /api/discover — T03: returns 400 for empty query', () => {
 
   it('returns 400 when query is missing', async () => {
     const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
+    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
 
     const { POST } = await import('../route')
     const res = await POST(makeReq({}) as Parameters<typeof POST>[0])
@@ -134,8 +134,8 @@ describe('POST /api/discover — T03: returns 400 for empty query', () => {
 
   it('returns 400 when query is whitespace only', async () => {
     const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
+    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
 
     const { POST } = await import('../route')
     const res = await POST(makeReq({ query: '   ' }) as Parameters<typeof POST>[0])
@@ -148,8 +148,8 @@ describe('POST /api/discover — T04: returns results array', () => {
 
   it('returns 200 with results when LLM and web search succeed', async () => {
     const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
+    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
 
     // Step 2 — query gen
     mockAnthropicCreate
@@ -169,8 +169,8 @@ describe('POST /api/discover — T04: returns results array', () => {
 
   it('returns empty results array when web search returns nothing', async () => {
     const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
+    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
 
     mockAnthropicCreate
       .mockResolvedValueOnce(makeTextMsg('["query one"]'))
@@ -189,8 +189,8 @@ describe('POST /api/discover — T05: suggested_tags filtered to FIRST_CLASS_TAG
 
   it('strips tags not in FIRST_CLASS_TAGS from results', async () => {
     const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
+    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
 
     const resultsWithBadTags = [
       {
@@ -225,8 +225,8 @@ describe('POST /api/discover — T06: vault_match populated when similar recipe 
 
   it('includes vault_match in result when LLM identifies a match', async () => {
     const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
+    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
 
     const resultsWithMatch = [
       {
@@ -263,8 +263,8 @@ describe('POST /api/discover — T07: site_filter appends site: operator', () =>
 
   it('includes site: operator in search query when site_filter is set', async () => {
     const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as ReturnType<typeof createAdminClient>)
+    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
 
     mockAnthropicCreate
       .mockResolvedValueOnce(makeTextMsg('["chicken stir fry site:budgetbytes.com"]'))
@@ -278,7 +278,7 @@ describe('POST /api/discover — T07: site_filter appends site: operator', () =>
     expect(res.status).toBe(200)
 
     // The query-gen prompt should have included site:budgetbytes.com instruction
-    const firstCall = mockAnthropicCreate.mock.calls[0][0]
+    const firstCall = mockAnthropicCreate.mock.calls[0]![0]
     const promptContent: string = firstCall.messages[0].content
     expect(promptContent).toContain('site:budgetbytes.com')
   })
@@ -294,8 +294,8 @@ describe('POST /api/discover — auth', () => {
       },
       from: vi.fn(),
     }
-    vi.mocked(createServerClient).mockReturnValue(unauthMock as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(unauthMock as ReturnType<typeof createAdminClient>)
+    vi.mocked(createServerClient).mockReturnValue(unauthMock as unknown as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(unauthMock as unknown as ReturnType<typeof createAdminClient>)
 
     const { POST } = await import('../route')
     const res = await POST(makeReq({ query: 'test' }) as Parameters<typeof POST>[0])
