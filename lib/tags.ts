@@ -46,11 +46,11 @@ export async function validateTags(
 ): Promise<{ valid: true } | { valid: false; unknownTags: string[] }> {
   if (tags.length === 0) return { valid: true }
 
-  const customTagsQuery = scopeQuery(
-    db.from('custom_tags').select('name'),
-    userId,
-    ctx,
-  )
+  type TagsQuery = {
+    eq(column: string, value: string): TagsQuery
+  } & PromiseLike<{ data: { name: string }[] | null; error: unknown }>
+  const rawQuery = db.from('custom_tags').select('name') as unknown as TagsQuery
+  const customTagsQuery = scopeQuery(rawQuery, userId, ctx)
   const { data: customTags } = await customTagsQuery
 
   const knownNames = new Set([

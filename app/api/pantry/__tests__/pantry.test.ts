@@ -64,7 +64,7 @@ function makeDbMock(opts: {
     from: vi.fn((table: string) => {
       if (table === 'pantry_items') {
         pantryCallCount++
-        const callNum = pantryCallCount
+        const _callNum = pantryCallCount
 
         // Build a select chain for reads (GET list, ownership checks)
         const selectChain = makeChain(

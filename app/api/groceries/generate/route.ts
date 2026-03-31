@@ -8,8 +8,8 @@ import {
   combineIngredients,
   assignSection,
   isPantryStaple,
-  resolveRecipeIngredients,
 } from '@/lib/grocery'
+import { resolveRecipeIngredients } from '@/lib/grocery-scrape'
 import { toDateString } from '@/lib/date-utils'
 import { GroceryItem, GrocerySection, RecipeScale } from '@/types'
 

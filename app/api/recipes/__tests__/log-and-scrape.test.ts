@@ -70,8 +70,8 @@ vi.mock('@/lib/supabase-server', () => ({
 vi.mock('@/lib/household', () => ({
   resolveHouseholdScope: async () => null,
   canManage: (role: string) => role === 'owner' || role === 'co_owner',
-  scopeQuery: (query: any, userId: string, _ctx: any) => query.eq('user_id', userId),
-  scopeInsert: (_userId: string, _ctx: any, payload: any) => ({ user_id: 'user-1', ...payload }),
+  scopeQuery: (query: { eq: (col: string, val: string) => unknown }, userId: string, _ctx: unknown) => query.eq('user_id', userId),
+  scopeInsert: (_userId: string, _ctx: unknown, payload: Record<string, unknown>) => ({ user_id: 'user-1', ...payload }),
   checkOwnership: vi.fn().mockResolvedValue({ owned: true }),
 }))
 

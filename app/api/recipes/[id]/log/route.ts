@@ -89,7 +89,7 @@ async function deductPantryIngredients(recipeId: string, userId: string): Promis
   }
 }
 
-export const DELETE = withAuth(async (req: NextRequest, { user, db, ctx }, params) => {
+export const DELETE = withAuth(async (req: NextRequest, { user, db, ctx: _ctx }, params) => {
   const { id } = params
 
   const { data: body, error: parseError } = await parseBody(req, deleteLogSchema)
