@@ -45,14 +45,14 @@ beforeEach(() => {
   mockFetch.mockClear()
   mockGetUser.mockReset()
   mockUpdateUser.mockClear()
-  delete sessionStorageMock['forkcast_invite_token']
+  delete sessionStorageMock['thymeline_invite_token']
 })
 
 // ── T05: New user lands on /onboarding after auth with valid invite ────────────
 describe('T05 - New user with valid invite redirects to /onboarding', () => {
   it('stamps user_metadata and redirects to /onboarding when invite consumed', async () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } })
-    sessionStorageMock['forkcast_invite_token'] = 'valid-token'
+    sessionStorageMock['thymeline_invite_token'] = 'valid-token'
 
     mockFetch
       .mockResolvedValueOnce({ ok: true, json: async () => ({ onboarding_completed: false, is_active: false }) })

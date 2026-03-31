@@ -56,7 +56,7 @@ export default function ShareToggle({
           }`}
         />
       </button>
-      <span className="text-sm text-gray-700">Share with Forkcast community</span>
+      <span className="text-sm text-gray-700">Share with Thymeline community</span>
     </label>
   )
 }

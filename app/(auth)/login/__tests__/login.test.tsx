@@ -107,11 +107,11 @@ describe('T04 - Google OAuth button', () => {
 
 // ── Branding ──────────────────────────────────────────────────────────────────
 describe('Login page branding', () => {
-  it('renders the Forkcast wordmark and tagline', async () => {
+  it('renders the Thymeline wordmark and tagline', async () => {
     await act(async () => {
       render(<LoginPage />)
     })
-    expect(screen.getAllByText('Forkcast').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Thymeline').length).toBeGreaterThan(0)
     expect(screen.getByText(/ai-powered meal planning/i)).toBeInTheDocument()
   })
 })

@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { Settings } from 'lucide-react'
 import { getSupabaseClient } from '@/lib/supabase/browser'
-import ForkcastLogo from './ForkcastLogo'
+import ThymelineLogo from './ThymelineLogo'
 
 const CENTER_NAV = [
   { href: '/home',      label: 'Home' },
@@ -49,7 +49,7 @@ export default function AppNav() {
         className="hidden md:flex items-center justify-between px-6 py-3 bg-[#1F2D26]"
       >
         <Link href="/home" className="flex items-center">
-          <ForkcastLogo variant="light" />
+          <ThymelineLogo variant="light" />
         </Link>
 
         <div className="flex items-center gap-6">
