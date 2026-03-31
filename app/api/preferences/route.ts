@@ -125,6 +125,7 @@ export const PATCH = withAuth(async (req, { user, db, ctx }) => {
     .single()
 
   if (error || !data) {
+    console.warn('[PATCH /api/preferences] upsert error:', error?.message, error?.code)
     return NextResponse.json({ error: 'Failed to update preferences' }, { status: 500 })
   }
   return NextResponse.json(data)

@@ -8,6 +8,10 @@ on:
 
   workflow_dispatch:
 
+concurrency:
+  group: migrations
+  cancel-in-progress: false
+
 jobs:
   migrate:
     name: Apply pending migrations

@@ -2,9 +2,7 @@
 # Run pending Supabase migrations against the linked remote project.
 #
 # Requires:
-#   SUPABASE_ACCESS_TOKEN  — personal access token for Supabase CLI
-#   SUPABASE_PROJECT_REF   — project reference ID
-#   SUPABASE_DB_URL        — direct Postgres connection string (for psql)
+#   SUPABASE_DB_URL  — direct Postgres connection string (for psql)
 #
 # Usage:
 #   ./scripts/run-migrations.sh           # apply pending migrations
@@ -70,8 +68,8 @@ for f in "${PENDING[@]}"; do
   echo "▶ Applying $name ..."
 
   if psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f "$f"; then
-    # Record successful application
-    psql "$SUPABASE_DB_URL" -q -c "INSERT INTO public._migration_history (filename) VALUES ('$name') ON CONFLICT DO NOTHING;"
+    # Record successful application (use dollar-quoting to prevent SQL injection)
+    psql "$SUPABASE_DB_URL" -q -c "INSERT INTO public._migration_history (filename) VALUES (\$\$${name}\$\$) ON CONFLICT DO NOTHING;"
     echo "  ✅ $name applied"
   else
     echo "  ❌ $name FAILED — stopping"
