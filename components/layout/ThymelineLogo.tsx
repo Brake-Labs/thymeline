@@ -3,16 +3,14 @@ interface ThymelineLogoProps {
 }
 
 export default function ThymelineLogo({ variant = 'dark' }: ThymelineLogoProps) {
-  const thymeColor  = variant === 'dark' ? '#8CB89A' : '#4A7C59'
-  const lineText    = variant === 'dark' ? '#D9EBE0' : '#1F2D26'
-  const dotBg       = variant === 'dark' ? 'bg-[#8CB89A]'     : 'bg-[#4A7C59]'
-  const dotBorder   = variant === 'dark' ? 'border-[#8CB89A]' : 'border-[#4A7C59]'
+  const dotBg     = variant === 'dark' ? 'bg-[#8CB89A]'     : 'bg-[#4A7C59]'
+  const dotBorder = variant === 'dark' ? 'border-[#8CB89A]' : 'border-[#4A7C59]'
 
   return (
     <div className="flex flex-col">
       <span className="font-display text-[22px] font-extrabold tracking-[-0.03em] leading-none">
-        <span style={{ color: thymeColor }}>Thyme</span>
-        <span style={{ color: lineText }}>line</span>
+        <span className={variant === 'dark' ? 'text-[#8CB89A]' : 'text-[#4A7C59]'}>Thyme</span>
+        <span className={variant === 'dark' ? 'text-[#D9EBE0]' : 'text-[#1F2D26]'}>line</span>
       </span>
       <div className="flex items-center mt-[3px]">
         {/* line — past dot — line — now dot — line — future dot — line */}
