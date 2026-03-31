@@ -75,8 +75,7 @@ export interface CallLLMOptions {
  * Uses the centralized Anthropic client (retry + timeout included).
  *
  * For calls with images or other multi-content messages, use
- * `anthropic.messages.create()` directly and wrap errors with
- * `classifyLLMError()`.
+ * `callLLMMultimodal()` instead.
  */
 export async function callLLM(opts: CallLLMOptions): Promise<string> {
   const model = opts.model ?? process.env.LLM_MODEL ?? 'claude-haiku-4-5-20251001'
@@ -163,7 +162,8 @@ export function parseLLMJsonSafe<T>(text: string): T | null {
       .replace(/^```(?:json)?\s*/i, '')
       .replace(/\s*```\s*$/i, '')
     return JSON.parse(stripped) as T
-  } catch {
+  } catch (err) {
+    console.warn('[parseLLMJsonSafe] Failed to parse:', err instanceof Error ? err.message : err)
     return null
   }
 }

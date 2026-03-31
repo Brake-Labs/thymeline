@@ -156,15 +156,12 @@ vi.mock('firecrawl', () => ({
 }))
 
 vi.mock('@/lib/llm', () => ({
-  anthropic: {
-    messages: {
-      create: vi.fn(),
-    },
-  },
+  callLLM: vi.fn(),
+  LLM_MODEL_FAST: 'claude-haiku-4-5-20251001',
 }))
 
 import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-import { anthropic } from '@/lib/llm'
+import { callLLM } from '@/lib/llm'
 
 // Auth-only mock for createServerClient — routes only call auth.getUser() on it
 const authMock = {
@@ -324,9 +321,7 @@ describe('T05 - Generate scrapes URL when vault ingredients absent', () => {
       recipes:      recipeNoIngredients,
     }]
     setupMocks({ plan: samplePlan, entries, upsertResult: sampleList })
-    vi.mocked(anthropic.messages.create).mockResolvedValue({
-      content: [{ type: 'text', text: JSON.stringify({ ingredients: '200g pasta\n2 eggs' }) }],
-    } as unknown as Awaited<ReturnType<typeof anthropic.messages.create>>)
+    vi.mocked(callLLM).mockResolvedValueOnce(JSON.stringify({ ingredients: '200g pasta\n2 eggs' }))
 
     const { POST } = await import('../generate/route')
     const res = await POST(
@@ -358,7 +353,7 @@ describe('T06 - Scrape failure skips recipe, includes in skipped_recipes', () =>
       recipes:      recipeNoIngredients,
     }]
     setupMocks({ plan: samplePlan, entries, upsertResult: { ...sampleList, items: [] } })
-    vi.mocked(anthropic.messages.create).mockRejectedValue(new Error('LLM failed'))
+    vi.mocked(callLLM).mockRejectedValueOnce(new Error('LLM failed'))
 
     const { POST } = await import('../generate/route')
     const res = await POST(
