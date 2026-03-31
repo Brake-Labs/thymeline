@@ -632,10 +632,63 @@ describe('T49 - Expired timer shows "Time\'s up!" in bar until dismissed', () =>
   })
 })
 
-// ── T50-T53: Step ingredient panel ───────────────────────────────────────────
+// ── T50-T54: Inline quantity injection ───────────────────────────────────────
+// Pure-function unit tests live in lib/__tests__/inject-step-quantities.test.ts.
+// These checks confirm the integration: components use injectStepQuantities,
+// not the removed StepIngredientPanel.
 
-describe('T50 - Step containing "flour" shows matched ingredient in panel', () => {
-  it('renders the ingredient line when a step references it', async () => {
+describe('T50-T54 - Inline quantity injection wired into step views', () => {
+  it('T50 - SingleStepView uses injectStepQuantities, not StepIngredientPanel', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const fs = require('fs') as typeof import('fs')
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const path = require('path') as typeof import('path')
+    const src = fs.readFileSync(
+      path.join(process.cwd(), 'components/cook/SingleStepView.tsx'),
+      'utf-8',
+    )
+    expect(src).toContain('injectStepQuantities')
+    expect(src).not.toContain('StepIngredientPanel')
+  })
+
+  it('T51 - ScrollStepView uses injectStepQuantities, not StepIngredientPanel', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const fs = require('fs') as typeof import('fs')
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const path = require('path') as typeof import('path')
+    const src = fs.readFileSync(
+      path.join(process.cwd(), 'components/cook/ScrollStepView.tsx'),
+      'utf-8',
+    )
+    expect(src).toContain('injectStepQuantities')
+    expect(src).not.toContain('StepIngredientPanel')
+  })
+
+  it('T52 - SingleStepView highlights quantities with terracotta color #C97D4E', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const fs = require('fs') as typeof import('fs')
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const path = require('path') as typeof import('path')
+    const src = fs.readFileSync(
+      path.join(process.cwd(), 'components/cook/SingleStepView.tsx'),
+      'utf-8',
+    )
+    expect(src).toContain('#C97D4E')
+  })
+
+  it('T53 - ScrollStepView highlights quantities with terracotta color #C97D4E', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const fs = require('fs') as typeof import('fs')
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const path = require('path') as typeof import('path')
+    const src = fs.readFileSync(
+      path.join(process.cwd(), 'components/cook/ScrollStepView.tsx'),
+      'utf-8',
+    )
+    expect(src).toContain('#C97D4E')
+  })
+
+  it('T54 - cook page renders step text with injected inline quantity', async () => {
     const recipe = {
       ...sampleRecipe,
       ingredients: '2 cups flour\n1/2 tsp salt',
@@ -643,78 +696,7 @@ describe('T50 - Step containing "flour" shows matched ingredient in panel', () =
       servings: 4,
     }
     await renderCookPage(recipe)
-
-    // Panel is auto-expanded (1 match ≤ 3)
-    expect(screen.getByText('2 cups flour')).toBeDefined()
-  })
-})
-
-describe('T51 - Step with no matching ingredients shows no panel', () => {
-  it('hides the panel when no ingredients match the step text', async () => {
-    const recipe = {
-      ...sampleRecipe,
-      ingredients: '2 cups flour\n1/2 tsp salt',
-      // Step 0 "Preheat the oven" matches neither flour nor salt
-      steps: 'Preheat the oven to 350°F\nAdd the flour and mix',
-      servings: 4,
-    }
-    await renderCookPage(recipe)
-
-    expect(screen.queryByText('Ingredients for this step')).toBeNull()
-  })
-})
-
-describe('T52 - Panel collapsed by default when more than 3 ingredients match', () => {
-  it('does not expand list when >3 ingredients match', async () => {
-    const recipe = {
-      ...sampleRecipe,
-      ingredients: '2 cups flour\n1/2 tsp salt\n1 cup sugar\n2 eggs\n1 tsp vanilla',
-      // Step mentions all five ingredients
-      steps: 'Combine flour, salt, sugar, eggs, and vanilla in a bowl',
-      servings: 4,
-    }
-    await renderCookPage(recipe)
-
-    // Label is visible but the list items are not (collapsed)
-    expect(screen.getByText('Ingredients for this step')).toBeDefined()
-    expect(screen.queryByText('2 cups flour')).toBeNull()
-  })
-})
-
-describe('T52b - Panel collapses after navigating to a step with >3 matching ingredients', () => {
-  it('remounts collapsed when navigating to a >3-match step from a 1-match step', async () => {
-    const recipe = {
-      ...sampleRecipe,
-      ingredients: '2 cups flour\n1/2 tsp salt\n1 cup sugar\n2 eggs\n1 tsp vanilla',
-      // Step 0: only "flour" matches (1 match → auto-expanded)
-      // Step 1: all five ingredients mentioned (>3 → should start collapsed)
-      steps: 'Add the flour to the bowl\nCombine flour, salt, sugar, eggs, and vanilla',
-      servings: 4,
-    }
-    await renderCookPage(recipe)
-
-    // Step 0: panel is auto-expanded, ingredient list visible
-    expect(screen.getByText('Ingredients for this step')).toBeDefined()
-    expect(screen.getByText('2 cups flour')).toBeDefined()
-
-    // Navigate to step 1
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /next →/i })) })
-
-    // Panel label still visible but list is collapsed (>3 matches)
-    expect(screen.getByText('Ingredients for this step')).toBeDefined()
-    expect(screen.queryByText('2 cups flour')).toBeNull()
-  })
-})
-
-describe('T53 - Scaled quantity appears correctly in the panel', () => {
-  it('shows scaled quantities when targetServings differs from base', async () => {
-    // The cook page starts servings at recipe.servings (4), but we test the
-    // matchStepIngredients utility directly with a different target to keep
-    // the test deterministic without driving the full UI stepper.
-    const { matchStepIngredients } = await import('@/components/cook/StepIngredientPanel')
-    const ingredients = '2 cups flour\n1/2 tsp salt'
-    const result = matchStepIngredients('Add the flour and mix', ingredients, 4, 8)
-    // 2 cups * (8/4) = 4 cups
-    expect(result).toContain('4 cups flour')
+    // "2 cups" is injected inline before "flour" — confirm it renders in the DOM
+    expect(screen.getByText(/2 cups/)).toBeDefined()
   })
 })

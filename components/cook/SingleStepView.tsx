@@ -1,8 +1,9 @@
 'use client'
 
 import { useRef } from 'react'
+import type React from 'react'
 import StepTimer, { type TimerState } from './StepTimer'
-import StepIngredientPanel from './StepIngredientPanel'
+import { injectStepQuantities, type HighlightRange } from '@/lib/inject-step-quantities'
 
 interface Props {
   steps: string[]
@@ -14,6 +15,23 @@ interface Props {
   ingredients?: string
   baseServings?: number
   targetServings?: number
+}
+
+function renderHighlighted(text: string, highlights: HighlightRange[]): React.ReactNode {
+  if (highlights.length === 0) return text
+  const nodes: React.ReactNode[] = []
+  let cursor = 0
+  highlights.forEach((h, i) => {
+    if (h.start > cursor) nodes.push(text.slice(cursor, h.start))
+    nodes.push(
+      <span key={i} style={{ color: '#C97D4E', fontWeight: 500 }}>
+        {text.slice(h.start, h.end)}
+      </span>,
+    )
+    cursor = h.end
+  })
+  if (cursor < text.length) nodes.push(text.slice(cursor))
+  return nodes
 }
 
 export default function SingleStepView({
@@ -30,6 +48,11 @@ export default function SingleStepView({
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
 
   const photo = stepPhotos.find((p) => p.stepIndex === currentStep)
+
+  const { text: stepText, highlights } =
+    ingredients
+      ? injectStepQuantities(steps[currentStep], ingredients, targetServings, baseServings)
+      : { text: steps[currentStep], highlights: [] }
 
   function handleTouchStart(e: React.TouchEvent) {
     const t = e.touches[0]
@@ -77,22 +100,11 @@ export default function SingleStepView({
         </span>
         <p
           className="text-stone-800 font-sans"
-          style={{ fontSize: 20, lineHeight: 1.7 }}
+          style={{ fontSize: 20, lineHeight: 1.7, color: '#3D3028' }}
         >
-          {steps[currentStep]}
+          {renderHighlighted(stepText, highlights)}
         </p>
       </div>
-
-      {/* Ingredients for this step */}
-      {ingredients && (
-        <StepIngredientPanel
-          key={currentStep}
-          stepText={steps[currentStep]!}
-          ingredients={ingredients}
-          baseServings={baseServings}
-          targetServings={targetServings}
-        />
-      )}
 
       {/* Timer */}
       <StepTimer
