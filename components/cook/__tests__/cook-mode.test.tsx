@@ -632,10 +632,26 @@ describe('T49 - Expired timer shows "Time\'s up!" in bar until dismissed', () =>
   })
 })
 
-// ── T50-T53: Step ingredient panel ───────────────────────────────────────────
+// ── T50-T54: Inline quantity injection ───────────────────────────────────────
 
-describe('T50 - Step containing "flour" shows matched ingredient in panel', () => {
-  it('renders the ingredient line when a step references it', async () => {
+describe('T50 - Step with no matching ingredient name renders unchanged', () => {
+  it('step text without an ingredient name match shows no injected quantity', async () => {
+    const recipe = {
+      ...sampleRecipe,
+      ingredients: '2 cups flour\n1/2 tsp salt',
+      // "Preheat the oven" matches neither "flour" nor "salt"
+      steps: 'Preheat the oven to 350°F\nAdd the flour',
+      servings: 4,
+    }
+    await renderCookPage(recipe)
+    // No "2 cups" or "1/2 tsp" text injected into step 0
+    expect(screen.queryByText(/2 cups/)).toBeNull()
+    expect(screen.queryByText(/1\/2 tsp/)).toBeNull()
+  })
+})
+
+describe('T51 - Scroll view also injects quantities inline', () => {
+  it('all-steps view renders injected quantity for a matching step', async () => {
     const recipe = {
       ...sampleRecipe,
       ingredients: '2 cups flour\n1/2 tsp salt',
@@ -643,78 +659,52 @@ describe('T50 - Step containing "flour" shows matched ingredient in panel', () =
       servings: 4,
     }
     await renderCookPage(recipe)
-
-    // Panel is auto-expanded (1 match ≤ 3)
-    expect(screen.getByText('2 cups flour')).toBeDefined()
+    // Switch to all-steps view
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /all steps/i })) })
+    expect(screen.getByText(/2 cups/)).toBeDefined()
   })
 })
 
-describe('T51 - Step with no matching ingredients shows no panel', () => {
-  it('hides the panel when no ingredients match the step text', async () => {
+describe('T52 - Injected quantity is wrapped in a highlighted span', () => {
+  it('quantity text renders inside a <span> element (not as plain text)', async () => {
     const recipe = {
       ...sampleRecipe,
       ingredients: '2 cups flour\n1/2 tsp salt',
-      // Step 0 "Preheat the oven" matches neither flour nor salt
-      steps: 'Preheat the oven to 350°F\nAdd the flour and mix',
+      steps: 'Add the flour and mix well\nBake for 30 minutes',
       servings: 4,
     }
     await renderCookPage(recipe)
-
-    expect(screen.queryByText('Ingredients for this step')).toBeNull()
+    // "2 cups" appears inside a <span>, not as a bare text node
+    const quantityEl = screen.getByText(/2 cups/)
+    expect(quantityEl.tagName).toBe('SPAN')
   })
 })
 
-describe('T52 - Panel collapsed by default when more than 3 ingredients match', () => {
-  it('does not expand list when >3 ingredients match', async () => {
+describe('T53 - Quantities scale with servings when doubled', () => {
+  it('injectStepQuantities returns doubled quantity at 2× servings', async () => {
+    const { injectStepQuantities } = await import('@/lib/inject-step-quantities')
+    const result = injectStepQuantities(
+      'Add the flour and mix',
+      '2 cups flour',
+      8, // targetServings
+      4, // baseServings
+    )
+    // 2 cups × (8/4) = 4 cups injected before "flour"
+    expect(result.text).toContain('4 cups')
+    expect(result.highlights.length).toBeGreaterThan(0)
+  })
+})
+
+describe('T54 - cook page renders step text with injected inline quantity', () => {
+  it('single-step view injects quantity before ingredient name', async () => {
     const recipe = {
       ...sampleRecipe,
-      ingredients: '2 cups flour\n1/2 tsp salt\n1 cup sugar\n2 eggs\n1 tsp vanilla',
-      // Step mentions all five ingredients
-      steps: 'Combine flour, salt, sugar, eggs, and vanilla in a bowl',
+      ingredients: '2 cups flour\n1/2 tsp salt',
+      steps: 'Add the flour and mix well\nBake for 30 minutes',
       servings: 4,
     }
     await renderCookPage(recipe)
-
-    // Label is visible but the list items are not (collapsed)
-    expect(screen.getByText('Ingredients for this step')).toBeDefined()
-    expect(screen.queryByText('2 cups flour')).toBeNull()
-  })
-})
-
-describe('T52b - Panel collapses after navigating to a step with >3 matching ingredients', () => {
-  it('remounts collapsed when navigating to a >3-match step from a 1-match step', async () => {
-    const recipe = {
-      ...sampleRecipe,
-      ingredients: '2 cups flour\n1/2 tsp salt\n1 cup sugar\n2 eggs\n1 tsp vanilla',
-      // Step 0: only "flour" matches (1 match → auto-expanded)
-      // Step 1: all five ingredients mentioned (>3 → should start collapsed)
-      steps: 'Add the flour to the bowl\nCombine flour, salt, sugar, eggs, and vanilla',
-      servings: 4,
-    }
-    await renderCookPage(recipe)
-
-    // Step 0: panel is auto-expanded, ingredient list visible
-    expect(screen.getByText('Ingredients for this step')).toBeDefined()
-    expect(screen.getByText('2 cups flour')).toBeDefined()
-
-    // Navigate to step 1
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /next →/i })) })
-
-    // Panel label still visible but list is collapsed (>3 matches)
-    expect(screen.getByText('Ingredients for this step')).toBeDefined()
-    expect(screen.queryByText('2 cups flour')).toBeNull()
-  })
-})
-
-describe('T53 - Scaled quantity appears correctly in the panel', () => {
-  it('shows scaled quantities when targetServings differs from base', async () => {
-    // The cook page starts servings at recipe.servings (4), but we test the
-    // matchStepIngredients utility directly with a different target to keep
-    // the test deterministic without driving the full UI stepper.
-    const { matchStepIngredients } = await import('@/components/cook/StepIngredientPanel')
-    const ingredients = '2 cups flour\n1/2 tsp salt'
-    const result = matchStepIngredients('Add the flour and mix', ingredients, 4, 8)
-    // 2 cups * (8/4) = 4 cups
-    expect(result).toContain('4 cups flour')
+    // "2 cups" is injected inline before "flour" — confirm it renders in the DOM
+    expect(screen.getByText(/2 cups/)).toBeDefined()
   })
 })
