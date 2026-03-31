@@ -77,23 +77,19 @@ async function getHomeData(): Promise<HomeData & { weekStart: string }> {
     currentWeekPlan = {
       id:         plan.id,
       week_start: plan.week_start,
-      entries: (entries ?? []).map((e) => {
-        const rec = (e.recipes as unknown) as { title: string; total_time_minutes: number | null } | null
-        return {
-          planned_date:       e.planned_date,
-          recipe_id:          e.recipe_id,
-          recipe_title:       rec?.title ?? '',
-          position:           e.position,
-          confirmed:          e.confirmed,
-          total_time_minutes: rec?.total_time_minutes ?? null,
-        }
-      }),
+      entries: (entries ?? []).filter((e) => e.recipe_id != null).map((e) => ({
+        planned_date:       e.planned_date,
+        recipe_id:          e.recipe_id!,
+        recipe_title:       e.recipes?.title ?? '',
+        position:           e.position,
+        confirmed:          e.confirmed ?? false,
+        total_time_minutes: e.recipes?.total_time_minutes ?? null,
+      })),
     }
   }
 
-  type HistRow = { recipe_id: string; made_on: string; recipes: { title: string; tags: string[] } | null }
-  const recentlyMade = ((historyResult.data ?? []) as unknown as HistRow[]).map((h) => ({
-    recipe_id:    h.recipe_id,
+  const recentlyMade = (historyResult.data ?? []).filter((h) => h.recipe_id != null).map((h) => ({
+    recipe_id:    h.recipe_id!,
     recipe_title: h.recipes?.title ?? '',
     made_on:      h.made_on,
     tags:         h.recipes?.tags ?? [],

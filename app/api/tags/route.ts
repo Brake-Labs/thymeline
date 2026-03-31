@@ -23,8 +23,8 @@ export const GET = withAuth(async (req, { user, db, ctx }) => {
 
   const firstClassLower = new Set(FIRST_CLASS_TAGS.map((t) => t.toLowerCase()))
   const custom = (data ?? [])
-    .filter((t: { name: string }) => !firstClassLower.has(t.name.toLowerCase()))
-    .map((t: { name: string; section: string }) => ({ name: t.name, section: t.section }))
+    .filter((t) => !firstClassLower.has(t.name.toLowerCase()))
+    .map((t) => ({ name: t.name, section: t.section }))
 
   return NextResponse.json({ firstClass: FIRST_CLASS_TAGS, custom })
 })
@@ -55,7 +55,7 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
   }
   const { data: existing } = await existingQuery
 
-  const duplicate = (existing ?? []).find((t: { name: string }) => t.name.toLowerCase() === lc)
+  const duplicate = (existing ?? []).find((t) => t.name.toLowerCase() === lc)
   if (duplicate) {
     return NextResponse.json({ error: 'Tag already exists' }, { status: 409 })
   }

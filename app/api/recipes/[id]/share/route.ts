@@ -3,7 +3,7 @@ import { withAuth } from '@/lib/auth'
 import { shareRecipeSchema, parseBody } from '@/lib/schemas'
 
 export const PATCH = withAuth(async (req: NextRequest, { user, db }, params) => {
-  const { id } = params
+  const id = params.id!
 
   // Ownership check
   const { data: existing, error: fetchError } = await db

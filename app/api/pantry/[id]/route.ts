@@ -17,7 +17,7 @@ export const PATCH = withAuth(async (req, { user, db }, params) => {
   const { data, error } = await db
     .from('pantry_items')
     .update(updates)
-    .eq('id', params.id)
+    .eq('id', params.id!)
     .eq('user_id', user.id)
     .select('*')
     .single()
@@ -36,7 +36,7 @@ export const DELETE = withAuth(async (req, { user, db }, params) => {
   const { data: item, error: fetchError } = await db
     .from('pantry_items')
     .select('id')
-    .eq('id', params.id)
+    .eq('id', params.id!)
     .eq('user_id', user.id)
     .single()
 
@@ -47,7 +47,7 @@ export const DELETE = withAuth(async (req, { user, db }, params) => {
   const { error: deleteError } = await db
     .from('pantry_items')
     .delete()
-    .eq('id', params.id)
+    .eq('id', params.id!)
     .eq('user_id', user.id)
 
   if (deleteError) {

@@ -1,0 +1,32 @@
+name: Check Supabase Types
+
+on:
+  schedule:
+    - cron: '0 6 * * 1' # Weekly on Monday at 6am UTC
+  workflow_dispatch:
+
+jobs:
+  check-types:
+    name: Verify generated types are fresh
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run update-types
+      - name: Check for type drift
+        run: |
+          if git diff --exit-code types/database.ts; then
+            echo "✅ Generated types are up to date"
+          else
+            echo "⚠️ Generated types are stale — database schema has changed"
+            echo "Run: SUPABASE_PROJECT_REF=vshpgcipbgnetzghzmyi npm run update-types"
+            git diff types/database.ts
+            exit 1
+          fi

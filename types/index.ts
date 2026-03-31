@@ -1,3 +1,5 @@
+import type { Tables } from './database'
+
 // ─── Shared const arrays (single source of truth for types + Zod schemas) ────
 
 export const RECIPE_CATEGORIES = ['main_dish', 'breakfast', 'dessert', 'side_dish'] as const
@@ -9,28 +11,22 @@ export type MealType = typeof MEAL_TYPES[number]
 export const TAG_SECTIONS = ['style', 'dietary', 'seasonal', 'cuisine', 'protein'] as const
 export type TagSection = typeof TAG_SECTIONS[number]
 
-// ─── Typed Supabase join results ─────────────────────────────────────────────
-// These replace `as unknown` casts on Supabase .select() joins.
+// ─── DB row types (derived from generated Supabase types) ────────────────────
+// These are the raw shapes returned by typed Supabase client queries.
+// Use these when working directly with DB results.
 
-/** Shape returned when joining `recipes` from `meal_plan_entries` */
-export interface RecipeJoinResult {
-  title: string
-  total_time_minutes: number | null
-}
-
-/** Extended shape for grocery generation joins */
-export interface RecipeJoinFull extends RecipeJoinResult {
-  id: string
-  ingredients: string | null
-  url: string | null
-  servings: number | null
-}
-
-/** Shape returned when joining `meal_plans` from `meal_plan_entries` */
-export interface MealPlanJoinResult {
-  user_id: string
-  household_id: string | null
-}
+export type RecipeRow = Tables<'recipes'>
+export type MealPlanRow = Tables<'meal_plans'>
+export type MealPlanEntryRow = Tables<'meal_plan_entries'>
+export type RecipeHistoryRow = Tables<'recipe_history'>
+export type UserPreferencesRow = Tables<'user_preferences'>
+export type GroceryListRow = Tables<'grocery_lists'>
+export type PantryItemRow = Tables<'pantry_items'>
+export type HouseholdRow = Tables<'households'>
+export type HouseholdMemberRow = Tables<'household_members'>
+export type HouseholdInviteRow = Tables<'household_invites'>
+export type CustomTagRow = Tables<'custom_tags'>
+export type InviteRow = Tables<'invites'>
 
 // ─── Domain types ────────────────────────────────────────────────────────────
 

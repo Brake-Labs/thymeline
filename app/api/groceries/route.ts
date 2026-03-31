@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
-import { GroceryItem, GroceryList, RecipeScale } from '@/types'
+import { GroceryItem, RecipeScale } from '@/types'
 import { updateGroceryListSchema, parseBody } from '@/lib/schemas'
 
 // ── GET /api/groceries?week_start=YYYY-MM-DD  (or ?date_from=YYYY-MM-DD) ─────
@@ -98,5 +98,9 @@ export const PATCH = withAuth(async (req, { user, db, ctx }) => {
       .eq('id', existing.meal_plan_id)
   }
 
-  return NextResponse.json(updated as GroceryList)
+  return NextResponse.json({
+    ...updated,
+    items: updated.items as unknown as GroceryItem[],
+    recipe_scales: updated.recipe_scales as unknown as RecipeScale[],
+  })
 })

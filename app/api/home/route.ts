@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { getMostRecentSunday } from '@/lib/date-utils'
-import type { HomeData, RecipeJoinResult } from '@/types'
+import type { HomeData } from '@/types'
 
 export const GET = withAuth(async (req, { user, db, ctx }) => {
   const weekStart = getMostRecentSunday()
@@ -27,17 +27,14 @@ export const GET = withAuth(async (req, { user, db, ctx }) => {
     currentWeekPlan = {
       id: plan.id,
       week_start: plan.week_start,
-      entries: (entries ?? []).map((e) => {
-        const recipe = e.recipes as unknown as RecipeJoinResult | null
-        return {
-          planned_date:       e.planned_date,
-          recipe_id:          e.recipe_id,
-          recipe_title:       recipe?.title ?? '',
-          position:           e.position,
-          confirmed:          e.confirmed,
-          total_time_minutes: recipe?.total_time_minutes ?? null,
-        }
-      }),
+      entries: (entries ?? []).filter((e) => e.recipe_id != null).map((e) => ({
+        planned_date:       e.planned_date,
+        recipe_id:          e.recipe_id!,
+        recipe_title:       e.recipes?.title ?? '',
+        position:           e.position,
+        confirmed:          e.confirmed ?? false,
+        total_time_minutes: e.recipes?.total_time_minutes ?? null,
+      })),
     }
   }
 
@@ -70,18 +67,15 @@ export const GET = withAuth(async (req, { user, db, ctx }) => {
     groceryQ,
   ])
 
-  const recentlyMade = (history ?? []).map((h) => {
-    const recipe = h.recipes as unknown as { title: string; tags: string[] } | null
-    return {
-      recipe_id:    h.recipe_id,
-      recipe_title: recipe?.title ?? '',
-      made_on:      h.made_on,
-      tags:         recipe?.tags ?? [],
-    }
-  })
+  const recentlyMade = (history ?? []).filter((h) => h.recipe_id != null).map((h) => ({
+    recipe_id:    h.recipe_id!,
+    recipe_title: h.recipes?.title ?? '',
+    made_on:      h.made_on,
+    tags:         h.recipes?.tags ?? [],
+  }))
 
   const userName = user.user_metadata?.full_name ?? user.email ?? null
-  const groceryListWeekStart = (groceryLists as { week_start: string }[] | null)?.[0]?.week_start ?? null
+  const groceryListWeekStart = groceryLists?.[0]?.week_start ?? null
 
   const result: HomeData = {
     userName,

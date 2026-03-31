@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { createHouseholdSchema, parseBody } from '@/lib/schemas'
 import { canManage } from '@/lib/household'
-import type { Household, HouseholdMember } from '@/types'
+import type { HouseholdMember } from '@/types'
 
 // ── POST /api/household — create a new household ──────────────────────────────
 
@@ -32,7 +32,7 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
     return NextResponse.json({ error: 'Failed to add member' }, { status: 500 })
   }
 
-  return NextResponse.json(household as Household, { status: 201 })
+  return NextResponse.json(household, { status: 201 })
 })
 
 // ── GET /api/household — get current user's household and members ─────────────
@@ -60,7 +60,7 @@ export const GET = withAuth(async (req, { db, ctx }) => {
     const userMap = new Map(
       (usersPage?.users ?? []).map((u: { id: string; email?: string }) => [u.id, u.email]),
     )
-    enrichedMembers = (members ?? []).map((m: { household_id: string; user_id: string; role: string; joined_at: string }) => ({
+    enrichedMembers = (members ?? []).map((m) => ({
       ...m,
       email: userMap.get(m.user_id) ?? undefined,
     })) as HouseholdMember[]
@@ -68,7 +68,7 @@ export const GET = withAuth(async (req, { db, ctx }) => {
     // auth.admin not available in all environments; return without emails
   }
 
-  return NextResponse.json({ household: household as Household, members: enrichedMembers, myRole: ctx.role })
+  return NextResponse.json({ household, members: enrichedMembers, myRole: ctx.role })
 })
 
 // ── PATCH /api/household — update household name ──────────────────────────────
@@ -95,7 +95,7 @@ export const PATCH = withAuth(async (req, { db, ctx }) => {
     return NextResponse.json({ error: 'Failed to update household' }, { status: 500 })
   }
 
-  return NextResponse.json(updated as Household)
+  return NextResponse.json(updated)
 })
 
 // ── DELETE /api/household — delete the household (owner only) ─────────────────

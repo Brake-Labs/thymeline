@@ -1,4 +1,5 @@
 import { type SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '@/types/database'
 import type { HouseholdContext, HouseholdRole } from '@/types'
 
 /**
@@ -6,7 +7,7 @@ import type { HouseholdContext, HouseholdRole } from '@/types'
  * Always call this with the admin client (service role).
  */
 export async function resolveHouseholdScope(
-  db: SupabaseClient,
+  db: SupabaseClient<Database>,
   userId: string,
 ): Promise<HouseholdContext | null> {
   const { data } = await db

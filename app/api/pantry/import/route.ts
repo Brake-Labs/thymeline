@@ -17,7 +17,7 @@ export const POST = withAuth(async (req, { user, db }) => {
 
   // Build a map of normalized name → id for case-insensitive dedup
   const existingByName = new Map<string, string>()
-  for (const item of (existing ?? []) as { id: string; name: string }[]) {
+  for (const item of existing ?? []) {
     existingByName.set(item.name.trim().toLowerCase(), item.id)
   }
 

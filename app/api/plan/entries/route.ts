@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { createPlanEntrySchema, parseBody } from '@/lib/schemas'
 import { isSunday } from '../helpers'
-import type { MealType, PlanEntry, RecipeJoinResult } from '@/types'
+import type { MealType, PlanEntry } from '@/types'
 
 export const POST = withAuth(async (req, { user, db, ctx }) => {
   const { data: body, error: parseError } = await parseBody(req, createPlanEntrySchema)
@@ -103,15 +103,15 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
 
   const planEntry: PlanEntry = {
     id:              entry.id,
-    recipe_id:       entry.recipe_id,
-    recipe_title:    (entry.recipes as unknown as RecipeJoinResult | null)?.title ?? '',
+    recipe_id:       entry.recipe_id!,
+    recipe_title:    entry.recipes?.title ?? '',
     planned_date:    entry.planned_date,
-    meal_type:       entry.meal_type as MealType,
+    meal_type:       (entry.meal_type ?? 'dinner') as MealType,
     is_side_dish:    entry.is_side_dish,
     parent_entry_id: entry.parent_entry_id,
-    confirmed:       entry.confirmed,
+    confirmed:       entry.confirmed ?? false,
     position:           entry.position,
-    total_time_minutes: (entry.recipes as unknown as RecipeJoinResult | null)?.total_time_minutes ?? null,
+    total_time_minutes: entry.recipes?.total_time_minutes ?? null,
   }
 
   return NextResponse.json(planEntry, { status: 201 })

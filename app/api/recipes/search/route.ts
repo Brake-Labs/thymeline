@@ -62,6 +62,7 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
 
   const lastMadeMap: Record<string, string> = {}
   for (const row of history ?? []) {
+    if (!row.recipe_id) continue
     const current = lastMadeMap[row.recipe_id]
     if (!current || row.made_on > current) {
       lastMadeMap[row.recipe_id] = row.made_on
@@ -112,7 +113,7 @@ Return ONLY a JSON array of recipe_id strings, e.g. ["uuid1","uuid2"]. No other 
       recipe_id: r.id,
       recipe_title: r.title,
       tags: r.tags ?? [],
-      category: r.category,
+      category: r.category ?? 'main_dish',
       total_time_minutes: r.total_time_minutes ?? null,
       last_made: lastMadeMap[r.id] ?? null,
     }])

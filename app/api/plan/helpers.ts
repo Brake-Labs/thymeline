@@ -1,6 +1,7 @@
 import { type SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '@/types/database'
 import { callLLM } from '@/lib/llm'
-import type { UserPreferences, LimitedTag, MealType, DaySuggestions, HouseholdContext, RecipeJoinResult } from '@/types'
+import type { UserPreferences, LimitedTag, MealType, DaySuggestions, HouseholdContext } from '@/types'
 
 export const MEAL_TYPE_CATEGORIES: Record<MealType, string[]> = {
   breakfast: ['breakfast'],
@@ -33,7 +34,7 @@ export interface RecipeForLLM {
 }
 
 export async function fetchCooldownFilteredRecipes(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
   userId: string,
   cooldownDays: number,
   categories?: string[],
@@ -68,13 +69,13 @@ export async function fetchCooldownFilteredRecipes(
 
   if (!recipes || recipes.length === 0) return []
 
-  const recentlyMadeIds = new Set((history ?? []).map((h: { recipe_id: string }) => h.recipe_id))
+  const recentlyMadeIds = new Set((history ?? []).filter((h) => h.recipe_id != null).map((h) => h.recipe_id!))
 
-  return recipes.filter((r: RecipeForLLM) => !recentlyMadeIds.has(r.id))
+  return (recipes ?? []).filter((r): r is RecipeForLLM => r.id != null && r.title != null && !recentlyMadeIds.has(r.id))
 }
 
 export async function fetchRecipesByMealTypes(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
   userId: string,
   cooldownDays: number,
   mealTypes: MealType[],
@@ -113,18 +114,18 @@ export async function fetchRecipesByMealTypes(
     ...recipePromises,
   ])
 
-  const recentlyMadeIds = new Set((history ?? []).map((h: { recipe_id: string }) => h.recipe_id))
+  const recentlyMadeIds = new Set((history ?? []).filter((h) => h.recipe_id != null).map((h) => h.recipe_id!))
 
   const result = {} as Record<MealType, RecipeForLLM[]>
   mealTypes.forEach((mt, i) => {
     const recipes = recipeResults[i]?.data ?? []
-    result[mt] = (recipes as RecipeForLLM[]).filter((r) => !recentlyMadeIds.has(r.id))
+    result[mt] = recipes.filter((r): r is RecipeForLLM => r.id != null && r.title != null && !recentlyMadeIds.has(r.id))
   })
   return result
 }
 
 export async function fetchRecentHistory(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
   userId: string,
 ): Promise<{ title: string; made_on: string }[]> {
   const { data } = await supabase
@@ -134,14 +135,14 @@ export async function fetchRecentHistory(
     .order('made_on', { ascending: false })
     .limit(10)
 
-  return (data ?? []).map((h: { made_on: string; recipes: unknown }) => ({
-    title: (h.recipes as unknown as RecipeJoinResult | null)?.title ?? '',
+  return (data ?? []).map((h) => ({
+    title: h.recipes?.title ?? '',
     made_on: h.made_on,
   }))
 }
 
 export async function fetchUserPreferences(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
   userId: string,
   ctx?: HouseholdContext | null,
 ): Promise<UserPreferences | null> {
@@ -152,7 +153,21 @@ export async function fetchUserPreferences(
     q = q.eq('user_id', userId)
   }
   const { data } = await q.single()
-  return data as UserPreferences | null
+  if (!data) return null
+  return {
+    id: data.id,
+    user_id: data.user_id ?? '',
+    options_per_day: data.options_per_day ?? 3,
+    cooldown_days: data.cooldown_days ?? 28,
+    seasonal_mode: data.seasonal_mode ?? true,
+    preferred_tags: data.preferred_tags ?? [],
+    avoided_tags: data.avoided_tags ?? [],
+    limited_tags: data.limited_tags as unknown as LimitedTag[],
+    seasonal_rules: data.seasonal_rules as UserPreferences['seasonal_rules'],
+    is_active: data.is_active ?? true,
+    onboarding_completed: data.onboarding_completed ?? false,
+    created_at: data.created_at ?? '',
+  } satisfies UserPreferences
 }
 
 // ── Prompt construction ─────────────────────────────────────────────────────────
@@ -237,7 +252,7 @@ Return ONLY valid JSON in this exact format, with no prose, no markdown:
 }
 
 export async function fetchPantryContext(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
   userId: string,
   ctx?: HouseholdContext | null,
 ): Promise<string> {
@@ -257,7 +272,7 @@ export async function fetchPantryContext(
 
     if (!items?.length) return ''
 
-    const lines = (items as { name: string; expiry_date: string | null }[]).map((item) => {
+    const lines = items.map((item) => {
       const expiry = item.expiry_date ? ` (expires ${item.expiry_date})` : ''
       return `- ${item.name}${expiry}`
     })

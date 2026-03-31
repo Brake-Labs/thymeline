@@ -25,7 +25,7 @@ async function withHistory(
 }
 
 export const GET = withAuth(async (req, { db }, params) => {
-  const { id } = params
+  const id = params.id!
 
   const { data: recipe, error } = await db
     .from('recipes')
@@ -41,7 +41,7 @@ export const GET = withAuth(async (req, { db }, params) => {
 })
 
 export const PATCH = withAuth(async (req, { user, db, ctx }, params) => {
-  const { id } = params
+  const id = params.id!
 
   // Ownership check
   const { data: existing, error: fetchError } = await db
@@ -80,7 +80,7 @@ export const PATCH = withAuth(async (req, { user, db, ctx }, params) => {
 
     const knownNames = new Set([
       ...FIRST_CLASS_TAGS.map((t) => t.toLowerCase()),
-      ...(customTags ?? []).map((t: { name: string }) => t.name.toLowerCase()),
+      ...(customTags ?? []).map((t) => t.name.toLowerCase()),
     ])
     const unknownTags = body.tags.filter((t) => !knownNames.has(t.toLowerCase()))
     if (unknownTags.length > 0) {
@@ -122,7 +122,7 @@ export const PATCH = withAuth(async (req, { user, db, ctx }, params) => {
 })
 
 export const DELETE = withAuth(async (req, { user, db, ctx }, params) => {
-  const { id } = params
+  const id = params.id!
 
   // Ownership check
   const { data: existing, error: fetchError } = await db

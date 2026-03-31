@@ -66,7 +66,7 @@ export const PATCH = withAuth(async (req, { user, db, ctx }) => {
           tagsQuery = tagsQuery.eq('user_id', user.id)
         }
         const { data: userTags } = await tagsQuery
-        const tagSet = new Set((userTags ?? []).map((t: { name: string }) => t.name))
+        const tagSet = new Set((userTags ?? []).map((t) => t.name))
         const unknown = tags.filter((t) => !tagSet.has(t))
         if (unknown.length > 0) {
           const validationError = `Unknown tags: ${unknown.join(', ')}`
@@ -88,7 +88,7 @@ export const PATCH = withAuth(async (req, { user, db, ctx }) => {
         tagsQuery = tagsQuery.eq('user_id', user.id)
       }
       const { data: userTags } = await tagsQuery
-      const tagSet = new Set((userTags ?? []).map((t: { name: string }) => t.name))
+      const tagSet = new Set((userTags ?? []).map((t) => t.name))
       const unknown = lt.map((i) => i.tag).filter((t) => !tagSet.has(t))
       if (unknown.length > 0) {
         const validationError = `Unknown tags in limited_tags: ${unknown.join(', ')}`

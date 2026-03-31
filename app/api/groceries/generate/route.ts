@@ -3,7 +3,6 @@ import FirecrawlApp from 'firecrawl'
 import { withAuth } from '@/lib/auth'
 import { anthropic } from '@/lib/llm'
 import { generateGroceriesSchema, parseBody } from '@/lib/schemas'
-import type { RecipeJoinFull } from '@/types'
 import {
   parseIngredientLine,
   combineIngredients,
@@ -12,6 +11,7 @@ import {
 } from '@/lib/grocery'
 import { toDateString } from '@/lib/date-utils'
 import { GroceryItem, GrocerySection, RecipeScale } from '@/types'
+import type { Json } from '@/types/database'
 
 function uuidv4(): string {
   return crypto.randomUUID()
@@ -60,7 +60,7 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
     return NextResponse.json({ error: 'No meal plans found for this date range' }, { status: 404 })
   }
 
-  const planIds = (plans as { id: string }[]).map((p) => p.id)
+  const planIds = plans.map((p) => p.id)
 
   // Default plan-level servings; per-recipe override stored in recipe_scales
   const planServings = 4
@@ -82,7 +82,7 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
   const seenRecipeIds = new Set<string>()
   const recipes: RecipeEntry[] = []
   for (const entry of (entriesRaw ?? [])) {
-    const r = entry.recipes as unknown as RecipeJoinFull | null
+    const r = entry.recipes
     if (!r) continue
     if (seenRecipeIds.has(r.id)) continue
     seenRecipeIds.add(r.id)
@@ -235,7 +235,7 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
     const { data: pantryItems } = await pantryQ
 
     if (pantryItems?.length) {
-      const pantryNames = (pantryItems as { name: string }[]).map((p) => p.name.toLowerCase().trim())
+      const pantryNames = pantryItems.map((p) => p.name.toLowerCase().trim())
       allItems = allItems.map((item) => {
         const gName = item.name.toLowerCase().trim()
         const matched = pantryNames.some(
@@ -264,8 +264,8 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
         date_from,
         date_to,
         servings:      planServings,
-        recipe_scales,
-        items:         allItems,
+        recipe_scales: recipe_scales as unknown as Json,
+        items:         allItems as unknown as Json,
         updated_at:    now,
       }
     : {
@@ -275,8 +275,8 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
         date_from,
         date_to,
         servings:      planServings,
-        recipe_scales,
-        items:         allItems,
+        recipe_scales: recipe_scales as unknown as Json,
+        items:         allItems as unknown as Json,
         updated_at:    now,
       }
   const onConflict = ctx ? 'household_id,week_start' : 'user_id,week_start'

@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "update-types": "supabase gen types --lang=typescript --project-id \"$SUPABASE_PROJECT_REF\" --schema public > types/database.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",

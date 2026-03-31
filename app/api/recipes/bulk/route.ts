@@ -41,7 +41,7 @@ export const PATCH = withAuth(async (req: NextRequest, { user, db, ctx }) => {
     const { data: customTags } = await customTagsQuery
 
     const knownNames = new Set(
-      (customTags ?? []).map((t: { name: string }) => t.name.toLowerCase()),
+      (customTags ?? []).map((t) => t.name.toLowerCase()),
     )
     const unknownTags = addTags.filter((t) => !knownNames.has(t.toLowerCase()))
     if (unknownTags.length > 0) {

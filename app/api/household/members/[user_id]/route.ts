@@ -10,7 +10,7 @@ export const DELETE = withAuth(async (req, { user, db, ctx }, params) => {
     return NextResponse.json({ error: 'Not in a household' }, { status: 404 })
   }
 
-  const isSelf = params.user_id === user.id
+  const isSelf = params.user_id! === user.id
 
   // Non-self removal requires canManage
   if (!isSelf && !canManage(ctx.role)) {
@@ -22,7 +22,7 @@ export const DELETE = withAuth(async (req, { user, db, ctx }, params) => {
     .from('household_members')
     .select('role')
     .eq('household_id', ctx.householdId)
-    .eq('user_id', params.user_id)
+    .eq('user_id', params.user_id!)
     .single()
 
   if (!target) {
@@ -46,7 +46,7 @@ export const DELETE = withAuth(async (req, { user, db, ctx }, params) => {
     .from('household_members')
     .delete()
     .eq('household_id', ctx.householdId)
-    .eq('user_id', params.user_id)
+    .eq('user_id', params.user_id!)
 
   if (deleteError) {
     return NextResponse.json({ error: 'Failed to remove member' }, { status: 500 })
@@ -72,11 +72,11 @@ export const PATCH = withAuth(async (req, { db, ctx }, params) => {
     .from('household_members')
     .update({ role: body.role })
     .eq('household_id', ctx.householdId)
-    .eq('user_id', params.user_id)
+    .eq('user_id', params.user_id!)
 
   if (updateError) {
     return NextResponse.json({ error: 'Failed to update role' }, { status: 500 })
   }
 
-  return NextResponse.json({ user_id: params.user_id, role: body.role })
+  return NextResponse.json({ user_id: params.user_id!, role: body.role })
 })
