@@ -51,7 +51,7 @@ export const PATCH = withAuth(async (req: NextRequest, { user, db, ctx }) => {
 
   // Merge tags for each recipe and update
   const updates = found.map((r) => {
-    const existing = r.tags ?? []
+    const existing = r.tags
     const merged = [...existing]
     for (const tag of addTags) {
       if (!merged.includes(tag)) merged.push(tag)

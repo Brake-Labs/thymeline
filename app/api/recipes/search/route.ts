@@ -62,7 +62,6 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
 
   const lastMadeMap: Record<string, string> = {}
   for (const row of history ?? []) {
-    if (!row.recipe_id) continue
     const current = lastMadeMap[row.recipe_id]
     if (!current || row.made_on > current) {
       lastMadeMap[row.recipe_id] = row.made_on
@@ -73,7 +72,7 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   const compactList = allRecipes
     .map((r) => {
       const ingredients = r.ingredients ? r.ingredients.slice(0, 200) : ''
-      return `id:${r.id} | title:${r.title} | tags:${(r.tags ?? []).join(',')} | ingredients:${ingredients}`
+      return `id:${r.id} | title:${r.title} | tags:${r.tags.join(',')} | ingredients:${ingredients}`
     })
     .join('\n')
 
@@ -111,8 +110,8 @@ Return ONLY a JSON array of recipe_id strings, e.g. ["uuid1","uuid2"]. No other 
     allRecipes.map((r) => [r.id, {
       recipe_id: r.id,
       recipe_title: r.title,
-      tags: r.tags ?? [],
-      category: r.category ?? 'main_dish',
+      tags: r.tags,
+      category: r.category,
       total_time_minutes: r.total_time_minutes ?? null,
       last_made: lastMadeMap[r.id] ?? null,
     }])

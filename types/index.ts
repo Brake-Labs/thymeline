@@ -1,5 +1,3 @@
-import type { Tables } from './database'
-
 // ─── Shared const arrays (single source of truth for types + Zod schemas) ────
 
 export const RECIPE_CATEGORIES = ['main_dish', 'breakfast', 'dessert', 'side_dish'] as const
@@ -10,23 +8,6 @@ export type MealType = typeof MEAL_TYPES[number]
 
 export const TAG_SECTIONS = ['style', 'dietary', 'seasonal', 'cuisine', 'protein'] as const
 export type TagSection = typeof TAG_SECTIONS[number]
-
-// ─── DB row types (derived from generated Supabase types) ────────────────────
-// These are the raw shapes returned by typed Supabase client queries.
-// Use these when working directly with DB results.
-
-export type RecipeRow = Tables<'recipes'>
-export type MealPlanRow = Tables<'meal_plans'>
-export type MealPlanEntryRow = Tables<'meal_plan_entries'>
-export type RecipeHistoryRow = Tables<'recipe_history'>
-export type UserPreferencesRow = Tables<'user_preferences'>
-export type GroceryListRow = Tables<'grocery_lists'>
-export type PantryItemRow = Tables<'pantry_items'>
-export type HouseholdRow = Tables<'households'>
-export type HouseholdMemberRow = Tables<'household_members'>
-export type HouseholdInviteRow = Tables<'household_invites'>
-export type CustomTagRow = Tables<'custom_tags'>
-export type InviteRow = Tables<'invites'>
 
 // ─── Domain types ────────────────────────────────────────────────────────────
 

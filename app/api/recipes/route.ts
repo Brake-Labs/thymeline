@@ -38,7 +38,6 @@ export const GET = withAuth(async (req, { user, db, ctx }) => {
       .in('recipe_id', recipeIds)
 
     for (const row of history ?? []) {
-      if (!row.recipe_id) continue
       const existing = historyMap[row.recipe_id]
       if (!existing) {
         historyMap[row.recipe_id] = { last_made: row.made_on, times_made: 1 }
