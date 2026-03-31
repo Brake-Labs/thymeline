@@ -308,15 +308,17 @@ describe('T21 - PATCH /api/preferences returns 200 for co-owner', () => {
 
 // ── T22: Solo user full PATCH payload returns 200 ────────────────────────────
 describe('T22 - PATCH /api/preferences with valid solo user payload returns 200', () => {
-  it('returns 200 and persists all fields for a solo user', async () => {
-    mockState.userTags = [{ name: 'Healthy' }, { name: 'Quick' }, { name: 'Comfort' }]
+  it('accepts first-class tags without them being in custom_tags', async () => {
+    // 'Chicken' and 'Comfort' and 'Quick' are first-class — valid with empty userTags.
+    // 'Healthy' is a custom tag — must still appear in userTags.
+    mockState.userTags = [{ name: 'Healthy' }]
     const payload = {
       options_per_day: 2,
       cooldown_days: 14,
       seasonal_mode: false,
-      preferred_tags: ['Healthy'],
-      avoided_tags: ['Comfort'],
-      limited_tags: [{ tag: 'Quick', cap: 3 }],
+      preferred_tags: ['Chicken', 'Healthy'],    // first-class + custom
+      avoided_tags: ['Comfort'],                 // first-class
+      limited_tags: [{ tag: 'Quick', cap: 3 }], // first-class
       onboarding_completed: true,
     }
     const res = await PATCH(makeRequest('PATCH', 'http://localhost/api/preferences', payload))
@@ -325,10 +327,18 @@ describe('T22 - PATCH /api/preferences with valid solo user payload returns 200'
     expect(body.options_per_day).toBe(2)
     expect(body.cooldown_days).toBe(14)
     expect(body.seasonal_mode).toBe(false)
-    expect(body.preferred_tags).toEqual(['Healthy'])
+    expect(body.preferred_tags).toEqual(['Chicken', 'Healthy'])
     expect(body.avoided_tags).toEqual(['Comfort'])
     expect(body.limited_tags).toEqual([{ tag: 'Quick', cap: 3 }])
     expect(body.onboarding_completed).toBe(true)
+  })
+
+  it('rejects a tag that is neither first-class nor in custom_tags', async () => {
+    mockState.userTags = []
+    const res = await PATCH(makeRequest('PATCH', 'http://localhost/api/preferences', { preferred_tags: ['NotARealTag'] }))
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toMatch(/Unknown tags/)
   })
 })
 
