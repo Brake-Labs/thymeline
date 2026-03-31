@@ -49,7 +49,7 @@ export default function AppNav() {
         className="hidden md:flex items-center justify-between px-6 py-3 bg-[#1F2D26]"
       >
         <Link href="/home" className="flex items-center">
-          <ThymelineLogo variant="light" />
+          <ThymelineLogo variant="dark" />
         </Link>
 
         <div className="flex items-center gap-6">
