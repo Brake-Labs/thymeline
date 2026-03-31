@@ -633,62 +633,70 @@ describe('T49 - Expired timer shows "Time\'s up!" in bar until dismissed', () =>
 })
 
 // ── T50-T54: Inline quantity injection ───────────────────────────────────────
-// Pure-function unit tests live in lib/__tests__/inject-step-quantities.test.ts.
-// These checks confirm the integration: components use injectStepQuantities,
-// not the removed StepIngredientPanel.
 
-describe('T50-T54 - Inline quantity injection wired into step views', () => {
-  it('T50 - SingleStepView uses injectStepQuantities, not StepIngredientPanel', () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const fs = require('fs') as typeof import('fs')
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const path = require('path') as typeof import('path')
-    const src = fs.readFileSync(
-      path.join(process.cwd(), 'components/cook/SingleStepView.tsx'),
-      'utf-8',
-    )
-    expect(src).toContain('injectStepQuantities')
-    expect(src).not.toContain('StepIngredientPanel')
+describe('T50 - Step with no matching ingredient name renders unchanged', () => {
+  it('step text without an ingredient name match shows no injected quantity', async () => {
+    const recipe = {
+      ...sampleRecipe,
+      ingredients: '2 cups flour\n1/2 tsp salt',
+      // "Preheat the oven" matches neither "flour" nor "salt"
+      steps: 'Preheat the oven to 350°F\nAdd the flour',
+      servings: 4,
+    }
+    await renderCookPage(recipe)
+    // No "2 cups" or "1/2 tsp" text injected into step 0
+    expect(screen.queryByText(/2 cups/)).toBeNull()
+    expect(screen.queryByText(/1\/2 tsp/)).toBeNull()
   })
+})
 
-  it('T51 - ScrollStepView uses injectStepQuantities, not StepIngredientPanel', () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const fs = require('fs') as typeof import('fs')
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const path = require('path') as typeof import('path')
-    const src = fs.readFileSync(
-      path.join(process.cwd(), 'components/cook/ScrollStepView.tsx'),
-      'utf-8',
-    )
-    expect(src).toContain('injectStepQuantities')
-    expect(src).not.toContain('StepIngredientPanel')
+describe('T51 - Scroll view also injects quantities inline', () => {
+  it('all-steps view renders injected quantity for a matching step', async () => {
+    const recipe = {
+      ...sampleRecipe,
+      ingredients: '2 cups flour\n1/2 tsp salt',
+      steps: 'Add the flour and mix well\nBake for 30 minutes',
+      servings: 4,
+    }
+    await renderCookPage(recipe)
+    // Switch to all-steps view
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /all steps/i })) })
+    expect(screen.getByText(/2 cups/)).toBeDefined()
   })
+})
 
-  it('T52 - SingleStepView highlights quantities with terracotta color #C97D4E', () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const fs = require('fs') as typeof import('fs')
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const path = require('path') as typeof import('path')
-    const src = fs.readFileSync(
-      path.join(process.cwd(), 'components/cook/SingleStepView.tsx'),
-      'utf-8',
-    )
-    expect(src).toContain('#C97D4E')
+describe('T52 - Injected quantity is wrapped in a highlighted span', () => {
+  it('quantity text renders inside a <span> element (not as plain text)', async () => {
+    const recipe = {
+      ...sampleRecipe,
+      ingredients: '2 cups flour\n1/2 tsp salt',
+      steps: 'Add the flour and mix well\nBake for 30 minutes',
+      servings: 4,
+    }
+    await renderCookPage(recipe)
+    // "2 cups" appears inside a <span>, not as a bare text node
+    const quantityEl = screen.getByText(/2 cups/)
+    expect(quantityEl.tagName).toBe('SPAN')
   })
+})
 
-  it('T53 - ScrollStepView highlights quantities with terracotta color #C97D4E', () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const fs = require('fs') as typeof import('fs')
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const path = require('path') as typeof import('path')
-    const src = fs.readFileSync(
-      path.join(process.cwd(), 'components/cook/ScrollStepView.tsx'),
-      'utf-8',
+describe('T53 - Quantities scale with servings when doubled', () => {
+  it('injectStepQuantities returns doubled quantity at 2× servings', async () => {
+    const { injectStepQuantities } = await import('@/lib/inject-step-quantities')
+    const result = injectStepQuantities(
+      'Add the flour and mix',
+      '2 cups flour',
+      8, // targetServings
+      4, // baseServings
     )
-    expect(src).toContain('#C97D4E')
+    // 2 cups × (8/4) = 4 cups injected before "flour"
+    expect(result.text).toContain('4 cups')
+    expect(result.highlights.length).toBeGreaterThan(0)
   })
+})
 
-  it('T54 - cook page renders step text with injected inline quantity', async () => {
+describe('T54 - cook page renders step text with injected inline quantity', () => {
+  it('single-step view injects quantity before ingredient name', async () => {
     const recipe = {
       ...sampleRecipe,
       ingredients: '2 cups flour\n1/2 tsp salt',

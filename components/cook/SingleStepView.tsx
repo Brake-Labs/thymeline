@@ -1,9 +1,9 @@
 'use client'
 
 import { useRef } from 'react'
-import type React from 'react'
 import StepTimer, { type TimerState } from './StepTimer'
-import { injectStepQuantities, type HighlightRange } from '@/lib/inject-step-quantities'
+import { injectStepQuantities } from '@/lib/inject-step-quantities'
+import { renderHighlighted } from './renderHighlighted'
 
 interface Props {
   steps: string[]
@@ -17,22 +17,6 @@ interface Props {
   targetServings?: number
 }
 
-function renderHighlighted(text: string, highlights: HighlightRange[]): React.ReactNode {
-  if (highlights.length === 0) return text
-  const nodes: React.ReactNode[] = []
-  let cursor = 0
-  highlights.forEach((h, i) => {
-    if (h.start > cursor) nodes.push(text.slice(cursor, h.start))
-    nodes.push(
-      <span key={i} style={{ color: '#C97D4E', fontWeight: 500 }}>
-        {text.slice(h.start, h.end)}
-      </span>,
-    )
-    cursor = h.end
-  })
-  if (cursor < text.length) nodes.push(text.slice(cursor))
-  return nodes
-}
 
 export default function SingleStepView({
   steps,
@@ -99,8 +83,8 @@ export default function SingleStepView({
           {currentStep + 1}
         </span>
         <p
-          className="text-stone-800 font-sans"
-          style={{ fontSize: 20, lineHeight: 1.7, color: '#3D3028' }}
+          className="text-[#3D3028] font-sans"
+          style={{ fontSize: 20, lineHeight: 1.7 }}
         >
           {renderHighlighted(stepText, highlights)}
         </p>

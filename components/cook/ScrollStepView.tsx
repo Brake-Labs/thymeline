@@ -1,8 +1,8 @@
 'use client'
 
-import type React from 'react'
 import StepTimer, { type TimerState } from './StepTimer'
-import { injectStepQuantities, type HighlightRange } from '@/lib/inject-step-quantities'
+import { injectStepQuantities } from '@/lib/inject-step-quantities'
+import { renderHighlighted } from './renderHighlighted'
 
 interface Props {
   steps: string[]
@@ -16,22 +16,6 @@ interface Props {
   targetServings?: number
 }
 
-function renderHighlighted(text: string, highlights: HighlightRange[]): React.ReactNode {
-  if (highlights.length === 0) return text
-  const nodes: React.ReactNode[] = []
-  let cursor = 0
-  highlights.forEach((h, i) => {
-    if (h.start > cursor) nodes.push(text.slice(cursor, h.start))
-    nodes.push(
-      <span key={i} style={{ color: '#C97D4E', fontWeight: 500 }}>
-        {text.slice(h.start, h.end)}
-      </span>,
-    )
-    cursor = h.end
-  })
-  if (cursor < text.length) nodes.push(text.slice(cursor))
-  return nodes
-}
 
 export default function ScrollStepView({
   steps,
@@ -79,7 +63,7 @@ export default function ScrollStepView({
               <span className="flex-shrink-0 w-6 h-6 rounded-full bg-sage-500 flex items-center justify-center text-white text-xs font-semibold">
                 {i + 1}
               </span>
-              <p className="text-stone-700 text-sm leading-relaxed" style={{ color: '#3D3028' }}>
+              <p className="text-[#3D3028] text-sm leading-relaxed">
                 {renderHighlighted(stepText, highlights)}
               </p>
             </div>
