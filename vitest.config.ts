@@ -10,6 +10,9 @@ export default defineConfig({
     },
   },
   test: {
+    alias: {
+      'server-only': path.resolve(__dirname, 'test/server-only-mock.ts'),
+    },
     globals: true,
     environment: 'node',
     environmentMatchGlobs: [
