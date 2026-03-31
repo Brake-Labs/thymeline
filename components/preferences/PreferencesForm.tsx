@@ -242,7 +242,7 @@ export default function PreferencesForm({ allTags }: PreferencesFormProps) {
             </button>
             <div>
               <p className="text-sm font-medium text-stone-700">Seasonal suggestions</p>
-              <p className="text-xs text-stone-500">When on, Forkcast adjusts suggestions based on the current season.</p>
+              <p className="text-xs text-stone-500">When on, Thymeline adjusts suggestions based on the current season.</p>
             </div>
           </div>
           <SectionSaveButton onSave={() => patch({ seasonal_mode: prefs.seasonal_mode })} />

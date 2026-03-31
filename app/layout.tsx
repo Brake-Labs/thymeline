@@ -16,7 +16,7 @@ const manrope = Manrope({
 })
 
 export const metadata: Metadata = {
-  title: 'Forkcast',
+  title: 'Thymeline',
   description: 'Your AI-powered meal planning assistant',
 }
 
