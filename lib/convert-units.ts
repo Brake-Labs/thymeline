@@ -9,9 +9,59 @@ function parseQty(s: string): number {
   return parseFloat(clean)
 }
 
-function roundG(g: number): number {
-  if (g < 10) return Math.round(g * 10) / 10
-  return Math.round(g)
+function roundTo(n: number): number {
+  if (n < 10) return Math.round(n * 10) / 10
+  return Math.round(n)
+}
+
+// Grams per cup for common dry/semi-solid ingredients.
+// Liquids (water, milk, cream, oil, etc.) are intentionally omitted — they
+// fall back to the volume path and are returned in ml.
+const CUP_TO_GRAMS: Record<string, number> = {
+  'oats': 90,
+  'oat': 90,
+  'oatmeal': 90,
+  'flour': 125,
+  'almond flour': 96,
+  'sugar': 200,
+  'brown sugar': 220,
+  'powdered sugar': 120,
+  'icing sugar': 120,
+  'butter': 227,
+  'rice': 185,
+  'quinoa': 170,
+  'cocoa': 85,
+  'cocoa powder': 85,
+  'honey': 340,
+  'maple syrup': 320,
+  'breadcrumbs': 108,
+  'panko': 60,
+  'cornmeal': 138,
+  'cornstarch': 128,
+  'baking soda': 230,
+  'salt': 273,
+  'cheese': 113,
+  'parmesan': 100,
+  'nuts': 120,
+  'walnuts': 117,
+  'almonds': 143,
+  'pecans': 109,
+  'peanuts': 146,
+  'chocolate chips': 170,
+  'raisins': 165,
+  'coconut': 80,
+}
+
+// Sort keys longest-first so more-specific entries (e.g. "brown sugar") win
+// over shorter ones (e.g. "sugar") when both would match.
+const CUP_KEYS_SORTED = Object.keys(CUP_TO_GRAMS).sort((a, b) => b.length - a.length)
+
+function lookupCupDensity(ingredient: string): number | null {
+  const lower = ingredient.toLowerCase()
+  for (const key of CUP_KEYS_SORTED) {
+    if (lower.includes(key)) return CUP_TO_GRAMS[key]!
+  }
+  return null
 }
 
 const QTY = '(\\d+\\s*\\/\\s*\\d+|\\d+\\.?\\d*)'
@@ -22,51 +72,58 @@ interface Rule {
 }
 
 const RULES: Rule[] = [
-  // tbsp / tablespoon (before tsp so "tbsp" doesn't partially match "tsp")
+  // tbsp / tablespoon — always ml (before tsp so "tbsp" doesn't partially match "tsp")
   {
     re: new RegExp(`^${QTY}\\s*(tbsp|tablespoons?)(\\s+.*)?$`, 'i'),
     convert: (q, rest) => {
-      const g = roundG(parseQty(q) * 14.79)
-      return `${g} g (${q.trim()} tbsp)${rest}`
+      const ml = roundTo(parseQty(q) * 14.79)
+      return `${ml} ml (${q.trim()} tbsp)${rest}`
     },
   },
-  // tsp / teaspoon
+  // tsp / teaspoon — always ml
   {
     re: new RegExp(`^${QTY}\\s*(tsp|teaspoons?)(\\s+.*)?$`, 'i'),
     convert: (q, rest) => {
-      const g = roundG(parseQty(q) * 4.93)
-      return `${g} g (${q.trim()} tsp)${rest}`
+      const ml = roundTo(parseQty(q) * 4.93)
+      return `${ml} ml (${q.trim()} tsp)${rest}`
     },
   },
-  // cup
+  // cup — density lookup for known dry ingredients; volume fallback (ml) otherwise
   {
     re: new RegExp(`^${QTY}\\s*(cups?)(\\s+.*)?$`, 'i'),
     convert: (q, rest) => {
-      const g = roundG(parseQty(q) * 236.59)
-      return `${g} g${rest}`
+      const qty = parseQty(q)
+      const ingredient = (rest ?? '').trimStart()
+      const density = lookupCupDensity(ingredient)
+      if (density !== null) {
+        const g = roundTo(qty * density)
+        return `${g} g${rest}`
+      }
+      const ml = roundTo(qty * 237)
+      return `${ml} ml${rest}`
     },
   },
-  // fl oz / fluid oz
+  // fl oz / fluid oz — always ml
   {
     re: new RegExp(`^${QTY}\\s*(fl\\.?\\s*oz|fluid\\s+oz)(\\s+.*)?$`, 'i'),
     convert: (q, rest) => {
-      const g = roundG(parseQty(q) * 29.57)
-      return `${g} g${rest}`
+      const ml = roundTo(parseQty(q) * 29.57)
+      return `${ml} ml${rest}`
     },
   },
-  // oz weight (after fl oz)
+  // oz weight (after fl oz) — grams (weight measure, always correct)
   {
     re: new RegExp(`^${QTY}\\s*(oz|ozs|ounces?)(\\s+.*)?$`, 'i'),
     convert: (q, rest) => {
-      const g = roundG(parseQty(q) * 28.35)
+      const g = roundTo(parseQty(q) * 28.35)
       return `${g} g${rest}`
     },
   },
-  // lb / pound
+  // lb / pound — grams (weight measure, always correct)
   {
     re: new RegExp(`^${QTY}\\s*(lbs?|pounds?)(\\s+.*)?$`, 'i'),
     convert: (q, rest) => {
-      const g = roundG(parseQty(q) * 453.59)
+      const g = roundTo(parseQty(q) * 453.59)
       return `${g} g${rest}`
     },
   },
