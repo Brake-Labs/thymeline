@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { scanPantrySchema, parseBody } from '@/lib/schemas'
-import { anthropic } from '@/lib/llm'
+import { callLLMMultimodal, classifyLLMError, parseLLMJson, LLM_MODEL_CAPABLE } from '@/lib/llm'
 
 const SYSTEM_PROMPT = `You are a pantry scanner. Analyze the provided image and identify all visible food ingredients, condiments, and packaged goods.
 
@@ -29,9 +29,9 @@ export const POST = withAuth(async (req) => {
   const base64Data = dataUrlMatch?.[2] ?? body.image
 
   try {
-    const response = await anthropic.messages.create({
-      model: process.env.LLM_MODEL ?? 'claude-sonnet-4-6',
-      max_tokens: 1024,
+    const rawText = await callLLMMultimodal({
+      model: LLM_MODEL_CAPABLE,
+      maxTokens: 1024,
       system: SYSTEM_PROMPT,
       messages: [
         {
@@ -54,16 +54,16 @@ export const POST = withAuth(async (req) => {
       ],
     })
 
-    const rawText = response.content[0]?.type === 'text' ? response.content[0].text : ''
-    const cleaned = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
-    const parsed = JSON.parse(cleaned) as { detected: { name: string; quantity: string | null; section: string | null }[] }
+    const parsed = parseLLMJson<{ detected: { name: string; quantity: string | null; section: string | null }[] }>(rawText)
 
     if (!Array.isArray(parsed.detected)) {
       return NextResponse.json({ detected: [] })
     }
 
     return NextResponse.json({ detected: parsed.detected })
-  } catch {
-    return NextResponse.json({ detected: [] })
+  } catch (err) {
+    const llmErr = classifyLLMError(err)
+    console.error('[pantry/scan] LLM error:', llmErr.code, llmErr.message)
+    return NextResponse.json({ detected: [], error: 'Scan service unavailable' })
   }
 })

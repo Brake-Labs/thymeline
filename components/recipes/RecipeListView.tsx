@@ -4,6 +4,7 @@ import Link from 'next/link'
 import type { RecipeListItem } from '@/types'
 import { CATEGORY_LABELS } from '@/lib/category-labels'
 import { formatMinutes } from '@/lib/format-time'
+import { MAX_VISIBLE_TAGS } from '@/lib/constants'
 
 export type ListSortKey = 'title' | 'category' | 'total_time_minutes' | 'last_made' | null
 
@@ -84,8 +85,8 @@ export default function RecipeListView({
         <tbody>
           {recipes.map((recipe) => {
             const isOwner = currentUserId && recipe.user_id === currentUserId
-            const visibleTags = recipe.tags.slice(0, 3)
-            const extraCount = recipe.tags.length - 3
+            const visibleTags = recipe.tags.slice(0, MAX_VISIBLE_TAGS)
+            const extraCount = recipe.tags.length - MAX_VISIBLE_TAGS
 
             return (
               <tr

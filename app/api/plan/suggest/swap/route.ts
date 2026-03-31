@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { swapSchema, parseBody } from '@/lib/schemas'
+import { parseLLMJsonSafe } from '@/lib/llm'
 import {
   getSeason,
   fetchCooldownFilteredRecipes,
@@ -43,9 +44,12 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
 
   try {
     const raw = await callLLMNonStreaming(systemMessage, userMessage)
-    const stripped = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '')
-    const parsed = JSON.parse(stripped) as { days: DaySuggestions[] }
-    const days = parsed.days ?? []
+    const parsed = parseLLMJsonSafe<{ days: DaySuggestions[] }>(raw)
+    if (!parsed || !Array.isArray(parsed.days)) {
+      console.error('[swap] Invalid LLM response structure')
+      return NextResponse.json({ error: 'Swap failed. Please try again.' }, { status: 500 })
+    }
+    const days = parsed.days
     const validIds = new Map<MealType, Set<string>>([[meal_type, new Set(recipes.map((r) => r.id))]])
     const validated = validateSuggestions(days, validIds)
     const dayResult = validated.find((d) => d.date === date)

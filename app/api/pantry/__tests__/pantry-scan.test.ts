@@ -7,22 +7,20 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const mockUser = { id: 'user-1' }
 
-// Module-level mock state — the constructor captures this on each `new Anthropic()` call
+// Module-level mock state for LLM responses
 const mockScanState = {
   llmResponse: '{ "detected": [] }',
   shouldThrow:  false,
 }
 
-vi.mock('@anthropic-ai/sdk', () => ({
-  default: function MockAnthropic(this: { messages: { create: () => Promise<unknown> } }) {
-    this.messages = {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      create: async (): Promise<any> => {
-        if (mockScanState.shouldThrow) throw new Error('LLM unavailable')
-        return { content: [{ type: 'text', text: mockScanState.llmResponse }] }
-      },
-    }
-  },
+vi.mock('@/lib/llm', () => ({
+  callLLMMultimodal: vi.fn().mockImplementation(async () => {
+    if (mockScanState.shouldThrow) throw new Error('LLM unavailable')
+    return mockScanState.llmResponse
+  }),
+  classifyLLMError: (err: unknown) => ({ code: 'unknown', message: err instanceof Error ? err.message : 'unknown' }),
+  parseLLMJson: (text: string) => JSON.parse(text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()),
+  LLM_MODEL_CAPABLE: 'claude-sonnet-4-6',
 }))
 
 vi.mock('@/lib/supabase-server', () => ({
@@ -76,7 +74,7 @@ describe('T22 - POST /api/pantry/scan returns { detected: [] } on invalid LLM re
     expect(json.detected).toEqual([])
   })
 
-  it('returns { detected: [] } when LLM call throws', async () => {
+  it('returns { detected: [], error } when LLM call throws', async () => {
     mockScanState.shouldThrow = true
     vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createServerClient>)
 
@@ -88,6 +86,7 @@ describe('T22 - POST /api/pantry/scan returns { detected: [] } on invalid LLM re
     expect(res.status).toBe(200)
     const json = await res.json()
     expect(json.detected).toEqual([])
+    expect(json.error).toBe('Scan service unavailable')
   })
 
   it('returns { detected: [] } when no image is provided', async () => {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { suggestSchema, parseBody } from '@/lib/schemas'
 import { getTodayISO } from '@/lib/date-utils'
+import { parseLLMJsonSafe } from '@/lib/llm'
 import {
   getSeason,
   isSunday,
@@ -93,9 +94,12 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   try {
     const raw = await callLLMNonStreaming(systemMessage, userMessage)
     console.warn(`[suggest] raw_llm_response=${raw.slice(0, 500)}${raw.length > 500 ? '…' : ''}`)
-    const stripped = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '')
-    const parsed = JSON.parse(stripped) as { days: DaySuggestions[] }
-    const validated = validateSuggestions(parsed.days ?? [], validIdsByMealType)
+    const parsed = parseLLMJsonSafe<{ days: DaySuggestions[] }>(raw)
+    if (!parsed || !Array.isArray(parsed.days)) {
+      console.error('[suggest] Invalid LLM response structure')
+      return NextResponse.json({ error: 'Suggestion failed. Please try again.' }, { status: 500 })
+    }
+    const validated = validateSuggestions(parsed.days, validIdsByMealType)
     return NextResponse.json({ days: validated })
   } catch (err) {
     console.error('LLM suggest error:', err)

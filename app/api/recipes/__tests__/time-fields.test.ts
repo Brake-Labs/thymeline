@@ -96,6 +96,9 @@ vi.mock('@/lib/supabase-server', () => ({
 vi.mock('@/lib/household', () => ({
   resolveHouseholdScope: async () => null,
   canManage: (role: string) => role === 'owner' || role === 'co_owner',
+  scopeQuery: (query: unknown) => query,
+  scopeInsert: (_userId: string, _ctx: unknown, payload: unknown) => ({ user_id: 'user-1', ...(payload as object) }),
+  checkOwnership: vi.fn().mockResolvedValue({ owned: true }),
 }))
 
 vi.mock('firecrawl', () => ({
@@ -107,15 +110,12 @@ vi.mock('firecrawl', () => ({
 }))
 
 vi.mock('@/lib/llm', () => ({
-  anthropic: {
-    messages: {
-      create: vi.fn(),
-    },
-  },
+  callLLM: vi.fn(),
+  LLM_MODEL_FAST: 'claude-haiku-4-5-20251001',
 }))
 
 import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-import { anthropic } from '@/lib/llm'
+import { callLLM } from '@/lib/llm'
 
 function makeReq(url: string, method = 'POST', body?: unknown): Request {
   return new Request(url, {
@@ -222,8 +222,7 @@ describe('POST /api/recipes/scrape — time fields', () => {
     const mock = makeSupabaseMock()
     vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
     vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
-    vi.mocked(anthropic.messages.create).mockResolvedValue({
-      content: [{ type: 'text', text: JSON.stringify({
+    vi.mocked(callLLM).mockResolvedValueOnce(JSON.stringify({
         title: 'Braised Short Ribs',
         ingredients: '2 lbs short ribs',
         steps: 'Brown the ribs\nBraise',
@@ -233,8 +232,7 @@ describe('POST /api/recipes/scrape — time fields', () => {
         cookTimeMinutes: 180,
         totalTimeMinutes: 200,
         inactiveTimeMinutes: null,
-      }) }],
-    } as unknown as Awaited<ReturnType<typeof anthropic.messages.create>>)
+      }))
 
     const { POST } = await import('@/app/api/recipes/scrape/route')
     const req = makeReq('http://localhost/api/recipes/scrape', 'POST', {
@@ -254,8 +252,7 @@ describe('POST /api/recipes/scrape — time fields', () => {
     const mock = makeSupabaseMock()
     vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
     vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
-    vi.mocked(anthropic.messages.create).mockResolvedValue({
-      content: [{ type: 'text', text: JSON.stringify({
+    vi.mocked(callLLM).mockResolvedValueOnce(JSON.stringify({
         title: 'Mystery Dish',
         ingredients: 'stuff',
         steps: 'do stuff',
@@ -265,8 +262,7 @@ describe('POST /api/recipes/scrape — time fields', () => {
         cookTimeMinutes: null,
         totalTimeMinutes: null,
         inactiveTimeMinutes: null,
-      }) }],
-    } as unknown as Awaited<ReturnType<typeof anthropic.messages.create>>)
+      }))
 
     const { POST } = await import('@/app/api/recipes/scrape/route')
     const req = makeReq('http://localhost/api/recipes/scrape', 'POST', {
@@ -288,8 +284,7 @@ describe('POST /api/recipes/scrape — time fields', () => {
     const mock = makeSupabaseMock()
     vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
     vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
-    vi.mocked(anthropic.messages.create).mockResolvedValue({
-      content: [{ type: 'text', text: JSON.stringify({
+    vi.mocked(callLLM).mockResolvedValueOnce(JSON.stringify({
         title: 'Quick Pasta',
         ingredients: '200g pasta',
         steps: 'Cook pasta',
@@ -299,8 +294,7 @@ describe('POST /api/recipes/scrape — time fields', () => {
         cookTimeMinutes: 10,
         totalTimeMinutes: 15,
         inactiveTimeMinutes: null,
-      }) }],
-    } as unknown as Awaited<ReturnType<typeof anthropic.messages.create>>)
+      }))
 
     const { POST } = await import('@/app/api/recipes/scrape/route')
     const req = makeReq('http://localhost/api/recipes/scrape', 'POST', {

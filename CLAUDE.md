@@ -42,16 +42,38 @@ const { data: body, error } = await parseBody(req, createRecipeSchema)
 if (error) return error
 ```
 
+### Household scoping
+All data queries must be scoped to the correct user or household. Use helpers from `lib/household.ts`:
+- `scopeQuery(query, userId, ctx)` — adds `.eq('household_id', ...)` or `.eq('user_id', ...)` to a query
+- `scopeInsert(userId, ctx, payload)` — adds household_id/user_id fields to an insert payload
+- `checkOwnership(db, table, id, userId, ctx)` — verifies a record belongs to the user/household
+
+**Important:** Do not pass `scopeQuery` inline with the query builder (e.g., `scopeQuery(db.from('table').select('*'), ...)`).
+This causes TS2589 (infinite type instantiation). Always use two-step assignment:
+```typescript
+let q = db.from('table').select('*')
+q = scopeQuery(q, user.id, ctx)
+```
+
 ### LLM usage
 All LLM calls go through `lib/llm.ts` which provides:
 - `anthropic` — pre-configured Anthropic SDK client (retry: 2, timeout: 60s)
-- `callLLM(opts)` — simple text completion helper
-- `parseLLMJson<T>(text)` — strips markdown fences + parses JSON
+- `callLLM(opts)` — text-only completion helper
+- `callLLMMultimodal(opts)` — multi-content messages (images, etc.)
+- `parseLLMJson<T>(text)` — strips markdown fences + parses JSON (throws on failure)
+- `parseLLMJsonSafe<T>(text)` — same but returns null on failure (for LLM output that may be partial)
 - `classifyLLMError(err)` — maps SDK errors to typed `LLMError` codes
 - `LLMError` class with codes: `rate_limit`, `timeout`, `bad_response`, `service_down`, `auth`, `unknown`
+- `LLM_MODEL_FAST` — haiku (default for most calls)
+- `LLM_MODEL_CAPABLE` — sonnet (for complex generation)
 
 Default model: `process.env.LLM_MODEL` or `claude-haiku-4-5-20251001`.
 The plan suggestion engine in `plan/helpers.ts` delegates to `callLLM()`.
+
+### Server-only modules
+Some modules import Node-only dependencies (firecrawl, etc.) and must not be imported by client components:
+- `lib/grocery-scrape.ts` — `resolveRecipeIngredients()` (uses firecrawl + LLM)
+- `lib/grocery.ts` — safe for client import (parsing, combining, section assignment)
 
 ### Testing
 Run tests: `npm test` (vitest)
@@ -170,6 +192,27 @@ These are examples only — users can change everything:
   "healthy_bias": true
 }
 ```
+
+## Definition of Done
+
+Every change must pass all checks before it is considered complete. Do not tell
+the user you are finished until all of these pass:
+
+```bash
+npm run lint                    # ESLint — zero errors
+npm run type-check              # tsc --noEmit — zero errors
+npx next build                  # production build succeeds (catches webpack/bundle issues)
+npm test                        # vitest — all tests pass
+```
+
+Additional requirements:
+- Bug fixes include a regression test
+- New API routes use `withAuth()`, `parseBody()`, and `scopeQuery()`/`scopeInsert()`
+- New LLM calls use `callLLM()` or `callLLMMultimodal()` from `lib/llm.ts` — never call `anthropic.messages.create()` directly
+- Server-only code (firecrawl, node:crypto, etc.) must not be importable from client components
+- No `any` types without a comment explaining why
+- No hardcoded secrets, API keys, or credentials
+- CI green before telling the user the work is done
 
 ---
 

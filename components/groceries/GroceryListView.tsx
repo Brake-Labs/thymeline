@@ -8,6 +8,7 @@ import GotItSection from './GotItSection'
 import AddItemInput from './AddItemInput'
 import { getAccessToken } from '@/lib/supabase/browser'
 import { effectiveServings, formatWeekLabel, buildPlainTextList } from '@/lib/grocery'
+import { TOAST_DURATION_LONG_MS } from '@/lib/constants'
 
 interface GroceryListViewProps {
   initialList:    GroceryList
@@ -206,10 +207,10 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
     try {
       await navigator.clipboard.writeText(text)
       setShareToast('Copied to clipboard!')
-      setTimeout(() => setShareToast(null), 3000)
+      setTimeout(() => setShareToast(null), TOAST_DURATION_LONG_MS)
     } catch {
       setShareToast('Could not share list')
-      setTimeout(() => setShareToast(null), 3000)
+      setTimeout(() => setShareToast(null), TOAST_DURATION_LONG_MS)
     }
   }
 
