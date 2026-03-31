@@ -9,7 +9,9 @@
     "lint": "next lint",
     "type-check": "tsc --noEmit",
     "test": "vitest run",
-    "update-types": "supabase gen types --lang=typescript --project-id \"$SUPABASE_PROJECT_REF\" --schema public > types/database.ts"
+    "update-types": "npx supabase gen types --lang=typescript --project-id \"$SUPABASE_PROJECT_REF\" --schema public > types/database.ts",
+    "migrate": "./scripts/run-migrations.sh",
+    "migrate:dry-run": "./scripts/run-migrations.sh --dry-run"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
