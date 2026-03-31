@@ -29,5 +29,6 @@ INSERT INTO public._migration_history (filename) VALUES
   ('016_recipe_source.sql'),
   ('017_household.sql'),
   ('018_cook_mode.sql'),
-  ('019_tighten_nullability.sql')
+  ('019_preferences_constraints.sql'),
+  ('020_tighten_nullability.sql')
 ON CONFLICT (filename) DO NOTHING;
