@@ -9,6 +9,7 @@ import {
   isPantryStaple,
 } from '@/lib/grocery'
 import { resolveRecipeIngredients } from '@/lib/grocery-scrape'
+import { scopeQuery } from '@/lib/household'
 import { toDateString } from '@/lib/date-utils'
 import { GroceryItem, GrocerySection, RecipeScale } from '@/types'
 import type { Json } from '@/types/database'
@@ -48,12 +49,7 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
   }
 
   // 1. Get all meal plan IDs for the user/household (ordered so primaryPlanId is deterministic)
-  let plansQ = db.from('meal_plans').select('id').order('week_start')
-  if (ctx) {
-    plansQ = plansQ.eq('household_id', ctx.householdId)
-  } else {
-    plansQ = plansQ.eq('user_id', user.id)
-  }
+  const plansQ = scopeQuery(db.from('meal_plans').select('id').order('week_start'), user.id, ctx)
   const { data: plans, error: plansError } = await plansQ
 
   if (plansError || !plans || plans.length === 0) {
@@ -193,12 +189,7 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
 
   // 5b. Cross-reference against pantry — flag matching items as is_pantry: true
   try {
-    let pantryQ = db.from('pantry_items').select('name')
-    if (ctx) {
-      pantryQ = pantryQ.eq('household_id', ctx.householdId)
-    } else {
-      pantryQ = pantryQ.eq('user_id', user.id)
-    }
+    const pantryQ = scopeQuery(db.from('pantry_items').select('name'), user.id, ctx)
     const { data: pantryItems } = await pantryQ
 
     if (pantryItems?.length) {

@@ -32,6 +32,7 @@ export const FIRST_CLASS_TAGS: string[] = [
 
 import { type SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
+import { scopeQuery } from '@/lib/household'
 import type { HouseholdContext } from '@/types'
 
 /**
@@ -46,12 +47,7 @@ export async function validateTags(
 ): Promise<{ valid: true } | { valid: false; unknownTags: string[] }> {
   if (tags.length === 0) return { valid: true }
 
-  let customTagsQuery = db.from('custom_tags').select('name')
-  if (ctx) {
-    customTagsQuery = customTagsQuery.eq('household_id', ctx.householdId)
-  } else {
-    customTagsQuery = customTagsQuery.eq('user_id', userId)
-  }
+  const customTagsQuery = scopeQuery(db.from('custom_tags').select('name'), userId, ctx)
   const { data: customTags } = await customTagsQuery
 
   const knownNames = new Set([

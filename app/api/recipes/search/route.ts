@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { callLLM, LLM_MODEL_FAST } from '@/lib/llm'
 import { searchRecipesSchema, parseBody } from '@/lib/schemas'
+import { scopeQuery } from '@/lib/household'
 import type { RecipeFilters } from '@/types'
 
 function applyFilters(
@@ -33,14 +34,9 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
     return NextResponse.json({ results: [] })
   }
 
-  let recipesQuery = db
+  const recipesQuery = scopeQuery(db
     .from('recipes')
-    .select('id, title, category, tags, total_time_minutes, ingredients')
-  if (ctx) {
-    recipesQuery = recipesQuery.eq('household_id', ctx.householdId)
-  } else {
-    recipesQuery = recipesQuery.eq('user_id', user.id)
-  }
+    .select('id, title, category, tags, total_time_minutes, ingredients'), user.id, ctx)
 
   const { data: recipes, error: recipesError } = await recipesQuery
 

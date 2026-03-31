@@ -1,22 +1,17 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { createPantryItemSchema, deletePantryItemsSchema, parseBody } from '@/lib/schemas'
+import { scopeQuery } from '@/lib/household'
 import { parseIngredientLine, assignSection } from '@/lib/grocery'
 
 // ── GET /api/pantry ───────────────────────────────────────────────────────────
 
 export const GET = withAuth(async (req, { user, db, ctx }) => {
-  let query = db
+  const query = scopeQuery(db
     .from('pantry_items')
     .select('*')
     .order('section', { nullsFirst: false })
-    .order('name')
-
-  if (ctx) {
-    query = query.eq('household_id', ctx.householdId)
-  } else {
-    query = query.eq('user_id', user.id)
-  }
+    .order('name'), user.id, ctx)
 
   const { data, error } = await query
 

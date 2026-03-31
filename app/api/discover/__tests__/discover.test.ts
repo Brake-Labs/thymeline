@@ -37,6 +37,10 @@ vi.mock('@/lib/supabase-server', () => ({
 
 vi.mock('@/lib/household', () => ({
   resolveHouseholdScope: vi.fn().mockResolvedValue(null),
+  scopeQuery: (query: any, userId: string, ctx: any) => {
+    if (ctx) return query.eq('household_id', ctx.householdId)
+    return query.eq('user_id', userId)
+  },
 }))
 
 // ── LLM mock ──────────────────────────────────────────────────────────────────

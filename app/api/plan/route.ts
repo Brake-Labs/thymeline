@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { createPlanSchema, parseBody } from '@/lib/schemas'
 import { isSunday, getOrCreateMealPlan } from './helpers'
+import { scopeQuery } from '@/lib/household'
 import type { SavedPlanEntry } from '@/types'
 
 // ── POST /api/plan — save confirmed plan ───────────────────────────────────────
@@ -60,16 +61,10 @@ export const GET = withAuth(async (req, { user, db, ctx }) => {
     return NextResponse.json({ error: 'week_start is required' }, { status: 400 })
   }
 
-  let planQ = db
+  const { data: plan } = await scopeQuery(db
     .from('meal_plans')
     .select('id, week_start')
-    .eq('week_start', week_start)
-  if (ctx) {
-    planQ = planQ.eq('household_id', ctx.householdId)
-  } else {
-    planQ = planQ.eq('user_id', user.id)
-  }
-  const { data: plan } = await planQ.single()
+    .eq('week_start', week_start), user.id, ctx).single()
 
   if (!plan) {
     return NextResponse.json({ plan: null })

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
-import { canManage } from '@/lib/household'
+import { canManage, scopeQuery } from '@/lib/household'
 import { LimitedTag } from '@/types'
 import { updatePreferencesSchema, parseBody } from '@/lib/schemas'
 import { FIRST_CLASS_TAGS } from '@/lib/tags'
@@ -17,15 +17,9 @@ const DEFAULT_PREFS = {
 }
 
 export const GET = withAuth(async (req, { user, db, ctx }) => {
-  let query = db
+  const query = scopeQuery(db
     .from('user_preferences')
-    .select('options_per_day, cooldown_days, seasonal_mode, preferred_tags, avoided_tags, limited_tags, onboarding_completed, is_active')
-
-  if (ctx) {
-    query = query.eq('household_id', ctx.householdId)
-  } else {
-    query = query.eq('user_id', user.id)
-  }
+    .select('options_per_day, cooldown_days, seasonal_mode, preferred_tags, avoided_tags, limited_tags, onboarding_completed, is_active'), user.id, ctx)
 
   const { data, error } = await query.single()
 
@@ -65,12 +59,7 @@ export const PATCH = withAuth(async (req, { user, db, ctx }) => {
   }
   const needsLookup = allTagsToValidate.filter((t) => !FIRST_CLASS_TAGS.includes(t))
   if (needsLookup.length > 0) {
-    let tagsQuery = db.from('custom_tags').select('name')
-    if (ctx) {
-      tagsQuery = tagsQuery.eq('household_id', ctx.householdId)
-    } else {
-      tagsQuery = tagsQuery.eq('user_id', user.id)
-    }
+    const tagsQuery = scopeQuery(db.from('custom_tags').select('name'), user.id, ctx)
     const { data: userTags } = await tagsQuery
     const customTagNames = new Set((userTags ?? []).map((t) => t.name))
     const unknown = needsLookup.filter((t) => !customTagNames.has(t))

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { GroceryItem, RecipeScale } from '@/types'
+import { scopeQuery } from '@/lib/household'
 import { updateGroceryListSchema, parseBody } from '@/lib/schemas'
 
 // ── GET /api/groceries?week_start=YYYY-MM-DD  (or ?date_from=YYYY-MM-DD) ─────
@@ -13,12 +14,7 @@ export const GET = withAuth(async (req, { user, db, ctx }) => {
     return NextResponse.json({ error: 'week_start or date_from is required' }, { status: 400 })
   }
 
-  let listQ = db.from('grocery_lists').select('*').eq('week_start', weekStart)
-  if (ctx) {
-    listQ = listQ.eq('household_id', ctx.householdId)
-  } else {
-    listQ = listQ.eq('user_id', user.id)
-  }
+  const listQ = scopeQuery(db.from('grocery_lists').select('*').eq('week_start', weekStart), user.id, ctx)
   const { data: list, error } = await listQ.single()
 
   if (error && error.code !== 'PGRST116') {
@@ -48,24 +44,14 @@ export const PATCH = withAuth(async (req, { user, db, ctx }) => {
   // Find existing row — prefer list_id for direct lookup, fall back to week_start
   let existing: { id: string; meal_plan_id: string } | null = null
   if (list_id) {
-    let q = db.from('grocery_lists').select('id, meal_plan_id').eq('id', list_id)
-    if (ctx) {
-      q = q.eq('household_id', ctx.householdId)
-    } else {
-      q = q.eq('user_id', user.id)
-    }
+    const q = scopeQuery(db.from('grocery_lists').select('id, meal_plan_id').eq('id', list_id), user.id, ctx)
     const { data, error } = await q.single()
     if (error || !data) {
       return NextResponse.json({ error: 'Grocery list not found' }, { status: 404 })
     }
     existing = data as { id: string; meal_plan_id: string }
   } else {
-    let q = db.from('grocery_lists').select('id, meal_plan_id').eq('week_start', week_start!)
-    if (ctx) {
-      q = q.eq('household_id', ctx.householdId)
-    } else {
-      q = q.eq('user_id', user.id)
-    }
+    const q = scopeQuery(db.from('grocery_lists').select('id, meal_plan_id').eq('week_start', week_start!), user.id, ctx)
     const { data, error } = await q.single()
     if (error || !data) {
       return NextResponse.json({ error: 'Grocery list not found' }, { status: 404 })

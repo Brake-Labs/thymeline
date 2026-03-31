@@ -1,17 +1,13 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { getMostRecentSunday } from '@/lib/date-utils'
+import { scopeQuery } from '@/lib/household'
 import type { HomeData } from '@/types'
 
 export const GET = withAuth(async (req, { user, db, ctx }) => {
   const weekStart = getMostRecentSunday()
 
-  let planQ = db.from('meal_plans').select('id, week_start').eq('week_start', weekStart)
-  if (ctx) {
-    planQ = planQ.eq('household_id', ctx.householdId)
-  } else {
-    planQ = planQ.eq('user_id', user.id)
-  }
+  let planQ = scopeQuery(db.from('meal_plans').select('id, week_start').eq('week_start', weekStart), user.id, ctx)
   const { data: plan } = await planQ.single()
 
   let currentWeekPlan: HomeData['currentWeekPlan'] = null
@@ -39,19 +35,9 @@ export const GET = withAuth(async (req, { user, db, ctx }) => {
   }
 
   // Fetch history, recipe count, user name, and grocery list in parallel
-  let recipeCountQ = db.from('recipes').select('id', { count: 'exact', head: true })
-  if (ctx) {
-    recipeCountQ = recipeCountQ.eq('household_id', ctx.householdId)
-  } else {
-    recipeCountQ = recipeCountQ.eq('user_id', user.id)
-  }
+  const recipeCountQ = scopeQuery(db.from('recipes').select('id', { count: 'exact', head: true }), user.id, ctx)
 
-  let groceryQ = db.from('grocery_lists').select('week_start').order('week_start', { ascending: false }).limit(1)
-  if (ctx) {
-    groceryQ = groceryQ.eq('household_id', ctx.householdId)
-  } else {
-    groceryQ = groceryQ.eq('user_id', user.id)
-  }
+  const groceryQ = scopeQuery(db.from('grocery_lists').select('week_start').order('week_start', { ascending: false }).limit(1), user.id, ctx)
 
   const [
     { data: history },

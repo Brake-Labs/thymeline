@@ -69,6 +69,10 @@ vi.mock('@/lib/supabase-server', () => ({
 vi.mock('@/lib/household', () => ({
   resolveHouseholdScope: async () => null,
   canManage: (role: string) => role === 'owner' || role === 'co_owner',
+  scopeQuery: (query: any, userId: string, ctx: any) => {
+    if (ctx) return query.eq('household_id', ctx.householdId)
+    return query.eq('user_id', userId)
+  },
 }))
 
 import { createServerClient, createAdminClient } from '@/lib/supabase-server'

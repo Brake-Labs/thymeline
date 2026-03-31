@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { validateTags } from '@/lib/tags'
+import { scopeQuery } from '@/lib/household'
 import { createRecipeSchema, parseBody } from '@/lib/schemas'
 
 export const GET = withAuth(async (req, { user, db, ctx }) => {
@@ -8,16 +9,10 @@ export const GET = withAuth(async (req, { user, db, ctx }) => {
   const category = searchParams.get('category')
   const tag = searchParams.get('tag')
 
-  let query = db
+  let query = scopeQuery(db
     .from('recipes')
     .select('id, user_id, household_id, title, category, tags, is_shared, created_at, total_time_minutes')
-    .order('created_at', { ascending: false })
-
-  if (ctx) {
-    query = query.eq('household_id', ctx.householdId)
-  } else {
-    query = query.eq('user_id', user.id)
-  }
+    .order('created_at', { ascending: false }), user.id, ctx)
 
   if (category) query = query.eq('category', category)
   if (tag) query = query.contains('tags', [tag])
