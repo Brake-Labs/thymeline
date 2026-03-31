@@ -19,9 +19,9 @@ interface RecipeListViewProps {
 }
 
 const COLUMNS: { key: ListSortKey; label: string; className: string }[] = [
-  { key: 'title', label: 'Recipe', className: 'flex-1 min-w-0' },
+  { key: 'title', label: 'Recipe', className: 'w-52 min-w-0' },
   { key: 'category', label: 'Category', className: 'w-28' },
-  { key: null, label: 'Tags', className: 'w-36' },
+  { key: null, label: 'Tags', className: 'w-52' },
   { key: 'total_time_minutes', label: 'Time', className: 'w-20' },
   { key: 'last_made', label: 'Last Made', className: 'w-24' },
   { key: null, label: '', className: 'w-12' },
@@ -103,7 +103,7 @@ export default function RecipeListView({
                     aria-label={`Select ${recipe.title}`}
                   />
                 </td>
-                <td className="py-3 pr-4 flex-1 min-w-0">
+                <td className="py-3 pr-4 w-52 min-w-0">
                   <Link
                     href={`/recipes/${recipe.id}`}
                     className="font-medium text-[#1F2D26] hover:text-sage-700 truncate block"
@@ -114,7 +114,7 @@ export default function RecipeListView({
                 <td className="py-3 pr-4 w-28 text-stone-500 text-xs">
                   {CATEGORY_LABELS[recipe.category]}
                 </td>
-                <td className="py-3 pr-4 w-36">
+                <td className="py-3 pr-4 w-52">
                   <div className="flex flex-wrap gap-1">
                     {visibleTags.map((tag) => (
                       <span
