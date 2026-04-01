@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
-import { anthropic, parseLLMJson } from '@/lib/llm'
+import { anthropic, parseLLMJson, LLM_MODEL_CAPABLE } from '@/lib/llm'
 import { FIRST_CLASS_TAGS } from '@/lib/tags'
 import { scopeQuery } from '@/lib/household'
 import type { DiscoveryResult } from '@/types'
 
 const MODEL = process.env.LLM_MODEL ?? 'claude-haiku-4-5-20251001'
+// Web search requires a model that supports the web_search_20250305 tool — haiku does not.
 
 export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   let body: { query?: string; site_filter?: string }
@@ -19,6 +20,8 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   if (!query) {
     return NextResponse.json({ error: 'Query is required' }, { status: 400 })
   }
+
+  console.log('[discover] query:', query)
 
   const siteFilter = (body.site_filter ?? '').trim()
 
@@ -67,6 +70,8 @@ Extract key ingredients, cooking method, and cuisine style from the request. Ret
       console.error('[discover] query-gen failed, using raw query:', err)
     }
 
+    console.log('[discover] generated search queries:', searchQueries)
+
     // ── Step 3: Web search ────────────────────────────────────────────────────
     interface RawResult {
       url: string
@@ -77,8 +82,10 @@ Extract key ingredients, cooking method, and cuisine style from the request. Ret
 
     const rawResults: RawResult[] = []
     try {
+      console.log('[discover] web search model:', LLM_MODEL_CAPABLE)
+      console.log('[discover] web search tool: web_search_20250305')
       const searchMsg = await anthropic.messages.create({
-        model: MODEL,
+        model: LLM_MODEL_CAPABLE,
         max_tokens: 4096,
         tools: [{ type: 'web_search_20250305' as const, name: 'web_search', max_uses: 6 }],
         messages: [
@@ -93,6 +100,8 @@ Extract key ingredients, cooking method, and cuisine style from the request. Ret
         .filter((b) => b.type === 'text')
         .map((b) => (b as { type: 'text'; text: string }).text)
         .join('')
+
+      console.log('[discover] web search raw results:', JSON.stringify(searchMsg.content, null, 2))
 
       try {
         const parsed = parseLLMJson<RawResult[]>(textBlock)
@@ -118,6 +127,8 @@ Extract key ingredients, cooking method, and cuisine style from the request. Ret
       console.error('[discover] web search failed:', err)
       return NextResponse.json({ error: 'Search failed — please try again' }, { status: 500 })
     }
+
+    console.log('[discover] parsed raw results count:', rawResults.length)
 
     if (rawResults.length === 0) {
       return NextResponse.json({ results: [] })
@@ -193,6 +204,8 @@ Return ONLY a JSON array with this shape (no explanation):
       rankedResults = rawResults.slice(0, 6).map((r) => ({ ...r, suggested_tags: [] }))
     }
 
+    console.log('[discover] after LLM ranking:', JSON.stringify(rankedResults, null, 2))
+
     // ── Step 5: Validate and return ───────────────────────────────────────────
     const firstClassSet = new Set(FIRST_CLASS_TAGS.map((t) => t.toLowerCase()))
 
@@ -213,6 +226,8 @@ Return ONLY a JSON array with this shape (no explanation):
           }
         : {}),
     }))
+
+    console.log('[discover] after tag validation:', JSON.stringify(results, null, 2))
 
     return NextResponse.json({ results })
   } catch (err) {
