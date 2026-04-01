@@ -48,7 +48,7 @@ export default function LogMadeTodayButton({
 
   if (status === 'success') {
     return (
-      <button className={`${baseClass} bg-green-100 text-green-700 focus:ring-green-500`} disabled>
+      <button className={`${baseClass} bg-sage-100 text-sage-700 focus:ring-sage-500`} disabled>
         ✓ Logged!
       </button>
     )
@@ -56,7 +56,7 @@ export default function LogMadeTodayButton({
 
   if (status === 'already_logged') {
     return (
-      <button className={`${baseClass} bg-yellow-50 text-yellow-700 focus:ring-yellow-400`} disabled>
+      <button className={`${baseClass} bg-stone-50 text-stone-600 focus:ring-stone-400`} disabled>
         Already logged today
       </button>
     )
@@ -66,7 +66,7 @@ export default function LogMadeTodayButton({
     <button
       onClick={handleClick}
       disabled={status === 'loading'}
-      className={`${baseClass} bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed`}
+      className={`${baseClass} bg-sage-500 text-white hover:bg-sage-600 focus:ring-sage-500 disabled:opacity-50 disabled:cursor-not-allowed`}
     >
       {status === 'loading' ? 'Logging…' : 'Log Made Today'}
     </button>

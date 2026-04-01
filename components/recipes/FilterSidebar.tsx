@@ -180,7 +180,7 @@ export default function FilterSidebar({ filters, onChange, onClearAll, vaultTags
     filters.neverMade || filters.lastMadeFrom || filters.lastMadeTo ? 1 : 0
 
   return (
-    <div className="bg-[#F7F4F0] rounded-lg border border-stone-200 px-4">
+    <div className="bg-stone-50 rounded-lg border border-stone-200 px-4">
       {/* Sidebar header */}
       <div className="flex items-center justify-between py-3 border-b border-stone-200">
         <span className="text-sm font-semibold text-stone-700">

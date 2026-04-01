@@ -137,10 +137,10 @@ export default function AddRecipeModal({
       <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h2 className="font-display text-lg font-semibold text-gray-900">Add Recipe</h2>
+          <h2 className="font-display text-lg font-semibold text-stone-900">Add Recipe</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+            className="text-stone-400 hover:text-stone-600 text-2xl leading-none"
             aria-label="Close"
           >
             ×
@@ -155,8 +155,8 @@ export default function AddRecipeModal({
               onClick={() => setTab(t)}
               className={`px-6 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
                 tab === t
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                  ? 'border-sage-500 text-sage-500'
+                  : 'border-transparent text-stone-500 hover:text-stone-700'
               }`}
             >
               {TAB_LABELS[t]}
@@ -168,19 +168,19 @@ export default function AddRecipeModal({
         <div className="overflow-y-auto px-6 py-5 flex-1">
           {tab === 'url' && !scrapeResult && (
             <div className="space-y-3">
-              <label className="block text-sm font-medium text-gray-700">Recipe URL</label>
+              <label className="block text-sm font-medium text-stone-700">Recipe URL</label>
               <div className="flex gap-2">
                 <input
                   type="url"
                   value={urlInput}
                   onChange={(e) => setUrlInput(e.target.value)}
                   placeholder="https://..."
-                  className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500"
                 />
                 <button
                   onClick={handleScrape}
                   disabled={scraping || !urlInput.trim()}
-                  className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="bg-sage-500 text-white px-4 py-2 rounded text-sm font-medium hover:bg-sage-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {scraping ? (
                     <>

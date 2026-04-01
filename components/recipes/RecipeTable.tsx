@@ -23,7 +23,7 @@ interface RecipeTableProps {
 const MAX_VISIBLE_TAGS = 3
 
 function SortIndicator({ active, dir }: { active: boolean; dir: SortDir }) {
-  if (!active) return <span className="ml-1 text-gray-300">↕</span>
+  if (!active) return <span className="ml-1 text-stone-300">↕</span>
   return <span className="ml-1">{dir === 'asc' ? '↑' : '↓'}</span>
 }
 
@@ -34,47 +34,47 @@ export default function RecipeTable({ recipes, sortKey, sortDir, onSort, current
   return (
     <>
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-gray-50">
+        <table className="min-w-full divide-y divide-stone-200 text-sm">
+          <thead className="bg-stone-50">
             <tr>
               <th
                 scope="col"
-                className="px-4 py-3 text-left font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
+                className="px-4 py-3 text-left font-medium text-stone-500 uppercase tracking-wider cursor-pointer select-none"
                 onClick={() => onSort('title')}
               >
                 Name <SortIndicator active={sortKey === 'title'} dir={sortDir} />
               </th>
               <th
                 scope="col"
-                className="px-4 py-3 text-left font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
+                className="px-4 py-3 text-left font-medium text-stone-500 uppercase tracking-wider cursor-pointer select-none"
                 onClick={() => onSort('category')}
               >
                 Category <SortIndicator active={sortKey === 'category'} dir={sortDir} />
               </th>
               <th
                 scope="col"
-                className="px-4 py-3 text-left font-medium text-gray-500 uppercase tracking-wider"
+                className="px-4 py-3 text-left font-medium text-stone-500 uppercase tracking-wider"
               >
                 Tags
               </th>
               <th
                 scope="col"
-                className="px-4 py-3 text-left font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
+                className="px-4 py-3 text-left font-medium text-stone-500 uppercase tracking-wider cursor-pointer select-none"
                 onClick={() => onSort('last_made')}
               >
                 Last Made <SortIndicator active={sortKey === 'last_made'} dir={sortDir} />
               </th>
               {hasActions && (
-                <th scope="col" className="px-4 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-4 py-3 text-left font-medium text-stone-500 uppercase tracking-wider">
                   Actions
                 </th>
               )}
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-100">
+          <tbody className="bg-white divide-y divide-stone-100">
             {recipes.length === 0 && (
               <tr>
-                <td colSpan={hasActions ? 5 : 4} className="px-4 py-8 text-center text-gray-400">
+                <td colSpan={hasActions ? 5 : 4} className="px-4 py-8 text-center text-stone-400">
                   No recipes found.
                 </td>
               </tr>
@@ -85,13 +85,13 @@ export default function RecipeTable({ recipes, sortKey, sortDir, onSort, current
               const isOwner = currentUserId !== undefined && recipe.user_id === currentUserId
 
               return (
-                <tr key={recipe.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium text-gray-900">
-                    <Link href={`/recipes/${recipe.id}`} className="hover:underline text-blue-700">
+                <tr key={recipe.id} className="hover:bg-stone-50">
+                  <td className="px-4 py-3 font-medium text-sage-900">
+                    <Link href={`/recipes/${recipe.id}`} className="hover:underline text-sage-600">
                       {recipe.title}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 text-gray-600">
+                  <td className="px-4 py-3 text-stone-600">
                     {CATEGORY_LABELS[recipe.category]}
                   </td>
                   <td className="px-4 py-3">
@@ -100,11 +100,11 @@ export default function RecipeTable({ recipes, sortKey, sortDir, onSort, current
                         <TagPill key={tag} label={tag} />
                       ))}
                       {extraCount > 0 && (
-                        <span className="text-xs text-gray-400 self-center">+{extraCount} more</span>
+                        <span className="text-xs text-stone-400 self-center">+{extraCount} more</span>
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-gray-600">
+                  <td className="px-4 py-3 text-stone-600">
                     {recipe.last_made ?? 'Never'}
                   </td>
                   {hasActions && (
@@ -114,7 +114,7 @@ export default function RecipeTable({ recipes, sortKey, sortDir, onSort, current
                           <Link
                             href={`/recipes/${recipe.id}/edit`}
                             aria-label="Edit"
-                            className="text-blue-600 hover:text-blue-800"
+                            className="text-sage-500 hover:text-sage-700"
                           >
                             <Pencil size={15} />
                           </Link>
