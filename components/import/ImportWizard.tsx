@@ -116,7 +116,7 @@ export default function ImportWizard() {
         return
       }
 
-      const results: ImportResult[] = (data.results ?? []).map((r, i) => ({
+      const results: ImportResult[] = (data.results ?? []).map((r, _i) => ({
         ...r,
         id:           r.id ?? crypto.randomUUID(),
         source_label: r.source_label ?? (file.name ?? 'File'),

@@ -297,7 +297,7 @@ describe('ImportSummary', () => {
     render(
       <ImportSummary
         summary={{ imported: 1, skipped: 0, replaced: 0, failed: [] }}
-        partialRecipes={[{ id: 'abc-123', title: 'Incomplete Soup', partial: true }]}
+        partialRecipes={[{ id: 'abc-123', title: 'Incomplete Soup' }]}
         onImportMore={vi.fn()}
       />,
     )
