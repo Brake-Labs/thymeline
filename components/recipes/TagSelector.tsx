@@ -224,19 +224,25 @@ export default function TagSelector({
 
   return (
     <div className="space-y-3">
-      {sections.map(({ key, firstClass }) => {
-        const sectionCustom = customTags.filter((t) => t.section === key)
-        return (
-          <div key={key}>
-            <p className="text-xs text-stone-400 mb-1.5">{SECTION_LABELS[key]}</p>
-            <div className="flex flex-wrap gap-1.5 items-center">
-              {(firstClass as readonly string[]).map(renderChip)}
-              {sectionCustom.map((t) => renderChip(t.name))}
-              {renderAddChip(key)}
-            </div>
+      {/* Your tags — custom tags created by the user */}
+      {customTags.length > 0 && (
+        <div>
+          <p className="text-xs text-stone-400 mb-1.5">Your tags</p>
+          <div className="flex flex-wrap gap-1.5 items-center">
+            {customTags.map((t) => renderChip(t.name))}
           </div>
-        )
-      })}
+        </div>
+      )}
+
+      {sections.map(({ key, firstClass }) => (
+        <div key={key}>
+          <p className="text-xs text-stone-400 mb-1.5">{SECTION_LABELS[key]}</p>
+          <div className="flex flex-wrap gap-1.5 items-center">
+            {(firstClass as readonly string[]).map(renderChip)}
+            {renderAddChip(key)}
+          </div>
+        </div>
+      ))}
 
       {/* Pending-new (AI-suggested, not yet created) */}
       {localPendingNew.length > 0 && (
