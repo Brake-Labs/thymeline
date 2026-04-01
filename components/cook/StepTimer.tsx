@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import type React from 'react'
 
 export interface TimerState {
   minutes: number
@@ -81,14 +82,6 @@ interface Props {
   stepText?: string
   timerState: TimerState | undefined
   onChange: (state: TimerState | null) => void
-}
-
-const INPUT_STYLE: React.CSSProperties = {
-  appearance: 'none',
-  MozAppearance: 'textfield',
-  fontFamily: 'Plus Jakarta Sans, sans-serif',
-  color: '#1F2D26',
-  fontWeight: 500,
 }
 
 export default function StepTimer({ stepIndex, stepText, timerState, onChange }: Props) {
@@ -193,8 +186,7 @@ export default function StepTimer({ stepIndex, stepText, timerState, onChange }:
             onFocus={(e) => e.target.select()}
             min="0"
             max="999"
-            className="w-12 text-center text-base border border-stone-300 rounded focus:outline-none focus:border-sage-500"
-            style={INPUT_STYLE}
+            className="w-12 text-center text-base border border-stone-300 rounded focus:outline-none focus:border-sage-500 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none font-display text-sage-900 font-medium"
           />
           <button
             type="button"
@@ -227,8 +219,7 @@ export default function StepTimer({ stepIndex, stepText, timerState, onChange }:
             onFocus={(e) => e.target.select()}
             min="0"
             max="59"
-            className="w-12 text-center text-base border border-stone-300 rounded focus:outline-none focus:border-sage-500"
-            style={INPUT_STYLE}
+            className="w-12 text-center text-base border border-stone-300 rounded focus:outline-none focus:border-sage-500 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none font-display text-sage-900 font-medium"
           />
           <button
             type="button"
