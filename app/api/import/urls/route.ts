@@ -28,6 +28,8 @@ function release() {
 
 // ─── Background scraper ─────────────────────────────────────────────────────
 
+const MAX_RETRIES = 3
+
 async function scrapeUrl(
   url: string,
   jobId: string,
@@ -37,43 +39,55 @@ async function scrapeUrl(
 ): Promise<void> {
   await acquire()
   try {
-    const data = await scrapeRecipe(url, userId, db, ctx)
+    let lastError = 'Scrape failed'
 
-    if ('error' in data) {
-      updateJob(jobId, { url, status: 'failed', error: data.error })
-      return
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      const data = await scrapeRecipe(url, userId, db, ctx, { compact: true })
+
+      if (!('error' in data)) {
+        const recipe: ParsedRecipe = {
+          title:                 data.title ?? '(untitled)',
+          category:              null,
+          ingredients:           data.ingredients ?? null,
+          steps:                 data.steps ?? null,
+          notes:                 null,
+          url:                   data.sourceUrl ?? url,
+          image_url:             data.imageUrl ?? null,
+          prep_time_minutes:     data.prepTimeMinutes ?? null,
+          cook_time_minutes:     data.cookTimeMinutes ?? null,
+          total_time_minutes:    data.totalTimeMinutes ?? null,
+          inactive_time_minutes: data.inactiveTimeMinutes ?? null,
+          servings:              data.servings ?? null,
+          tags:                  data.suggestedTags ?? [],
+          source:                'scraped',
+        }
+
+        const status: JobResultStatus = data.partial
+          ? (recipe.title ? 'partial' : 'failed')
+          : 'success'
+
+        const [dup] = await detectDuplicates([recipe], db, userId, ctx)
+
+        updateJob(jobId, {
+          url,
+          status,
+          recipe:    status !== 'failed' ? recipe : undefined,
+          error:     status === 'failed' ? 'Failed to extract recipe data' : undefined,
+          duplicate: dup ?? undefined,
+        })
+        return
+      }
+
+      if (data.code === 'rate_limit' && attempt < MAX_RETRIES - 1) {
+        await new Promise((r) => setTimeout(r, data.retryAfterMs ?? 10_000))
+        continue
+      }
+
+      lastError = data.error
+      break
     }
 
-    const recipe: ParsedRecipe = {
-      title:                 data.title ?? '(untitled)',
-      category:              null,
-      ingredients:           data.ingredients ?? null,
-      steps:                 data.steps ?? null,
-      notes:                 null,
-      url:                   data.sourceUrl ?? url,
-      image_url:             data.imageUrl ?? null,
-      prep_time_minutes:     data.prepTimeMinutes ?? null,
-      cook_time_minutes:     data.cookTimeMinutes ?? null,
-      total_time_minutes:    data.totalTimeMinutes ?? null,
-      inactive_time_minutes: data.inactiveTimeMinutes ?? null,
-      servings:              data.servings ?? null,
-      tags:                  data.suggestedTags ?? [],
-      source:                'scraped',
-    }
-
-    const status: JobResultStatus = data.partial
-      ? (recipe.title ? 'partial' : 'failed')
-      : 'success'
-
-    const [dup] = await detectDuplicates([recipe], db, userId, ctx)
-
-    updateJob(jobId, {
-      url,
-      status,
-      recipe:    status !== 'failed' ? recipe : undefined,
-      error:     status === 'failed' ? 'Failed to extract recipe data' : undefined,
-      duplicate: dup ?? undefined,
-    })
+    updateJob(jobId, { url, status: 'failed', error: lastError })
   } catch (err) {
     updateJob(jobId, {
       url,
