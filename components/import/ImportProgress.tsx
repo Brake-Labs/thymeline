@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import type { ImportResult } from '@/types'
-import type { JobResult } from '@/app/api/import/job-store'
+import type { JobResult } from '@/lib/import-jobs'
 import { getAccessToken } from '@/lib/supabase/browser'
 
 interface Props {

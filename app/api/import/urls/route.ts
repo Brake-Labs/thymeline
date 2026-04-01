@@ -3,24 +3,12 @@ import { withAuth } from '@/lib/auth'
 import { parseBody, importUrlsSchema } from '@/lib/schemas'
 import { detectDuplicates } from '@/lib/import/detect-duplicates'
 import { scrapeRecipe } from '@/lib/scrape-recipe'
+import { createJob, updateJob, evictExpired } from '@/lib/import-jobs'
 import type { HouseholdContext, ParsedRecipe } from '@/types'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { importJobs } from '../job-store'
-import type { JobResultStatus, ImportJob } from '../job-store'
+import type { JobResultStatus } from '@/lib/import-jobs'
 
-export type { JobResultStatus, JobResult, ImportJob } from '../job-store'
-
-const JOB_TTL_MS = 30 * 60 * 1000 // 30 minutes
-
-/** Evict jobs older than JOB_TTL_MS */
-function evictExpiredJobs() {
-  const now = Date.now()
-  for (const [id, job] of importJobs.entries()) {
-    if (now - job.createdAt > JOB_TTL_MS) {
-      importJobs.delete(id)
-    }
-  }
-}
+export type { JobResultStatus, JobResult, ImportJob } from '@/lib/import-jobs'
 
 // ─── Concurrency semaphore ──────────────────────────────────────────────────
 
@@ -47,21 +35,12 @@ async function scrapeUrl(
   userId: string,
   ctx: HouseholdContext | null,
 ): Promise<void> {
-  const job = importJobs.get(jobId)
-  if (!job) return
-
-  const resultIdx = job.results.findIndex((r) => r.url === url)
-
   await acquire()
   try {
     const data = await scrapeRecipe(url, userId, db, ctx)
 
     if ('error' in data) {
-      const job2 = importJobs.get(jobId)
-      if (job2 && resultIdx >= 0) {
-        job2.results[resultIdx] = { url, status: 'failed', error: data.error }
-        job2.completed++
-      }
+      updateJob(jobId, { url, status: 'failed', error: data.error })
       return
     }
 
@@ -86,30 +65,21 @@ async function scrapeUrl(
       ? (recipe.title ? 'partial' : 'failed')
       : 'success'
 
-    // Duplicate detection for this single result
     const [dup] = await detectDuplicates([recipe], db, userId, ctx)
 
-    const job2 = importJobs.get(jobId)
-    if (job2 && resultIdx >= 0) {
-      job2.results[resultIdx] = {
-        url,
-        status,
-        recipe: status !== 'failed' ? recipe : undefined,
-        error: status === 'failed' ? 'Failed to extract recipe data' : undefined,
-        duplicate: dup ?? undefined,
-      }
-      job2.completed++
-    }
+    updateJob(jobId, {
+      url,
+      status,
+      recipe:    status !== 'failed' ? recipe : undefined,
+      error:     status === 'failed' ? 'Failed to extract recipe data' : undefined,
+      duplicate: dup ?? undefined,
+    })
   } catch (err) {
-    const job2 = importJobs.get(jobId)
-    if (job2 && resultIdx >= 0) {
-      job2.results[resultIdx] = {
-        url,
-        status: 'failed',
-        error: err instanceof Error ? err.message : 'Scrape failed',
-      }
-      job2.completed++
-    }
+    updateJob(jobId, {
+      url,
+      status: 'failed',
+      error:  err instanceof Error ? err.message : 'Scrape failed',
+    })
   } finally {
     release()
   }
@@ -121,17 +91,10 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   const { data: body, error: parseError } = await parseBody(req, importUrlsSchema)
   if (parseError) return parseError
 
-  evictExpiredJobs()
+  evictExpired()
 
   const jobId = crypto.randomUUID()
-  const job: ImportJob = {
-    userId:    user.id,
-    total:     body.urls.length,
-    completed: 0,
-    results:   body.urls.map((url) => ({ url, status: 'pending' as const })),
-    createdAt: Date.now(),
-  }
-  importJobs.set(jobId, job)
+  createJob(jobId, user.id, body.urls)
 
   // Fire and forget — do NOT await
   void Promise.all(

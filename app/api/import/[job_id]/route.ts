@@ -1,24 +1,13 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
-import { importJobs } from '../job-store'
-
-const JOB_TTL_MS = 30 * 60 * 1000 // 30 minutes
-
-function evictExpiredJobs() {
-  const now = Date.now()
-  for (const [id, job] of importJobs.entries()) {
-    if (now - job.createdAt > JOB_TTL_MS) {
-      importJobs.delete(id)
-    }
-  }
-}
+import { getJob, evictExpired } from '@/lib/import-jobs'
 
 export const GET = withAuth(async (_req, { user }, params) => {
   const jobId = params['job_id']
 
-  evictExpiredJobs()
+  evictExpired()
 
-  const job = jobId ? importJobs.get(jobId) : undefined
+  const job = jobId ? getJob(jobId) : undefined
   if (!job) {
     return NextResponse.json({ error: 'Job not found' }, { status: 404 })
   }
