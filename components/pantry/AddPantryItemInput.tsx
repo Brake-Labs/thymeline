@@ -84,7 +84,7 @@ export default function AddPantryItemInput({ onAdd }: AddPantryItemInputProps) {
           type="date"
           value={expiryDate}
           onChange={(e) => setExpiryDate(e.target.value)}
-          className="border border-stone-200 rounded px-2 py-1 text-xs text-stone-600 focus:outline-none focus:ring-1 focus:ring-sage-400"
+          className="bg-[#FFFDF9] border border-stone-200 rounded-[4px] px-2 py-1.5 font-sans text-[13px] text-sage-900 accent-[#4A7C59] focus:outline-none focus:ring-2 focus:ring-sage-500"
           aria-label="Expiry date"
         />
         <select

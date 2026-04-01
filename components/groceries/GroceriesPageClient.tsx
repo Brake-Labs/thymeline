@@ -74,7 +74,7 @@ export default function GroceriesPageClient() {
               type="date"
               value={dateFrom}
               onChange={(e) => { setDateFrom(e.target.value) }}
-              className="border border-stone-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500"
+              className="bg-[#FFFDF9] border border-stone-200 rounded-[4px] px-2 py-1.5 font-sans text-[13px] text-sage-900 accent-[#4A7C59] focus:outline-none focus:ring-2 focus:ring-sage-500"
             />
           </div>
           <div className="flex items-center gap-2">
@@ -84,7 +84,7 @@ export default function GroceriesPageClient() {
               value={dateTo}
               min={dateFrom}
               onChange={(e) => { setDateTo(e.target.value) }}
-              className="border border-stone-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500"
+              className="bg-[#FFFDF9] border border-stone-200 rounded-[4px] px-2 py-1.5 font-sans text-[13px] text-sage-900 accent-[#4A7C59] focus:outline-none focus:ring-2 focus:ring-sage-500"
             />
           </div>
         </div>
