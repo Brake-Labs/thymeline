@@ -16,7 +16,7 @@ npm run dev
 
 ### Docker
 ```bash
-cp .env.local.example .env.local   # fill in your keys
+cp .env.local.example .env         # fill in your keys
 docker compose up --build
 ```
 The app will be available at `http://localhost:3000`.

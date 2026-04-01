@@ -17,11 +17,12 @@ ARG NEXT_PUBLIC_SUPABASE_URL=https://placeholder.supabase.co
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY=placeholder
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
-ARG SUPABASE_SERVICE_ROLE_KEY=placeholder
-ENV SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
 ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN npm run build
+# SUPABASE_SERVICE_ROLE_KEY is server-side only (not inlined by Next.js),
+# so provide it inline for the build step only — no ARG/ENV to avoid
+# leaking into image layer metadata.
+RUN SUPABASE_SERVICE_ROLE_KEY=placeholder npm run build
 
 # Stage 3: Production runtime
 FROM node:20-slim AS runner
