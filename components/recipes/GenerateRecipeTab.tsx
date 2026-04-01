@@ -36,6 +36,10 @@ export default function GenerateRecipeTab({
   const [dietaryRestrictions, setDietaryRestrictions] = useState<string[]>([])
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [generatedRecipe, setGeneratedRecipe] = useState<GeneratedRecipe | null>(null)
+  const [tweakInput, setTweakInput] = useState('')
+  const [tweaking, setTweaking] = useState(false)
+  const [tweakError, setTweakError] = useState<string | null>(null)
 
   // Pre-populate dietary restrictions from user preferences
   useEffect(() => {
@@ -105,11 +109,53 @@ export default function GenerateRecipeTab({
         return
       }
       const recipe: GeneratedRecipe = await res.json()
+      setGeneratedRecipe(recipe)
       onGenerated(recipe)
     } catch {
       setError("Couldn't generate a recipe — try adjusting your ingredients")
     } finally {
       setGenerating(false)
+    }
+  }
+
+  async function handleTweak() {
+    if (!generatedRecipe || !tweakInput.trim()) return
+    setTweaking(true)
+    setTweakError(null)
+    try {
+      const token = await getToken()
+      const res = await fetch('/api/recipes/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          use_pantry:           pantryEnabled,
+          specific_ingredients: specificIngredients,
+          meal_type:            mealType,
+          style_hints:          styleHints,
+          dietary_restrictions: dietaryRestrictions,
+          tweak_request:        tweakInput.trim(),
+          previous_recipe: {
+            title:       generatedRecipe.title,
+            ingredients: generatedRecipe.ingredients ?? '',
+            steps:       generatedRecipe.steps ?? '',
+          },
+        }),
+      })
+      if (!res.ok) {
+        setTweakError("Couldn't update the recipe — please try again")
+        return
+      }
+      const recipe: GeneratedRecipe = await res.json()
+      setGeneratedRecipe(recipe)
+      setTweakInput('')
+      onGenerated(recipe)
+    } catch {
+      setTweakError("Couldn't update the recipe — please try again")
+    } finally {
+      setTweaking(false)
     }
   }
 
@@ -266,6 +312,41 @@ export default function GenerateRecipeTab({
 
       {error && (
         <p className="text-sm text-red-500 text-center">{error}</p>
+      )}
+
+      {generatedRecipe && (
+        <div className="border border-stone-200 rounded-xl p-4 space-y-3">
+          <label className="block text-sm font-medium text-stone-700">
+            Want to adjust anything?
+          </label>
+          <input
+            type="text"
+            value={tweakInput}
+            onChange={(e) => setTweakInput(e.target.value)}
+            maxLength={200}
+            placeholder="e.g. I don't have chickpeas, remove the spice, add spinach…"
+            className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage-400"
+            onKeyDown={(e) => { if (e.key === 'Enter' && !tweaking) handleTweak() }}
+          />
+          <button
+            type="button"
+            onClick={handleTweak}
+            disabled={!tweakInput.trim() || tweaking}
+            className="w-full border border-sage-500 text-sage-700 rounded-xl py-2.5 font-display font-semibold text-sm hover:bg-sage-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
+          >
+            {tweaking ? (
+              <>
+                <span className="inline-block h-4 w-4 border-2 border-sage-500 border-t-transparent rounded-full animate-spin" />
+                Updating recipe…
+              </>
+            ) : (
+              'Regenerate with tweaks'
+            )}
+          </button>
+          {tweakError && (
+            <p className="text-sm text-red-500">{tweakError}</p>
+          )}
+        </div>
       )}
     </div>
   )
