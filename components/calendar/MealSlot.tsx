@@ -30,12 +30,12 @@ interface MealItemProps {
 
 function MealItem({ entry, indented, onDelete }: MealItemProps) {
   return (
-    <div className={`flex items-center justify-between gap-2 py-1.5 px-2 bg-sage-50 border-l-2 border-l-sage-500 rounded-r group mb-1 ${indented ? 'ml-4' : ''}`}>
+    <div className={`flex items-center justify-between gap-2 py-1 px-2 bg-sage-50 border-l-2 border-l-sage-500 rounded-r group mb-1 ${indented ? 'ml-4' : ''}`}>
       <Link
         href={`/recipes/${entry.recipe_id}`}
         className="flex-1 min-w-0"
       >
-        <span className="text-xs font-display font-medium text-[#1F2D26] truncate block leading-snug">
+        <span className="text-xs font-display font-medium text-sage-900 truncate block leading-snug">
           {entry.recipe_title}
         </span>
         {entry.total_time_minutes != null && (
@@ -134,7 +134,7 @@ export default function MealSlot({ mealType, entries, onAdd, onDelete }: MealSlo
       })}
 
       {!hasMainEntry && (
-        <p className="text-xs text-stone-300 italic px-2">—</p>
+        <p className="font-sans text-xs text-stone-300 italic px-2">—</p>
       )}
 
       {/* Vault sheet for adding main entry */}
