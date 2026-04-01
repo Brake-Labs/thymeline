@@ -116,6 +116,27 @@ export default function SuggestionMealSlotRow({
         </div>
       ) : (
         <div>
+          {/* Vault/free-text selection not in the options list — show it as the selected row */}
+          {selection && !options.some((o) => o.recipe_id === selection.recipe_id) && (
+            <div className="border-b border-stone-50 px-3 py-2.5 border-l-4 border-l-sage-500 bg-sage-50">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-stone-800 truncate">{selection.recipe_title}</p>
+                  <p className="text-xs text-stone-400 italic mt-0.5">From your vault</p>
+                </div>
+                <button
+                  onClick={() => onSelect(date, mealType, { recipe_id: selection.recipe_id, recipe_title: selection.recipe_title })}
+                  title="Deselect"
+                  className="text-sage-500 flex-shrink-0 hover:text-stone-400 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
+
           {options.length === 0 ? (
             <div className="px-3 py-2">
               <p className="text-sm text-stone-400">No suggestions — try swapping or searching your vault.</p>

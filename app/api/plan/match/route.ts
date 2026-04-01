@@ -3,6 +3,7 @@ import { withAuth } from '@/lib/auth'
 import { matchSchema, parseBody } from '@/lib/schemas'
 import { scopeQuery } from '@/lib/household'
 import { callLLMNonStreaming } from '../helpers'
+import { parseLLMJson } from '@/lib/llm'
 
 export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   const { data: body, error: parseError } = await parseBody(req, matchSchema)
@@ -41,7 +42,7 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
 Pick the single best match from the list for the search phrase. Return ONLY valid JSON: { "recipe_id": "uuid" }`
         const userMessage = `Search phrase: "${query}"\nCandidates: ${JSON.stringify(keywordMatches.map((r) => ({ recipe_id: r.id, title: r.title, tags: r.tags })))}`
         const raw = await callLLMNonStreaming(systemMessage, userMessage)
-        const parsed = JSON.parse(raw.trim()) as { recipe_id: string | null }
+        const parsed = parseLLMJson<{ recipe_id: string | null }>(raw)
         const found = keywordMatches.find((r) => r.id === parsed.recipe_id)
         if (found) return NextResponse.json({ match: { recipe_id: found.id, recipe_title: found.title } })
         // Fall through to return first keyword match if LLM fails
@@ -64,7 +65,7 @@ Recipes: ${JSON.stringify(recipeList)}`
 
   try {
     const raw = await callLLMNonStreaming(systemMessage, userMessage)
-    const parsed = JSON.parse(raw.trim()) as { recipe_id: string | null }
+    const parsed = parseLLMJson<{ recipe_id: string | null }>(raw)
     const matchedId = parsed.recipe_id
 
     if (!matchedId) {
