@@ -60,12 +60,12 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
       // Use upsert with ignoreDuplicates to handle ON CONFLICT DO NOTHING
       await db
         .from('custom_tags')
-        .upsert(tagPayload as any, { onConflict: 'user_id,name', ignoreDuplicates: true }) // scopeInsert returns Record<string,unknown>; fields are correct
+        .upsert(tagPayload, { onConflict: 'user_id,name', ignoreDuplicates: true })
     }
 
     const allTags = [...firstClassTags, ...normalizedCustomTags]
 
-    const recipePayload: Record<string, unknown> = {
+    const recipePayload = {
       title:                 recipe.title.trim(),
       category:              recipe.category ?? 'main_dish',
       ingredients:           recipe.ingredients,
@@ -107,7 +107,7 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
     } else {
       // Insert as new recipe (keep_both or no duplicate action)
       const insertPayload = scopeInsert(user.id, ctx, recipePayload)
-      const { error } = await db.from('recipes').insert(insertPayload as any) // scopeInsert returns Record<string,unknown>; all required fields are present
+      const { error } = await db.from('recipes').insert(insertPayload)
 
       if (error) {
         console.error('[import/save] Insert failed:', error)
