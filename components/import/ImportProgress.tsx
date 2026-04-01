@@ -2,7 +2,8 @@
 
 import { useEffect, useRef } from 'react'
 import type { ImportResult } from '@/types'
-import type { JobResult } from '@/app/api/import/urls/route'
+import type { JobResult } from '@/app/api/import/job-store'
+import { getAccessToken } from '@/lib/supabase/browser'
 
 interface Props {
   jobId:      string
@@ -58,7 +59,10 @@ export default function ImportProgress({ jobId, onComplete }: Props) {
   useEffect(() => {
     async function poll() {
       try {
-        const res = await fetch(`/api/import/${jobId}`)
+        const token = await getAccessToken()
+        const res = await fetch(`/api/import/${jobId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
         if (!res.ok) return
 
         const data = await res.json() as {

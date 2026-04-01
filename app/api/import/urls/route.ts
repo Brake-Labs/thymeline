@@ -5,32 +5,10 @@ import { detectDuplicates } from '@/lib/import/detect-duplicates'
 import { scrapeRecipe } from '@/lib/scrape-recipe'
 import type { HouseholdContext, ParsedRecipe } from '@/types'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { importJobs } from '../job-store'
+import type { JobResultStatus, ImportJob } from '../job-store'
 
-// ─── In-memory job storage ──────────────────────────────────────────────────
-//
-// NOTE: Module-level state does NOT persist across serverless function
-// invocations on Vercel. This is accepted for v1. In local dev (Node.js
-// server mode), jobs persist correctly for the lifetime of the server process.
-
-export type JobResultStatus = 'pending' | 'success' | 'partial' | 'failed'
-
-export interface JobResult {
-  url:        string
-  status:     JobResultStatus
-  recipe?:    ParsedRecipe
-  error?:     string
-  duplicate?: { recipe_id: string; recipe_title: string }
-}
-
-export interface ImportJob {
-  userId:    string
-  total:     number
-  completed: number
-  results:   JobResult[]
-  createdAt: number
-}
-
-export const importJobs = new Map<string, ImportJob>()
+export type { JobResultStatus, JobResult, ImportJob } from '../job-store'
 
 const JOB_TTL_MS = 30 * 60 * 1000 // 30 minutes
 

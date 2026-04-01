@@ -2,10 +2,11 @@
 /**
  * Tests for import UI components
  * Covers spec-17 test cases: T01, T02, T08, T14, T15, T17, T18, T24, T26, T27
+ * Regression: hotfix/import-urls-auth — all fetch calls must include Authorization header
  */
 
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 
 // ── T01 — Import page renders source tabs ─────────────────────────────────────
 
@@ -384,5 +385,64 @@ describe('DuplicateActions', () => {
     render(<DuplicateActions result={result} onChange={onChange} />)
     fireEvent.click(screen.getByText('Skip'))
     expect(onChange).toHaveBeenCalledWith('skip')
+  })
+})
+
+// ── Regression: hotfix/import-urls-auth — fetch calls include Authorization header ──
+
+vi.mock('@/lib/supabase/browser', () => ({
+  getAccessToken: vi.fn().mockResolvedValue('test-token'),
+}))
+
+describe('ImportWizard auth headers (regression: hotfix/import-urls-auth)', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok:   true,
+      json: async () => ({ job_id: 'job-1', total: 1 }),
+    }))
+  })
+
+  it('POST /api/import/urls fetch includes Authorization header', async () => {
+    const { default: ImportWizard } = await import('../ImportWizard')
+
+    const { unmount } = render(<ImportWizard />)
+
+    const textarea = screen.getByRole('textbox')
+    fireEvent.change(textarea, { target: { value: 'https://example.com/recipe' } })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Start Import' }))
+    })
+
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      '/api/import/urls',
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer test-token' }),
+      }),
+    )
+    unmount()
+  })
+})
+
+describe('ImportProgress auth headers (regression: hotfix/import-urls-auth)', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok:   true,
+      json: async () => ({ job_id: 'job-1', total: 1, completed: 0, results: [] }),
+    }))
+  })
+
+  it('polling GET /api/import/:job_id includes Authorization header', async () => {
+    const { default: ImportProgress } = await import('../ImportProgress')
+
+    await act(async () => {
+      render(<ImportProgress jobId="job-abc" onComplete={vi.fn()} />)
+    })
+
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      '/api/import/job-abc',
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer test-token' }),
+      }),
+    )
   })
 })
