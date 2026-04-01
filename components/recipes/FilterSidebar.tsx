@@ -245,7 +245,7 @@ export default function FilterSidebar({ filters, onChange, onClearAll, vaultTags
 
       {/* Custom tags */}
       {otherTags.length > 0 && (
-        <Section title="Other" count={filters.tags.filter((t) => otherTags.includes(t)).length}>
+        <Section title="Your tags" count={filters.tags.filter((t) => otherTags.includes(t)).length}>
           <TagPills tags={otherTags} activeSet={filters.tags} />
         </Section>
       )}

@@ -37,7 +37,7 @@ function groupTags(tags: string[]): { label: string; tags: string[] }[] {
   if (seasonal.length) groups.push({ label: 'Seasonal', tags: seasonal })
   if (cuisine.length)  groups.push({ label: 'Cuisine',  tags: cuisine })
   if (protein.length)  groups.push({ label: 'Protein',  tags: protein })
-  if (custom.length)   groups.push({ label: 'Custom',   tags: custom })
+  if (custom.length)   groups.push({ label: 'Your tags', tags: custom })
   return groups
 }
 
