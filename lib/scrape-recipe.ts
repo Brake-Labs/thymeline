@@ -1,7 +1,7 @@
 import 'server-only'
 
 import FirecrawlApp from 'firecrawl'
-import { callLLM, LLM_MODEL_FAST } from '@/lib/llm'
+import { callLLM, LLM_MODEL_FAST, LLMError } from '@/lib/llm'
 import { scopeQuery } from '@/lib/household'
 import { FIRST_CLASS_TAGS } from '@/lib/tags'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -26,19 +26,29 @@ export interface ScrapeRecipeResult {
   stepPhotos:          { stepIndex: number; imageUrl: string }[]
 }
 
+export interface ScrapeRecipeError {
+  error:         string
+  code?:         string
+  retryAfterMs?: number
+}
+
 /**
  * Core recipe scraping logic — shared between POST /api/recipes/scrape and
  * the background URL importer in POST /api/import/urls.
  *
  * Returns null on hard failures (Firecrawl unavailable, etc.) so callers can
  * decide how to surface the error.
+ *
+ * @param options.compact - When true, truncates page content to 8000 chars
+ *   instead of 20000. Use for bulk import to reduce LLM token usage.
  */
 export async function scrapeRecipe(
-  rawUrl:  string,
-  userId:  string,
-  db:      SupabaseClient,
-  ctx:     HouseholdContext | null,
-): Promise<ScrapeRecipeResult | { error: string }> {
+  rawUrl:   string,
+  userId:   string,
+  db:       SupabaseClient,
+  ctx:      HouseholdContext | null,
+  options?: { compact?: boolean },
+): Promise<ScrapeRecipeResult | ScrapeRecipeError> {
   const firecrawlKey = process.env.FIRECRAWL_API_KEY
   if (!firecrawlKey) {
     return { error: 'Scraping service not configured' }
@@ -61,6 +71,7 @@ export async function scrapeRecipe(
   const userCustomTags: string[] = (userCustomTagRows ?? []).map((t: { name: string }) => t.name)
 
   // Extract recipe data via LLM
+  const contentLimit = options?.compact ? 8000 : 20000
   const firstClassList = FIRST_CLASS_TAGS.join(', ')
   const extractionPrompt = `You are a recipe extraction assistant. Extract recipe information from the following web page content and return ONLY a JSON object with no markdown formatting.
 
@@ -83,7 +94,7 @@ If a field cannot be found, set it to null (or [] for arrays). Do not invent dat
 Note: cooking steps may appear after a long ingredients list or narrative content. Look for sections labeled "Instructions", "Directions", "Method", or "Steps".
 
 Page content:
-${pageContent.slice(0, 20000)}`
+${pageContent.slice(0, contentLimit)}`
 
   type StepPhoto = { stepIndex: number; imageUrl: string }
 
@@ -146,6 +157,12 @@ ${pageContent.slice(0, 20000)}`
         : [],
     }
   } catch (err) {
+    if (err instanceof LLMError && err.code === 'rate_limit') {
+      const cause = err.cause as { headers?: { get: (key: string) => string | null } } | undefined
+      const retryAfterHeader = cause?.headers?.get('retry-after')
+      const retryAfterMs = retryAfterHeader ? parseInt(retryAfterHeader, 10) * 1000 : undefined
+      return { error: 'Rate limited by LLM provider', code: 'rate_limit', retryAfterMs }
+    }
     console.error('[scrapeRecipe] LLM extraction error:', err)
     // Continue with null fields — caller will mark as partial
   }
