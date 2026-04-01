@@ -232,6 +232,51 @@ describe('TagBucketPicker - limited Selected section', () => {
   })
 })
 
+// ── "Your tags" group for custom tags ────────────────────────────────────────
+
+describe('TagBucketPicker - "Your tags" group for custom tags', () => {
+  it('shows "Your tags" group label when a non-first-class tag is in available', () => {
+    render(
+      <TagBucketPicker
+        bucket="preferred"
+        selected={[]}
+        available={['MyCustomTag']}
+        onChange={vi.fn()}
+      />
+    )
+    expect(screen.getByText('Your tags')).toBeInTheDocument()
+    expect(screen.getByText('MyCustomTag')).toBeInTheDocument()
+  })
+
+  it('custom tag in limited bucket can be selected and appears in Selected section', () => {
+    const onChange = vi.fn()
+    render(
+      <TagBucketPicker
+        bucket="limited"
+        selected={[]}
+        selectedLimited={[]}
+        available={['MyCustomTag']}
+        onChange={onChange}
+      />
+    )
+    expect(screen.getByText('Your tags')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('MyCustomTag'))
+    expect(onChange).toHaveBeenCalledWith([{ tag: 'MyCustomTag', cap: 2 }])
+  })
+
+  it('does not show "Your tags" group when only first-class tags are available', () => {
+    render(
+      <TagBucketPicker
+        bucket="preferred"
+        selected={[]}
+        available={['Quick', 'Chicken']}
+        onChange={vi.fn()}
+      />
+    )
+    expect(screen.queryByText('Your tags')).not.toBeInTheDocument()
+  })
+})
+
 describe('TagBucketPicker - avoided bucket', () => {
   it('renders available tags', () => {
     render(

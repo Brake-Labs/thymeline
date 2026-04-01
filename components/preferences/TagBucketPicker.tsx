@@ -44,7 +44,7 @@ function groupTagsIntoSections(tags: string[]): { label: string; tags: string[] 
     const t = buckets.get(label)!
     if (t.length > 0) result.push({ label, tags: t })
   }
-  if (custom.length > 0) result.push({ label: 'Custom', tags: custom })
+  if (custom.length > 0) result.push({ label: 'Your tags', tags: custom })
   return result
 }
 
