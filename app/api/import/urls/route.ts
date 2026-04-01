@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { parseBody, importUrlsSchema } from '@/lib/schemas'
 import { detectDuplicates } from '@/lib/import/detect-duplicates'
+import { scrapeRecipe } from '@/lib/scrape-recipe'
 import type { HouseholdContext, ParsedRecipe } from '@/types'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
@@ -75,35 +76,16 @@ async function scrapeUrl(
 
   await acquire()
   try {
-    // Call the scrape API route logic directly
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
-    const response = await fetch(`${baseUrl}/api/recipes/scrape`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        // Bypass auth by passing a server-to-server marker
-        // The internal caller injects the user context below instead.
-        'x-internal-import': 'true',
-      },
-      body: JSON.stringify({ url }),
-    })
+    const data = await scrapeRecipe(url, userId, db, ctx)
 
-    if (!response.ok) {
-      const errData = await response.json().catch(() => ({})) as { error?: string }
+    if ('error' in data) {
       const job2 = importJobs.get(jobId)
       if (job2 && resultIdx >= 0) {
-        job2.results[resultIdx] = {
-          url,
-          status: 'failed',
-          error: errData.error ?? `HTTP ${response.status}`,
-        }
+        job2.results[resultIdx] = { url, status: 'failed', error: data.error }
         job2.completed++
       }
       return
     }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const data = await response.json() as any
 
     const recipe: ParsedRecipe = {
       title:                 data.title ?? '(untitled)',

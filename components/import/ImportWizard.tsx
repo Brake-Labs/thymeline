@@ -232,7 +232,7 @@ export default function ImportWizard() {
         <div className="mb-8">
           <h1 className="text-2xl font-semibold text-stone-800">Import Recipes</h1>
           <p className="text-stone-500 mt-1 text-sm">
-            Add your existing recipe library to Thymeline.
+            Add your existing recipe library to Forkcast.
           </p>
         </div>
       )}
