@@ -129,18 +129,29 @@ describe('LogDateSection - Pick a date', () => {
   })
 
   it('logs the picked date when Log is clicked', async () => {
-    mockFetch.mockResolvedValueOnce(makeLogResponse(false, '2025-11-01'))
-
     render(<LogDateSection {...defaultProps} />)
     fireEvent.click(screen.getByRole('button', { name: 'Pick a date' }))
 
-    const dateInput = screen.getByDisplayValue('')
-    fireEvent.change(dateInput, { target: { value: '2025-11-01' } })
+    // Open the custom DateInput calendar
+    const calendarTrigger = screen
+      .getAllByRole('button')
+      .find((btn) => btn.getAttribute('aria-haspopup') === 'dialog')!
+    fireEvent.click(calendarTrigger)
+
+    // Pick the first non-disabled day from the calendar grid
+    const dayButtons = screen
+      .getAllByRole('button')
+      .filter((btn) => /^\d{4}-\d{2}-\d{2}$/.test(btn.getAttribute('aria-label') ?? ''))
+    const firstEnabled = dayButtons.find((btn) => !btn.hasAttribute('disabled'))!
+    const pickedISO = firstEnabled.getAttribute('aria-label')!
+    fireEvent.click(firstEnabled)
+
+    // Log button is now enabled; click it
     fireEvent.click(screen.getByRole('button', { name: 'Log' }))
 
     await waitFor(() => {
       const [, opts] = mockFetch.mock.calls[0]!
-      expect(JSON.parse(opts.body).made_on).toBe('2025-11-01')
+      expect(JSON.parse(opts.body).made_on).toBe(pickedISO)
     })
   })
 

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import TagSelector, { type PendingNewTag } from './TagSelector'
 import { CATEGORY_OPTIONS } from '@/lib/category-labels'
 import { getTodayISO } from '@/lib/date-utils'
+import DateInput from '@/components/ui/DateInput'
 
 export interface RecipeFormValues {
   title: string
@@ -222,12 +223,11 @@ export default function RecipeForm({
         <label className="block text-sm font-medium text-stone-700 mb-1">
           Last made <span className="text-stone-400 font-normal">(optional)</span>
         </label>
-        <input
-          type="date"
+        <DateInput
           value={values.lastMade}
-          onChange={(e) => set('lastMade', e.target.value)}
+          onChange={(v) => set('lastMade', v)}
           max={getTodayISO()}
-          className="w-full bg-[#FFFDF9] border border-stone-200 rounded-[4px] px-2 py-1.5 font-sans text-[13px] text-sage-900 accent-[#4A7C59] focus:outline-none focus:ring-2 focus:ring-sage-500"
+          className="w-full"
         />
       </div>
 

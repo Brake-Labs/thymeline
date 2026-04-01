@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { getTodayISO, addDays } from '@/lib/date-utils'
+import DateInput from '@/components/ui/DateInput'
 import { TOAST_DURATION_MS } from '@/lib/constants'
 
 interface LogDateSectionProps {
@@ -89,12 +90,11 @@ export default function LogDateSection({
           </button>
         ) : (
           <div className="flex items-center gap-2">
-            <input
-              type="date"
+            <DateInput
               value={pickedDate}
-              onChange={(e) => setPickedDate(e.target.value)}
+              onChange={setPickedDate}
               max={getToday()}
-              className="bg-[#FFFDF9] border border-stone-200 rounded-[4px] px-2 py-1.5 font-sans text-[13px] text-sage-900 accent-[#4A7C59] focus:outline-none focus:ring-2 focus:ring-sage-500"
+              placeholder="Pick a date"
             />
             <button
               onClick={() => { if (pickedDate) logDate(pickedDate) }}
