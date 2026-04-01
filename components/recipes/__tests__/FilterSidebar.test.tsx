@@ -75,3 +75,144 @@ describe('FilterSidebar - "Your tags" section', () => {
     expect(screen.getByRole('button', { name: 'MyCustomTag' })).toBeInTheDocument()
   })
 })
+
+// ── "Your tags" delete flow ───────────────────────────────────────────────────
+
+describe('FilterSidebar - "Your tags" delete flow', () => {
+  it('× button does NOT render when onDeleteTag is not provided', () => {
+    render(
+      <FilterSidebar
+        filters={emptyFilters}
+        onChange={vi.fn()}
+        onClearAll={vi.fn()}
+        vaultTags={['MyCustomTag']}
+        activeCount={0}
+      />
+    )
+    expect(screen.queryByLabelText('Delete tag MyCustomTag')).not.toBeInTheDocument()
+  })
+
+  it('× button renders when onDeleteTag is provided', () => {
+    render(
+      <FilterSidebar
+        filters={emptyFilters}
+        onChange={vi.fn()}
+        onClearAll={vi.fn()}
+        vaultTags={['MyCustomTag']}
+        activeCount={0}
+        onDeleteTag={vi.fn()}
+      />
+    )
+    expect(screen.getByLabelText('Delete tag MyCustomTag')).toBeInTheDocument()
+  })
+
+  it('clicking × shows confirmation panel with Delete and Cancel', () => {
+    render(
+      <FilterSidebar
+        filters={emptyFilters}
+        onChange={vi.fn()}
+        onClearAll={vi.fn()}
+        vaultTags={['MyCustomTag']}
+        activeCount={0}
+        onDeleteTag={vi.fn()}
+      />
+    )
+    fireEvent.click(screen.getByLabelText('Delete tag MyCustomTag'))
+    expect(screen.getByText(/Delete \u201cMyCustomTag\u201d from all recipes/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
+  })
+
+  it('clicking × again on the same tag hides the confirmation', () => {
+    render(
+      <FilterSidebar
+        filters={emptyFilters}
+        onChange={vi.fn()}
+        onClearAll={vi.fn()}
+        vaultTags={['MyCustomTag']}
+        activeCount={0}
+        onDeleteTag={vi.fn()}
+      />
+    )
+    fireEvent.click(screen.getByLabelText('Delete tag MyCustomTag'))
+    expect(screen.getByText(/Delete \u201cMyCustomTag\u201d from all recipes/)).toBeInTheDocument()
+    fireEvent.click(screen.getByLabelText('Delete tag MyCustomTag'))
+    expect(screen.queryByText(/Delete \u201cMyCustomTag\u201d from all recipes/)).not.toBeInTheDocument()
+  })
+
+  it('clicking Cancel hides confirmation without calling onDeleteTag', () => {
+    const onDeleteTag = vi.fn()
+    render(
+      <FilterSidebar
+        filters={emptyFilters}
+        onChange={vi.fn()}
+        onClearAll={vi.fn()}
+        vaultTags={['MyCustomTag']}
+        activeCount={0}
+        onDeleteTag={onDeleteTag}
+      />
+    )
+    fireEvent.click(screen.getByLabelText('Delete tag MyCustomTag'))
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(onDeleteTag).not.toHaveBeenCalled()
+    expect(screen.queryByText(/Delete \u201cMyCustomTag\u201d from all recipes/)).not.toBeInTheDocument()
+  })
+
+  it('clicking Delete calls onDeleteTag with the tag name', async () => {
+    const onDeleteTag = vi.fn().mockResolvedValue(undefined)
+    render(
+      <FilterSidebar
+        filters={emptyFilters}
+        onChange={vi.fn()}
+        onClearAll={vi.fn()}
+        vaultTags={['MyCustomTag']}
+        activeCount={0}
+        onDeleteTag={onDeleteTag}
+      />
+    )
+    fireEvent.click(screen.getByLabelText('Delete tag MyCustomTag'))
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    await vi.waitFor(() => expect(onDeleteTag).toHaveBeenCalledWith('MyCustomTag'))
+  })
+
+  it('deleting an active filter calls onChange to remove it from filter state', async () => {
+    const onChange = vi.fn()
+    const onDeleteTag = vi.fn().mockResolvedValue(undefined)
+    render(
+      <FilterSidebar
+        filters={{ ...emptyFilters, tags: ['MyCustomTag'] }}
+        onChange={onChange}
+        onClearAll={vi.fn()}
+        vaultTags={['MyCustomTag']}
+        activeCount={1}
+        onDeleteTag={onDeleteTag}
+      />
+    )
+    fireEvent.click(screen.getByLabelText('Delete tag MyCustomTag'))
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    await vi.waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith(
+        expect.objectContaining({ tags: [] }),
+      )
+    )
+  })
+
+  it('deleting an inactive filter does NOT call onChange', async () => {
+    const onChange = vi.fn()
+    const onDeleteTag = vi.fn().mockResolvedValue(undefined)
+    render(
+      <FilterSidebar
+        filters={emptyFilters}
+        onChange={onChange}
+        onClearAll={vi.fn()}
+        vaultTags={['MyCustomTag']}
+        activeCount={0}
+        onDeleteTag={onDeleteTag}
+      />
+    )
+    fireEvent.click(screen.getByLabelText('Delete tag MyCustomTag'))
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    await vi.waitFor(() => expect(onDeleteTag).toHaveBeenCalled())
+    expect(onChange).not.toHaveBeenCalled()
+  })
+})
