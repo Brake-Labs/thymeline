@@ -109,9 +109,11 @@ export default function ImportProgress({ jobId, onComplete }: Props) {
       <div>
         <div className="flex items-center justify-between text-sm text-stone-600 mb-1">
           <span>
-            {isDone
-              ? 'Import complete'
-              : `Importing ${completed} of ${total} recipes…`}
+            {total === 0
+              ? 'Waiting for results…'
+              : isDone
+                ? 'Import complete'
+                : `Importing ${completed} of ${total} recipes…`}
           </span>
           <span>{pct}%</span>
         </div>
@@ -140,7 +142,7 @@ export default function ImportProgress({ jobId, onComplete }: Props) {
             )}
           </div>
         ))}
-        {results.length === 0 && (
+        {results.length === 0 && total > 0 && (
           <div className="px-3 py-4 text-sm text-stone-400 text-center">
             Waiting for results…
           </div>
