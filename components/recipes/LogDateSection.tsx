@@ -57,11 +57,11 @@ export default function LogDateSection({
   }
 
   if (status === 'success') {
-    return <p className="text-sm text-green-600 font-medium">✓ Logged!</p>
+    return <p className="text-sm text-sage-600 font-medium">✓ Logged!</p>
   }
 
   if (status === 'already_logged') {
-    return <p className="text-sm text-yellow-600 font-medium">Already logged for that day</p>
+    return <p className="text-sm text-stone-500 font-medium">Already logged for that day</p>
   }
 
   const disabled = status === 'loading'
@@ -105,7 +105,7 @@ export default function LogDateSection({
             </button>
             <button
               onClick={() => { setStatus('idle'); setPickedDate('') }}
-              className="font-sans text-xs text-stone-400 hover:text-stone-600"
+              className="text-xs text-stone-400 hover:text-stone-600"
             >
               Cancel
             </button>

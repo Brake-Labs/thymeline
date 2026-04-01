@@ -11,7 +11,7 @@ export function renderHighlighted(text: string, highlights: HighlightRange[]): R
   highlights.forEach((h, i) => {
     if (h.start > cursor) nodes.push(text.slice(cursor, h.start))
     nodes.push(
-      <span key={i} className="font-medium text-[#C97D4E]">
+      <span key={i} className="font-medium text-terra-500">
         {text.slice(h.start, h.end)}
       </span>,
     )

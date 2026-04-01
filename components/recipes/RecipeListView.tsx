@@ -107,7 +107,7 @@ export default function RecipeListView({
                 <td className="py-3 pr-4 w-52 min-w-0">
                   <Link
                     href={`/recipes/${recipe.id}`}
-                    className="font-medium text-[#1F2D26] hover:text-sage-700 truncate block"
+                    className="font-medium text-sage-900 hover:text-sage-700 truncate block"
                   >
                     {recipe.title}
                   </Link>

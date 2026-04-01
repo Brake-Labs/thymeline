@@ -11,7 +11,7 @@ export function HouseholdPageContent() {
   const [busy, setBusy] = useState(false)
 
   if (loading) {
-    return <div className="p-6 text-sm text-gray-500">Loading…</div>
+    return <div className="p-6 text-sm text-stone-500">Loading…</div>
   }
 
   // ── Solo user — no household yet ─────────────────────────────────────────
@@ -19,19 +19,19 @@ export function HouseholdPageContent() {
     return (
       <div className="p-6 max-w-lg space-y-6">
         <h1 className="text-xl font-semibold">Household</h1>
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-stone-600">
           Create a household to share recipes, meal plans, pantry, and grocery lists with family or housemates.
         </p>
 
         <div className="space-y-3">
-          <label className="block text-sm font-medium text-gray-700">
+          <label className="block text-sm font-medium text-stone-700">
             Household name
             <input
               type="text"
               value={householdName}
               onChange={(e) => setHouseholdName(e.target.value)}
               placeholder="e.g. The Smiths"
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="mt-1 block w-full rounded-md border border-stone-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500"
             />
           </label>
           {error && <p className="text-sm text-red-600">{error}</p>}
@@ -56,7 +56,7 @@ export function HouseholdPageContent() {
                 setBusy(false)
               }
             }}
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            className="rounded-md bg-sage-500 px-4 py-2 text-sm font-medium text-white hover:bg-sage-600 disabled:opacity-50"
           >
             {busy ? 'Creating…' : 'Create household'}
           </button>
@@ -73,19 +73,19 @@ export function HouseholdPageContent() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">{household.name}</h1>
         {ctx?.role && (
-          <span className="text-xs text-gray-500 capitalize">{ctx.role.replace('_', ' ')}</span>
+          <span className="text-xs text-stone-500 capitalize">{ctx.role.replace('_', ' ')}</span>
         )}
       </div>
 
       {/* Members list */}
       <section className="space-y-2">
-        <h2 className="text-sm font-medium text-gray-700">Members</h2>
-        <ul className="divide-y divide-gray-100 rounded-md border border-gray-200">
+        <h2 className="text-sm font-medium text-stone-700">Members</h2>
+        <ul className="divide-y divide-stone-100 rounded-md border border-stone-200">
           {members.map((m) => (
             <li key={m.user_id} className="flex items-center justify-between px-4 py-3">
               <div>
                 <p className="text-sm font-medium">{m.display_name ?? m.email ?? m.user_id}</p>
-                <p className="text-xs text-gray-500 capitalize">{m.role.replace('_', ' ')}</p>
+                <p className="text-xs text-stone-500 capitalize">{m.role.replace('_', ' ')}</p>
               </div>
               {/* Remove member — owner/co_owner only, cannot remove owner */}
               {isOwnerOrCoOwner && m.role !== 'owner' && ctx?.role === 'owner' && (
@@ -108,16 +108,16 @@ export function HouseholdPageContent() {
       {/* Invite link */}
       {isOwnerOrCoOwner && (
         <section className="space-y-2">
-          <h2 className="text-sm font-medium text-gray-700">Invite someone</h2>
+          <h2 className="text-sm font-medium text-stone-700">Invite someone</h2>
           {inviteUrl ? (
             <div className="space-y-2">
               <input
                 readOnly
                 value={inviteUrl}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm bg-gray-50"
+                className="w-full rounded-md border border-stone-300 px-3 py-2 text-sm bg-stone-50"
                 onClick={(e) => (e.target as HTMLInputElement).select()}
               />
-              <p className="text-xs text-gray-500">Share this link — it expires in 7 days and can only be used once.</p>
+              <p className="text-xs text-stone-500">Share this link — it expires in 7 days and can only be used once.</p>
             </div>
           ) : (
             <button
@@ -138,7 +138,7 @@ export function HouseholdPageContent() {
                   setBusy(false)
                 }
               }}
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              className="rounded-md bg-sage-500 px-4 py-2 text-sm font-medium text-white hover:bg-sage-600 disabled:opacity-50"
             >
               {busy ? 'Generating…' : 'Generate invite link'}
             </button>

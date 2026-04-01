@@ -59,7 +59,7 @@ export default function InlineTagEditor({
           value=""
           onChange={(e) => { if (e.target.value) patchTags([...tags, e.target.value]) }}
           disabled={busy}
-          className="border border-gray-300 rounded px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="border border-stone-300 rounded px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-sage-500"
           aria-label="Add tag"
         >
           <option value="">Add tag…</option>

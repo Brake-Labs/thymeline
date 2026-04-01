@@ -19,16 +19,16 @@ interface DiscoveryResultsProps {
 
 function SkeletonCard() {
   return (
-    <div className="bg-[#FFFDF9] border border-[#D4C9BA] rounded-lg overflow-hidden animate-pulse">
+    <div className="bg-stone-50 border border-stone-200 rounded-lg overflow-hidden animate-pulse">
       <div className="h-[3px] bg-sage-200" />
       <div className="p-4 space-y-3">
-        <div className="h-3 bg-gray-200 rounded w-1/3" />
-        <div className="h-4 bg-gray-200 rounded w-3/4" />
-        <div className="h-4 bg-gray-200 rounded w-1/2" />
-        <div className="h-10 bg-gray-100 rounded" />
+        <div className="h-3 bg-stone-200 rounded w-1/3" />
+        <div className="h-4 bg-stone-200 rounded w-3/4" />
+        <div className="h-4 bg-stone-200 rounded w-1/2" />
+        <div className="h-10 bg-stone-100 rounded" />
         <div className="flex gap-2 pt-2">
-          <div className="h-8 bg-gray-200 rounded flex-1" />
-          <div className="h-8 bg-gray-100 rounded w-20" />
+          <div className="h-8 bg-stone-200 rounded flex-1" />
+          <div className="h-8 bg-stone-100 rounded w-20" />
         </div>
       </div>
     </div>
@@ -72,12 +72,12 @@ export default function DiscoveryResults({
   if (visibleResults.length === 0) {
     if (siteFilter) {
       return (
-        <div className="py-8 text-center text-sm text-gray-600 space-y-3">
+        <div className="py-8 text-center text-sm text-stone-600 space-y-3">
           <p>No results found on {siteFilter} — try searching the whole web</p>
           <button
             type="button"
             onClick={onClearSiteFilter}
-            className="text-[#4A7C59] hover:underline font-medium"
+            className="text-sage-500 hover:underline font-medium"
           >
             Search all sites
           </button>
@@ -85,7 +85,7 @@ export default function DiscoveryResults({
       )
     }
     return (
-      <p className="py-8 text-center text-sm text-gray-500">
+      <p className="py-8 text-center text-sm text-stone-500">
         No recipes found — try a different search
       </p>
     )

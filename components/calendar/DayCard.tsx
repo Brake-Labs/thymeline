@@ -40,7 +40,7 @@ export default function DayCard({ date, entries, isExpanded, onToggle, onAddEntr
             {getDayAbbrev(date)}
           </p>
           <p className={`text-lg font-display font-bold leading-tight mt-0.5 ${
-            isExpanded ? 'text-[#FFFDF9]' : today ? 'text-sage-500' : 'text-sage-900'
+            isExpanded ? 'text-stone-50' : today ? 'text-sage-500' : 'text-sage-900'
           }`}>
             {getMonthDay(date)}
           </p>

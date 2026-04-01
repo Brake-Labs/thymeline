@@ -55,15 +55,14 @@ export default function ScrollStepView({
               <img
                 src={photo.imageUrl}
                 alt={`Step ${i + 1}`}
-                className="w-full rounded-lg object-cover mb-3"
-                style={{ maxHeight: 240 }}
+                className="w-full rounded-lg object-cover mb-3 max-h-60"
               />
             )}
             <div className="flex items-start gap-3">
               <span className="flex-shrink-0 w-6 h-6 rounded-full bg-sage-500 flex items-center justify-center text-white text-xs font-semibold">
                 {i + 1}
               </span>
-              <p className="text-[#3D3028] text-sm leading-relaxed">
+              <p className="text-stone-800 text-sm leading-relaxed">
                 {renderHighlighted(stepText, highlights)}
               </p>
             </div>

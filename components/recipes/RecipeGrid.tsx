@@ -13,7 +13,7 @@ interface RecipeGridProps {
 
 function SkeletonCard() {
   return (
-    <div className="flex flex-col bg-[#FFFDF9] rounded border border-[#D4C9BA] overflow-hidden animate-pulse">
+    <div className="flex flex-col bg-stone-50 rounded border border-stone-200 overflow-hidden animate-pulse">
       <div className="h-[3px] bg-stone-200" />
       <div className="p-4 flex-1 space-y-2">
         <div className="h-2 bg-stone-200 rounded w-1/3" />
@@ -24,7 +24,7 @@ function SkeletonCard() {
           <div className="h-4 bg-stone-200 rounded-full w-16" />
         </div>
       </div>
-      <div className="h-7 bg-stone-100 border-t border-dashed border-[#D4C9BA]" />
+      <div className="h-7 bg-stone-100 border-t border-dashed border-stone-200" />
     </div>
   )
 }

@@ -33,7 +33,7 @@ export default function BulkTagModal({ selectedCount, onConfirm, onClose }: Bulk
       <div className="bg-white rounded-lg shadow-xl w-full max-w-xl max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h2 className="font-display text-base font-semibold text-[#1F2D26]">
+          <h2 className="font-display text-base font-semibold text-sage-900">
             Add tags to {selectedCount} recipe{selectedCount !== 1 ? 's' : ''}
           </h2>
           <button

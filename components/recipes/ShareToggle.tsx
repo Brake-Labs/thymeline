@@ -46,8 +46,8 @@ export default function ShareToggle({
         aria-checked={isShared}
         onClick={handleToggle}
         disabled={busy}
-        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:opacity-50 ${
-          isShared ? 'bg-blue-600' : 'bg-gray-300'
+        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-sage-500 focus:ring-offset-1 disabled:opacity-50 ${
+          isShared ? 'bg-sage-500' : 'bg-stone-300'
         }`}
       >
         <span
@@ -56,7 +56,7 @@ export default function ShareToggle({
           }`}
         />
       </button>
-      <span className="text-sm text-gray-700">Share with Thymeline community</span>
+      <span className="text-sm text-stone-700">Share with Thymeline community</span>
     </label>
   )
 }

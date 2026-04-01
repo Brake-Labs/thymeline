@@ -122,7 +122,7 @@ export default function RecipeDetailPage({ params }: Props) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-8">
         <p className="text-red-500 text-sm">{fetchError}</p>
-        <Link href="/recipes" className="text-blue-600 hover:underline text-sm mt-2 inline-block">
+        <Link href="/recipes" className="text-sage-500 hover:underline text-sm mt-2 inline-block">
           ← Back to recipes
         </Link>
       </div>
@@ -133,7 +133,7 @@ export default function RecipeDetailPage({ params }: Props) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-8">
         <p className="text-stone-500">Recipe not found.</p>
-        <Link href="/recipes" className="text-blue-600 hover:underline text-sm mt-2 inline-block">
+        <Link href="/recipes" className="text-sage-500 hover:underline text-sm mt-2 inline-block">
           ← Back to recipes
         </Link>
       </div>

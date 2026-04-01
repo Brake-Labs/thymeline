@@ -9,7 +9,7 @@ interface BulkActionBarProps {
 
 export default function BulkActionBar({ count, onAddTags, onDelete, onCancel }: BulkActionBarProps) {
   return (
-    <div className="flex items-center justify-between px-4 py-3 rounded-lg bg-[#1F2D26] text-white text-sm">
+    <div className="flex items-center justify-between px-4 py-3 rounded-lg bg-sage-900 text-white text-sm">
       <span className="font-medium">
         {count} recipe{count !== 1 ? 's' : ''} selected
       </span>
