@@ -327,3 +327,106 @@ describe('T11 - POST /api/recipes/generate returns 500 when LLM returns unparsea
     expect(json.error).toMatch(/recipe generation failed/i)
   })
 })
+
+// ── T12: Tweak request — user message references previous recipe ───────────────
+
+describe('T12 - POST /api/recipes/generate with tweak_request references previous recipe in LLM message', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    vi.clearAllMocks()
+    mockLLMState.shouldThrow = false
+    mockLLMState.response = JSON.stringify({
+      title: 'Revised Stir Fry',
+      ingredients: 'chicken breast\nspinach',
+      steps: 'Cook chicken\nAdd spinach',
+      tags: ['Quick'],
+      category: 'main_dish',
+      servings: 4,
+      prepTimeMinutes: 10,
+      cookTimeMinutes: 20,
+      totalTimeMinutes: 30,
+      inactiveTimeMinutes: null,
+      notes: null,
+    })
+  })
+
+  it('passes tweak_request and previous_recipe in the LLM user message', async () => {
+    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createAdminClient>)
+
+    const { POST } = await import('../route')
+    await POST(makeReq({
+      ...defaultBody,
+      tweak_request: 'remove the chickpeas',
+      previous_recipe: {
+        title: 'Original Stir Fry',
+        ingredients: 'chicken breast\nchickpeas\nspinach',
+        steps: 'Cook chicken\nAdd chickpeas\nAdd spinach',
+      },
+    }) as Parameters<typeof POST>[0])
+
+    const { callLLM } = await import('@/lib/llm')
+    expect(vi.mocked(callLLM)).toHaveBeenCalled()
+    const callArgs = vi.mocked(callLLM).mock.calls[0]![0]
+    expect(callArgs.user).toContain('remove the chickpeas')
+    expect(callArgs.user).toContain('Original Stir Fry')
+    expect(callArgs.user).toContain('You previously generated this recipe')
+  })
+
+  it('returns revised recipe on success', async () => {
+    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createAdminClient>)
+
+    const { POST } = await import('../route')
+    const res = await POST(makeReq({
+      ...defaultBody,
+      tweak_request: 'add more spice',
+      previous_recipe: {
+        title: 'Original Stir Fry',
+        ingredients: 'chicken breast\nspinach',
+        steps: 'Cook chicken\nAdd spinach',
+      },
+    }) as Parameters<typeof POST>[0])
+
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.title).toBe('Revised Stir Fry')
+  })
+})
+
+// ── T13: No tweak fields → standard user message ──────────────────────────────
+
+describe('T13 - POST /api/recipes/generate without tweak fields uses standard user message', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    vi.clearAllMocks()
+    mockLLMState.shouldThrow = false
+    mockLLMState.response = JSON.stringify({
+      title: 'Chicken Stir Fry',
+      ingredients: 'chicken breast\nspinach',
+      steps: 'Cook chicken\nAdd spinach',
+      tags: [],
+      category: 'main_dish',
+      servings: 4,
+      prepTimeMinutes: 10,
+      cookTimeMinutes: 20,
+      totalTimeMinutes: 30,
+      inactiveTimeMinutes: null,
+      notes: null,
+    })
+  })
+
+  it('does not include tweak language in LLM message when no tweak fields provided', async () => {
+    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createAdminClient>)
+
+    const { POST } = await import('../route')
+    await POST(makeReq(defaultBody) as Parameters<typeof POST>[0])
+
+    const { callLLM } = await import('@/lib/llm')
+    expect(vi.mocked(callLLM)).toHaveBeenCalled()
+    const callArgs = vi.mocked(callLLM).mock.calls[0]![0]
+    expect(callArgs.user).not.toContain('You previously generated this recipe')
+    expect(callArgs.user).toContain('Generate a dinner recipe')
+  })
+})

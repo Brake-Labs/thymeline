@@ -83,6 +83,12 @@ export const generateRecipeSchema = z.object({
   meal_type: mealType,
   style_hints: z.string(),
   dietary_restrictions: z.array(z.string()),
+  tweak_request: z.string().optional(),
+  previous_recipe: z.object({
+    title: z.string(),
+    ingredients: z.string(),
+    steps: z.string(),
+  }).optional(),
 })
 
 export const bulkUpdateRecipesSchema = z.object({

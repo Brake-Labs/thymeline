@@ -31,7 +31,7 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   const { data: body, error: parseError } = await parseBody(req, generateRecipeSchema)
   if (parseError) return parseError
 
-  const { use_pantry, specific_ingredients, meal_type, style_hints, dietary_restrictions } = body
+  const { use_pantry, specific_ingredients, meal_type, style_hints, dietary_restrictions, tweak_request, previous_recipe } = body
 
   // Fetch meal context from user preferences
   let mealContext: string | null = null
@@ -100,7 +100,29 @@ Return ONLY valid JSON with no prose or markdown:
   "notes": "Optional note about the recipe"
 }`
 
-  const userMessage = `Generate a ${meal_type} recipe.
+  const userMessage = tweak_request && previous_recipe
+    ? `You previously generated this recipe:
+
+Title: ${previous_recipe.title}
+
+Ingredients:
+${previous_recipe.ingredients}
+
+Steps:
+${previous_recipe.steps}
+
+The user wants this adjustment: "${tweak_request}"
+
+Generate a revised version of the recipe that incorporates this adjustment. Keep everything else the same unless the change requires it.
+
+Original context:
+Ingredients to use:
+${combinedIngredientList}
+
+Style / cuisine hints: ${style_hints || 'none'}
+
+Dietary restrictions: ${dietary_restrictions.length > 0 ? dietary_restrictions.join(', ') : 'none'}`
+    : `Generate a ${meal_type} recipe.
 
 Ingredients to use:
 ${combinedIngredientList}
