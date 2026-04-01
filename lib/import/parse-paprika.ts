@@ -3,7 +3,7 @@ import 'server-only'
 import JSZip from 'jszip'
 import { gunzipSync } from 'zlib'
 import type { ParsedRecipe } from '@/types'
-import { FIRST_CLASS_TAGS } from '@/lib/tags'
+import { FIRST_CLASS_TAGS, BLOCKED_IMPORT_TAGS } from '@/lib/tags'
 
 function parsePaprikaTime(val: unknown): number | null {
   if (!val || typeof val !== 'string') return null
@@ -29,6 +29,7 @@ function parseTags(raw: unknown): string[] {
   if (!Array.isArray(raw)) return []
   return raw
     .filter((t): t is string => typeof t === 'string')
+    .filter((t) => !BLOCKED_IMPORT_TAGS.has(t.toLowerCase()))
     .map((t) => {
       const canonical = FIRST_CLASS_TAGS.find((ft) => ft.toLowerCase() === t.toLowerCase())
       return canonical ?? t
