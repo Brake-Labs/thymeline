@@ -474,6 +474,20 @@ describe('parseLLMJson', () => {
     const result = parseLLMJson<{ x: boolean }>('  \n  {"x": true}  \n  ')
     expect(result).toEqual({ x: true })
   })
+
+  it('extracts fenced JSON preceded by prose (regression: discover pipeline web-search response)', () => {
+    // The web search step returns a text block starting with prose before the fence.
+    // The old ^-anchored regex failed to strip the fence in this case.
+    const input = 'Here is a JSON array of 10 real sourdough recipe pages:\n```json\n[{"url":"https://example.com","title":"Sourdough"}]\n```'
+    const result = parseLLMJson<{ url: string; title: string }[]>(input)
+    expect(result).toEqual([{ url: 'https://example.com', title: 'Sourdough' }])
+  })
+
+  it('extracts fenced JSON followed by prose', () => {
+    const input = '```json\n{"a": 1}\n```\nSome trailing explanation.'
+    const result = parseLLMJson<{ a: number }>(input)
+    expect(result).toEqual({ a: 1 })
+  })
 })
 
 // ── model tier constants ──────────────────────────────────────────────────────
@@ -617,5 +631,11 @@ describe('parseLLMJsonSafe', () => {
     const result = parseLLMJsonSafe<{ days: unknown[] }>('{"days": [], "extra": true}')
     expect(result).not.toBeNull()
     expect(result!.days).toEqual([])
+  })
+
+  it('extracts fenced JSON preceded by prose (regression: discover pipeline web-search response)', () => {
+    const input = 'Here is a JSON array of results:\n```json\n[{"id":1}]\n```'
+    const result = parseLLMJsonSafe<{ id: number }[]>(input)
+    expect(result).toEqual([{ id: 1 }])
   })
 })
