@@ -11,6 +11,7 @@ import BulkTagModal from '@/components/recipes/BulkTagModal'
 import AddRecipeModal from '@/components/recipes/AddRecipeModal'
 import GenerateRecipeModal from '@/components/recipes/GenerateRecipeModal'
 import { getAccessToken, getSupabaseClient } from '@/lib/supabase/browser'
+import Link from 'next/link'
 
 const VIEW_KEY = 'thymeline:recipe-view'
 const FILTER_OPEN_KEY = 'thymeline:filter-sidebar'
@@ -415,6 +416,14 @@ export default function RecipePageContent() {
           <span className="text-sage-500">✦</span>
           Generate with AI
         </button>
+
+        {/* Import Recipes */}
+        <Link
+          href="/import"
+          className="px-4 py-2 rounded text-sm font-medium whitespace-nowrap border border-[#4A7C59] text-[#4A7C59] hover:bg-sage-50 transition-colors"
+        >
+          Import Recipes
+        </Link>
       </div>
 
       {/* Search error */}
