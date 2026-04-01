@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ImportResult } from '@/types'
 import type { JobResult } from '@/lib/import-jobs'
 import { getAccessToken } from '@/lib/supabase/browser'
@@ -8,6 +8,12 @@ import { getAccessToken } from '@/lib/supabase/browser'
 interface Props {
   jobId:      string
   onComplete: (results: ImportResult[]) => void
+}
+
+interface JobSnapshot {
+  total:     number
+  completed: number
+  results:   JobResult[]
 }
 
 function statusIcon(status: JobResult['status']): string {
@@ -48,13 +54,11 @@ function jobResultToImportResult(r: JobResult, index: number): ImportResult {
 }
 
 export default function ImportProgress({ jobId, onComplete }: Props) {
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const resultsRef = useRef<JobResult[]>([])
-  const completedRef = useRef(0)
-  const totalRef = useRef(0)
-
-  // We use a forceUpdate pattern to re-render on poll
-  const containerRef = useRef<HTMLDivElement>(null)
+  const [job, setJob] = useState<JobSnapshot>({ total: 0, completed: 0, results: [] })
+  const intervalRef  = useRef<ReturnType<typeof setInterval> | null>(null)
+  // Stable ref to onComplete so the interval callback doesn't capture a stale closure
+  const onCompleteRef = useRef(onComplete)
+  onCompleteRef.current = onComplete
 
   useEffect(() => {
     async function poll() {
@@ -65,25 +69,18 @@ export default function ImportProgress({ jobId, onComplete }: Props) {
         })
         if (!res.ok) return
 
-        const data = await res.json() as {
-          total:     number
-          completed: number
-          results:   JobResult[]
-        }
+        const data = await res.json() as JobSnapshot
 
-        resultsRef.current   = data.results
-        completedRef.current = data.completed
-        totalRef.current     = data.total
+        // Replace state with a new object so React detects the change
+        setJob({
+          total:     data.total     ?? 0,
+          completed: data.completed ?? 0,
+          results:   data.results   ?? [],
+        })
 
-        // Force re-render by updating a data attribute
-        if (containerRef.current) {
-          containerRef.current.dataset['completed'] = String(data.completed)
-        }
-
-        if (data.completed >= data.total) {
+        if ((data.completed ?? 0) >= data.total && data.total > 0) {
           if (intervalRef.current) clearInterval(intervalRef.current)
-          const importResults = data.results.map(jobResultToImportResult)
-          onComplete(importResults)
+          onCompleteRef.current(data.results.map(jobResultToImportResult))
         }
       } catch (err) {
         console.error('[ImportProgress] Poll error:', err)
@@ -96,29 +93,31 @@ export default function ImportProgress({ jobId, onComplete }: Props) {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current)
     }
-  }, [jobId, onComplete])
+  }, [jobId])
 
   function handleCancel() {
     if (intervalRef.current) clearInterval(intervalRef.current)
-    const importResults = resultsRef.current.map(jobResultToImportResult)
-    onComplete(importResults)
+    onCompleteRef.current(job.results.map(jobResultToImportResult))
   }
 
-  const completed = completedRef.current
-  const total     = totalRef.current
-  const results   = resultsRef.current
-  const pct       = total > 0 ? Math.round((completed / total) * 100) : 0
+  const { completed, total, results } = job
+  const pct      = total > 0 ? Math.round((completed / total) * 100) : 0
+  const isDone   = total > 0 && completed >= total
 
   return (
-    <div ref={containerRef} className="space-y-4">
+    <div className="space-y-4">
       <div>
         <div className="flex items-center justify-between text-sm text-stone-600 mb-1">
-          <span>Importing {completed} of {total} recipes…</span>
+          <span>
+            {isDone
+              ? 'Import complete'
+              : `Importing ${completed} of ${total} recipes…`}
+          </span>
           <span>{pct}%</span>
         </div>
         <div className="w-full bg-stone-200 rounded-full h-2">
           <div
-            className="bg-sage-500 h-2 rounded-full transition-all duration-500"
+            className={`bg-sage-500 h-2 rounded-full transition-all duration-500${isDone ? '' : ' animate-pulse'}`}
             style={{ width: `${pct}%` }}
           />
         </div>
