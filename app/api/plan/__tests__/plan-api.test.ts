@@ -24,6 +24,10 @@ const mockState = {
   entries: [] as { id?: string; planned_date: string; recipe_id: string; position: number; confirmed: boolean; meal_type?: string; is_side_dish?: boolean; parent_entry_id?: string | null; recipes: { title: string } }[],
   // Entries returned by the already-planned future dates query in suggest route
   alreadyPlannedEntries: [] as { recipe_id: string; planned_date: string }[],
+  // Per-week-start plan lookup (overrides `plan` when non-empty)
+  planByWeekStart: {} as Record<string, { id: string; week_start: string } | null>,
+  // Per-plan-id entry lookup (overrides `alreadyPlannedEntries` when non-empty)
+  entriesByPlanId: {} as Record<string, { recipe_id: string }[]>,
   llmResponse: '{"days":[]}',
   upsertPlanId: 'plan-1',
   // Simulate DB errors for save tests
@@ -68,12 +72,19 @@ function makeMockFrom(table: string) {
   if (table === 'meal_plans') {
     return {
       select: () => ({
-        eq: () => ({
-          eq: () => ({
-            single: async () => ({ data: mockState.plan, error: mockState.plan ? null : { message: 'not found' } }),
-            maybeSingle: async () => ({ data: mockState.plan, error: null }),
-          }),
-        }),
+        eq: (col: string, val: string) => {
+          const weekStart = col === 'week_start' ? val : undefined
+          const resolvePlan = () =>
+            weekStart !== undefined && Object.keys(mockState.planByWeekStart).length > 0
+              ? (mockState.planByWeekStart[weekStart] ?? null)
+              : mockState.plan
+          return {
+            eq: () => ({
+              single: async () => ({ data: resolvePlan(), error: resolvePlan() ? null : { message: 'not found' } }),
+              maybeSingle: async () => ({ data: resolvePlan(), error: null }),
+            }),
+          }
+        },
       }),
       insert: () => ({
         select: () => ({
@@ -105,10 +116,17 @@ function makeMockFrom(table: string) {
         }),
       }),
       select: () => ({
-        eq: () => ({
-          order: async () => ({ data: mockState.entries, error: null }),
-          gte: async () => ({ data: mockState.alreadyPlannedEntries, error: null }),
-        }),
+        eq: (col: string, val: string) => {
+          const planId = col === 'meal_plan_id' ? val : undefined
+          const resolveEntries = () =>
+            planId !== undefined && Object.keys(mockState.entriesByPlanId).length > 0
+              ? (mockState.entriesByPlanId[planId] ?? [])
+              : mockState.alreadyPlannedEntries
+          return {
+            order: async () => ({ data: mockState.entries, error: null }),
+            gte: async () => ({ data: resolveEntries(), error: null }),
+          }
+        },
       }),
     }
   }
@@ -193,6 +211,8 @@ beforeEach(() => {
   mockState.plan = null
   mockState.entries = []
   mockState.alreadyPlannedEntries = []
+  mockState.planByWeekStart = {}
+  mockState.entriesByPlanId = {}
   mockState.planInsertError = null
   mockState.entryInsertError = null
   mockState.llmResponse = JSON.stringify({
@@ -707,5 +727,77 @@ describe('T31 - Already-planned future recipes are excluded from suggestions', (
     const options = body.days[0].meal_types[0].options
     expect(options).toHaveLength(1)
     expect(options[0].recipe_id).toBe('r2')
+  })
+})
+
+// ── T32: Cross-week exclusion — current-week recipes not suggested for next week ─
+
+describe('T32 - Cross-week exclusion: current-week recipes excluded from next-week suggestions', () => {
+  // Today is 2026-04-01 (Wednesday). getMostRecentSunday() → '2026-03-29'.
+  // Suggesting for next week (2026-04-05).
+
+  it('excludes a recipe already planned in the current week from next-week suggestions', async () => {
+    // r1 is planned this week (plan-this); next week has no plan yet
+    mockState.planByWeekStart = {
+      '2026-03-29': { id: 'plan-this', week_start: '2026-03-29' },
+      '2026-04-05': null,
+    }
+    mockState.entriesByPlanId = {
+      'plan-this': [{ recipe_id: 'r1' }],
+    }
+
+    // LLM tries to suggest r1 for next week
+    mockState.llmResponse = JSON.stringify({
+      days: [{
+        date: '2026-04-07',
+        meal_types: [{ meal_type: 'dinner', options: [
+          { recipe_id: 'r1', recipe_title: 'Pasta', reason: 'Quick' },
+        ]}],
+      }],
+    })
+
+    const res = await suggestPOST(makeReq('POST', 'http://localhost/api/plan/suggest', {
+      week_start: '2026-04-05',
+      active_dates: ['2026-04-07'],
+      prefer_this_week: [],
+      avoid_this_week: [],
+      free_text: '',
+    }))
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    const options = body.days[0].meal_types[0].options
+    // r1 is being made this week — must not appear in next-week suggestions
+    expect(options.find((o: { recipe_id: string }) => o.recipe_id === 'r1')).toBeUndefined()
+  })
+
+  it('does not exclude a recipe when the current week has no active plan', async () => {
+    mockState.planByWeekStart = {
+      '2026-03-29': null, // no plan this week
+      '2026-04-05': null,
+    }
+    mockState.entriesByPlanId = {}
+
+    mockState.llmResponse = JSON.stringify({
+      days: [{
+        date: '2026-04-07',
+        meal_types: [{ meal_type: 'dinner', options: [
+          { recipe_id: 'r2', recipe_title: 'Tacos', reason: 'Healthy' },
+        ]}],
+      }],
+    })
+
+    const res = await suggestPOST(makeReq('POST', 'http://localhost/api/plan/suggest', {
+      week_start: '2026-04-05',
+      active_dates: ['2026-04-07'],
+      prefer_this_week: [],
+      avoid_this_week: [],
+      free_text: '',
+    }))
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    const options = body.days[0].meal_types[0].options
+    expect(options.find((o: { recipe_id: string }) => o.recipe_id === 'r2')).toBeDefined()
   })
 })
