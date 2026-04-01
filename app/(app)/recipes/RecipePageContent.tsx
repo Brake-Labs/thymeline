@@ -234,6 +234,17 @@ export default function RecipePageContent() {
     setFilters(EMPTY_FILTERS)
   }
 
+  async function handleDeleteCustomTag(tagName: string) {
+    const token = await getAccessToken()
+    const res = await fetch(`/api/tags/${encodeURIComponent(tagName)}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (res.ok || res.status === 204) {
+      await fetchRecipes()
+    }
+  }
+
   const activeFilterCount = countActiveFilters(filters)
 
   function handleSelect(id: string, selected: boolean) {
@@ -502,6 +513,7 @@ export default function RecipePageContent() {
               onClearAll={handleClearAllFilters}
               vaultTags={vaultTags}
               activeCount={activeFilterCount}
+              onDeleteTag={handleDeleteCustomTag}
             />
           </aside>
         )}

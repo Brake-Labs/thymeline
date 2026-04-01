@@ -41,6 +41,7 @@ interface Props {
   onClearAll: () => void
   vaultTags: string[]
   activeCount: number
+  onDeleteTag?: (tag: string) => Promise<void>
 }
 
 function ChevronIcon({ open }: { open: boolean }) {
@@ -96,16 +97,34 @@ function Section({
   )
 }
 
-export default function FilterSidebar({ filters, onChange, onClearAll, vaultTags, activeCount }: Props) {
+export default function FilterSidebar({ filters, onChange, onClearAll, vaultTags, activeCount, onDeleteTag }: Props) {
   const pillBase = 'px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors border'
   const pillOff = 'border-stone-200 text-stone-600 bg-white hover:border-sage-400 hover:text-sage-700'
   const pillOn = 'border-sage-500 text-white bg-sage-500'
+
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   function toggleTag(tag: string) {
     const next = filters.tags.includes(tag)
       ? filters.tags.filter((t) => t !== tag)
       : [...filters.tags, tag]
     onChange({ ...filters, tags: next })
+  }
+
+  async function handleDeleteConfirm() {
+    if (!pendingDelete || !onDeleteTag) return
+    setDeleting(true)
+    try {
+      await onDeleteTag(pendingDelete)
+      // Remove from active filters if selected
+      if (filters.tags.includes(pendingDelete)) {
+        onChange({ ...filters, tags: filters.tags.filter((t) => t !== pendingDelete) })
+      }
+    } finally {
+      setDeleting(false)
+      setPendingDelete(null)
+    }
   }
 
   function toggleCategory(cat: Recipe['category']) {
@@ -246,7 +265,53 @@ export default function FilterSidebar({ filters, onChange, onClearAll, vaultTags
       {/* Custom tags */}
       {otherTags.length > 0 && (
         <Section title="Your tags" count={filters.tags.filter((t) => otherTags.includes(t)).length}>
-          <TagPills tags={otherTags} activeSet={filters.tags} />
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-1.5">
+              {otherTags.map((tag) => (
+                <div key={tag} className="flex items-center gap-0.5">
+                  <button
+                    type="button"
+                    onClick={() => toggleTag(tag)}
+                    className={`${pillBase} ${filters.tags.includes(tag) ? pillOn : pillOff}`}
+                  >
+                    {tag}
+                  </button>
+                  {onDeleteTag && (
+                    <button
+                      type="button"
+                      onClick={() => setPendingDelete(pendingDelete === tag ? null : tag)}
+                      className="text-stone-300 hover:text-red-400 text-base leading-none transition-colors"
+                      aria-label={`Delete tag ${tag}`}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            {pendingDelete && otherTags.includes(pendingDelete) && (
+              <div className="rounded-md border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-700 space-y-1.5">
+                <p>Delete &ldquo;{pendingDelete}&rdquo; from all recipes?</p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void handleDeleteConfirm()}
+                    disabled={deleting}
+                    className="font-medium text-red-600 hover:text-red-800 disabled:opacity-50"
+                  >
+                    {deleting ? 'Deleting…' : 'Delete'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPendingDelete(null)}
+                    className="text-stone-500 hover:text-stone-700"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </Section>
       )}
 
