@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { suggestSchema, parseBody } from '@/lib/schemas'
-import { getTodayISO } from '@/lib/date-utils'
+import { getTodayISO, getMostRecentSunday } from '@/lib/date-utils'
 import { parseLLMJsonSafe } from '@/lib/llm'
 import {
   getSeason,
@@ -36,21 +36,31 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   const recipesByMealType = await fetchRecipesByMealTypes(db, user.id, cooldownDays, active_meal_types, ctx)
   const recentHistory = await fetchRecentHistory(db, user.id)
 
-  // Exclude recipes already confirmed for future dates (including today) in the current week
-  const currentPlanQ = scopeQuery(db
-    .from('meal_plans')
-    .select('id')
-    .eq('week_start', week_start), user.id, ctx)
-  const { data: currentPlan } = await currentPlanQ.maybeSingle()
-
+  // Exclude recipes already planned in any week that overlaps with "now or future".
+  // This covers two cases:
+  //   1. Recipes already placed in the week being suggested for (same week_start).
+  //   2. Recipes placed in the *current* week when suggesting a future week, so a
+  //      recipe the user is cooking this week is never suggested for next week.
   const alreadyPlannedIds = new Set<string>()
-  if (currentPlan?.id) {
-    const { data: existingEntries } = await db
+
+  const weekStartsToCheck = new Set<string>([week_start])
+  const thisWeekStart = getMostRecentSunday()
+  if (thisWeekStart !== week_start) weekStartsToCheck.add(thisWeekStart)
+
+  for (const ws of weekStartsToCheck) {
+    const planQ = scopeQuery(db
+      .from('meal_plans')
+      .select('id')
+      .eq('week_start', ws), user.id, ctx)
+    const { data: plan } = await planQ.maybeSingle()
+    if (!plan?.id) continue
+
+    const { data: entries } = await db
       .from('meal_plan_entries')
-      .select('recipe_id, planned_date')
-      .eq('meal_plan_id', currentPlan.id)
+      .select('recipe_id')
+      .eq('meal_plan_id', plan.id)
       .gte('planned_date', todayISO)
-    for (const entry of existingEntries ?? []) {
+    for (const entry of entries ?? []) {
       alreadyPlannedIds.add((entry as { recipe_id: string }).recipe_id)
     }
   }
