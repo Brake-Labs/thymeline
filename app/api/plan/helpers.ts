@@ -289,7 +289,6 @@ export function buildFullWeekUserMessage(
   recipesByMealType: Record<MealType, RecipeForLLM[]>,
   recentHistory: { title: string; made_on: string }[],
   freeText: string,
-  specificRequests: string,
   activeMealTypes: MealType[],
   pantryContext: string = '',
 ): string {
@@ -309,9 +308,6 @@ ${JSON.stringify(recentHistory)}
 
 User context for this week:
 ${freeText || '(none)'}
-
-Specific requests (best-effort):
-${specificRequests || '(none)'}
 
 Pantry context:
 ${pantryContext || '(none)'}`

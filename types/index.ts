@@ -153,13 +153,12 @@ export interface PlanEntry {
 // ── Plan wizard types ─────────────────────────────────────────────────────────
 
 export interface PlanSetup {
-  weekStart:        string
-  activeDates:      string[]
-  activeMealTypes:  MealType[]
-  preferThisWeek:   string[]
-  avoidThisWeek:    string[]
-  freeText:         string
-  specificRequests: string
+  weekStart:       string
+  activeDates:     string[]
+  activeMealTypes: MealType[]
+  preferThisWeek:  string[]
+  avoidThisWeek:   string[]
+  freeText:        string
 }
 
 export type SelectionsMap = Record<string, DaySelection | null>

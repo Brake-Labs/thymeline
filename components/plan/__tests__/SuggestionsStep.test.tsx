@@ -27,7 +27,6 @@ function makeSetup(activeDates = [DATE_1, DATE_2]) {
     preferThisWeek:  [],
     avoidThisWeek:   [],
     freeText:        '',
-    specificRequests: '',
   }
 }
 

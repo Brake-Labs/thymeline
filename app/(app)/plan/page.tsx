@@ -35,13 +35,12 @@ function PlanPageInner() {
   const initialSunday = getMostRecentSunday()
 
   const [setup, setSetup] = useState<PlanSetup>({
-    weekStart:        initialSunday,
-    activeDates:      getWeekDates(initialSunday),
-    activeMealTypes:  ['dinner'],
-    preferThisWeek:   [],
-    avoidThisWeek:    [],
-    freeText:         '',
-    specificRequests: '',
+    weekStart:       initialSunday,
+    activeDates:     getWeekDates(initialSunday),
+    activeMealTypes: ['dinner'],
+    preferThisWeek:  [],
+    avoidThisWeek:   [],
+    freeText:        '',
   })
   const [suggestions, setSuggestions] = useState<SuggestionsState | null>(null)
   const [selections, setSelections] = useState<SelectionsMap>({})
@@ -83,13 +82,12 @@ function PlanPageInner() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          week_start:          setup.weekStart,
-          active_dates:        activeDates,
-          active_meal_types:   setup.activeMealTypes,
-          prefer_this_week:    setup.preferThisWeek,
-          avoid_this_week:     setup.avoidThisWeek,
-          free_text:           setup.freeText,
-          specific_requests:   setup.specificRequests,
+          week_start:        setup.weekStart,
+          active_dates:      activeDates,
+          active_meal_types: setup.activeMealTypes,
+          prefer_this_week:  setup.preferThisWeek,
+          avoid_this_week:   setup.avoidThisWeek,
+          free_text:         setup.freeText,
         }),
       })
 

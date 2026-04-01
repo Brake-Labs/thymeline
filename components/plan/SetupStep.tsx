@@ -109,28 +109,6 @@ export default function SetupStep({ setup, onSetupChange, onGetSuggestions, isGe
         </div>
       </div>
 
-      <div>
-        <h2 className="font-display text-sm font-semibold text-stone-500 uppercase tracking-wider mb-1">
-          Specific requests
-        </h2>
-        <p className="text-xs text-stone-400 mb-2">
-          {"We'll do our best to match these — swap if needed after."}
-        </p>
-        <div className="relative">
-          <textarea
-            value={setup.specificRequests}
-            onChange={(e) => onSetupChange({ specificRequests: e.target.value.slice(0, 300) })}
-            maxLength={300}
-            rows={2}
-            placeholder="e.g. Pizza on Friday, something light on Monday"
-            className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-800 placeholder-stone-300 resize-none focus:outline-none focus:ring-2 focus:ring-sage-500"
-          />
-          <span className="absolute bottom-2 right-2 text-xs text-stone-400">
-            {setup.specificRequests.length}/300
-          </span>
-        </div>
-      </div>
-
       <button
         onClick={onGetSuggestions}
         disabled={isDisabled}

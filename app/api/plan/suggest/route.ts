@@ -22,7 +22,7 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   const { data: body, error: parseError } = await parseBody(req, suggestSchema)
   if (parseError) return parseError
 
-  const { week_start, active_dates, prefer_this_week, avoid_this_week, free_text, specific_requests } = body
+  const { week_start, active_dates, prefer_this_week, avoid_this_week, free_text } = body
   const active_meal_types: MealType[] = body.active_meal_types?.length ? body.active_meal_types : ['dinner']
 
   if (!isSunday(week_start)) {
@@ -77,7 +77,6 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
     recipesByMealType,
     recentHistory,
     free_text ?? '',
-    specific_requests ?? '',
     active_meal_types,
     pantryContext,
   )
