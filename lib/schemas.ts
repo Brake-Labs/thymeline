@@ -152,6 +152,7 @@ export const updatePreferencesSchema = z.object({
     cap: z.number().int().min(1).max(7),
   })).optional(),
   onboarding_completed: z.boolean().optional(),
+  meal_context: z.string().max(1000).nullable().optional(),
 })
 
 // ─── Pantry ─────────────────────────────────────────────────────────────────

@@ -173,6 +173,7 @@ export async function fetchUserPreferences(
     ...data,
     limited_tags: data.limited_tags as unknown as LimitedTag[],
     seasonal_rules: data.seasonal_rules as UserPreferences['seasonal_rules'],
+    meal_context: (data as { meal_context?: string | null }).meal_context ?? null,
   } satisfies UserPreferences
 }
 
@@ -221,7 +222,11 @@ export function buildSystemMessage(
   const limited = buildLimitedTagsSummary(prefs?.limited_tags ?? [])
   const seasonal = buildSeasonalInstructions(prefs, season)
 
-  return `You are a meal planning assistant. You will be given a list of recipes and user preferences, and you must suggest meals for specific days of the week.
+  const mealContextLine = prefs?.meal_context
+    ? `\nHousehold context: ${prefs.meal_context}`
+    : ''
+
+  return `You are a meal planning assistant. You will be given a list of recipes and user preferences, and you must suggest meals for specific days of the week.${mealContextLine}
 
 Rules you must follow exactly:
 - Only suggest recipes from the provided recipe list. Never invent recipes.

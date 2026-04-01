@@ -33,6 +33,15 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
 
   const { use_pantry, specific_ingredients, meal_type, style_hints, dietary_restrictions } = body
 
+  // Fetch meal context from user preferences
+  let mealContext: string | null = null
+  {
+    let prefsQ = db.from('user_preferences').select('meal_context')
+    prefsQ = scopeQuery(prefsQ, user.id, ctx)
+    const { data: prefsData } = await prefsQ.maybeSingle()
+    mealContext = (prefsData as { meal_context?: string | null } | null)?.meal_context ?? null
+  }
+
   // Fetch pantry items if requested
   let pantryLines: string[] = []
   if (use_pantry) {
@@ -65,7 +74,8 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
 
   const combinedIngredientList = combined.map((l) => `- ${l}`).join('\n')
 
-  const systemMessage = `You are a creative recipe developer. Generate a complete, practical recipe based on the ingredients and preferences provided. The recipe should be realistic, delicious, and something a home cook can make.
+  const mealContextLine = mealContext ? `\nHousehold context: ${mealContext}` : ''
+  const systemMessage = `You are a creative recipe developer. Generate a complete, practical recipe based on the ingredients and preferences provided. The recipe should be realistic, delicious, and something a home cook can make.${mealContextLine}
 
 Rules:
 - Use the provided ingredients as the primary basis for the recipe

@@ -28,6 +28,7 @@ export interface UserPreferences {
   seasonal_rules: Record<string, { favor?: string[]; cap?: Record<string, number>; exclude?: string[] }> | null
   onboarding_completed: boolean
   is_active: boolean
+  meal_context: string | null
   created_at: string
 }
 
