@@ -1,7 +1,7 @@
 import 'server-only'
 
 import type { ParsedRecipe } from '@/types'
-import { FIRST_CLASS_TAGS } from '@/lib/tags'
+import { FIRST_CLASS_TAGS, BLOCKED_IMPORT_TAGS } from '@/lib/tags'
 
 /** Parse "X min" or "X hour Y min" strings from Plan to Eat time fields */
 function parsePteTime(val: string): number | null {
@@ -30,6 +30,7 @@ function parseTags(val: string): string[] {
     .split(',')
     .map((t) => t.trim())
     .filter(Boolean)
+    .filter((t) => !BLOCKED_IMPORT_TAGS.has(t.toLowerCase()))
     .map((t) => {
       const canonical = FIRST_CLASS_TAGS.find((ft) => ft.toLowerCase() === t.toLowerCase())
       return canonical ?? t

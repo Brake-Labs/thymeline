@@ -1,7 +1,7 @@
 import 'server-only'
 
 import type { ParsedRecipe } from '@/types'
-import { FIRST_CLASS_TAGS } from '@/lib/tags'
+import { FIRST_CLASS_TAGS, BLOCKED_IMPORT_TAGS } from '@/lib/tags'
 
 /** Fuzzy column name → recipe field map */
 const FIELD_ALIASES: Record<string, string[]> = {
@@ -86,6 +86,7 @@ function parseTags(val: string): string[] {
     .split(',')
     .map((t) => t.trim())
     .filter(Boolean)
+    .filter((t) => !BLOCKED_IMPORT_TAGS.has(t.toLowerCase()))
     .map((t) => {
       const canonical = FIRST_CLASS_TAGS.find((ft) => ft.toLowerCase() === t.toLowerCase())
       return canonical ?? t

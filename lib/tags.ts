@@ -28,6 +28,15 @@ export const FIRST_CLASS_TAGS: string[] = [
   ...CUISINE_TAGS, ...PROTEIN_TAGS,
 ]
 
+/**
+ * Tags that must never be imported from external sources.
+ * Meal-type tags ("Breakfast", "Lunch", etc.) belong in recipe `category`, not `tags`.
+ * "Healthy" was removed from the taxonomy.
+ */
+export const BLOCKED_IMPORT_TAGS = new Set([
+  'breakfast', 'lunch', 'dinner', 'snack', 'dessert', 'healthy',
+])
+
 // ── Tag validation ────────────────────────────────────────────────────────────
 
 import { type SupabaseClient } from '@supabase/supabase-js'

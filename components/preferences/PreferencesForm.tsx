@@ -52,8 +52,14 @@ function SectionSaveButton({ onSave }: SectionSaveButtonProps) {
   )
 }
 
+interface CustomTag {
+  name: string
+  section: string
+}
+
 interface PreferencesFormProps {
-  allTags: string[]
+  firstClassTags: string[]
+  customTags: CustomTag[]
 }
 
 interface PrefsState {
@@ -85,7 +91,12 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   )
 }
 
-export default function PreferencesForm({ allTags }: PreferencesFormProps) {
+interface DeleteConfirmState {
+  tagName: string
+  recipeCount: number | null  // null = loading
+}
+
+export default function PreferencesForm({ firstClassTags, customTags }: PreferencesFormProps) {
   const [prefs, setPrefs] = useState<PrefsState>({
     options_per_day: 3,
     cooldown_days: 28,
@@ -97,6 +108,9 @@ export default function PreferencesForm({ allTags }: PreferencesFormProps) {
   })
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [localCustomTags, setLocalCustomTags] = useState<CustomTag[]>(customTags)
+  const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchPrefs() {
@@ -135,6 +149,13 @@ export default function PreferencesForm({ allTags }: PreferencesFormProps) {
     }
   }
 
+  // Keep localCustomTags in sync when the prop changes (e.g. parent re-fetches)
+  useEffect(() => {
+    setLocalCustomTags(customTags)
+  }, [customTags])
+
+  const allTags = [...firstClassTags, ...localCustomTags.map((t) => t.name)]
+
   // Tag bucket exclusivity helpers
   const preferredSet = new Set(prefs.preferred_tags)
   const limitedSet = new Set(prefs.limited_tags.map((lt) => lt.tag))
@@ -143,6 +164,50 @@ export default function PreferencesForm({ allTags }: PreferencesFormProps) {
   const availableForPreferred = allTags.filter((t) => !limitedSet.has(t) && !avoidedSet.has(t))
   const availableForLimited = allTags.filter((t) => !preferredSet.has(t) && !avoidedSet.has(t))
   const availableForAvoided = allTags.filter((t) => !preferredSet.has(t) && !limitedSet.has(t))
+
+  async function handleDeleteTagClick(tagName: string) {
+    setDeleteConfirm({ tagName, recipeCount: null })
+    setDeleteError(null)
+    try {
+      const token = await getAccessToken()
+      const res = await fetch(`/api/tags/${encodeURIComponent(tagName)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (res.ok) {
+        const data = await res.json() as { recipe_count: number }
+        setDeleteConfirm({ tagName, recipeCount: data.recipe_count })
+      } else {
+        setDeleteConfirm(null)
+        setDeleteError('Could not check tag usage. Please try again.')
+      }
+    } catch {
+      setDeleteConfirm(null)
+      setDeleteError('Could not check tag usage. Please try again.')
+    }
+  }
+
+  async function handleDeleteTagConfirm() {
+    if (!deleteConfirm) return
+    const { tagName } = deleteConfirm
+    try {
+      const token = await getAccessToken()
+      const res = await fetch(`/api/tags/${encodeURIComponent(tagName)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (res.ok || res.status === 204) {
+        setLocalCustomTags((prev) => prev.filter((t) => t.name !== tagName))
+        setDeleteConfirm(null)
+      } else {
+        const body = await res.json() as { error?: string }
+        setDeleteError(body.error ?? 'Delete failed. Please try again.')
+        setDeleteConfirm(null)
+      }
+    } catch {
+      setDeleteError('Delete failed. Please try again.')
+      setDeleteConfirm(null)
+    }
+  }
 
   if (loading) {
     return <div className="py-12 text-center text-stone-400">Loading preferences…</div>
@@ -272,6 +337,73 @@ export default function PreferencesForm({ allTags }: PreferencesFormProps) {
           </div>
           <SectionSaveButton onSave={() => patch({ seasonal_mode: prefs.seasonal_mode })} />
         </SectionCard>
+
+        {/* Section 6: Your Tags */}
+        {localCustomTags.length > 0 && (
+          <SectionCard>
+            <SectionTitle>Your Tags</SectionTitle>
+            <p className="text-sm text-stone-500">
+              Custom tags you&apos;ve added. Deleting a tag removes it from all recipes.
+            </p>
+            {deleteError && (
+              <p className="text-sm text-red-500">{deleteError}</p>
+            )}
+            <div className="flex flex-wrap gap-2">
+              {localCustomTags.map((tag) => (
+                <div
+                  key={tag.name}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-stone-100 border border-stone-200 text-sm text-stone-700"
+                >
+                  <span>{tag.name}</span>
+                  <button
+                    type="button"
+                    aria-label={`Delete tag ${tag.name}`}
+                    onClick={() => handleDeleteTagClick(tag.name)}
+                    className="ml-0.5 text-stone-400 hover:text-red-500 transition-colors leading-none"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+            {deleteConfirm && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 space-y-2">
+                {deleteConfirm.recipeCount === null ? (
+                  <p className="text-sm text-stone-500">Checking usage…</p>
+                ) : (
+                  <>
+                    <p className="text-sm font-medium text-stone-800">
+                      Delete &quot;{deleteConfirm.tagName}&quot;?
+                    </p>
+                    {deleteConfirm.recipeCount > 0 && (
+                      <p className="text-sm text-amber-700">
+                        This tag is used on {deleteConfirm.recipeCount}{' '}
+                        {deleteConfirm.recipeCount === 1 ? 'recipe' : 'recipes'} and will be
+                        removed from all of them.
+                      </p>
+                    )}
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={handleDeleteTagConfirm}
+                        className="px-3 py-1 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700"
+                      >
+                        Delete
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteConfirm(null)}
+                        className="px-3 py-1 bg-stone-200 text-stone-700 text-sm font-medium rounded-md hover:bg-stone-300"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </SectionCard>
+        )}
       </div>
     </div>
   )
