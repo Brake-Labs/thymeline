@@ -37,6 +37,11 @@ vi.mock('@/lib/supabase-server', () => ({
 
 vi.mock('@/lib/household', () => ({
   resolveHouseholdScope: vi.fn().mockResolvedValue(null),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  scopeQuery: (query: any, userId: string, ctx: any) => {
+    if (ctx) return query.eq('household_id', ctx.householdId)
+    return query.eq('user_id', userId)
+  },
 }))
 
 // ── LLM mock ──────────────────────────────────────────────────────────────────
@@ -53,6 +58,7 @@ vi.mock('@/lib/llm', () => ({
     const stripped = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '')
     return JSON.parse(stripped)
   },
+  LLM_MODEL_CAPABLE: 'claude-sonnet-4-6',
 }))
 
 import { createServerClient, createAdminClient } from '@/lib/supabase-server'

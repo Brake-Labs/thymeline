@@ -85,7 +85,7 @@ export default function PantryItemRow({ item, onEdit, onDelete }: PantryItemRowP
               type="date"
               value={expiryDate}
               onChange={(e) => setExpiryDate(e.target.value)}
-              className="border border-stone-200 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-sage-400"
+              className="bg-[#FFFDF9] border border-stone-200 rounded-[4px] px-2 py-1.5 font-sans text-[13px] text-sage-900 w-full accent-[#4A7C59] focus:outline-none focus:ring-2 focus:ring-sage-500"
             />
           </label>
           <div className="flex gap-2">

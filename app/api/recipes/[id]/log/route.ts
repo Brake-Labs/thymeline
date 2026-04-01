@@ -55,11 +55,11 @@ async function deductPantryIngredients(recipeId: string, userId: string): Promis
   if (!recipe?.ingredients) return
 
   // Parse ingredient names from each line
-  const ingredientNames = (recipe.ingredients as string)
+  const ingredientNames = recipe.ingredients
     .split('\n')
-    .map((line: string) => line.trim())
+    .map((line) => line.trim())
     .filter(Boolean)
-    .map((line: string) => parseIngredientLine(line).rawName.toLowerCase().trim())
+    .map((line) => parseIngredientLine(line).rawName.toLowerCase().trim())
     .filter(Boolean)
 
   // Fetch all pantry items for this user
@@ -72,15 +72,14 @@ async function deductPantryIngredients(recipeId: string, userId: string): Promis
 
   const idsToDelete: string[] = []
   for (const pantryItem of pantryItems) {
-    const pantryName = (pantryItem.name as string).toLowerCase().trim()
+    const pantryName = pantryItem.name.toLowerCase().trim()
     const matched = ingredientNames.some(
       (ing) => pantryName.includes(ing) || ing.includes(pantryName),
     )
     if (!matched) continue
 
-    const qty = pantryItem.quantity as string | null
-    if (qty === null || SINGULAR_QTY_PATTERN.test(qty)) {
-      idsToDelete.push(pantryItem.id as string)
+    if (pantryItem.quantity === null || SINGULAR_QTY_PATTERN.test(pantryItem.quantity)) {
+      idsToDelete.push(pantryItem.id)
     }
   }
 
@@ -89,8 +88,8 @@ async function deductPantryIngredients(recipeId: string, userId: string): Promis
   }
 }
 
-export const DELETE = withAuth(async (req: NextRequest, { user, db, ctx: _ctx }, params) => {
-  const { id } = params
+export const DELETE = withAuth(async (req: NextRequest, { user, db }, params) => {
+  const id = params.id!
 
   const { data: body, error: parseError } = await parseBody(req, deleteLogSchema)
   if (parseError) return parseError

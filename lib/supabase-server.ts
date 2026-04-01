@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest } from 'next/server'
+import type { Database } from '@/types/database'
 import { config } from './config'
 
 /**
@@ -13,7 +14,7 @@ import { config } from './config'
  */
 export function createServerClient(req: NextRequest) {
   const token = req.headers.get('Authorization')?.replace('Bearer ', '')
-  return createClient(
+  return createClient<Database>(
     config.supabase.url,
     config.supabase.anonKey,
     token ? { global: { headers: { Authorization: `Bearer ${token}` } } } : {},
@@ -26,7 +27,7 @@ export function createServerClient(req: NextRequest) {
  * via createServerClient().auth.getUser(), and always scope queries to user.id.
  */
 export function createAdminClient() {
-  return createClient(
+  return createClient<Database>(
     config.supabase.url,
     config.supabase.serviceRoleKey,
     { auth: { autoRefreshToken: false, persistSession: false } },

@@ -126,18 +126,18 @@ export default function WeekCalendar() {
         <button
           onClick={handlePrevWeek}
           aria-label="Previous week"
-          className="p-1.5 text-sage-300 hover:text-sage-200 transition-colors"
+          className="p-1.5 text-[#8CB89A] hover:text-sage-100 transition-colors"
         >
           ←
         </button>
-        <span className="font-display text-sm font-medium text-white">
+        <span className="font-display text-sm font-medium text-sage-100">
           {formatWeekRange(weekStart)}
         </span>
         <button
           onClick={handleNextWeek}
           disabled={isAtMaxFuture}
           aria-label="Next week"
-          className="p-1.5 text-sage-300 hover:text-sage-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          className="p-1.5 text-[#8CB89A] hover:text-sage-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         >
           →
         </button>

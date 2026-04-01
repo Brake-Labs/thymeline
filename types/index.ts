@@ -9,29 +9,6 @@ export type MealType = typeof MEAL_TYPES[number]
 export const TAG_SECTIONS = ['style', 'dietary', 'seasonal', 'cuisine', 'protein'] as const
 export type TagSection = typeof TAG_SECTIONS[number]
 
-// ─── Typed Supabase join results ─────────────────────────────────────────────
-// These replace `as unknown` casts on Supabase .select() joins.
-
-/** Shape returned when joining `recipes` from `meal_plan_entries` */
-export interface RecipeJoinResult {
-  title: string
-  total_time_minutes: number | null
-}
-
-/** Extended shape for grocery generation joins */
-export interface RecipeJoinFull extends RecipeJoinResult {
-  id: string
-  ingredients: string | null
-  url: string | null
-  servings: number | null
-}
-
-/** Shape returned when joining `meal_plans` from `meal_plan_entries` */
-export interface MealPlanJoinResult {
-  user_id: string
-  household_id: string | null
-}
-
 // ─── Domain types ────────────────────────────────────────────────────────────
 
 export interface LimitedTag {
@@ -51,16 +28,6 @@ export interface UserPreferences {
   seasonal_rules: Record<string, { favor?: string[]; cap?: Record<string, number>; exclude?: string[] }> | null
   onboarding_completed: boolean
   is_active: boolean
-  created_at: string
-}
-
-export interface Invite {
-  id:         string
-  token:      string
-  created_by: string | null
-  used_by:    string | null
-  used_at:    string | null
-  expires_at: string
   created_at: string
 }
 
@@ -133,30 +100,6 @@ export interface RecipeFilters {
   neverMade: boolean
 }
 
-export interface RecipeHistory {
-  id: string
-  recipe_id: string
-  user_id: string
-  made_on: string  // ISO date "YYYY-MM-DD"
-  created_at: string
-}
-
-export interface MealPlan {
-  id: string
-  user_id: string
-  week_start: string
-  created_at: string
-}
-
-export interface MealPlanEntry {
-  id: string
-  meal_plan_id: string
-  recipe_id: string
-  planned_date: string
-  position: number
-  confirmed: boolean
-}
-
 export interface RecipeSuggestion {
   recipe_id:    string
   recipe_title: string
@@ -171,10 +114,6 @@ export interface MealTypeSuggestions {
 export interface DaySuggestions {
   date:       string
   meal_types: MealTypeSuggestions[]
-}
-
-export interface SuggestionsResponse {
-  days: DaySuggestions[]
 }
 
 export interface DaySelection {
@@ -314,16 +253,6 @@ export interface HouseholdMember {
   joined_at:     string
   email?:        string
   display_name?: string
-}
-
-export interface HouseholdInvite {
-  id:           string
-  household_id: string
-  token:        string
-  invited_by:   string
-  expires_at:   string
-  used_by:      string | null
-  created_at:   string
 }
 
 export interface HouseholdContext {

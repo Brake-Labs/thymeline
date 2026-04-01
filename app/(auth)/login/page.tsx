@@ -38,7 +38,7 @@ function LoginForm() {
   useEffect(() => {
     const invite = searchParams.get('invite')
     if (invite) {
-      sessionStorage.setItem('forkcast_invite_token', invite)
+      sessionStorage.setItem('thymeline_invite_token', invite)
     }
   }, [searchParams])
 
@@ -154,7 +154,7 @@ export default function LoginPage() {
         <div className="text-center space-y-1">
           <div className="flex items-center justify-center gap-2">
             <span className="text-2xl" aria-hidden="true">🍴</span>
-            <h1 className="font-display text-3xl font-black tracking-tight text-stone-800">Forkcast</h1>
+            <h1 className="font-display text-3xl font-black tracking-tight text-stone-800">Thymeline</h1>
           </div>
           <p className="text-stone-500 text-sm">Your AI-powered meal planning assistant</p>
         </div>

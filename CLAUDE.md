@@ -1,6 +1,6 @@
-# Forkcast — Agent Instructions
+# Thymeline — Agent Instructions
 
-Forkcast is an AI-powered weekly meal planning app built with Next.js (TypeScript),
+Thymeline is an AI-powered weekly meal planning app built with Next.js (TypeScript),
 Tailwind CSS, and Supabase. Users store recipes, get LLM-assisted meal suggestions
 based on preferences, generate grocery lists, and track what they've cooked.
 

@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { createPlanSchema, parseBody } from '@/lib/schemas'
-import { isSunday } from './helpers'
-import type { SavedPlanEntry, RecipeJoinResult } from '@/types'
+import { isSunday, getOrCreateMealPlan } from './helpers'
+import { scopeQuery } from '@/lib/household'
+import type { SavedPlanEntry } from '@/types'
 
 // ── POST /api/plan — save confirmed plan ───────────────────────────────────────
 
@@ -16,37 +17,12 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
     return NextResponse.json({ error: 'week_start must be a Sunday' }, { status: 400 })
   }
 
-  // Find existing plan for this week, or create a new one
-  let existingQ = db
-    .from('meal_plans')
-    .select('id')
-    .eq('week_start', week_start)
-  if (ctx) {
-    existingQ = existingQ.eq('household_id', ctx.householdId)
-  } else {
-    existingQ = existingQ.eq('user_id', user.id)
+  const planResult = await getOrCreateMealPlan(db, user.id, week_start, ctx)
+  if ('error' in planResult) {
+    console.error('meal_plans insert error:', planResult.error)
+    return NextResponse.json({ error: `Failed to create plan: ${planResult.error}` }, { status: 500 })
   }
-  const { data: existing } = await existingQ.maybeSingle()
-
-  let planId: string
-  if (existing?.id) {
-    planId = existing.id
-  } else {
-    const insertPayload = ctx
-      ? { household_id: ctx.householdId, user_id: user.id, week_start }
-      : { user_id: user.id, week_start }
-    const { data: created, error: createError } = await db
-      .from('meal_plans')
-      .insert(insertPayload)
-      .select('id')
-      .single()
-
-    if (createError || !created) {
-      console.error('meal_plans insert error:', createError)
-      return NextResponse.json({ error: `Failed to create plan: ${createError?.message ?? 'unknown'}` }, { status: 500 })
-    }
-    planId = created.id
-  }
+  const { planId } = planResult
 
   // Delete existing entries for this plan, then insert fresh ones
   await db.from('meal_plan_entries').delete().eq('meal_plan_id', planId)
@@ -85,16 +61,10 @@ export const GET = withAuth(async (req, { user, db, ctx }) => {
     return NextResponse.json({ error: 'week_start is required' }, { status: 400 })
   }
 
-  let planQ = db
+  const { data: plan } = await scopeQuery(db
     .from('meal_plans')
     .select('id, week_start')
-    .eq('week_start', week_start)
-  if (ctx) {
-    planQ = planQ.eq('household_id', ctx.householdId)
-  } else {
-    planQ = planQ.eq('user_id', user.id)
-  }
-  const { data: plan } = await planQ.single()
+    .eq('week_start', week_start), user.id, ctx).single()
 
   if (!plan) {
     return NextResponse.json({ plan: null })
@@ -106,27 +76,17 @@ export const GET = withAuth(async (req, { user, db, ctx }) => {
     .eq('meal_plan_id', plan.id)
     .order('planned_date')
 
-  const enrichedEntries = (entries ?? []).map((e: {
-    id: string
-    planned_date: string
-    recipe_id: string
-    position: number
-    confirmed: boolean
-    meal_type: string
-    is_side_dish: boolean
-    parent_entry_id: string | null
-    recipes: unknown
-  }) => ({
+  const enrichedEntries = (entries ?? []).map((e) => ({
     id:              e.id,
     planned_date:    e.planned_date,
     recipe_id:       e.recipe_id,
-    recipe_title:    (e.recipes as unknown as RecipeJoinResult | null)?.title ?? '',
+    recipe_title:    e.recipes?.title ?? '',
     position:        e.position,
     confirmed:       e.confirmed,
-    meal_type:       e.meal_type ?? 'dinner',
-    is_side_dish:    e.is_side_dish ?? false,
-    parent_entry_id:    e.parent_entry_id ?? null,
-    total_time_minutes: (e.recipes as unknown as RecipeJoinResult | null)?.total_time_minutes ?? null,
+    meal_type:       e.meal_type,
+    is_side_dish:    e.is_side_dish,
+    parent_entry_id:    e.parent_entry_id,
+    total_time_minutes: e.recipes?.total_time_minutes ?? null,
   }))
 
   return NextResponse.json({

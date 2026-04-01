@@ -74,6 +74,16 @@ export function mockHousehold(ctx?: HouseholdContext) {
       ctx?.resolveHouseholdScope ?? vi.fn().mockResolvedValue(null),
     canManage:
       ctx?.canManage ?? ((role: string) => role === 'owner' || role === 'co_owner'),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock mirrors real scopeQuery behavior
+    scopeQuery: (query: any, userId: string, hctx: any) => {
+      if (hctx) return query.eq('household_id', hctx.householdId)
+      return query.eq('user_id', userId)
+    },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock mirrors real scopeInsert behavior
+    scopeInsert: (userId: string, hctx: any, payload: Record<string, unknown>) => {
+      if (hctx) return { ...payload, household_id: hctx.householdId, user_id: userId }
+      return { ...payload, user_id: userId }
+    },
   }
 }
 

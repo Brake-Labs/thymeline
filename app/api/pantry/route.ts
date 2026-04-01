@@ -1,23 +1,17 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { createPantryItemSchema, deletePantryItemsSchema, parseBody } from '@/lib/schemas'
+import { scopeQuery } from '@/lib/household'
 import { parseIngredientLine, assignSection } from '@/lib/grocery'
-import type { PantryItem } from '@/types'
 
 // ── GET /api/pantry ───────────────────────────────────────────────────────────
 
 export const GET = withAuth(async (req, { user, db, ctx }) => {
-  let query = db
+  const query = scopeQuery(db
     .from('pantry_items')
     .select('*')
     .order('section', { nullsFirst: false })
-    .order('name')
-
-  if (ctx) {
-    query = query.eq('household_id', ctx.householdId)
-  } else {
-    query = query.eq('user_id', user.id)
-  }
+    .order('name'), user.id, ctx)
 
   const { data, error } = await query
 
@@ -25,7 +19,7 @@ export const GET = withAuth(async (req, { user, db, ctx }) => {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  return NextResponse.json({ items: data as PantryItem[] })
+  return NextResponse.json({ items: data })
 })
 
 // ── POST /api/pantry ──────────────────────────────────────────────────────────
@@ -68,7 +62,7 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  return NextResponse.json({ item: data as PantryItem }, { status: 201 })
+  return NextResponse.json({ item: data }, { status: 201 })
 })
 
 // ── DELETE /api/pantry (bulk) ─────────────────────────────────────────────────
@@ -87,8 +81,8 @@ export const DELETE = withAuth(async (req, { user, db, ctx }) => {
     return NextResponse.json({ error: fetchError.message }, { status: 500 })
   }
 
-  const ownedIds = new Set((owned ?? []).map((r: { id: string }) => r.id))
-  const allBelongToScope = (owned ?? []).every((r: { id: string; user_id: string; household_id: string | null }) => {
+  const ownedIds = new Set((owned ?? []).map((r) => r.id))
+  const allBelongToScope = (owned ?? []).every((r) => {
     if (ctx) return r.household_id === ctx.householdId
     return r.user_id === user.id
   })

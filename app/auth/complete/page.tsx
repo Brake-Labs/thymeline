@@ -52,7 +52,7 @@ export default function AuthCompletePage() {
 
       // New user (no preferences row → DEFAULT_PREFS with is_active=false) —
       // check and consume invite token
-      const inviteToken = sessionStorage.getItem('forkcast_invite_token') ?? null
+      const inviteToken = sessionStorage.getItem('thymeline_invite_token') ?? null
 
       const consumeRes = await fetch('/api/invite/consume', {
         method: 'POST',
@@ -67,7 +67,7 @@ export default function AuthCompletePage() {
       if (consumeData.success) {
         // Stamp user_metadata before sending to onboarding
         await supabase.auth.updateUser({ data: { is_active: true } })
-        sessionStorage.removeItem('forkcast_invite_token')
+        sessionStorage.removeItem('thymeline_invite_token')
         router.push('/onboarding')
       } else {
         router.push('/inactive')

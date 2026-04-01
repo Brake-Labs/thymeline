@@ -31,31 +31,28 @@ export const FIRST_CLASS_TAGS: string[] = [
 // ── Tag validation ────────────────────────────────────────────────────────────
 
 import { type SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '@/types/database'
+import { scopeQuery } from '@/lib/household'
 import type { HouseholdContext } from '@/types'
-import { scopeQuery } from './household'
 
 /**
  * Validates tags against the first-class list + the user's custom tags.
  * Returns `{ valid: true }` or `{ valid: false, unknownTags }`.
  */
 export async function validateTags(
-  db: SupabaseClient,
+  db: SupabaseClient<Database>,
   tags: string[],
   userId: string,
   ctx: HouseholdContext | null,
 ): Promise<{ valid: true } | { valid: false; unknownTags: string[] }> {
   if (tags.length === 0) return { valid: true }
 
-  type TagsQuery = {
-    eq(column: string, value: string): TagsQuery
-  } & PromiseLike<{ data: { name: string }[] | null; error: unknown }>
-  const rawQuery = db.from('custom_tags').select('name') as unknown as TagsQuery
-  const customTagsQuery = scopeQuery(rawQuery, userId, ctx)
+  const customTagsQuery = scopeQuery(db.from('custom_tags').select('name'), userId, ctx)
   const { data: customTags } = await customTagsQuery
 
   const knownNames = new Set([
     ...FIRST_CLASS_TAGS.map((t) => t.toLowerCase()),
-    ...(customTags ?? []).map((t: { name: string }) => t.name.toLowerCase()),
+    ...(customTags ?? []).map((t) => t.name.toLowerCase()),
   ])
 
   const unknownTags = tags.filter((t) => !knownNames.has(t.toLowerCase()))

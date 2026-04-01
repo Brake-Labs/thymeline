@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { matchSchema, parseBody } from '@/lib/schemas'
+import { scopeQuery } from '@/lib/household'
 import { callLLMNonStreaming } from '../helpers'
 
 export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
@@ -10,12 +11,7 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   const { query } = body
 
   // Fetch all recipes scoped by household or user (all categories)
-  let recipesQ = db.from('recipes').select('id, title, tags')
-  if (ctx) {
-    recipesQ = recipesQ.eq('household_id', ctx.householdId)
-  } else {
-    recipesQ = recipesQ.eq('user_id', user.id)
-  }
+  const recipesQ = scopeQuery(db.from('recipes').select('id, title, tags'), user.id, ctx)
   const { data: recipes } = await recipesQ
 
   const recipeList = (recipes ?? []) as { id: string; title: string; tags: string[] }[]

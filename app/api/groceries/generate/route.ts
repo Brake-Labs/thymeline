@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { callLLM, LLM_MODEL_FAST } from '@/lib/llm'
 import { generateGroceriesSchema, parseBody } from '@/lib/schemas'
-import type { RecipeJoinFull } from '@/types'
 import {
   parseIngredientLine,
   combineIngredients,
@@ -10,8 +9,10 @@ import {
   isPantryStaple,
 } from '@/lib/grocery'
 import { resolveRecipeIngredients } from '@/lib/grocery-scrape'
+import { scopeQuery } from '@/lib/household'
 import { toDateString } from '@/lib/date-utils'
 import { GroceryItem, GrocerySection, RecipeScale } from '@/types'
+import type { Json } from '@/types/database'
 
 function uuidv4(): string {
   return crypto.randomUUID()
@@ -48,19 +49,14 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
   }
 
   // 1. Get all meal plan IDs for the user/household (ordered so primaryPlanId is deterministic)
-  let plansQ = db.from('meal_plans').select('id').order('week_start')
-  if (ctx) {
-    plansQ = plansQ.eq('household_id', ctx.householdId)
-  } else {
-    plansQ = plansQ.eq('user_id', user.id)
-  }
+  const plansQ = scopeQuery(db.from('meal_plans').select('id').order('week_start'), user.id, ctx)
   const { data: plans, error: plansError } = await plansQ
 
   if (plansError || !plans || plans.length === 0) {
     return NextResponse.json({ error: 'No meal plans found for this date range' }, { status: 404 })
   }
 
-  const planIds = (plans as { id: string }[]).map((p) => p.id)
+  const planIds = plans.map((p) => p.id)
 
   // Default plan-level servings; per-recipe override stored in recipe_scales
   const planServings = 4
@@ -82,7 +78,7 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
   const seenRecipeIds = new Set<string>()
   const recipes: RecipeEntry[] = []
   for (const entry of (entriesRaw ?? [])) {
-    const r = entry.recipes as unknown as RecipeJoinFull | null
+    const r = entry.recipes
     if (!r) continue
     if (seenRecipeIds.has(r.id)) continue
     seenRecipeIds.add(r.id)
@@ -193,16 +189,11 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
 
   // 5b. Cross-reference against pantry — flag matching items as is_pantry: true
   try {
-    let pantryQ = db.from('pantry_items').select('name')
-    if (ctx) {
-      pantryQ = pantryQ.eq('household_id', ctx.householdId)
-    } else {
-      pantryQ = pantryQ.eq('user_id', user.id)
-    }
+    const pantryQ = scopeQuery(db.from('pantry_items').select('name'), user.id, ctx)
     const { data: pantryItems } = await pantryQ
 
     if (pantryItems?.length) {
-      const pantryNames = (pantryItems as { name: string }[]).map((p) => p.name.toLowerCase().trim())
+      const pantryNames = pantryItems.map((p) => p.name.toLowerCase().trim())
       allItems = allItems.map((item) => {
         const gName = item.name.toLowerCase().trim()
         const matched = pantryNames.some(
@@ -222,34 +213,23 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
 
   // 7. Upsert grocery_lists
   const now = new Date().toISOString()
-  const upsertPayload = ctx
-    ? {
-        household_id:  ctx.householdId,
-        user_id:       user.id,
-        meal_plan_id:  planIds[0],
-        week_start:    date_from,
-        date_from,
-        date_to,
-        servings:      planServings,
-        recipe_scales,
-        items:         allItems,
-        updated_at:    now,
-      }
-    : {
-        user_id:       user.id,
-        meal_plan_id:  planIds[0],
-        week_start:    date_from,
-        date_from,
-        date_to,
-        servings:      planServings,
-        recipe_scales,
-        items:         allItems,
-        updated_at:    now,
-      }
+  const upsertPayload: Record<string, unknown> = {
+    user_id:       user.id,
+    meal_plan_id:  planIds[0],
+    week_start:    date_from,
+    date_from,
+    date_to,
+    servings:      planServings,
+    recipe_scales: recipe_scales as unknown as Json,
+    items:         allItems as unknown as Json,
+    updated_at:    now,
+  }
+  if (ctx) upsertPayload.household_id = ctx.householdId
   const onConflict = ctx ? 'household_id,week_start' : 'user_id,week_start'
   const { data: upserted, error: upsertError } = await db
     .from('grocery_lists')
-    .upsert(upsertPayload, { onConflict })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic field selection for household/user scoping
+    .upsert(upsertPayload as any, { onConflict })
     .select('*')
     .single()
 

@@ -20,6 +20,10 @@ function getYesterday(): string {
   return addDays(getTodayISO(), -1)
 }
 
+const btnBase = 'font-display font-medium text-[13px] rounded-[4px] px-4 py-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
+const btnPrimary = `${btnBase} bg-sage-500 text-[#FFFDF9] hover:bg-sage-600`
+const btnSecondary = `${btnBase} border border-stone-200 text-[#3D3028] bg-transparent hover:bg-stone-50`
+
 export default function LogDateSection({
   recipeId,
   getToken,
@@ -62,13 +66,11 @@ export default function LogDateSection({
 
   const disabled = status === 'loading'
 
-  const btnBase = 'py-2 px-4 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
-  const btnPrimary = `${btnBase} bg-blue-600 text-white hover:bg-blue-700`
-  const btnSecondary = `${btnBase} border border-gray-300 text-gray-700 hover:bg-gray-50`
-
   return (
     <div className="space-y-2">
-      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Log a date</p>
+      <p className="font-display text-[10px] font-bold uppercase tracking-[0.1em] text-sage-500">
+        Log a date
+      </p>
       <div className="flex flex-wrap gap-2 items-center">
         <button onClick={() => logDate(getToday())} disabled={disabled} className={btnPrimary}>
           Today
@@ -92,7 +94,7 @@ export default function LogDateSection({
               value={pickedDate}
               onChange={(e) => setPickedDate(e.target.value)}
               max={getToday()}
-              className="border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="bg-[#FFFDF9] border border-stone-200 rounded-[4px] px-2 py-1.5 font-sans text-[13px] text-sage-900 accent-[#4A7C59] focus:outline-none focus:ring-2 focus:ring-sage-500"
             />
             <button
               onClick={() => { if (pickedDate) logDate(pickedDate) }}

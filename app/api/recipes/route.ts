@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
-import { FIRST_CLASS_TAGS } from '@/lib/tags'
+import { validateTags } from '@/lib/tags'
+import { scopeQuery } from '@/lib/household'
 import { createRecipeSchema, parseBody } from '@/lib/schemas'
 
 export const GET = withAuth(async (req, { user, db, ctx }) => {
@@ -8,16 +9,10 @@ export const GET = withAuth(async (req, { user, db, ctx }) => {
   const category = searchParams.get('category')
   const tag = searchParams.get('tag')
 
-  let query = db
+  let query = scopeQuery(db
     .from('recipes')
     .select('id, user_id, household_id, title, category, tags, is_shared, created_at, total_time_minutes')
-    .order('created_at', { ascending: false })
-
-  if (ctx) {
-    query = query.eq('household_id', ctx.householdId)
-  } else {
-    query = query.eq('user_id', user.id)
-  }
+    .order('created_at', { ascending: false }), user.id, ctx)
 
   if (category) query = query.eq('category', category)
   if (tag) query = query.contains('tags', [tag])
@@ -65,27 +60,9 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
 
   const tags = body.tags
 
-  // Validate tags against first-class list + scoped custom_tags
-  if (tags.length > 0) {
-    let customTagsQuery = db.from('custom_tags').select('name')
-    if (ctx) {
-      customTagsQuery = customTagsQuery.eq('household_id', ctx.householdId)
-    } else {
-      customTagsQuery = customTagsQuery.eq('user_id', user.id)
-    }
-    const { data: customTags } = await customTagsQuery
-
-    const knownNames = new Set([
-      ...FIRST_CLASS_TAGS.map((t) => t.toLowerCase()),
-      ...(customTags ?? []).map((t: { name: string }) => t.name.toLowerCase()),
-    ])
-    const unknownTags = tags.filter((t) => !knownNames.has(t.toLowerCase()))
-    if (unknownTags.length > 0) {
-      return NextResponse.json(
-        { error: `Unknown tags: ${unknownTags.join(', ')}` },
-        { status: 400 },
-      )
-    }
+  const tagResult = await validateTags(db, tags, user.id, ctx)
+  if (!tagResult.valid) {
+    return NextResponse.json({ error: `Unknown tags: ${tagResult.unknownTags.join(', ')}` }, { status: 400 })
   }
 
   const insertPayload = ctx

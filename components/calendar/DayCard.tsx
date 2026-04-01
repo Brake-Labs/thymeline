@@ -24,10 +24,7 @@ export default function DayCard({ date, entries, isExpanded, onToggle, onAddEntr
   const today = isTodayDate(date)
 
   return (
-    <div className="bg-[#FFFDF9] border border-stone-200 rounded overflow-hidden">
-      {/* Top accent bar */}
-      <div className="h-[3px] bg-sage-500" />
-
+    <div className="bg-[#FFFDF9] border border-stone-200 rounded-[4px] border-t-[3px] border-t-sage-500 overflow-hidden">
       {/* Header — always visible */}
       <button
         onClick={onToggle}
@@ -38,7 +35,7 @@ export default function DayCard({ date, entries, isExpanded, onToggle, onAddEntr
       >
         <div>
           <p className={`text-[9px] font-display font-bold uppercase tracking-[0.1em] ${
-            isExpanded ? 'text-white/70' : 'text-stone-400'
+            isExpanded ? 'text-sage-100/70' : 'text-stone-500'
           }`}>
             {getDayAbbrev(date)}
           </p>
@@ -48,7 +45,7 @@ export default function DayCard({ date, entries, isExpanded, onToggle, onAddEntr
             {getMonthDay(date)}
           </p>
         </div>
-        <span className={`text-xs ${isExpanded ? 'text-white/70' : 'text-stone-400'}`}>
+        <span className={`font-sans text-xs ${isExpanded ? 'text-sage-100/70' : 'text-stone-400'}`}>
           {summaryText}
         </span>
       </button>
@@ -57,7 +54,7 @@ export default function DayCard({ date, entries, isExpanded, onToggle, onAddEntr
       {isExpanded && (
         <div className="border-t border-dashed border-stone-200 px-4 py-3">
           {entries.length === 0 && (
-            <p className="text-sm text-stone-400 mb-3">
+            <p className="font-sans text-sm text-stone-400 mb-3">
               Nothing planned —{' '}
               <Link href="/plan" className="text-sage-500 hover:underline">
                 Help Me Plan

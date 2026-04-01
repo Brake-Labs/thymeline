@@ -1,5 +1,5 @@
 {
-  "name": "forkcast",
+  "name": "thymeline",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -8,7 +8,10 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "update-types": "npx supabase gen types --lang=typescript --project-id \"$SUPABASE_PROJECT_REF\" --schema public > types/database.ts",
+    "migrate": "./scripts/run-migrations.sh",
+    "migrate:dry-run": "./scripts/run-migrations.sh --dry-run"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
