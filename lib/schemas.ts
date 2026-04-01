@@ -226,6 +226,47 @@ export const transferOwnershipSchema = z.object({
   new_owner_id: z.string().min(1),
 })
 
+// ─── Import ─────────────────────────────────────────────────────────────────
+
+export const parsedRecipeSchema = z.object({
+  title:                 z.string().min(1),
+  category:              z.enum(RECIPE_CATEGORIES).nullable(),
+  ingredients:           z.string().nullable(),
+  steps:                 z.string().nullable(),
+  notes:                 z.string().nullable(),
+  url:                   z.string().nullable(),
+  image_url:             z.string().nullable(),
+  prep_time_minutes:     z.number().int().nonnegative().nullable(),
+  cook_time_minutes:     z.number().int().nonnegative().nullable(),
+  total_time_minutes:    z.number().int().nonnegative().nullable(),
+  inactive_time_minutes: z.number().int().nonnegative().nullable(),
+  servings:              z.number().int().positive().nullable(),
+  tags:                  z.array(z.string()).default([]),
+  source:                z.enum(['scraped', 'manual']),
+})
+
+export const importUrlsSchema = z.object({
+  urls: z.array(z.string().url()).min(1).max(200),
+})
+
+export const confirmNotionMappingSchema = z.object({
+  file_content: z.string().min(1),
+  mapping:      z.record(z.string(), z.string()),
+})
+
+export const importSaveSchema = z.object({
+  recipes: z.array(z.object({
+    data:             parsedRecipeSchema,
+    duplicate_action: z.enum(['skip', 'keep_both', 'replace']).optional(),
+    existing_id:      z.string().uuid().optional(),
+  })).min(1).max(200),
+}).refine(
+  (val) => val.recipes.every(
+    (r) => r.duplicate_action !== 'replace' || r.existing_id !== undefined,
+  ),
+  { message: 'existing_id is required when duplicate_action is replace' },
+)
+
 // ─── Invite ─────────────────────────────────────────────────────────────────
 
 export const consumeInviteSchema = z.object({

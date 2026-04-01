@@ -362,3 +362,38 @@ export interface ScrapeResult {
   inactiveTimeMinutes: number | null
   servings:            number | null
 }
+
+// ─── Import ───────────────────────────────────────────────────────────────────
+
+/** A recipe parsed from any import source, before it's saved to the vault */
+export interface ParsedRecipe {
+  title:                 string
+  category:              'main_dish' | 'breakfast' | 'dessert' | 'side_dish' | null
+  ingredients:           string | null
+  steps:                 string | null
+  notes:                 string | null
+  url:                   string | null
+  image_url:             string | null
+  prep_time_minutes:     number | null
+  cook_time_minutes:     number | null
+  total_time_minutes:    number | null
+  inactive_time_minutes: number | null
+  servings:              number | null
+  tags:                  string[]
+  source:                'scraped' | 'manual'
+}
+
+/** A result row in the import review table */
+export interface ImportResult {
+  id:               string   // client-generated uuid for keying rows
+  status:           'ready' | 'partial' | 'failed' | 'pending'
+  recipe?:          ParsedRecipe
+  error?:           string
+  source_url?:      string   // for URL imports
+  source_label:     string   // e.g. "budgetbytes.com" or "Paprika"
+  duplicate?: {
+    recipe_id:    string
+    recipe_title: string
+  }
+  duplicate_action?: 'skip' | 'keep_both' | 'replace'
+}

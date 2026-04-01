@@ -15,6 +15,7 @@
     "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.49.1",
     "firecrawl": "^4.15.1",
+    "jszip": "^3.10.1",
     "lucide-react": "^0.577.0",
     "next": "14.2.35",
     "react": "^18",
@@ -25,6 +26,7 @@
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
+    "@types/jszip": "^3.4.0",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
