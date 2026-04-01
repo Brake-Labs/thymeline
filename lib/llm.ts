@@ -131,14 +131,23 @@ export async function callLLMMultimodal(opts: CallLLMMultimodalOptions): Promise
 }
 
 /**
+ * Extract JSON from text that may contain a markdown code fence anywhere
+ * (e.g. prose introduction followed by ```json ... ```).
+ * Returns the fence contents if found, otherwise the trimmed text as-is.
+ */
+function extractJsonFromText(text: string): string {
+  const trimmed = text.trim()
+  const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i)
+  return fenceMatch ? fenceMatch[1]!.trim() : trimmed
+}
+
+/**
  * Parse an LLM response as JSON, stripping markdown code fences if present.
+ * Handles fences that appear anywhere in the text (e.g. after a prose preamble).
  * Throws LLMError with code 'bad_response' on parse failure.
  */
 export function parseLLMJson<T>(text: string): T {
-  const stripped = text
-    .trim()
-    .replace(/^```(?:json)?\s*/i, '')
-    .replace(/\s*```\s*$/i, '')
+  const stripped = extractJsonFromText(text)
   try {
     return JSON.parse(stripped) as T
   } catch (err) {
@@ -154,13 +163,11 @@ export function parseLLMJson<T>(text: string): T {
  * Parse LLM JSON with defensive per-field extraction.
  * Unlike parseLLMJson which throws on malformed input, this returns null
  * for fields that can't be extracted, allowing partial results.
+ * Handles fences that appear anywhere in the text (e.g. after a prose preamble).
  */
 export function parseLLMJsonSafe<T>(text: string): T | null {
   try {
-    const stripped = text
-      .trim()
-      .replace(/^```(?:json)?\s*/i, '')
-      .replace(/\s*```\s*$/i, '')
+    const stripped = extractJsonFromText(text)
     return JSON.parse(stripped) as T
   } catch (err) {
     console.warn('[parseLLMJsonSafe] Failed to parse:', err instanceof Error ? err.message : err)
