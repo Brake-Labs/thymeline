@@ -39,10 +39,10 @@ export default function DiscoverySearch({
 
   return (
     <div className="mb-8">
-      <h1 className="font-display font-bold text-[22px] text-[#1F2D26] mb-1">
+      <h1 className="font-display font-bold text-[22px] text-sage-900 mb-1">
         Discover Recipes
       </h1>
-      <p className="font-body text-sm text-[#6B7280] mb-5">
+      <p className="font-sans text-sm text-stone-500 mb-5">
         Find new recipes from across the web
       </p>
 
@@ -55,14 +55,14 @@ export default function DiscoverySearch({
           onChange={(e) => onQueryChange(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Ask anything — 'easy slow cooker recipes unlike anything I have' or 'Budget Bytes new dinner recipes'"
-          className="flex-1 border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A7C59]"
+          className="flex-1 border border-stone-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500"
           disabled={isLoading}
         />
         <button
           type="button"
           onClick={onSubmit}
           disabled={isLoading || !query.trim()}
-          className="bg-[#4A7C59] text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-[#3d6a4a] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
+          className="bg-sage-500 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-sage-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
         >
           {isLoading ? (
             <>
@@ -80,13 +80,13 @@ export default function DiscoverySearch({
         <button
           type="button"
           onClick={() => setShowSiteFilter((v) => !v)}
-          className="md:hidden text-xs text-[#4A7C59] hover:underline"
+          className="md:hidden text-xs text-sage-500 hover:underline"
         >
           {showSiteFilter ? 'Hide site filter' : 'Filter by site +'}
         </button>
 
         <div className={`mt-2 ${showSiteFilter ? 'block' : 'hidden md:block'}`}>
-          <label className="block text-xs font-medium text-gray-600 mb-1">
+          <label className="block text-xs font-medium text-stone-600 mb-1">
             Search a specific site
           </label>
           <input
@@ -94,7 +94,7 @@ export default function DiscoverySearch({
             value={siteFilter}
             onChange={(e) => onSiteChange(e.target.value)}
             placeholder="e.g. budgetbytes.com, seriouseats.com"
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A7C59] text-gray-700"
+            className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500 text-stone-700"
             disabled={isLoading}
           />
         </div>
@@ -108,7 +108,7 @@ export default function DiscoverySearch({
               key={chip}
               type="button"
               onClick={() => onChipSelect(chip)}
-              className="text-sm px-3 py-1.5 rounded-full border border-gray-200 bg-white text-gray-600 hover:border-[#4A7C59] hover:text-[#4A7C59] transition-colors"
+              className="text-sm px-3 py-1.5 rounded-full border border-stone-200 bg-white text-stone-600 hover:border-sage-500 hover:text-sage-500 transition-colors"
             >
               {chip}
             </button>
