@@ -212,7 +212,6 @@ describe('T08 - POST /api/plan/suggest returns LLM suggestions', () => {
       prefer_this_week: [],
       avoid_this_week: [],
       free_text: '',
-      specific_requests: '',
     }))
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -243,7 +242,6 @@ describe('T09 - Invalid recipe_ids are dropped from suggestions', () => {
       prefer_this_week: [],
       avoid_this_week: [],
       free_text: '',
-      specific_requests: '',
     }))
     const body = await res.json()
     expect(body.days[0].meal_types[0].options).toHaveLength(1)
@@ -266,7 +264,6 @@ describe('T10 - Cooldown recipes excluded from LLM input', () => {
       prefer_this_week: [],
       avoid_this_week: [],
       free_text: '',
-      specific_requests: '',
     }))
     expect(res.status).toBe(200)
   })
@@ -450,7 +447,6 @@ describe('POST /api/plan/suggest validation', () => {
       prefer_this_week: [],
       avoid_this_week: [],
       free_text: '',
-      specific_requests: '',
     }))
     expect(res.status).toBe(400)
   })
@@ -462,7 +458,6 @@ describe('POST /api/plan/suggest validation', () => {
       prefer_this_week: [],
       avoid_this_week: [],
       free_text: '',
-      specific_requests: '',
     }))
     expect(res.status).toBe(400)
   })
@@ -511,7 +506,6 @@ describe('T30 - Snack suggestions use only side_dish recipes', () => {
       prefer_this_week: [],
       avoid_this_week: [],
       free_text: '',
-      specific_requests: '',
     }))
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -550,7 +544,6 @@ describe('T20 - POST /api/plan/suggest includes pantry context in LLM prompt', (
       prefer_this_week: [],
       avoid_this_week:  [],
       free_text:        '',
-      specific_requests: '',
     }))
 
     expect(res.status).toBe(200)
@@ -573,7 +566,6 @@ describe('T21 - Pantry context is (none) when pantry is empty', () => {
       prefer_this_week: [],
       avoid_this_week:  [],
       free_text:        '',
-      specific_requests: '',
     }))
 
     expect(res.status).toBe(200)
@@ -600,7 +592,6 @@ describe('T22 - cooldown filtering uses per-user history, not household-wide', (
       prefer_this_week: [],
       avoid_this_week: [],
       free_text: '',
-      specific_requests: '',
     }))
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -640,7 +631,6 @@ describe('T31 - Already-planned future recipes are excluded from suggestions', (
       prefer_this_week: [],
       avoid_this_week: [],
       free_text: '',
-      specific_requests: '',
     }))
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -672,7 +662,6 @@ describe('T31 - Already-planned future recipes are excluded from suggestions', (
       prefer_this_week: [],
       avoid_this_week: [],
       free_text: '',
-      specific_requests: '',
     }))
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -706,7 +695,6 @@ describe('T31 - Already-planned future recipes are excluded from suggestions', (
       prefer_this_week: [],
       avoid_this_week: [],
       free_text: '',
-      specific_requests: '',
     }))
     // Does not error — returns what's available
     expect(res.status).toBe(200)
