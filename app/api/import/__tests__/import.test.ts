@@ -134,16 +134,12 @@ describe('GET /api/import/[job_id]', () => {
     vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
     vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
 
-    // Directly inject an expired job
-    const { importJobs } = await import('../job-store')
+    // Directly inject an expired job via the shared store
+    const { createJob, getJob } = await import('@/lib/import-jobs')
     const expiredJobId = 'expired-job-123'
-    importJobs.set(expiredJobId, {
-      userId:    'user-1',
-      total:     1,
-      completed: 1,
-      results:   [],
-      createdAt: Date.now() - 31 * 60 * 1000, // 31 minutes ago
-    })
+    createJob(expiredJobId, 'user-1', 1)
+    const expiredJob = getJob(expiredJobId)!
+    expiredJob.createdAt = Date.now() - 31 * 60 * 1000 // 31 minutes ago
 
     const { GET } = await import('../[job_id]/route')
     const req = new Request(`http://localhost/api/import/${expiredJobId}`)
