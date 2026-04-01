@@ -10,9 +10,13 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Provide placeholder values so next build succeeds without real secrets
-ENV NEXT_PUBLIC_SUPABASE_URL=https://placeholder.supabase.co
-ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=placeholder
+# NEXT_PUBLIC_* vars are inlined into the client bundle at build time.
+# Provide real values via --build-arg for production images.
+# Defaults are placeholders so CI builds succeed without secrets.
+ARG NEXT_PUBLIC_SUPABASE_URL=https://placeholder.supabase.co
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY=placeholder
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
 ENV SUPABASE_SERVICE_ROLE_KEY=placeholder
 ENV NEXT_TELEMETRY_DISABLED=1
 
