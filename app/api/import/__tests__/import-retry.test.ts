@@ -129,7 +129,7 @@ describe('scrapeUrl rate-limit retry', () => {
     expect(job?.results[0]?.status).toBe('failed')
   })
 
-  it('passes compact: true to scrapeRecipe', async () => {
+  it('regression: does not pass compact option to scrapeRecipe (bulk import uses full 20000-char limit)', async () => {
     mockScrapeRecipe.mockResolvedValue(GOOD_SCRAPE)
 
     const { POST } = await import('../urls/route')
@@ -146,7 +146,6 @@ describe('scrapeUrl rate-limit retry', () => {
       'user-1',
       expect.anything(),
       null,
-      { compact: true },
     )
   })
 })
