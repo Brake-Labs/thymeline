@@ -53,6 +53,7 @@ vi.mock('@/lib/llm', () => ({
     const stripped = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '')
     return JSON.parse(stripped)
   },
+  LLM_MODEL_CAPABLE: 'claude-sonnet-4-6',
 }))
 
 import { createServerClient, createAdminClient } from '@/lib/supabase-server'
