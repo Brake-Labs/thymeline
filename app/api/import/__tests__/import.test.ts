@@ -135,7 +135,7 @@ describe('GET /api/import/[job_id]', () => {
     vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
 
     // Directly inject an expired job
-    const { importJobs } = await import('../urls/route')
+    const { importJobs } = await import('../job-store')
     const expiredJobId = 'expired-job-123'
     importJobs.set(expiredJobId, {
       userId:    'user-1',

@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import type { ImportResult } from '@/types'
 import type { ImportFormat } from '@/lib/import/detect-format'
+import { getAccessToken } from '@/lib/supabase/browser'
 import ImportSourceTabs from './ImportSourceTabs'
 import ImportProgress from './ImportProgress'
 import NotionMappingEditor from './NotionMappingEditor'
@@ -60,9 +61,10 @@ export default function ImportWizard() {
   async function handleUrlsSubmit(urls: string[]) {
     setError(null)
     try {
+      const token = await getAccessToken()
       const res = await fetch('/api/import/urls', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body:    JSON.stringify({ urls }),
       })
       const data = await res.json() as { job_id?: string; total?: number; error?: string }
@@ -88,7 +90,12 @@ export default function ImportWizard() {
       form.append('file', file)
       if (format) form.append('format', format)
 
-      const res = await fetch('/api/import/file', { method: 'POST', body: form })
+      const token = await getAccessToken()
+      const res = await fetch('/api/import/file', {
+        method:  'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body:    form,
+      })
       const data = await res.json() as {
         format:          string
         total:           number
@@ -149,9 +156,10 @@ export default function ImportWizard() {
     if (!rawCsv) return
 
     try {
+      const token = await getAccessToken()
       const res = await fetch('/api/import/confirm-notion-mapping', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body:    JSON.stringify({ file_content: rawCsv, mapping }),
       })
       const data = await res.json() as {
@@ -182,9 +190,10 @@ export default function ImportWizard() {
     const recipesToSave = selected.filter((r) => r.recipe && r.status !== 'failed')
 
     try {
+      const token = await getAccessToken()
       const res = await fetch('/api/import/save', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body:    JSON.stringify({ recipes: recipesToSave.map(resultToSavePayload) }),
       })
       const data = await res.json() as {

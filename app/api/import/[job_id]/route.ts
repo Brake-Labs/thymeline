@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
-import { importJobs } from '../urls/route'
+import { importJobs } from '../job-store'
 
 const JOB_TTL_MS = 30 * 60 * 1000 // 30 minutes
 
