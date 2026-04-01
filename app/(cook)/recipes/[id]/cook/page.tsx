@@ -328,8 +328,7 @@ export default function CookModePage({ params }: Props) {
 
       {/* Fixed footer */}
       <div
-        style={{ backgroundColor: '#1F2D26' }}
-        className="fixed bottom-0 left-0 right-0 z-40 px-4 py-4 flex items-center justify-between gap-3"
+        className="bg-sage-900 fixed bottom-0 left-0 right-0 z-40 px-4 py-4 flex items-center justify-between gap-3"
       >
         {view === 'one' && (
           <>

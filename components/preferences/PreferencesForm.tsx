@@ -67,7 +67,7 @@ interface PrefsState {
 
 function SectionCard({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-[4px] border border-stone-200 bg-[#FFFDF9] overflow-hidden">
+    <div className="rounded-[4px] border border-stone-200 bg-stone-50 overflow-hidden">
       <div className="h-[3px] bg-sage-500" />
       <div className="px-5 py-5 space-y-4">
         {children}

@@ -26,8 +26,7 @@ export default function CookHeader({
 }: Props) {
   return (
     <header
-      style={{ backgroundColor: '#1F2D26' }}
-      className="fixed top-0 left-0 right-0 z-40 h-14 flex items-center px-4 gap-3"
+      className="bg-sage-900 fixed top-0 left-0 right-0 z-40 h-14 flex items-center px-4 gap-3"
     >
       {/* Exit link */}
       <Link
@@ -66,7 +65,7 @@ export default function CookHeader({
         {wakeLockActive && (
           <span
             aria-label="Screen awake"
-            className="w-2 h-2 rounded-full bg-green-400"
+            className="w-2 h-2 rounded-full bg-sage-400"
           />
         )}
       </div>

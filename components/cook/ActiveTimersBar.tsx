@@ -31,8 +31,7 @@ export default function ActiveTimersBar({ timers, onPause, onReset, onDismiss }:
               <span className="text-red-400 text-sm font-semibold flex-1">Time&apos;s up!</span>
             ) : (
               <span
-                className="text-white flex-1 tabular-nums"
-                style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 700, fontSize: '1rem' }}
+                className="text-white flex-1 tabular-nums font-display font-bold text-base"
               >
                 {formatTime(timer.remaining)}
               </span>

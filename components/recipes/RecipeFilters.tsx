@@ -41,7 +41,7 @@ export default function RecipeFilters() {
   return (
     <div className="flex flex-wrap gap-3">
       <select
-        className="border border-gray-300 rounded px-3 py-1.5 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="border border-stone-300 rounded px-3 py-1.5 text-sm text-stone-700 bg-white focus:outline-none focus:ring-2 focus:ring-sage-500"
         value={searchParams.get('category') ?? ''}
         onChange={(e) => handleChange('category', e.target.value)}
         aria-label="Filter by category"
@@ -52,7 +52,7 @@ export default function RecipeFilters() {
       </select>
 
       <select
-        className="border border-gray-300 rounded px-3 py-1.5 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="border border-stone-300 rounded px-3 py-1.5 text-sm text-stone-700 bg-white focus:outline-none focus:ring-2 focus:ring-sage-500"
         value={searchParams.get('tag') ?? ''}
         onChange={(e) => handleChange('tag', e.target.value)}
         aria-label="Filter by tag"

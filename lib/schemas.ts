@@ -119,7 +119,6 @@ export const suggestSchema = z.object({
   prefer_this_week: z.array(z.string()).default([]),
   avoid_this_week: z.array(z.string()).default([]),
   free_text: z.string().default(''),
-  specific_requests: z.string().default(''),
 })
 
 export const swapSchema = z.object({

@@ -135,13 +135,13 @@ export default function PreviewSheet({
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl relative">
         {/* Header */}
         <div className="flex items-start justify-between px-6 py-4 border-b gap-4">
-          <h2 className="font-display font-semibold text-[#1F2D26] text-lg leading-snug flex-1">
+          <h2 className="font-display font-semibold text-sage-900 text-lg leading-snug flex-1">
             {title}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-2xl leading-none flex-shrink-0"
+            className="text-stone-400 hover:text-stone-600 text-2xl leading-none flex-shrink-0"
             aria-label="Close"
           >
             ×
@@ -151,20 +151,20 @@ export default function PreviewSheet({
         {/* Body */}
         <div className="px-6 py-5 overflow-y-auto max-h-[70vh]">
           {state === 'loading' && (
-            <div className="flex flex-col items-center justify-center py-16 gap-4 text-gray-500">
-              <span className="inline-block h-8 w-8 border-2 border-[#4A7C59] border-t-transparent rounded-full animate-spin" aria-label="Loading" />
+            <div className="flex flex-col items-center justify-center py-16 gap-4 text-stone-500">
+              <span className="inline-block h-8 w-8 border-2 border-sage-500 border-t-transparent rounded-full animate-spin" aria-label="Loading" />
               <p className="text-sm">Loading recipe…</p>
             </div>
           )}
 
           {state === 'error' && (
-            <div className="py-8 text-center text-sm text-gray-600">
+            <div className="py-8 text-center text-sm text-stone-600">
               <p className="mb-3">Couldn&apos;t load this recipe — try opening it directly</p>
               <a
                 href={result.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[#4A7C59] hover:underline"
+                className="text-sage-500 hover:underline"
               >
                 Open recipe →
               </a>
@@ -196,8 +196,8 @@ export default function PreviewSheet({
                   <div className="flex flex-wrap gap-4">
                     {fields.map((f) => (
                       <div key={f.label} className="text-sm">
-                        <span className="text-gray-500">{f.label}: </span>
-                        <span className="font-medium text-[#1F2D26]">{f.value}</span>
+                        <span className="text-stone-500">{f.label}: </span>
+                        <span className="font-medium text-sage-900">{f.value}</span>
                       </div>
                     ))}
                   </div>
@@ -221,16 +221,16 @@ export default function PreviewSheet({
               {/* Ingredients */}
               {scrapeResult.ingredients && (
                 <div>
-                  <h3 className="font-display font-semibold text-sm text-[#1F2D26] mb-2">Ingredients</h3>
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{scrapeResult.ingredients}</p>
+                  <h3 className="font-display font-semibold text-sm text-sage-900 mb-2">Ingredients</h3>
+                  <p className="text-sm text-stone-700 whitespace-pre-wrap">{scrapeResult.ingredients}</p>
                 </div>
               )}
 
               {/* Steps */}
               {scrapeResult.steps && (
                 <div>
-                  <h3 className="font-display font-semibold text-sm text-[#1F2D26] mb-2">Instructions</h3>
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{scrapeResult.steps}</p>
+                  <h3 className="font-display font-semibold text-sm text-sage-900 mb-2">Instructions</h3>
+                  <p className="text-sm text-stone-700 whitespace-pre-wrap">{scrapeResult.steps}</p>
                 </div>
               )}
             </div>
@@ -242,11 +242,11 @@ export default function PreviewSheet({
           <div className="sticky bottom-0 bg-white border-t px-6 py-4 flex flex-wrap gap-3 items-center">
             {state === 'saved' ? (
               <>
-                <span className="text-sm font-medium text-[#4A7C59]">Saved to vault ✓</span>
+                <span className="text-sm font-medium text-sage-500">Saved to vault ✓</span>
                 {savedId && (
                   <a
                     href={`/recipes/${savedId}`}
-                    className="text-sm text-[#4A7C59] hover:underline"
+                    className="text-sm text-sage-500 hover:underline"
                   >
                     View in vault →
                   </a>
@@ -254,24 +254,24 @@ export default function PreviewSheet({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="ml-auto text-sm font-medium text-gray-500 px-4 py-2 rounded-lg border border-gray-200 hover:border-gray-300"
+                  className="ml-auto text-sm font-medium text-stone-500 px-4 py-2 rounded-lg border border-stone-200 hover:border-stone-300"
                 >
                   Close
                 </button>
               </>
             ) : existingRecipeId ? (
               <>
-                <span className="text-sm text-gray-500 font-medium">Already in your vault</span>
+                <span className="text-sm text-stone-500 font-medium">Already in your vault</span>
                 <a
                   href={`/recipes/${existingRecipeId}`}
-                  className="text-sm text-[#4A7C59] hover:underline"
+                  className="text-sm text-sage-500 hover:underline"
                 >
                   View →
                 </a>
                 <button
                   type="button"
                   onClick={onClose}
-                  className="ml-auto text-sm font-medium text-gray-500 px-4 py-2 rounded-lg border border-gray-200 hover:border-gray-300"
+                  className="ml-auto text-sm font-medium text-stone-500 px-4 py-2 rounded-lg border border-stone-200 hover:border-stone-300"
                 >
                   Close
                 </button>
@@ -282,21 +282,21 @@ export default function PreviewSheet({
                   type="button"
                   onClick={handleSave}
                   disabled={state === 'saving'}
-                  className="bg-[#4A7C59] text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#3d6a4a] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="bg-sage-500 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-sage-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {state === 'saving' ? 'Saving…' : 'Save to Vault'}
                 </button>
                 <button
                   type="button"
                   onClick={() => { if (scrapeResult) { onEditBeforeSaving(scrapeResult); onClose() } }}
-                  className="text-sm font-medium text-gray-600 px-4 py-2 rounded-lg border border-gray-200 hover:border-gray-300"
+                  className="text-sm font-medium text-stone-600 px-4 py-2 rounded-lg border border-stone-200 hover:border-stone-300"
                 >
                   Edit before saving
                 </button>
                 <button
                   type="button"
                   onClick={onClose}
-                  className="text-sm font-medium text-gray-500 px-4 py-2 rounded-lg border border-gray-200 hover:border-gray-300"
+                  className="text-sm font-medium text-stone-500 px-4 py-2 rounded-lg border border-stone-200 hover:border-stone-300"
                 >
                   Close
                 </button>

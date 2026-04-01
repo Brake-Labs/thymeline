@@ -91,7 +91,7 @@ export default function SuggestionsStep({
       </div>
 
       {/* Sticky footer */}
-      <div className="sticky bottom-0 bg-[#F7F4F0] border-t border-[#D4C9BA] px-4 py-4 z-10 -mx-4 md:-mx-8">
+      <div className="sticky bottom-0 bg-stone-50 border-t border-stone-200 px-4 py-4 z-10 -mx-4 md:-mx-8">
         <div className="max-w-2xl mx-auto flex items-center justify-between gap-3">
           {/* Regenerate — ghost sage, left side */}
           <div className="relative">

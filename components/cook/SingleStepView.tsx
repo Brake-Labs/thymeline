@@ -72,8 +72,7 @@ export default function SingleStepView({
         <img
           src={photo.imageUrl}
           alt={`Step ${currentStep + 1}`}
-          className="w-full rounded-lg object-cover mb-4"
-          style={{ maxHeight: 240 }}
+          className="w-full rounded-lg object-cover mb-4 max-h-60"
         />
       )}
 
@@ -83,8 +82,7 @@ export default function SingleStepView({
           {currentStep + 1}
         </span>
         <p
-          className="text-[#3D3028] font-sans"
-          style={{ fontSize: 20, lineHeight: 1.7 }}
+          className="text-stone-800 font-sans text-xl leading-[1.7]"
         >
           {renderHighlighted(stepText, highlights)}
         </p>

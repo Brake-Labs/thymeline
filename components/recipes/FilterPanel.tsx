@@ -119,7 +119,7 @@ export default function FilterPanel({
   const sliderVal = pendingFilters.maxTotalMinutes ?? 240
 
   return (
-    <div className="border border-stone-200 rounded-lg bg-[#F7F4F0] p-5 space-y-5">
+    <div className="border border-stone-200 rounded-lg bg-stone-50 p-5 space-y-5">
       {/* Row 1: Style / Dietary / Protein */}
       <div className="grid grid-cols-3 gap-5">
         <div>

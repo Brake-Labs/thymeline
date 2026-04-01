@@ -18,7 +18,7 @@ export default function DiscoveryCard({
   const displayedTags = result.suggested_tags.slice(0, 3)
 
   return (
-    <div className="bg-[#FFFDF9] border border-[#D4C9BA] rounded-lg overflow-hidden flex flex-col">
+    <div className="bg-stone-50 border border-stone-200 rounded-lg overflow-hidden flex flex-col">
       {/* Sage accent bar */}
       <div className="h-[3px] bg-sage-500" />
 
@@ -32,17 +32,17 @@ export default function DiscoveryCard({
             aria-hidden="true"
             className="w-4 h-4"
           />
-          <span className="text-xs text-gray-500 truncate">{result.site_name}</span>
+          <span className="text-xs text-stone-500 truncate">{result.site_name}</span>
         </div>
 
         {/* Title */}
-        <h3 className="font-display font-semibold text-[#1F2D26] text-sm leading-snug line-clamp-2">
+        <h3 className="font-display font-semibold text-sage-900 text-sm leading-snug line-clamp-2">
           {result.title}
         </h3>
 
         {/* Description */}
         {result.description && (
-          <p className="text-sm text-gray-600 line-clamp-3">{result.description}</p>
+          <p className="text-sm text-stone-600 line-clamp-3">{result.description}</p>
         )}
 
         {/* Tags */}
@@ -63,7 +63,7 @@ export default function DiscoveryCard({
         {result.vault_match && (
           <div>
             {result.vault_match.similarity === 'exact' ? (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">
+              <span className="text-xs px-2 py-0.5 rounded-full bg-stone-100 text-stone-600 font-medium">
                 Already saved
               </span>
             ) : (
@@ -89,14 +89,14 @@ export default function DiscoveryCard({
             <button
               type="button"
               onClick={() => onPreview(result)}
-              className="flex-1 bg-[#4A7C59] text-white text-sm font-medium px-3 py-2 rounded-lg hover:bg-[#3d6a4a] transition-colors"
+              className="flex-1 bg-sage-500 text-white text-sm font-medium px-3 py-2 rounded-lg hover:bg-sage-600 transition-colors"
             >
               Preview &amp; Save
             </button>
             <button
               type="button"
               onClick={() => onDismiss(result.url)}
-              className="text-sm font-medium text-gray-500 px-3 py-2 rounded-lg border border-gray-200 hover:border-gray-300 hover:text-gray-700 transition-colors"
+              className="text-sm font-medium text-stone-500 px-3 py-2 rounded-lg border border-stone-200 hover:border-stone-300 hover:text-stone-700 transition-colors"
             >
               Dismiss
             </button>

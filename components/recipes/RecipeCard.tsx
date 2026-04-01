@@ -62,10 +62,10 @@ export default function RecipeCard({
 
   return (
     <div
-      className={`relative flex flex-col bg-[#FFFDF9] rounded border transition-all group ${
+      className={`relative flex flex-col bg-stone-50 rounded border transition-all group ${
         selected
           ? 'border-2 border-sage-500'
-          : 'border border-[#D4C9BA] hover:border-[#BFB2A0]'
+          : 'border border-stone-200 hover:border-stone-300'
       }`}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
@@ -105,17 +105,17 @@ export default function RecipeCard({
         draggable={false}
       >
         {/* Category */}
-        <p className="text-[9px] font-bold uppercase tracking-widest text-sage-600 font-jakarta mb-1">
+        <p className="text-[9px] font-bold uppercase tracking-widest text-sage-600 font-display mb-1">
           {CATEGORY_LABELS[recipe.category]}
         </p>
 
         {/* Title */}
-        <p className="text-sm font-bold text-[#1F2D26] font-jakarta leading-snug mb-1 line-clamp-2">
+        <p className="text-sm font-bold text-sage-900 font-display leading-snug mb-1 line-clamp-2">
           {recipe.title}
         </p>
 
         {/* Time */}
-        <p className="text-[11px] text-[#8C7D6B] font-manrope mb-2">
+        <p className="text-[11px] text-stone-500 font-sans mb-2">
           {formatMinutes(recipe.total_time_minutes)}
         </p>
 
@@ -130,14 +130,14 @@ export default function RecipeCard({
             </span>
           ))}
           {extraCount > 0 && (
-            <span className="text-[10px] text-[#8C7D6B]">+{extraCount}</span>
+            <span className="text-[10px] text-stone-500">+{extraCount}</span>
           )}
         </div>
       </Link>
 
       {/* Footer */}
-      <div className="flex items-center justify-between px-4 py-1.5 border-t border-dashed border-[#D4C9BA]">
-        <span className="text-[10px] text-[#8C7D6B]">
+      <div className="flex items-center justify-between px-4 py-1.5 border-t border-dashed border-stone-200">
+        <span className="text-[10px] text-stone-500">
           {recipe.last_made ? `Made ${recipe.last_made}` : 'Never made'}
         </span>
         {isOwner && (
