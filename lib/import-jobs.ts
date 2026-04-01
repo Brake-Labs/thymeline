@@ -25,8 +25,14 @@ const JOB_TTL_MS = 30 * 60 * 1000 // 30 minutes
 
 const jobs = new Map<string, ImportJob>()
 
-export function createJob(id: string, userId: string, total: number): void {
-  jobs.set(id, { userId, total, completed: 0, results: [], createdAt: Date.now() })
+export function createJob(id: string, userId: string, urls: string[]): void {
+  jobs.set(id, {
+    userId,
+    total:     urls.length,
+    completed: 0,
+    results:   urls.map((url) => ({ url, status: 'pending' })),
+    createdAt: Date.now(),
+  })
 }
 
 export function getJob(id: string): ImportJob | undefined {
@@ -36,12 +42,11 @@ export function getJob(id: string): ImportJob | undefined {
 export function updateJob(id: string, result: JobResult): void {
   const job = jobs.get(id)
   if (!job) return
-  job.results.push(result)
-  job.completed++
-}
-
-export function expireJob(id: string): void {
-  jobs.delete(id)
+  const idx = job.results.findIndex((r) => r.url === result.url)
+  if (idx >= 0) {
+    job.results[idx] = result
+    job.completed++
+  }
 }
 
 export function evictExpired(): void {

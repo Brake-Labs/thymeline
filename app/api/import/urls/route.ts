@@ -94,7 +94,7 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   evictExpired()
 
   const jobId = crypto.randomUUID()
-  createJob(jobId, user.id, body.urls.length)
+  createJob(jobId, user.id, body.urls)
 
   // Fire and forget — do NOT await
   void Promise.all(

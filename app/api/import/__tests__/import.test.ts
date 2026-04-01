@@ -137,7 +137,7 @@ describe('GET /api/import/[job_id]', () => {
     // Directly inject an expired job via the shared store
     const { createJob, getJob } = await import('@/lib/import-jobs')
     const expiredJobId = 'expired-job-123'
-    createJob(expiredJobId, 'user-1', 1)
+    createJob(expiredJobId, 'user-1', ['https://example.com/recipe'])
     const expiredJob = getJob(expiredJobId)!
     expiredJob.createdAt = Date.now() - 31 * 60 * 1000 // 31 minutes ago
 
