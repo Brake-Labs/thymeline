@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import type { PantryItem } from '@/types'
 import ExpiryBadge from './ExpiryBadge'
+import DateInput from '@/components/ui/DateInput'
 
 interface PantryItemRowProps {
   item:     PantryItem
@@ -81,11 +82,10 @@ export default function PantryItemRow({ item, onEdit, onDelete }: PantryItemRowP
           </label>
           <label className="flex flex-col gap-0.5">
             <span className="text-xs text-stone-500">Expiry date</span>
-            <input
-              type="date"
+            <DateInput
               value={expiryDate}
-              onChange={(e) => setExpiryDate(e.target.value)}
-              className="bg-[#FFFDF9] border border-stone-200 rounded-[4px] px-2 py-1.5 font-sans text-[13px] text-sage-900 w-full accent-[#4A7C59] focus:outline-none focus:ring-2 focus:ring-sage-500"
+              onChange={setExpiryDate}
+              className="w-full"
             />
           </label>
           <div className="flex gap-2">

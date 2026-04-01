@@ -11,6 +11,7 @@ import {
 } from '@/lib/tags'
 import { CATEGORY_OPTIONS } from '@/lib/category-labels'
 import { toDateString } from '@/lib/date-utils'
+import DateInput from '@/components/ui/DateInput'
 
 const KNOWN_TAGS = new Set<string>([
   ...STYLE_TAGS,
@@ -202,20 +203,18 @@ export default function FilterPanel({
           <div className="flex gap-2 mb-2">
             <div className="flex-1">
               <label className="block text-[10px] text-stone-400 mb-1">From</label>
-              <input
-                type="date"
+              <DateInput
                 value={pendingFilters.lastMadeFrom ?? ''}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className="w-full bg-[#FFFDF9] border border-stone-200 rounded-[4px] px-2 py-1.5 font-sans text-[13px] text-sage-900 accent-[#4A7C59] focus:outline-none focus:ring-2 focus:ring-sage-500"
+                onChange={setDateFrom}
+                className="w-full"
               />
             </div>
             <div className="flex-1">
               <label className="block text-[10px] text-stone-400 mb-1">To</label>
-              <input
-                type="date"
+              <DateInput
                 value={pendingFilters.lastMadeTo ?? ''}
-                onChange={(e) => setDateTo(e.target.value)}
-                className="w-full bg-[#FFFDF9] border border-stone-200 rounded-[4px] px-2 py-1.5 font-sans text-[13px] text-sage-900 accent-[#4A7C59] focus:outline-none focus:ring-2 focus:ring-sage-500"
+                onChange={setDateTo}
+                className="w-full"
               />
             </div>
           </div>

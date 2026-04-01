@@ -11,6 +11,7 @@ import {
 } from '@/lib/tags'
 import { CATEGORY_OPTIONS } from '@/lib/category-labels'
 import { toDateString, getTodayISO } from '@/lib/date-utils'
+import DateInput from '@/components/ui/DateInput'
 
 const TIME_BUCKETS: { max: number | null; label: string }[] = [
   { max: null,  label: 'Any time' },
@@ -356,20 +357,18 @@ export default function FilterSidebar({ filters, onChange, onClearAll, vaultTags
           <div className="pt-2 space-y-2">
             <div>
               <label className="block text-[10px] text-stone-400 mb-1">From</label>
-              <input
-                type="date"
+              <DateInput
                 value={filters.lastMadeFrom ?? ''}
-                onChange={(e) => onChange({ ...filters, neverMade: false, lastMadeFrom: e.target.value || null })}
-                className="w-full bg-[#FFFDF9] border border-stone-200 rounded-[4px] px-2 py-1.5 font-sans text-[13px] text-sage-900 accent-[#4A7C59] focus:outline-none focus:ring-2 focus:ring-sage-500"
+                onChange={(v) => onChange({ ...filters, neverMade: false, lastMadeFrom: v || null })}
+                className="w-full"
               />
             </div>
             <div>
               <label className="block text-[10px] text-stone-400 mb-1">To</label>
-              <input
-                type="date"
+              <DateInput
                 value={filters.lastMadeTo ?? ''}
-                onChange={(e) => onChange({ ...filters, neverMade: false, lastMadeTo: e.target.value || null })}
-                className="w-full bg-[#FFFDF9] border border-stone-200 rounded-[4px] px-2 py-1.5 font-sans text-[13px] text-sage-900 accent-[#4A7C59] focus:outline-none focus:ring-2 focus:ring-sage-500"
+                onChange={(v) => onChange({ ...filters, neverMade: false, lastMadeTo: v || null })}
+                className="w-full"
               />
             </div>
           </div>

@@ -5,6 +5,7 @@ import { GroceryList } from '@/types'
 import GroceryListView from './GroceryListView'
 import { getAccessToken } from '@/lib/supabase/browser'
 import { getMostRecentSunday, addDays, formatShortDate as formatDate } from '@/lib/date-utils'
+import DateInput from '@/components/ui/DateInput'
 
 export default function GroceriesPageClient() {
   const thisSunday = getMostRecentSunday()
@@ -70,22 +71,11 @@ export default function GroceriesPageClient() {
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
             <label className="text-sm text-stone-600">From</label>
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => { setDateFrom(e.target.value) }}
-              className="bg-[#FFFDF9] border border-stone-200 rounded-[4px] px-2 py-1.5 font-sans text-[13px] text-sage-900 accent-[#4A7C59] focus:outline-none focus:ring-2 focus:ring-sage-500"
-            />
+            <DateInput value={dateFrom} onChange={setDateFrom} />
           </div>
           <div className="flex items-center gap-2">
             <label className="text-sm text-stone-600">To</label>
-            <input
-              type="date"
-              value={dateTo}
-              min={dateFrom}
-              onChange={(e) => { setDateTo(e.target.value) }}
-              className="bg-[#FFFDF9] border border-stone-200 rounded-[4px] px-2 py-1.5 font-sans text-[13px] text-sage-900 accent-[#4A7C59] focus:outline-none focus:ring-2 focus:ring-sage-500"
-            />
+            <DateInput value={dateTo} min={dateFrom} onChange={setDateTo} />
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
