@@ -96,17 +96,17 @@ export default function OnboardingFlow({ allTags }: OnboardingFlowProps) {
   const dots = Array.from({ length: totalSteps }, (_, i) => i + 1)
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-stone-50 flex items-center justify-center px-4">
       <div className="w-full max-w-lg bg-white rounded-2xl shadow-sm p-8 space-y-6">
         {/* Progress */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-gray-500">Step {step} of {totalSteps}</p>
+            <p className="text-sm text-stone-500">Step {step} of {totalSteps}</p>
             <button
               type="button"
               onClick={handleSkip}
               disabled={saving}
-              className="text-sm text-gray-400 hover:text-gray-600 underline"
+              className="text-sm text-stone-400 hover:text-stone-600 underline"
             >
               Skip for now
             </button>
@@ -116,7 +116,7 @@ export default function OnboardingFlow({ allTags }: OnboardingFlowProps) {
               <div
                 key={n}
                 className={`h-1.5 flex-1 rounded-full transition-colors ${
-                  n <= step ? 'bg-blue-500' : 'bg-gray-200'
+                  n <= step ? 'bg-sage-500' : 'bg-stone-200'
                 }`}
               />
             ))}
@@ -127,8 +127,8 @@ export default function OnboardingFlow({ allTags }: OnboardingFlowProps) {
         <div className="space-y-4">
           {step === 1 && (
             <>
-              <h2 className="font-display text-xl font-semibold text-gray-900">How many meal options do you want each day?</h2>
-              <p className="text-sm text-gray-500">{"We'll show you this many recipe choices for each day you're planning."}</p>
+              <h2 className="font-display text-xl font-semibold text-stone-900">How many meal options do you want each day?</h2>
+              <p className="text-sm text-stone-500">{"We'll show you this many recipe choices for each day you're planning."}</p>
               <div className="py-2">
                 <StepperInput
                   value={values.options_per_day}
@@ -143,8 +143,8 @@ export default function OnboardingFlow({ allTags }: OnboardingFlowProps) {
 
           {step === 2 && (
             <>
-              <h2 className="font-display text-xl font-semibold text-gray-900">How soon can a recipe repeat?</h2>
-              <p className="text-sm text-gray-500">{"We won't suggest a recipe you've made more recently than this."}</p>
+              <h2 className="font-display text-xl font-semibold text-stone-900">How soon can a recipe repeat?</h2>
+              <p className="text-sm text-stone-500">{"We won't suggest a recipe you've made more recently than this."}</p>
               <div className="py-2">
                 <CooldownSlider
                   value={values.cooldown_days}
@@ -156,8 +156,8 @@ export default function OnboardingFlow({ allTags }: OnboardingFlowProps) {
 
           {step === 3 && (
             <>
-              <h2 className="font-display text-xl font-semibold text-gray-900">What kinds of meals do you prefer?</h2>
-              <p className="text-sm text-gray-500">{"We'll prioritize these when suggesting meals."}</p>
+              <h2 className="font-display text-xl font-semibold text-stone-900">What kinds of meals do you prefer?</h2>
+              <p className="text-sm text-stone-500">{"We'll prioritize these when suggesting meals."}</p>
               <div className="py-2">
                 <TagBucketPicker
                   bucket="preferred"
@@ -171,11 +171,11 @@ export default function OnboardingFlow({ allTags }: OnboardingFlowProps) {
 
           {step === 4 && (
             <>
-              <h2 className="font-display text-xl font-semibold text-gray-900">Any tags to limit or avoid?</h2>
+              <h2 className="font-display text-xl font-semibold text-stone-900">Any tags to limit or avoid?</h2>
               <div className="space-y-6">
                 <div className="space-y-2">
-                  <h3 className="font-display font-medium text-gray-800">Limit</h3>
-                  <p className="text-sm text-gray-500">These can appear in your plan, but only up to a set number per week.</p>
+                  <h3 className="font-display font-medium text-stone-800">Limit</h3>
+                  <p className="text-sm text-stone-500">These can appear in your plan, but only up to a set number per week.</p>
                   <TagBucketPicker
                     bucket="limited"
                     selected={values.limited_tags.map((lt) => lt.tag)}
@@ -185,8 +185,8 @@ export default function OnboardingFlow({ allTags }: OnboardingFlowProps) {
                   />
                 </div>
                 <div className="space-y-2">
-                  <h3 className="font-display font-medium text-gray-800">Avoid</h3>
-                  <p className="text-sm text-gray-500">{"We'll never suggest recipes with these tags."}</p>
+                  <h3 className="font-display font-medium text-stone-800">Avoid</h3>
+                  <p className="text-sm text-stone-500">{"We'll never suggest recipes with these tags."}</p>
                   <TagBucketPicker
                     bucket="avoided"
                     selected={values.avoided_tags}
@@ -205,7 +205,7 @@ export default function OnboardingFlow({ allTags }: OnboardingFlowProps) {
             <button
               type="button"
               onClick={() => setStep((s) => s - 1)}
-              className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900"
+              className="px-4 py-2 text-sm font-medium text-stone-600 hover:text-stone-900"
             >
               Back
             </button>
@@ -217,7 +217,7 @@ export default function OnboardingFlow({ allTags }: OnboardingFlowProps) {
             <button
               type="button"
               onClick={() => setStep((s) => s + 1)}
-              className="px-6 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
+              className="px-6 py-2 bg-sage-500 text-white text-sm font-medium rounded-lg hover:bg-sage-600"
             >
               Next
             </button>

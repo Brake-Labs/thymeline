@@ -109,7 +109,7 @@ export default function TagBucketPicker({
                   key={tag}
                   type="button"
                   onClick={() => toggleLimitedTag(tag)}
-                  className="px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors bg-white border-gray-300 text-gray-600 hover:border-amber-300"
+                  className="px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors bg-white border-stone-300 text-stone-600 hover:border-amber-300"
                 >
                   {tag}
                 </button>
@@ -118,7 +118,7 @@ export default function TagBucketPicker({
           </div>
         ))}
         {limitedTags.length === 0 && groups.length === 0 && (
-          <p className="text-sm text-gray-400">No tags available</p>
+          <p className="text-sm text-stone-400">No tags available</p>
         )}
       </div>
     )
@@ -138,7 +138,7 @@ export default function TagBucketPicker({
 
   const selectedColor =
     bucket === 'preferred'
-      ? 'bg-green-100 border-green-400 text-green-800'
+      ? 'bg-sage-100 border-sage-400 text-sage-800'
       : 'bg-red-100 border-red-400 text-red-800'
 
   return (
@@ -157,7 +157,7 @@ export default function TagBucketPicker({
                   className={`px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors ${
                     isSelected
                       ? selectedColor
-                      : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'
+                      : 'bg-white border-stone-300 text-stone-600 hover:border-stone-400'
                   }`}
                 >
                   {tag}
@@ -168,7 +168,7 @@ export default function TagBucketPicker({
         </div>
       ))}
       {groups.length === 0 && (
-        <p className="text-sm text-gray-400">No tags available</p>
+        <p className="text-sm text-stone-400">No tags available</p>
       )}
     </div>
   )

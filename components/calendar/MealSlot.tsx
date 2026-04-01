@@ -98,7 +98,7 @@ export default function MealSlot({ mealType, entries, onAdd, onDelete }: MealSlo
                   <span className="text-[10px] font-display font-bold uppercase tracking-[0.1em] text-sage-500 flex-shrink-0">
                     Dessert
                   </span>
-                  <Link href={`/recipes/${d.recipe_id}`} className="text-xs font-display font-medium text-[#1F2D26] truncate">
+                  <Link href={`/recipes/${d.recipe_id}`} className="text-xs font-display font-medium text-sage-900 truncate">
                     {d.recipe_title}
                   </Link>
                 </div>

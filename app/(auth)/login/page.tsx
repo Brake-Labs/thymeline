@@ -148,10 +148,6 @@ export default function LoginPage() {
   return (
     <div
       className="min-h-screen bg-stone-50 flex items-center justify-center px-4"
-      style={{
-        backgroundImage:
-          "url(\"data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23d6d3d1' fill-opacity='0.3'%3E%3Cpath d='M0 40L40 0H20L0 20M40 40V20L20 40'/%3E%3C/g%3E%3C/svg%3E\")",
-      }}
     >
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-sm border border-stone-100 p-8 space-y-6">
         {/* Wordmark */}

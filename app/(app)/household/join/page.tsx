@@ -58,11 +58,11 @@ export default function JoinHouseholdPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center p-6">
-      <div className="w-full max-w-md rounded-xl border border-gray-200 bg-white p-8 shadow-sm space-y-6">
+      <div className="w-full max-w-md rounded-xl border border-stone-200 bg-white p-8 shadow-sm space-y-6">
         <h1 className="text-xl font-semibold text-center">Join a Household</h1>
 
         {status === 'validating' && (
-          <p className="text-sm text-center text-gray-500">Validating invite…</p>
+          <p className="text-sm text-center text-stone-500">Validating invite…</p>
         )}
 
         {status === 'invalid' && (
@@ -73,15 +73,15 @@ export default function JoinHouseholdPage() {
 
         {status === 'valid' && householdName && (
           <div className="space-y-4 text-center">
-            <p className="text-sm text-gray-700">
+            <p className="text-sm text-stone-700">
               You have been invited to join <span className="font-semibold">{householdName}</span>.
             </p>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-stone-500">
               Your existing recipes, pantry items, and custom tags will be shared with this household.
             </p>
             <button
               onClick={handleJoin}
-              className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              className="w-full rounded-md bg-sage-500 px-4 py-2 text-sm font-medium text-white hover:bg-sage-600"
             >
               Accept &amp; join
             </button>
@@ -89,11 +89,11 @@ export default function JoinHouseholdPage() {
         )}
 
         {status === 'joining' && (
-          <p className="text-sm text-center text-gray-500">Joining…</p>
+          <p className="text-sm text-center text-stone-500">Joining…</p>
         )}
 
         {status === 'done' && (
-          <p className="text-sm text-center text-green-600">
+          <p className="text-sm text-center text-sage-600">
             You have joined the household! Redirecting…
           </p>
         )}
@@ -103,7 +103,7 @@ export default function JoinHouseholdPage() {
             <p className="text-sm text-red-600">{errorMsg}</p>
             <button
               onClick={() => router.push('/')}
-              className="text-sm text-blue-600 hover:text-blue-800"
+              className="text-sm text-sage-500 hover:text-sage-700"
             >
               Go home
             </button>
