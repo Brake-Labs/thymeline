@@ -1,6 +1,6 @@
 /**
  * Regression tests for scrapeRecipe
- * Covers: compact option (Fix 1), rate-limit error propagation (Fix 2 pre-condition)
+ * Covers: rate-limit error propagation, content limit
  */
 
 import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest'
@@ -68,33 +68,15 @@ afterAll(() => {
   vi.unstubAllEnvs()
 })
 
-describe('scrapeRecipe compact option', () => {
+describe('scrapeRecipe content limit', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockCallLLM.mockResolvedValue(GOOD_LLM_RESPONSE)
   })
 
-  it('default: sends up to 20000 chars of page content to LLM', async () => {
+  it('sends up to 20000 chars of page content to LLM', async () => {
     const { scrapeRecipe } = await import('@/lib/scrape-recipe')
     await scrapeRecipe('https://example.com', 'user-1', mockDb as never, null)
-
-    const prompt: string = mockCallLLM.mock.calls[0]?.[0]?.user ?? ''
-    const contentSection = prompt.split('Page content:\n')[1] ?? ''
-    expect(contentSection.length).toBe(20000)
-  })
-
-  it('compact: true sends up to 8000 chars of page content to LLM', async () => {
-    const { scrapeRecipe } = await import('@/lib/scrape-recipe')
-    await scrapeRecipe('https://example.com', 'user-1', mockDb as never, null, { compact: true })
-
-    const prompt: string = mockCallLLM.mock.calls[0]?.[0]?.user ?? ''
-    const contentSection = prompt.split('Page content:\n')[1] ?? ''
-    expect(contentSection.length).toBe(8000)
-  })
-
-  it('compact: false (explicit) behaves the same as default', async () => {
-    const { scrapeRecipe } = await import('@/lib/scrape-recipe')
-    await scrapeRecipe('https://example.com', 'user-1', mockDb as never, null, { compact: false })
 
     const prompt: string = mockCallLLM.mock.calls[0]?.[0]?.user ?? ''
     const contentSection = prompt.split('Page content:\n')[1] ?? ''

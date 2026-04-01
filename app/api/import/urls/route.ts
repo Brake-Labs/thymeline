@@ -42,7 +42,7 @@ async function scrapeUrl(
     let lastError = 'Scrape failed'
 
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-      const data = await scrapeRecipe(url, userId, db, ctx, { compact: true })
+      const data = await scrapeRecipe(url, userId, db, ctx)
 
       if (!('error' in data)) {
         const recipe: ParsedRecipe = {
