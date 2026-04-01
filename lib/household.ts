@@ -53,11 +53,11 @@ export function scopeQuery<T extends Scopeable>(
  * Builds an insert payload with the correct scope fields.
  * Household members → includes household_id + user_id; solo users → user_id only.
  */
-export function scopeInsert(
+export function scopeInsert<T extends Record<string, unknown>>(
   userId: string,
   ctx: HouseholdContext | null,
-  payload: Record<string, unknown>,
-): Record<string, unknown> {
+  payload: T,
+): T & { user_id: string; household_id?: string } {
   if (ctx) {
     return { ...payload, household_id: ctx.householdId, user_id: userId }
   }
