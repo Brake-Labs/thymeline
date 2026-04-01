@@ -55,6 +55,7 @@ function makePrefsFrom(table: string) {
               avoided_tags: [],
               limited_tags: [],
               onboarding_completed: false,
+              meal_context: null,
               ...data,
             },
             error: null,
@@ -90,7 +91,7 @@ function makeAdminFrom(table: string) {
           data: {
             options_per_day: 3, cooldown_days: 28, seasonal_mode: true,
             preferred_tags: [], avoided_tags: [], limited_tags: [],
-            onboarding_completed: false, ...data,
+            onboarding_completed: false, meal_context: null, ...data,
             ...(mockState.upsertResult ?? {}),
           },
           error: null,
@@ -339,6 +340,68 @@ describe('T22 - PATCH /api/preferences with valid solo user payload returns 200'
     expect(res.status).toBe(400)
     const body = await res.json()
     expect(body.error).toMatch(/Unknown tags/)
+  })
+})
+
+// ── meal_context saves and loads ─────────────────────────────────────────────
+describe('meal_context field', () => {
+  it('GET returns meal_context from the preferences row', async () => {
+    mockState.prefsRow = {
+      options_per_day: 3,
+      cooldown_days: 28,
+      seasonal_mode: true,
+      preferred_tags: [],
+      avoided_tags: [],
+      limited_tags: [],
+      onboarding_completed: false,
+      is_active: true,
+      meal_context: 'Two adults, one toddler.',
+    }
+    const res = await GET(makeRequest('GET', 'http://localhost/api/preferences'))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.meal_context).toBe('Two adults, one toddler.')
+  })
+
+  it('GET returns null meal_context when not set', async () => {
+    mockState.prefsRow = {
+      options_per_day: 3,
+      cooldown_days: 28,
+      seasonal_mode: true,
+      preferred_tags: [],
+      avoided_tags: [],
+      limited_tags: [],
+      onboarding_completed: false,
+      is_active: true,
+      meal_context: null,
+    }
+    const res = await GET(makeRequest('GET', 'http://localhost/api/preferences'))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.meal_context).toBeNull()
+  })
+
+  it('PATCH accepts and saves meal_context', async () => {
+    const res = await PATCH(makeRequest('PATCH', 'http://localhost/api/preferences', {
+      meal_context: 'We like spicy food.',
+    }))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.meal_context).toBe('We like spicy food.')
+  })
+
+  it('PATCH rejects meal_context exceeding 1000 chars', async () => {
+    const res = await PATCH(makeRequest('PATCH', 'http://localhost/api/preferences', {
+      meal_context: 'x'.repeat(1001),
+    }))
+    expect(res.status).toBe(400)
+  })
+
+  it('PATCH accepts null meal_context (clear the field)', async () => {
+    const res = await PATCH(makeRequest('PATCH', 'http://localhost/api/preferences', {
+      meal_context: null,
+    }))
+    expect(res.status).toBe(200)
   })
 })
 

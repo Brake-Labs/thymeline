@@ -85,10 +85,10 @@ describe('T12 - Section Save sends only its own fields', () => {
       expect(screen.queryByText('Loading preferences…')).not.toBeInTheDocument()
     })
 
-    // Click first Save button (Planning Defaults section)
+    // Click second Save button (Planning Defaults section — "About our meals" is first)
     const saveButtons = screen.getAllByText('Save')
     await act(async () => {
-      fireEvent.click(saveButtons[0]!)
+      fireEvent.click(saveButtons[1]!)
     })
 
     await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2))

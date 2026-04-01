@@ -65,6 +65,15 @@ function makeAuthMock(pantryItems: unknown[] = []) {
           }),
         }
       }
+      if (table === 'user_preferences') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({ data: { meal_context: null }, error: null }),
+            }),
+          }),
+        }
+      }
       return {}
     }),
   }

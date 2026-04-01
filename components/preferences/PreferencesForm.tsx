@@ -63,6 +63,7 @@ interface PrefsState {
   preferred_tags: string[]
   avoided_tags: string[]
   limited_tags: LimitedTag[]
+  meal_context: string | null
 }
 
 function SectionCard({ children }: { children: React.ReactNode }) {
@@ -92,6 +93,7 @@ export default function PreferencesForm({ allTags }: PreferencesFormProps) {
     preferred_tags: [],
     avoided_tags: [],
     limited_tags: [],
+    meal_context: null,
   })
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -154,6 +156,29 @@ export default function PreferencesForm({ allTags }: PreferencesFormProps) {
         {loadError && (
           <p className="text-red-500 text-sm mt-2">{loadError}</p>
         )}
+
+        {/* Section 0: About our meals */}
+        <SectionCard>
+          <SectionTitle>About our meals</SectionTitle>
+          <p className="text-sm text-stone-500">
+            Tell us about your household — allergies, who you cook for, or anything else that should
+            shape your suggestions.
+          </p>
+          <div className="space-y-1">
+            <textarea
+              rows={4}
+              maxLength={1000}
+              value={prefs.meal_context ?? ''}
+              onChange={(e) => setPrefs((p) => ({ ...p, meal_context: e.target.value || null }))}
+              placeholder="e.g. Two adults and a toddler. Dad is allergic to shellfish. We like spicy food but keep it mild on weeknights."
+              className="w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-800 placeholder:text-stone-400 focus:border-sage-500 focus:outline-none focus:ring-1 focus:ring-sage-500 resize-none"
+            />
+            <p className="text-right text-xs text-stone-400">
+              {(prefs.meal_context ?? '').length}/1000
+            </p>
+          </div>
+          <SectionSaveButton onSave={() => patch({ meal_context: prefs.meal_context })} />
+        </SectionCard>
 
         {/* Section 1: Planning Defaults */}
         <SectionCard>

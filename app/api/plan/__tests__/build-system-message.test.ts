@@ -25,6 +25,7 @@ function makePrefs(overrides: Partial<UserPreferences> = {}): UserPreferences {
     seasonal_rules: null,
     onboarding_completed: true,
     is_active: true,
+    meal_context: null,
     created_at: '2026-01-01T00:00:00Z',
     ...overrides,
   }
@@ -346,5 +347,27 @@ describe('buildSystemMessage', () => {
       const result = buildSystemMessage(makePrefs(), [], [], season)
       expect(result).toContain(`Current season is ${season}`)
     }
+  })
+
+  // ── meal_context injection ──────────────────────────────────────────────
+
+  it('includes meal_context in system message when set', () => {
+    const prefs = makePrefs({ meal_context: 'Two adults, one toddler, dad is allergic to shellfish.' })
+    const result = buildSystemMessage(prefs, [], [], 'winter')
+
+    expect(result).toContain('Household context: Two adults, one toddler, dad is allergic to shellfish.')
+  })
+
+  it('does not include meal_context line when null', () => {
+    const prefs = makePrefs({ meal_context: null })
+    const result = buildSystemMessage(prefs, [], [], 'winter')
+
+    expect(result).not.toContain('Household context:')
+  })
+
+  it('does not include meal_context line when prefs is null', () => {
+    const result = buildSystemMessage(null, [], [], 'winter')
+
+    expect(result).not.toContain('Household context:')
   })
 })

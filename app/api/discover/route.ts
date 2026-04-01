@@ -26,15 +26,19 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   const siteFilter = (body.site_filter ?? '').trim()
 
   try {
-    // ── Step 1: Fetch vault context ────────────────────────────────────────────
+    // ── Step 1: Fetch vault context + user preferences ────────────────────────
     const vaultQuery = scopeQuery(db
       .from('recipes')
       .select('title, tags, category')
       .order('created_at', { ascending: false })
       .limit(50), user.id, ctx)
 
-    const { data: vaultRecipes } = await vaultQuery
+    let prefsQ = db.from('user_preferences').select('meal_context')
+    prefsQ = scopeQuery(prefsQ, user.id, ctx)
+
+    const [{ data: vaultRecipes }, { data: prefsData }] = await Promise.all([vaultQuery, prefsQ.single()])
     const vaultContext = (vaultRecipes ?? []).map((r) => ({ title: r.title, tags: r.tags }))
+    const mealContext: string | null = (prefsData as { meal_context?: string | null } | null)?.meal_context ?? null
 
     // ── Step 2: Generate search queries ───────────────────────────────────────
     let searchQueries: string[] = [query]
@@ -155,7 +159,7 @@ Extract key ingredients, cooking method, and cuisine style from the request. Ret
             content: `You are a recipe assistant. Given search results and a user's recipe vault, rank the results and suggest tags.
 
 User query: "${query}"
-
+${mealContext ? `\nHousehold context: ${mealContext}\n` : ''}
 Search results:
 ${JSON.stringify(rawResults, null, 2)}
 

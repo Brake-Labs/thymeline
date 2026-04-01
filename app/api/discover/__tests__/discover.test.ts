@@ -22,11 +22,21 @@ function makeSupabaseMock(user = mockUser) {
     eq:     vi.fn().mockResolvedValue({ data: vaultRecipes, error: null }),
   }
 
+  const prefsChain = {
+    select: vi.fn().mockReturnThis(),
+    eq:     vi.fn().mockReturnValue({
+      single: vi.fn().mockResolvedValue({ data: { meal_context: null }, error: null }),
+    }),
+  }
+
   return {
     auth: {
       getUser: vi.fn().mockResolvedValue({ data: { user }, error: null }),
     },
-    from: vi.fn(() => vaultChain),
+    from: vi.fn((table: string) => {
+      if (table === 'user_preferences') return prefsChain
+      return vaultChain
+    }),
   }
 }
 
