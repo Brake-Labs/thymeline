@@ -295,7 +295,7 @@ export default function FilterSidebar({ filters, onChange, onClearAll, vaultTags
                 type="date"
                 value={filters.lastMadeFrom ?? ''}
                 onChange={(e) => onChange({ ...filters, neverMade: false, lastMadeFrom: e.target.value || null })}
-                className="w-full border border-stone-200 rounded px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-sage-400"
+                className="w-full bg-[#FFFDF9] border border-stone-200 rounded-[4px] px-2 py-1.5 font-sans text-[13px] text-sage-900 accent-[#4A7C59] focus:outline-none focus:ring-2 focus:ring-sage-500"
               />
             </div>
             <div>
@@ -304,7 +304,7 @@ export default function FilterSidebar({ filters, onChange, onClearAll, vaultTags
                 type="date"
                 value={filters.lastMadeTo ?? ''}
                 onChange={(e) => onChange({ ...filters, neverMade: false, lastMadeTo: e.target.value || null })}
-                className="w-full border border-stone-200 rounded px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-sage-400"
+                className="w-full bg-[#FFFDF9] border border-stone-200 rounded-[4px] px-2 py-1.5 font-sans text-[13px] text-sage-900 accent-[#4A7C59] focus:outline-none focus:ring-2 focus:ring-sage-500"
               />
             </div>
           </div>

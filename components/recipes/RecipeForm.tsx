@@ -227,7 +227,7 @@ export default function RecipeForm({
           value={values.lastMade}
           onChange={(e) => set('lastMade', e.target.value)}
           max={getTodayISO()}
-          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500"
+          className="w-full bg-[#FFFDF9] border border-stone-200 rounded-[4px] px-2 py-1.5 font-sans text-[13px] text-sage-900 accent-[#4A7C59] focus:outline-none focus:ring-2 focus:ring-sage-500"
         />
       </div>
 

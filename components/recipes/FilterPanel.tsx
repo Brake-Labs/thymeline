@@ -198,7 +198,7 @@ export default function FilterPanel({
 
         {/* Last made date range */}
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400 mb-2">Last Made</p>
+          <p className="font-display text-[10px] font-bold uppercase tracking-[0.1em] text-sage-500 mb-2">Last Made</p>
           <div className="flex gap-2 mb-2">
             <div className="flex-1">
               <label className="block text-[10px] text-stone-400 mb-1">From</label>
@@ -206,7 +206,7 @@ export default function FilterPanel({
                 type="date"
                 value={pendingFilters.lastMadeFrom ?? ''}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="w-full border border-stone-200 rounded px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-sage-400"
+                className="w-full bg-[#FFFDF9] border border-stone-200 rounded-[4px] px-2 py-1.5 font-sans text-[13px] text-sage-900 accent-[#4A7C59] focus:outline-none focus:ring-2 focus:ring-sage-500"
               />
             </div>
             <div className="flex-1">
@@ -215,7 +215,7 @@ export default function FilterPanel({
                 type="date"
                 value={pendingFilters.lastMadeTo ?? ''}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="w-full border border-stone-200 rounded px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-sage-400"
+                className="w-full bg-[#FFFDF9] border border-stone-200 rounded-[4px] px-2 py-1.5 font-sans text-[13px] text-sage-900 accent-[#4A7C59] focus:outline-none focus:ring-2 focus:ring-sage-500"
               />
             </div>
           </div>
