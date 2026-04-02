@@ -242,28 +242,6 @@ export default function SuggestionMealSlotRow({
             </div>
           )}
 
-          {/* Dessert add-on — dinner/lunch only, when a main recipe is selected */}
-          {canHaveDessert && hasSelection && (
-            <div className="px-3 py-2 border-t border-stone-50">
-              {dessertEntry ? (
-                <div className="flex items-center gap-2 pl-4">
-                  <span className="text-xs font-medium text-stone-400 flex-shrink-0">Dessert</span>
-                  <span className="text-xs text-stone-600 flex-1 truncate">{dessertEntry.recipe_title}</span>
-                  <button
-                    onClick={() => { setDessertEntry(null); onDessertRemove?.(date, mealType) }}
-                    aria-label="Remove dessert"
-                    className="text-stone-300 hover:text-red-400 transition-colors text-base leading-none"
-                  >×</button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setDessertVaultOpen(true)}
-                  className="text-xs text-stone-400 hover:text-stone-600 pl-4 underline transition-colors"
-                >Add dessert</button>
-              )}
-            </div>
-          )}
-
           {/* Footer actions */}
           <div className="flex flex-wrap gap-2 px-3 py-2.5 bg-stone-50/50 border-t border-stone-100">
             <button
