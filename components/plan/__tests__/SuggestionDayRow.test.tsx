@@ -194,3 +194,22 @@ describe('Dessert add-on renders exactly once (regression)', () => {
     expect(screen.queryByText('Add dessert')).not.toBeInTheDocument()
   })
 })
+
+// ── Side dish add-on ──────────────────────────────────────────────────────────
+
+describe('Side dish add-on', () => {
+  it('shows "Add side dish" above "Add dessert" when a dinner selection exists', () => {
+    const sel: DaySelection = { date: DATE, meal_type: 'dinner', recipe_id: 'r1', recipe_title: 'Pasta', from_vault: false }
+    render(<SuggestionDayRow {...makeRow({ selections: { [`${DATE}:dinner`]: sel } })} />)
+    expect(screen.getByText('Add side dish')).toBeInTheDocument()
+    // Side dish must appear before dessert in the DOM
+    const sideDish = screen.getByText('Add side dish')
+    const dessert  = screen.getByText('Add dessert')
+    expect(sideDish.compareDocumentPosition(dessert) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('does not show "Add side dish" when no selection has been made', () => {
+    render(<SuggestionDayRow {...makeRow()} />)
+    expect(screen.queryByText('Add side dish')).not.toBeInTheDocument()
+  })
+})

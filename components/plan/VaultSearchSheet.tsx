@@ -15,6 +15,7 @@ interface VaultRecipe {
 interface VaultSearchSheetProps {
   forDate: string
   mealType?: MealType
+  allowedCategories?: string[]
   onAssign: (recipe: { recipe_id: string; recipe_title: string }) => void
   onClose: () => void
 }
@@ -23,7 +24,7 @@ function formatCategory(cat: string): string {
   return cat.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
 }
 
-export default function VaultSearchSheet({ forDate: _forDate, mealType, onAssign, onClose }: VaultSearchSheetProps) {
+export default function VaultSearchSheet({ forDate: _forDate, mealType, allowedCategories, onAssign, onClose }: VaultSearchSheetProps) {
   const [recipes, setRecipes] = useState<VaultRecipe[]>([])
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
@@ -46,14 +47,14 @@ export default function VaultSearchSheet({ forDate: _forDate, mealType, onAssign
   const allTags = Array.from(new Set(recipes.flatMap((r) => r.tags))).sort()
   const allCategories = Array.from(new Set(recipes.map((r) => r.category))).sort()
 
-  const allowedCategories = mealType ? MEAL_TYPE_CATEGORIES_CLIENT[mealType] : null
+  const resolvedAllowedCategories = allowedCategories ?? (mealType ? MEAL_TYPE_CATEGORIES_CLIENT[mealType] : null)
 
   const filtered = recipes.filter((r) => {
     const q = query.toLowerCase()
     if (q && !r.title.toLowerCase().includes(q)) return false
     if (tagFilter && !r.tags.includes(tagFilter)) return false
     if (categoryFilter && r.category !== categoryFilter) return false
-    if (allowedCategories && !allowedCategories.includes(r.category)) return false
+    if (resolvedAllowedCategories && !resolvedAllowedCategories.includes(r.category)) return false
     return true
   })
 

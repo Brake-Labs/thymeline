@@ -26,6 +26,8 @@ interface SuggestionMealSlotRowProps {
   onAssignToDay:(recipe: RecipeSuggestion, sourceDate: string, targetDate: string, mealType: MealType) => void
   onVaultPick:  (date: string, mealType: MealType, recipe: { recipe_id: string; recipe_title: string }) => void
   onFreeTextMatch:(query: string, date: string, mealType: MealType) => Promise<{ matched: boolean }>
+  onSideDishPick?:  (date: string, mealType: MealType, recipe: { recipe_id: string; recipe_title: string }) => void
+  onSideDishRemove?:(date: string, mealType: MealType) => void
   onDessertPick?:   (date: string, mealType: MealType, recipe: { recipe_id: string; recipe_title: string }) => void
   onDessertRemove?: (date: string, mealType: MealType) => void
 }
@@ -33,7 +35,7 @@ interface SuggestionMealSlotRowProps {
 export default function SuggestionMealSlotRow({
   date, mealType, options, selection, isSwapping, activeDates,
   onSelect, onSkip, onSwap, onAssignToDay, onVaultPick, onFreeTextMatch,
-  onDessertPick, onDessertRemove,
+  onSideDishPick, onSideDishRemove, onDessertPick, onDessertRemove,
 }: SuggestionMealSlotRowProps) {
   const [assignOpen, setAssignOpen] = useState<string | null>(null)
   const [assignRecipe, setAssignRecipe] = useState<RecipeSuggestion | null>(null)
@@ -42,6 +44,8 @@ export default function SuggestionMealSlotRow({
   const [freeTextQuery, setFreeTextQuery] = useState('')
   const [freeTextLoading, setFreeTextLoading] = useState(false)
   const [freeTextError, setFreeTextError] = useState('')
+  const [sideDishVaultOpen, setSideDishVaultOpen] = useState(false)
+  const [sideDishEntry, setSideDishEntry] = useState<{ recipe_id: string; recipe_title: string } | null>(null)
   const [dessertVaultOpen, setDessertVaultOpen] = useState(false)
   const [dessertEntry, setDessertEntry] = useState<{ recipe_id: string; recipe_title: string } | null>(null)
   const assignRef = useRef<HTMLDivElement>(null)
@@ -213,6 +217,35 @@ export default function SuggestionMealSlotRow({
             })
           )}
 
+          {/* Side dish add-on — shown when a main recipe is selected for dinner/lunch */}
+          {canHaveDessert && hasSelection && (
+            <div className="px-3 py-2 border-t border-stone-50">
+              {sideDishEntry ? (
+                <div className="flex items-center gap-2 pl-4">
+                  <span className="text-xs font-medium text-stone-400 flex-shrink-0">Side dish</span>
+                  <span className="text-xs text-stone-600 flex-1 truncate">{sideDishEntry.recipe_title}</span>
+                  <button
+                    onClick={() => {
+                      setSideDishEntry(null)
+                      onSideDishRemove?.(date, mealType)
+                    }}
+                    aria-label="Remove side dish"
+                    className="text-stone-300 hover:text-red-400 transition-colors text-base leading-none"
+                  >
+                    ×
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setSideDishVaultOpen(true)}
+                  className="text-xs text-stone-400 hover:text-stone-600 pl-4 underline transition-colors"
+                >
+                  Add side dish
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Dessert add-on — shown when a main recipe is selected for dinner/lunch */}
           {canHaveDessert && hasSelection && (
             <div className="px-3 py-2 border-t border-stone-50">
@@ -298,6 +331,20 @@ export default function SuggestionMealSlotRow({
             setVaultOpen(false)
           }}
           onClose={() => setVaultOpen(false)}
+        />
+      )}
+
+      {/* Vault search sheet for side dish */}
+      {sideDishVaultOpen && (
+        <VaultSearchSheet
+          forDate={date}
+          allowedCategories={['side_dish']}
+          onAssign={(recipe) => {
+            setSideDishEntry(recipe)
+            onSideDishPick?.(date, mealType, recipe)
+            setSideDishVaultOpen(false)
+          }}
+          onClose={() => setSideDishVaultOpen(false)}
         />
       )}
 
