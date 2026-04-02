@@ -79,10 +79,18 @@ function makeMockFrom(table: string) {
               ? (mockState.planByWeekStart[weekStart] ?? null)
               : mockState.plan
           return {
-            eq: () => ({
-              single: async () => ({ data: resolvePlan(), error: resolvePlan() ? null : { message: 'not found' } }),
-              maybeSingle: async () => ({ data: resolvePlan(), error: null }),
-            }),
+            eq: () => {
+              const plan = resolvePlan()
+              // Return a real Promise so `await planQ` works for the suggest route's
+              // plural-plans query, with .single()/.maybeSingle() for other callers.
+              return Object.assign(
+                Promise.resolve({ data: plan ? [plan] : [], error: null }),
+                {
+                  single:      async () => ({ data: plan, error: plan ? null : { message: 'not found' } }),
+                  maybeSingle: async () => ({ data: plan, error: null }),
+                },
+              )
+            },
           }
         },
       }),
@@ -122,14 +130,15 @@ function makeMockFrom(table: string) {
             planId !== undefined && Object.keys(mockState.entriesByPlanId).length > 0
               ? (mockState.entriesByPlanId[planId] ?? [])
               : mockState.alreadyPlannedEntries
-          const result = {
-            order: async () => ({ data: mockState.entries, error: null }),
-            gte: async () => ({ data: resolveEntries(), error: null }),
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            then: (resolve: (v: any) => unknown) =>
-              Promise.resolve({ data: resolveEntries(), error: null }).then(resolve),
-          }
-          return result
+          // Return a real Promise so `await entriesQ` works when .gte() is not called
+          // (e.g. when fetching all current-week entries without a date filter).
+          return Object.assign(
+            Promise.resolve({ data: resolveEntries(), error: null }),
+            {
+              order: async () => ({ data: mockState.entries, error: null }),
+              gte:   async () => ({ data: resolveEntries(), error: null }),
+            },
+          )
         },
       }),
     }

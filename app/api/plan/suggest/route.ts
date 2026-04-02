@@ -48,28 +48,30 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   if (thisWeekStart !== week_start) weekStartsToCheck.add(thisWeekStart)
 
   for (const ws of weekStartsToCheck) {
+    // Use a plain select (not maybeSingle) so that duplicate plan records for
+    // the same week_start are all covered — entries from every matching plan
+    // are added to the exclusion set.
     const planQ = scopeQuery(db
       .from('meal_plans')
       .select('id')
       .eq('week_start', ws), user.id, ctx)
-    const { data: plan } = await planQ.maybeSingle()
-    if (!plan?.id) continue
-
-    // For the target week, only exclude entries from today onward (earlier slots
-    // in the same week have already been decided). For any other week (e.g. this
-    // week when suggesting next week), exclude ALL entries — a recipe the user
-    // planned for Monday of this week should not appear in next week's suggestions
-    // even though Monday is now in the past.
-    let entriesQ = db
-      .from('meal_plan_entries')
-      .select('recipe_id')
-      .eq('meal_plan_id', plan.id)
-    if (ws === week_start) {
-      entriesQ = entriesQ.gte('planned_date', todayISO)
-    }
-    const { data: entries } = await entriesQ
-    for (const entry of entries ?? []) {
-      alreadyPlannedIds.add((entry as { recipe_id: string }).recipe_id)
+    const { data: plans } = await planQ
+    for (const plan of plans ?? []) {
+      // For the target week, only exclude entries from today onward (earlier
+      // slots in the same week have already been decided). For any other week
+      // (e.g. this week when suggesting next week), exclude ALL entries so a
+      // recipe planned for Monday of this week doesn't reappear next week.
+      let entriesQ = db
+        .from('meal_plan_entries')
+        .select('recipe_id')
+        .eq('meal_plan_id', plan.id)
+      if (ws === week_start) {
+        entriesQ = entriesQ.gte('planned_date', todayISO)
+      }
+      const { data: entries } = await entriesQ
+      for (const entry of entries ?? []) {
+        alreadyPlannedIds.add((entry as { recipe_id: string }).recipe_id)
+      }
     }
   }
 
