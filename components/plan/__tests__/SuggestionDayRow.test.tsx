@@ -179,3 +179,18 @@ describe('Vault selection absent from options — selected-recipe row (regressio
     )
   })
 })
+
+// ── Regression: duplicate dessert button (Bug #215) ───────────────────────────
+
+describe('Dessert add-on renders exactly once (regression)', () => {
+  it('shows exactly one "Add dessert" button when a dinner selection exists', () => {
+    const sel: DaySelection = { date: DATE, meal_type: 'dinner', recipe_id: 'r1', recipe_title: 'Pasta', from_vault: false }
+    render(<SuggestionDayRow {...makeRow({ selections: { [`${DATE}:dinner`]: sel } })} />)
+    expect(screen.getAllByText('Add dessert')).toHaveLength(1)
+  })
+
+  it('does not show "Add dessert" when no selection has been made', () => {
+    render(<SuggestionDayRow {...makeRow()} />)
+    expect(screen.queryByText('Add dessert')).not.toBeInTheDocument()
+  })
+})
