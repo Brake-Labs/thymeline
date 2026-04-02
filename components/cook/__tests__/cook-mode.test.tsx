@@ -126,6 +126,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers()
   vi.resetModules()
+  sessionStorage.clear()
 })
 
 // ── T01, T02: Start Cooking button on detail page ────────────────────────────
@@ -147,7 +148,7 @@ describe('T01/T02 - Start Cooking button on detail page', () => {
     expect(src).toContain('/cook')
   })
 
-  it('T02 - "Start Cooking" is conditional on recipe.steps', () => {
+  it('T02 - "Start Cooking" is conditional on recipe.steps (or displayRecipe.steps)', () => {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const fs = require('fs') as typeof import('fs')
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -156,8 +157,8 @@ describe('T01/T02 - Start Cooking button on detail page', () => {
       path.join(process.cwd(), 'app/(app)/recipes/[id]/page.tsx'),
       'utf-8'
     )
-    // The link is wrapped in a steps-based conditional
-    expect(src).toMatch(/recipe\.steps[\s\S]*Start Cooking|Start Cooking[\s\S]*recipe\.steps/)
+    // The link is wrapped in a steps-based conditional (displayRecipe.steps since spec-18)
+    expect(src).toMatch(/(?:display|)recipe\.steps[\s\S]*Start Cooking|Start Cooking[\s\S]*(?:display|)recipe\.steps/)
   })
 })
 
@@ -806,5 +807,95 @@ describe('T59 - Timer bar label persists when navigating between steps', () => {
     expect(screen.getByText('Add the vegetables and stir')).toBeDefined()
     // Bar label unchanged — still shows original action + duration
     expect(screen.getByText(/Simmer for 20:00/)).toBeDefined()
+  })
+})
+
+// ── spec-18 T13: Cook Mode reads modified recipe from sessionStorage ───────────
+
+describe('spec-18 T13 - Cook Mode reads modified recipe from sessionStorage', () => {
+  it('uses modified recipe title when sessionStorage key is present', async () => {
+    const modified = {
+      title: 'Modified Roast Chicken',
+      ingredients: '1 whole modified chicken',
+      steps: 'Modified step 1\nModified step 2',
+      notes: null,
+      servings: 2,
+    }
+    sessionStorage.setItem('ai-modified-recipe-recipe-1', JSON.stringify(modified))
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => sampleRecipe,
+      status: 200,
+    })
+    const { default: CookModePage } = await import('@/app/(cook)/recipes/[id]/cook/page')
+    render(<CookModePage params={{ id: 'recipe-1' }} />)
+    await waitFor(() => expect(screen.getByText('Modified Roast Chicken')).toBeDefined(), { timeout: 3000 })
+  })
+
+  it('falls back to saved recipe when sessionStorage key is absent', async () => {
+    await renderCookPage()
+    expect(screen.getByText('Test Recipe')).toBeDefined()
+  })
+})
+
+// ── spec-18 T14: Cook Mode shows "Modified for tonight" banner ────────────────
+
+describe('spec-18 T14 - Cook Mode shows "Modified for tonight" banner', () => {
+  it('shows the banner when sessionStorage has a modified recipe', async () => {
+    const modified = {
+      title: 'Test Recipe',
+      ingredients: 'modified ingredients',
+      steps: 'Step 1\nStep 2',
+      notes: null,
+      servings: 4,
+    }
+    sessionStorage.setItem('ai-modified-recipe-recipe-1', JSON.stringify(modified))
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => sampleRecipe,
+      status: 200,
+    })
+    const { default: CookModePage } = await import('@/app/(cook)/recipes/[id]/cook/page')
+    render(<CookModePage params={{ id: 'recipe-1' }} />)
+    await waitFor(() => expect(screen.getByText('Modified for tonight')).toBeDefined(), { timeout: 3000 })
+  })
+
+  it('does not show the banner when no modified recipe in sessionStorage', async () => {
+    await renderCookPage()
+    expect(screen.queryByText('Modified for tonight')).toBeNull()
+  })
+})
+
+// ── spec-18 T22: sessionStorage key cleared on Cook Mode unmount ──────────────
+
+describe('spec-18 T22 - sessionStorage key cleared on Cook Mode unmount', () => {
+  it('removes the sessionStorage key when the component unmounts', async () => {
+    const modified = {
+      title: 'Test Recipe',
+      ingredients: 'modified ingredients',
+      steps: 'Step 1\nStep 2',
+      notes: null,
+      servings: 4,
+    }
+    sessionStorage.setItem('ai-modified-recipe-recipe-1', JSON.stringify(modified))
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => sampleRecipe,
+      status: 200,
+    })
+
+    const { default: CookModePage } = await import('@/app/(cook)/recipes/[id]/cook/page')
+    const { unmount } = render(<CookModePage params={{ id: 'recipe-1' }} />)
+    // Wait for load to complete so the component has read (and kept) the key
+    await waitFor(() => expect(screen.getByText('Modified for tonight')).toBeDefined(), { timeout: 3000 })
+
+    expect(sessionStorage.getItem('ai-modified-recipe-recipe-1')).not.toBeNull()
+
+    unmount()
+
+    expect(sessionStorage.getItem('ai-modified-recipe-recipe-1')).toBeNull()
   })
 })

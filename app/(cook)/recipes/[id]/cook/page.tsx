@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import type { ModifiedRecipe } from '@/types'
 import CookHeader from '@/components/cook/CookHeader'
 import StepView from '@/components/cook/StepView'
 import IngredientChecklist from '@/components/cook/IngredientChecklist'
@@ -23,6 +24,7 @@ export default function CookModePage({ params }: Props) {
   const router = useRouter()
   const [recipe, setRecipe] = useState<RecipeWithHistory | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isModified, setIsModified] = useState(false)
   const [currentStep, setCurrentStep] = useState(0)
   const [view, setView] = useState<'one' | 'all'>('one')
   const [servings, setServings] = useState(4)
@@ -44,7 +46,18 @@ export default function CookModePage({ params }: Props) {
           headers: { Authorization: `Bearer ${await getAccessToken()}` },
         })
         if (!res.ok) { router.replace(`/recipes/${params.id}`); return }
-        const data: RecipeWithHistory = await res.json()
+        let data: RecipeWithHistory = await res.json()
+        // Check for AI-modified version
+        const stored = sessionStorage.getItem(`ai-modified-recipe-${params.id}`)
+        if (stored) {
+          try {
+            const modified: ModifiedRecipe = JSON.parse(stored)
+            data = { ...data, ...modified }
+            setIsModified(true)
+          } catch {
+            // Ignore malformed sessionStorage value
+          }
+        }
         const steps = (data.steps ?? '').split('\n').filter(Boolean)
         if (steps.length === 0) { router.replace(`/recipes/${params.id}`); return }
         setRecipe(data)
@@ -57,6 +70,13 @@ export default function CookModePage({ params }: Props) {
     }
     void load()
   }, [params.id, router])
+
+  // Clear AI-modified sessionStorage key on unmount
+  useEffect(() => {
+    return () => {
+      sessionStorage.removeItem(`ai-modified-recipe-${params.id}`)
+    }
+  }, [params.id])
 
   // Wake lock
   useEffect(() => {
@@ -244,6 +264,11 @@ export default function CookModePage({ params }: Props) {
 
   return (
     <div className="min-h-screen bg-stone-50 pt-14 pb-28">
+      {isModified && (
+        <div className="bg-amber-50 border-b border-amber-100 px-4 py-2 text-center text-[12px] font-medium text-amber-700">
+          Modified for tonight
+        </div>
+      )}
       <CookHeader
         recipeId={params.id}
         title={recipe.title}

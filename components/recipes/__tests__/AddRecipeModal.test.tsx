@@ -192,3 +192,62 @@ describe('T20 - Saving from Manual tab calls POST /api/recipes with source: manu
 
 // ── T26: dropped — no longer applicable (generate tab removed from AddRecipeModal)
 // ── T27: covered in GenerateRecipeModal.test.tsx
+
+// ── spec-18 T15: "Save as new recipe" opens AddRecipeModal pre-filled ───────────
+
+describe('spec-18 T15 - prefillManual prop pre-fills the manual form', () => {
+  it('opens on manual tab and pre-fills title when prefillManual is provided', async () => {
+    render(
+      <AddRecipeModal
+        {...defaultProps}
+        prefillManual={{
+          title: 'Roast Chicken (modified)',
+          ingredients: '1 whole chicken\n2 cans black beans',
+          steps: 'Roast the chicken.',
+        }}
+      />
+    )
+
+    // Should be on manual tab immediately
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('Roast Chicken (modified)')).toBeInTheDocument()
+    })
+  })
+
+  it('pre-fills ingredients and steps from prefillManual', async () => {
+    render(
+      <AddRecipeModal
+        {...defaultProps}
+        prefillManual={{
+          title: 'My Recipe (modified)',
+          ingredients: '1 cup flour\n2 eggs',
+          steps: 'Mix everything.',
+        }}
+      />
+    )
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('My Recipe (modified)')).toBeInTheDocument()
+    })
+  })
+})
+
+// ── spec-18 T16: Pre-filled title has "(modified)" suffix ────────────────────
+
+describe('spec-18 T16 - prefillManual title has (modified) suffix', () => {
+  it('title is "[Original Title] (modified)"', async () => {
+    render(
+      <AddRecipeModal
+        {...defaultProps}
+        prefillManual={{
+          title: 'Roast Chicken (modified)',
+        }}
+      />
+    )
+
+    await waitFor(() => {
+      const input = screen.getByDisplayValue('Roast Chicken (modified)')
+      expect(input).toBeInTheDocument()
+    })
+  })
+})

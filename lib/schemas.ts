@@ -91,6 +91,23 @@ export const generateRecipeSchema = z.object({
   }).optional(),
 })
 
+export const aiEditSchema = z.object({
+  message: z.string().min(1),
+  current_recipe: z.object({
+    title:       z.string(),
+    ingredients: z.string(),
+    steps:       z.string(),
+    notes:       z.string().optional().nullable(),
+    servings:    z.number().optional().nullable(),
+  }),
+  conversation_history: z.array(
+    z.object({
+      role:    z.enum(['user', 'assistant']),
+      content: z.string(),
+    })
+  ),
+})
+
 export const bulkUpdateRecipesSchema = z.object({
   recipe_ids: z.array(z.string()).min(1, 'recipe_ids is required and must be non-empty'),
   add_tags: z.array(z.string()).default([]),

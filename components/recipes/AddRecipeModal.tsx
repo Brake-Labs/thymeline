@@ -12,6 +12,7 @@ interface AddRecipeModalProps {
   getToken:  () => Promise<string> | string
   initialTab?: Tab
   prefillScrapeResult?: ScrapeResult
+  prefillManual?: Partial<RecipeFormValues>
 }
 
 export default function AddRecipeModal({
@@ -20,8 +21,9 @@ export default function AddRecipeModal({
   getToken,
   initialTab = 'url',
   prefillScrapeResult,
+  prefillManual,
 }: AddRecipeModalProps) {
-  const [tab, setTab] = useState<Tab>(prefillScrapeResult ? 'url' : initialTab)
+  const [tab, setTab] = useState<Tab>(prefillManual ? 'manual' : prefillScrapeResult ? 'url' : initialTab)
   const [urlInput, setUrlInput] = useState('')
   const [scraping, setScraping] = useState(false)
   const [scrapeResult, setScrapeResult] = useState<ScrapeResult | null>(prefillScrapeResult ?? null)
@@ -209,7 +211,7 @@ export default function AddRecipeModal({
 
           {tab === 'manual' && (
             <RecipeForm
-              initialValues={{}}
+              initialValues={prefillManual ?? {}}
               onSubmit={handleSubmit}
               isSubmitting={isSubmitting}
             />
