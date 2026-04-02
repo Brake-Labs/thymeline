@@ -147,7 +147,7 @@ describe('T01/T02 - Start Cooking button on detail page', () => {
     expect(src).toContain('/cook')
   })
 
-  it('T02 - "Start Cooking" is conditional on recipe.steps', () => {
+  it('T02 - "Start Cooking" is conditional on recipe.steps (or displayRecipe.steps)', () => {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const fs = require('fs') as typeof import('fs')
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -156,8 +156,8 @@ describe('T01/T02 - Start Cooking button on detail page', () => {
       path.join(process.cwd(), 'app/(app)/recipes/[id]/page.tsx'),
       'utf-8'
     )
-    // The link is wrapped in a steps-based conditional
-    expect(src).toMatch(/recipe\.steps[\s\S]*Start Cooking|Start Cooking[\s\S]*recipe\.steps/)
+    // The link is wrapped in a steps-based conditional (displayRecipe.steps since spec-18)
+    expect(src).toMatch(/(?:display|)recipe\.steps[\s\S]*Start Cooking|Start Cooking[\s\S]*(?:display|)recipe\.steps/)
   })
 })
 

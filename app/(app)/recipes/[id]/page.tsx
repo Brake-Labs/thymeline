@@ -2,13 +2,16 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Recipe } from '@/types'
+import { useRouter } from 'next/navigation'
+import { Recipe, ModifiedRecipe } from '@/types'
 import { CATEGORY_LABELS } from '@/lib/category-labels'
 import { formatMinutes } from '@/lib/format-time'
 import TagPill from '@/components/recipes/TagPill'
 import DeleteConfirmDialog from '@/components/recipes/DeleteConfirmDialog'
-import ShareToggle from '@/components/recipes/ShareToggle'
 import AIGeneratedBadge from '@/components/recipes/AIGeneratedBadge'
+import AIEditSheet from '@/components/recipes/AIEditSheet'
+import ModifiedRecipeBadge from '@/components/recipes/ModifiedRecipeBadge'
+import AddRecipeModal from '@/components/recipes/AddRecipeModal'
 import GenerateRecipeModal from '@/components/recipes/GenerateRecipeModal'
 import { getAccessToken, getSupabaseClient } from '@/lib/supabase/browser'
 import { getTodayISO } from '@/lib/date-utils'
@@ -22,6 +25,7 @@ interface Props {
 }
 
 export default function RecipeDetailPage({ params }: Props) {
+  const router = useRouter()
   const [recipe, setRecipe] = useState<RecipeWithHistory | null>(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
@@ -35,6 +39,10 @@ export default function RecipeDetailPage({ params }: Props) {
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [logError, setLogError] = useState<string | null>(null)
   const [unitSystem, setUnitSystem] = useState<'imperial' | 'metric'>('imperial')
+  const [showAIEdit, setShowAIEdit]           = useState(false)
+  const [modifiedRecipe, setModifiedRecipe]   = useState<ModifiedRecipe | null>(null)
+  const [showAddRecipe, setShowAddRecipe]     = useState(false)
+  const [saveAsNewPrefill, setSaveAsNewPrefill] = useState<ModifiedRecipe | null>(null)
 
   const isOwner = !!currentUserId && recipe?.user_id === currentUserId
 
@@ -144,12 +152,16 @@ export default function RecipeDetailPage({ params }: Props) {
     ? `Last made ${new Date(datesMade[0] + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} · ${datesMade.length}×`
     : 'Never made'
 
+  const displayRecipe = modifiedRecipe
+    ? { ...recipe, ...modifiedRecipe }
+    : recipe
+
   const timeItems = [
     { label: 'Prep', value: formatMinutes(recipe.prep_time_minutes ?? null) },
     { label: 'Cook', value: formatMinutes(recipe.cook_time_minutes ?? null) },
     { label: 'Total', value: formatMinutes(recipe.total_time_minutes ?? null) },
     { label: 'Inactive', value: formatMinutes(recipe.inactive_time_minutes ?? null) },
-    { label: 'Servings', value: recipe.servings != null ? String(recipe.servings) : '—' },
+    { label: 'Servings', value: displayRecipe.servings != null ? String(displayRecipe.servings) : '—' },
   ]
 
   return (
@@ -193,9 +205,12 @@ export default function RecipeDetailPage({ params }: Props) {
             )}
 
             {/* Title */}
-            <h1 className="font-display font-bold text-[22px] text-stone-800 mb-3">
-              {recipe.title}
-            </h1>
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <h1 className="font-display font-bold text-[22px] text-stone-800">
+                {displayRecipe.title}
+              </h1>
+              {modifiedRecipe && <ModifiedRecipeBadge />}
+            </div>
 
             {/* Times row */}
             <div className="flex flex-wrap gap-6">
@@ -235,7 +250,7 @@ export default function RecipeDetailPage({ params }: Props) {
                 <h2 className="font-display font-semibold text-[13px] tracking-[0.04em] text-stone-700">
                   Ingredients
                 </h2>
-                {recipe.ingredients && (
+                {displayRecipe.ingredients && (
                   <div className="flex rounded-lg overflow-hidden border border-stone-200 text-[11px] font-medium">
                     {(['imperial', 'metric'] as const).map((u) => (
                       <button
@@ -254,9 +269,9 @@ export default function RecipeDetailPage({ params }: Props) {
                   </div>
                 )}
               </div>
-              {recipe.ingredients ? (
+              {displayRecipe.ingredients ? (
                 <ul>
-                  {convertIngredients(recipe.ingredients, unitSystem).split('\n').filter(Boolean).map((line, i, arr) => (
+                  {convertIngredients(displayRecipe.ingredients, unitSystem).split('\n').filter(Boolean).map((line, i, arr) => (
                     <li
                       key={i}
                       className={`font-sans text-[13px] text-stone-700 py-2 ${i < arr.length - 1 ? 'border-b border-stone-100' : ''}`}
@@ -275,9 +290,9 @@ export default function RecipeDetailPage({ params }: Props) {
               <h2 className="font-display font-semibold text-[13px] tracking-[0.04em] text-stone-700 mb-3">
                 Steps
               </h2>
-              {recipe.steps ? (
+              {displayRecipe.steps ? (
                 <ol className="space-y-3">
-                  {recipe.steps.split('\n').filter(Boolean).map((line, i) => (
+                  {displayRecipe.steps.split('\n').filter(Boolean).map((line, i) => (
                     <li key={i} className="flex gap-3 items-start">
                       <span className="flex-shrink-0 w-5 h-5 rounded-full bg-sage-500 flex items-center justify-center font-display font-semibold text-[10px] text-white mt-0.5">
                         {i + 1}
@@ -295,7 +310,7 @@ export default function RecipeDetailPage({ params }: Props) {
           </div>
 
           {/* Notes section */}
-          {recipe.notes && (
+          {displayRecipe.notes && (
             <>
               <div className="mx-6 border-t border-dashed border-stone-200" />
               <div className="px-6 py-4">
@@ -303,23 +318,8 @@ export default function RecipeDetailPage({ params }: Props) {
                   Notes
                 </h2>
                 <p className="font-sans text-[13px] text-stone-500 whitespace-pre-wrap">
-                  {recipe.notes}
+                  {displayRecipe.notes}
                 </p>
-              </div>
-            </>
-          )}
-
-          {/* Share toggle — owner only */}
-          {isOwner && (
-            <>
-              <div className="mx-6 border-t border-dashed border-stone-200" />
-              <div className="px-6 py-3">
-                <ShareToggle
-                  recipeId={recipe.id}
-                  initialIsShared={recipe.is_shared}
-                  getToken={getAccessToken}
-                  onUpdate={(isShared) => setRecipe((r) => r ? { ...r, is_shared: isShared } : r)}
-                />
               </div>
             </>
           )}
@@ -350,7 +350,8 @@ export default function RecipeDetailPage({ params }: Props) {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
-            {recipe.steps && recipe.steps.split('\n').filter(Boolean).length > 0 && (
+            {/* Start Cooking: guarded by recipe.steps (via displayRecipe.steps when modified) */}
+            {displayRecipe.steps && displayRecipe.steps.split('\n').filter(Boolean).length > 0 && (
               <Link
                 href={`/recipes/${recipe.id}/cook`}
                 className="font-display font-medium text-[13px] text-white bg-sage-500 hover:bg-sage-600 rounded-xl py-2 px-4"
@@ -365,6 +366,14 @@ export default function RecipeDetailPage({ params }: Props) {
               >
                 Edit
               </Link>
+            )}
+            {isOwner && (
+              <button
+                onClick={() => setShowAIEdit(true)}
+                className="font-display font-medium text-[13px] text-sage-600 border border-sage-200 rounded-xl py-2 px-4 bg-white hover:bg-sage-50"
+              >
+                Edit with AI
+              </button>
             )}
             <button
               onClick={openLogModal}
@@ -440,6 +449,51 @@ export default function RecipeDetailPage({ params }: Props) {
           onSaved={() => setShowRegenerate(false)}
           getToken={getAccessToken}
           initialIngredients={recipe.ingredients ?? ''}
+        />
+      )}
+
+      {recipe && (
+        <AIEditSheet
+          recipe={recipe}
+          isOpen={showAIEdit}
+          onClose={() => {
+            setShowAIEdit(false)
+            setModifiedRecipe(null)
+          }}
+          onCookModified={(modified) => {
+            sessionStorage.setItem(
+              `ai-modified-recipe-${recipe.id}`,
+              JSON.stringify(modified)
+            )
+            router.push(`/recipes/${recipe.id}/cook`)
+          }}
+          onSaveAsNew={(modified) => {
+            setShowAIEdit(false)
+            setSaveAsNewPrefill(modified)
+            setShowAddRecipe(true)
+          }}
+        />
+      )}
+
+      {showAddRecipe && (
+        <AddRecipeModal
+          onClose={() => { setShowAddRecipe(false); setSaveAsNewPrefill(null) }}
+          onSaved={() => { setShowAddRecipe(false); setSaveAsNewPrefill(null) }}
+          getToken={getAccessToken}
+          initialTab="manual"
+          prefillManual={
+            saveAsNewPrefill
+              ? {
+                  title:       `${saveAsNewPrefill.title} (modified)`,
+                  ingredients: saveAsNewPrefill.ingredients,
+                  steps:       saveAsNewPrefill.steps,
+                  notes:       saveAsNewPrefill.notes ?? undefined,
+                  servings:    saveAsNewPrefill.servings !== null
+                                 ? String(saveAsNewPrefill.servings)
+                                 : '',
+                }
+              : undefined
+          }
         />
       )}
     </div>

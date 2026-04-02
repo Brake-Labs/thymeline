@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, act, fireEvent, waitFor } from '@testing-library/react'
 
 const mockGetSession = vi.fn()
+const mockPush = vi.fn()
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: mockPush }),
 }))
 vi.mock('next/link', () => ({
   default: ({ href, children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) => (
@@ -30,14 +31,21 @@ const MOCK_RECIPE = {
   tags: ['Chicken'],
   url: null,
   notes: null,
-  ingredients: null,
-  steps: null,
+  ingredients: '1 whole chicken',
+  steps: 'Roast the chicken.',
   image_url: null,
   is_shared: false,
   created_at: '2025-01-01T00:00:00Z',
   last_made: null,
   times_made: 0,
   dates_made: [],
+  prep_time_minutes: null,
+  cook_time_minutes: null,
+  total_time_minutes: null,
+  inactive_time_minutes: null,
+  servings: 4,
+  source: 'manual' as const,
+  step_photos: [],
 }
 
 function makeTagsResponse() {
@@ -134,5 +142,190 @@ describe('RecipeDetailPage — Edit button owner gating', () => {
 
     expect(screen.queryByRole('link', { name: 'Edit' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument()
+  })
+})
+
+// ── spec-18 T01: "Edit with AI" button renders for owner ─────────────────────
+
+describe('spec-18 T01 - "Edit with AI" button renders for recipe owner', () => {
+  it('shows "Edit with AI" button when current user is the owner', async () => {
+    mockGetSession.mockResolvedValue({
+      data: { session: { user: { id: 'owner-user' } } },
+    })
+
+    await act(async () => {
+      render(<RecipeDetailPage params={{ id: 'recipe-1' }} />)
+    })
+
+    expect(screen.getByRole('button', { name: 'Edit with AI' })).toBeInTheDocument()
+  })
+})
+
+// ── spec-18 T02: "Edit with AI" button hidden for non-owners ─────────────────
+
+describe('spec-18 T02 - "Edit with AI" button hidden for non-owners', () => {
+  it('hides "Edit with AI" button when current user is not the owner', async () => {
+    mockGetSession.mockResolvedValue({
+      data: { session: { user: { id: 'other-user' } } },
+    })
+
+    await act(async () => {
+      render(<RecipeDetailPage params={{ id: 'recipe-1' }} />)
+    })
+
+    expect(screen.queryByRole('button', { name: 'Edit with AI' })).not.toBeInTheDocument()
+  })
+})
+
+// ── spec-18 T03: "Share with community" toggle removed ───────────────────────
+
+describe('spec-18 T03 - "Share with community" toggle removed from recipe detail page', () => {
+  it('does not render ShareToggle or any "Share" toggle', async () => {
+    mockGetSession.mockResolvedValue({
+      data: { session: { user: { id: 'owner-user' } } },
+    })
+
+    await act(async () => {
+      render(<RecipeDetailPage params={{ id: 'recipe-1' }} />)
+    })
+
+    expect(screen.queryByText(/share with community/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole('checkbox', { name: /share/i })).not.toBeInTheDocument()
+  })
+})
+
+// ── spec-18 T04: Clicking "Edit with AI" opens AIEditSheet ───────────────────
+
+describe('spec-18 T04 - Clicking "Edit with AI" opens AIEditSheet', () => {
+  it('opens the AI edit sheet when "Edit with AI" is clicked', async () => {
+    mockGetSession.mockResolvedValue({
+      data: { session: { user: { id: 'owner-user' } } },
+    })
+
+    await act(async () => {
+      render(<RecipeDetailPage params={{ id: 'recipe-1' }} />)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit with AI' }))
+
+    expect(screen.getByRole('dialog', { name: 'Edit with AI' })).toBeInTheDocument()
+  })
+})
+
+// ── spec-18 T12: sessionStorage key on "Cook from this version" ──────────────
+
+describe('spec-18 T12 - "Cook from this version" stores modified recipe in sessionStorage', () => {
+  it('stores the modified recipe with key ai-modified-recipe-{id}', async () => {
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem')
+
+    mockGetSession.mockResolvedValue({
+      data: { session: { user: { id: 'owner-user' } } },
+    })
+    mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
+      if (url.includes('/api/recipes/recipe-1/ai-edit') && opts?.method === 'POST') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            message: 'Done',
+            changes: ['Made it better'],
+            recipe: {
+              title: 'Roast Chicken',
+              ingredients: 'modified ingredients',
+              steps: 'modified steps',
+              notes: null,
+              servings: 4,
+            },
+          }),
+        })
+      }
+      if (url.includes('/api/recipes/recipe-1') && (!opts?.method || opts.method === 'GET')) {
+        return Promise.resolve({ ok: true, status: 200, json: async () => MOCK_RECIPE })
+      }
+      return Promise.resolve({ ok: false, status: 404, json: async () => ({}) })
+    })
+
+    await act(async () => {
+      render(<RecipeDetailPage params={{ id: 'recipe-1' }} />)
+    })
+
+    // Open AI edit sheet
+    fireEvent.click(screen.getByRole('button', { name: 'Edit with AI' }))
+
+    // Send a message
+    const textarea = screen.getByPlaceholderText(/What would you like to change/i)
+    fireEvent.change(textarea, { target: { value: 'make it better' } })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+    })
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Cook from this version' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cook from this version' }))
+
+    expect(setItemSpy).toHaveBeenCalledWith(
+      'ai-modified-recipe-recipe-1',
+      expect.stringContaining('modified ingredients'),
+    )
+
+    setItemSpy.mockRestore()
+  })
+})
+
+// ── spec-18 T19: Closing the sheet reverts recipe preview ─────────────────────
+
+describe('spec-18 T19 - Closing the sheet reverts recipe preview to original', () => {
+  it('reverts modifiedRecipe to null when sheet is closed', async () => {
+    mockGetSession.mockResolvedValue({
+      data: { session: { user: { id: 'owner-user' } } },
+    })
+    mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
+      if (url.includes('/api/recipes/recipe-1/ai-edit') && opts?.method === 'POST') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            message: 'Done',
+            changes: [],
+            recipe: {
+              title: 'Roast Chicken Modified',
+              ingredients: 'modified ingredients',
+              steps: 'modified steps',
+              notes: null,
+              servings: 4,
+            },
+          }),
+        })
+      }
+      if (url.includes('/api/recipes/recipe-1') && (!opts?.method || opts.method === 'GET')) {
+        return Promise.resolve({ ok: true, status: 200, json: async () => MOCK_RECIPE })
+      }
+      return Promise.resolve({ ok: false, status: 404, json: async () => ({}) })
+    })
+
+    await act(async () => {
+      render(<RecipeDetailPage params={{ id: 'recipe-1' }} />)
+    })
+
+    // Open AI edit sheet and send a message
+    fireEvent.click(screen.getByRole('button', { name: 'Edit with AI' }))
+    const textarea = screen.getByPlaceholderText(/What would you like to change/i)
+    fireEvent.change(textarea, { target: { value: 'rename it' } })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+    })
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Cook from this version' })).toBeInTheDocument()
+    })
+
+    // Close the sheet via backdrop click (which triggers onClose)
+    const closeBtn = screen.getByRole('button', { name: 'Close' })
+    fireEvent.click(closeBtn)
+
+    // ModifiedRecipeBadge should be gone
+    await waitFor(() => {
+      expect(screen.queryByText('Modified for tonight')).not.toBeInTheDocument()
+    })
   })
 })

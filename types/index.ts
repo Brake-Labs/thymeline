@@ -312,6 +312,20 @@ export interface ParsedRecipe {
   source:                'scraped' | 'manual'
 }
 
+export interface ModifiedRecipe {
+  title:       string
+  ingredients: string
+  steps:       string
+  notes:       string | null
+  servings:    number | null
+}
+
+export interface AIEditMessage {
+  role:    'user' | 'assistant'
+  content: string
+  changes?: string[]
+}
+
 /** A result row in the import review table */
 export interface ImportResult {
   id:               string   // client-generated uuid for keying rows
