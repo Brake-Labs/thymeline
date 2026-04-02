@@ -293,13 +293,23 @@ function PlanPageInner() {
         body: JSON.stringify({ query, date, meal_type: mealType }),
       })
       if (!res.ok) return { matched: false }
-      const data = await res.json() as { match: { recipe_id: string; recipe_title: string } | null }
-      if (!data.match) return { matched: false }
-      const key = `${date}:${mealType}`
-      setSelections((prev) => ({
-        ...prev,
-        [key]: { date, meal_type: mealType, recipe_id: data.match!.recipe_id, recipe_title: data.match!.recipe_title, from_vault: true },
-      }))
+      const data = await res.json() as { matches: { recipe_id: string; recipe_title: string }[] }
+      if (!data.matches?.length) return { matched: false }
+      // Inject the top matches into the slot's options list (prepend, deduplicate by recipe_id)
+      setSuggestions((prev) => {
+        if (!prev) return prev
+        return {
+          days: prev.days.map((d) => d.date !== date ? d : {
+            ...d,
+            meal_types: d.meal_types.map((mts) => {
+              if (mts.meal_type !== mealType) return mts
+              const existingIds = new Set(mts.options.map((o) => o.recipe_id))
+              const newOptions = data.matches.filter((m) => !existingIds.has(m.recipe_id))
+              return { ...mts, options: [...newOptions, ...mts.options] }
+            }),
+          }),
+        }
+      })
       return { matched: true }
     } catch {
       return { matched: false }
