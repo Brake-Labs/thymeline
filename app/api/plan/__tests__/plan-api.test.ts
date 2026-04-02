@@ -26,6 +26,9 @@ const mockState = {
   alreadyPlannedEntries: [] as { recipe_id: string; planned_date: string }[],
   // Per-week-start plan lookup (overrides `plan` when non-empty)
   planByWeekStart: {} as Record<string, { id: string; week_start: string } | null>,
+  // Multiple plans per week-start — simulates the duplicate-plan-records scenario.
+  // When non-empty, takes priority over planByWeekStart for the given week_start.
+  plansByWeekStart: {} as Record<string, { id: string; week_start: string }[]>,
   // Per-plan-id entry lookup (overrides `alreadyPlannedEntries` when non-empty)
   entriesByPlanId: {} as Record<string, { recipe_id: string }[]>,
   llmResponse: '{"days":[]}',
@@ -74,17 +77,26 @@ function makeMockFrom(table: string) {
       select: () => ({
         eq: (col: string, val: string) => {
           const weekStart = col === 'week_start' ? val : undefined
-          const resolvePlan = () =>
-            weekStart !== undefined && Object.keys(mockState.planByWeekStart).length > 0
-              ? (mockState.planByWeekStart[weekStart] ?? null)
-              : mockState.plan
+          const resolvePlans = (): { id: string; week_start: string }[] => {
+            if (weekStart !== undefined && Object.keys(mockState.plansByWeekStart).length > 0
+                && weekStart in mockState.plansByWeekStart) {
+              return mockState.plansByWeekStart[weekStart]
+            }
+            if (weekStart !== undefined && Object.keys(mockState.planByWeekStart).length > 0) {
+              const p = mockState.planByWeekStart[weekStart] ?? null
+              return p ? [p] : []
+            }
+            return mockState.plan ? [mockState.plan] : []
+          }
+          const resolvePlan = () => resolvePlans()[0] ?? null
           return {
             eq: () => {
-              const plan = resolvePlan()
+              const plans = resolvePlans()
+              const plan  = plans[0] ?? null
               // Return a real Promise so `await planQ` works for the suggest route's
               // plural-plans query, with .single()/.maybeSingle() for other callers.
               return Object.assign(
-                Promise.resolve({ data: plan ? [plan] : [], error: null }),
+                Promise.resolve({ data: plans, error: null }),
                 {
                   single:      async () => ({ data: plan, error: plan ? null : { message: 'not found' } }),
                   maybeSingle: async () => ({ data: plan, error: null }),
@@ -225,6 +237,7 @@ beforeEach(() => {
   mockState.entries = []
   mockState.alreadyPlannedEntries = []
   mockState.planByWeekStart = {}
+  mockState.plansByWeekStart = {}
   mockState.entriesByPlanId = {}
   mockState.planInsertError = null
   mockState.entryInsertError = null
@@ -878,5 +891,101 @@ describe('T32 - Cross-week exclusion: current-week recipes excluded from next-we
     const options = body.days[0].meal_types[0].options
     // r1 was planned earlier this week — must not reappear next week
     expect(options.find((o: { recipe_id: string }) => o.recipe_id === 'r1')).toBeUndefined()
+  })
+})
+
+// ── T33: Duplicate meal_plan records — all plans scanned (regression) ──────────
+
+describe('T33 - Duplicate meal_plan records: recipes in any plan record are excluded (regression)', () => {
+  // Regression for the bug where two meal_plan rows existed for the same week_start.
+  // maybeSingle() only returned one row; recipes under the other plan were never
+  // excluded. The fix: use plain select() and iterate all returned plan rows.
+
+  it('excludes a recipe found in the second of two plan records for the same week', async () => {
+    // Two plan records exist for this week: plan-a has r1, plan-b has r2.
+    // Both should be excluded from next-week suggestions.
+    mockState.plansByWeekStart = {
+      '2026-03-29': [
+        { id: 'plan-a', week_start: '2026-03-29' },
+        { id: 'plan-b', week_start: '2026-03-29' },
+      ],
+      '2026-04-05': [],
+    }
+    mockState.entriesByPlanId = {
+      'plan-a': [{ recipe_id: 'r1' }],
+      'plan-b': [{ recipe_id: 'r2' }],
+    }
+
+    // LLM tries to suggest both r1 and r2 for next week
+    mockState.llmResponse = JSON.stringify({
+      days: [{
+        date: '2026-04-07',
+        meal_types: [{ meal_type: 'dinner', options: [
+          { recipe_id: 'r1', recipe_title: 'Pasta',  reason: 'Quick'   },
+          { recipe_id: 'r2', recipe_title: 'Tacos',  reason: 'Healthy' },
+          { recipe_id: 'r3', recipe_title: 'Soup',   reason: 'Warm'    },
+        ]}],
+      }],
+    })
+
+    const res = await suggestPOST(makeReq('POST', 'http://localhost/api/plan/suggest', {
+      week_start: '2026-04-05',
+      active_dates: ['2026-04-07'],
+      prefer_this_week: [],
+      avoid_this_week: [],
+      free_text: '',
+    }))
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    const options = body.days[0].meal_types[0].options
+    // r1 was in plan-a → excluded
+    expect(options.find((o: { recipe_id: string }) => o.recipe_id === 'r1')).toBeUndefined()
+    // r2 was in plan-b → excluded (the regression: previously only plan-a was scanned)
+    expect(options.find((o: { recipe_id: string }) => o.recipe_id === 'r2')).toBeUndefined()
+    // r3 was in neither plan → available
+    expect(options.find((o: { recipe_id: string }) => o.recipe_id === 'r3')).toBeDefined()
+  })
+
+  it('excludes a recipe in a duplicate plan record for the target week itself', async () => {
+    // Two plan records exist for the target week: r1 is in the second one.
+    // Previously maybeSingle() returned only plan-a; r1 under plan-b was not excluded.
+    mockState.plansByWeekStart = {
+      '2026-03-01': [
+        { id: 'plan-a', week_start: '2026-03-01' },
+        { id: 'plan-b', week_start: '2026-03-01' },
+      ],
+    }
+    mockState.entriesByPlanId = {
+      'plan-a': [],
+      // plan-b holds r1 for a future date — should be excluded
+      'plan-b': [{ recipe_id: 'r1' }],
+    }
+
+    mockState.llmResponse = JSON.stringify({
+      days: [{
+        date: '2026-03-06',
+        meal_types: [{ meal_type: 'dinner', options: [
+          { recipe_id: 'r1', recipe_title: 'Pasta', reason: 'Quick'   },
+          { recipe_id: 'r2', recipe_title: 'Tacos', reason: 'Healthy' },
+        ]}],
+      }],
+    })
+
+    const res = await suggestPOST(makeReq('POST', 'http://localhost/api/plan/suggest', {
+      week_start: '2026-03-01',
+      active_dates: ['2026-03-06'],
+      prefer_this_week: [],
+      avoid_this_week: [],
+      free_text: '',
+    }))
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    const options = body.days[0].meal_types[0].options
+    // r1 was in plan-b → excluded even though plan-a was empty
+    expect(options.find((o: { recipe_id: string }) => o.recipe_id === 'r1')).toBeUndefined()
+    // r2 in neither plan → available
+    expect(options.find((o: { recipe_id: string }) => o.recipe_id === 'r2')).toBeDefined()
   })
 })
