@@ -88,7 +88,6 @@ function makeMockFrom(table: string) {
             }
             return mockState.plan ? [mockState.plan] : []
           }
-          const resolvePlan = () => resolvePlans()[0] ?? null
           return {
             eq: () => {
               const plans = resolvePlans()
