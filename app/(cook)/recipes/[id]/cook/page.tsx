@@ -24,7 +24,7 @@ export default function CookModePage({ params }: Props) {
   const router = useRouter()
   const [recipe, setRecipe] = useState<RecipeWithHistory | null>(null)
   const [loading, setLoading] = useState(true)
-  const [isModified, setIsModified] = useState(false)
+  const isModifiedRef = useRef(false)
   const [currentStep, setCurrentStep] = useState(0)
   const [view, setView] = useState<'one' | 'all'>('one')
   const [servings, setServings] = useState(4)
@@ -53,7 +53,7 @@ export default function CookModePage({ params }: Props) {
           try {
             const modified: ModifiedRecipe = JSON.parse(stored)
             data = { ...data, ...modified }
-            setIsModified(true)
+            isModifiedRef.current = true
           } catch {
             // Ignore malformed sessionStorage value
           }
@@ -264,7 +264,7 @@ export default function CookModePage({ params }: Props) {
 
   return (
     <div className="min-h-screen bg-stone-50 pt-14 pb-28">
-      {isModified && (
+      {isModifiedRef.current && (
         <div className="bg-amber-50 border-b border-amber-100 px-4 py-2 text-center text-[12px] font-medium text-amber-700">
           Modified for tonight
         </div>
