@@ -55,11 +55,19 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
     const { data: plan } = await planQ.maybeSingle()
     if (!plan?.id) continue
 
-    const { data: entries } = await db
+    // For the target week, only exclude entries from today onward (earlier slots
+    // in the same week have already been decided). For any other week (e.g. this
+    // week when suggesting next week), exclude ALL entries — a recipe the user
+    // planned for Monday of this week should not appear in next week's suggestions
+    // even though Monday is now in the past.
+    let entriesQ = db
       .from('meal_plan_entries')
       .select('recipe_id')
       .eq('meal_plan_id', plan.id)
-      .gte('planned_date', todayISO)
+    if (ws === week_start) {
+      entriesQ = entriesQ.gte('planned_date', todayISO)
+    }
+    const { data: entries } = await entriesQ
     for (const entry of entries ?? []) {
       alreadyPlannedIds.add((entry as { recipe_id: string }).recipe_id)
     }

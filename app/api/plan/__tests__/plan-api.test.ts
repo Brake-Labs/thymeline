@@ -122,10 +122,14 @@ function makeMockFrom(table: string) {
             planId !== undefined && Object.keys(mockState.entriesByPlanId).length > 0
               ? (mockState.entriesByPlanId[planId] ?? [])
               : mockState.alreadyPlannedEntries
-          return {
+          const result = {
             order: async () => ({ data: mockState.entries, error: null }),
             gte: async () => ({ data: resolveEntries(), error: null }),
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            then: (resolve: (v: any) => unknown) =>
+              Promise.resolve({ data: resolveEntries(), error: null }).then(resolve),
           }
+          return result
         },
       }),
     }
@@ -829,5 +833,41 @@ describe('T32 - Cross-week exclusion: current-week recipes excluded from next-we
     const body = await res.json()
     const options = body.days[0].meal_types[0].options
     expect(options.find((o: { recipe_id: string }) => o.recipe_id === 'r2')).toBeDefined()
+  })
+
+  it('excludes a recipe planned for a past date earlier this week (regression)', async () => {
+    // r1 was planned for Monday of this week — already past, but still this week's plan.
+    // It should NOT appear in next week's suggestions.
+    mockState.planByWeekStart = {
+      '2026-03-29': { id: 'plan-this', week_start: '2026-03-29' },
+      '2026-04-05': null,
+    }
+    mockState.entriesByPlanId = {
+      // Simulates an entry with a past planned_date (Monday of this week)
+      'plan-this': [{ recipe_id: 'r1' }],
+    }
+
+    mockState.llmResponse = JSON.stringify({
+      days: [{
+        date: '2026-04-07',
+        meal_types: [{ meal_type: 'dinner', options: [
+          { recipe_id: 'r1', recipe_title: 'Pasta', reason: 'Quick' },
+        ]}],
+      }],
+    })
+
+    const res = await suggestPOST(makeReq('POST', 'http://localhost/api/plan/suggest', {
+      week_start: '2026-04-05',
+      active_dates: ['2026-04-07'],
+      prefer_this_week: [],
+      avoid_this_week: [],
+      free_text: '',
+    }))
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    const options = body.days[0].meal_types[0].options
+    // r1 was planned earlier this week — must not reappear next week
+    expect(options.find((o: { recipe_id: string }) => o.recipe_id === 'r1')).toBeUndefined()
   })
 })
