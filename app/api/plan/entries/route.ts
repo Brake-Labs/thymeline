@@ -53,6 +53,7 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
 
   const planResult = await getOrCreateMealPlan(db, user.id, week_start, ctx)
   if ('error' in planResult) {
+    console.error('[entries] getOrCreateMealPlan error:', planResult.error)
     return NextResponse.json({ error: 'Failed to create plan' }, { status: 500 })
   }
   const { planId } = planResult
@@ -74,6 +75,7 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
     .single()
 
   if (entryError || !entry) {
+    console.error('[entries] insert error:', entryError)
     return NextResponse.json({ error: 'Failed to create entry' }, { status: 500 })
   }
 
