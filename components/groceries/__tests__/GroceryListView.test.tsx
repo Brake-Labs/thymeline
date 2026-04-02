@@ -303,7 +303,7 @@ describe('T22 - Share invokes Web Share API with correct format', () => {
     })
   })
 
-  it('regression: share text contains week header so apps that ignore title still show it', async () => {
+  it('regression: share text contains week header so all share targets receive it', async () => {
     const shareMock = vi.fn().mockResolvedValue(undefined)
     vi.stubGlobal('navigator', { ...navigator, share: shareMock })
 
@@ -313,9 +313,7 @@ describe('T22 - Share invokes Web Share API with correct format', () => {
     await waitFor(() => {
       expect(shareMock).toHaveBeenCalled()
       const args = shareMock.mock.calls[0]![0]
-      // Week header must be the first line of text (not a separate title field)
       expect(args.text).toMatch(/^Grocery list — week of \d{4}-\d{2}-\d{2}/)
-      // No separate title that could shadow the item list
       expect(args.title).toBeUndefined()
     })
   })
@@ -334,6 +332,30 @@ describe('T22 - Share invokes Web Share API with correct format', () => {
     }
 
     render(<GroceryListView initialList={listWithBought} />)
+    fireEvent.click(screen.getByText('Share'))
+
+    await waitFor(() => {
+      expect(shareMock).toHaveBeenCalled()
+      const { text } = shareMock.mock.calls[0]![0]
+      expect(text).not.toContain('pasta')
+      expect(text).toContain('lettuce')
+    })
+  })
+
+  it('regression: excludes checked (strikethrough) items from the share payload', async () => {
+    const shareMock = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', { ...navigator, share: shareMock })
+
+    const listWithChecked: GroceryList = {
+      ...sampleList,
+      items: [
+        { ...sampleList.items[0]!, checked: true },  // pasta — checked off, should be excluded
+        { ...sampleList.items[1]!, checked: false }, // lettuce — unchecked, should be included
+        sampleList.items[2]!,
+      ],
+    }
+
+    render(<GroceryListView initialList={listWithChecked} />)
     fireEvent.click(screen.getByText('Share'))
 
     await waitFor(() => {

@@ -343,7 +343,7 @@ export function buildPlainTextList(
   _weekStart: string,
   options?: { onlyUnchecked?: boolean },
 ): string {
-  const filtered = options?.onlyUnchecked ? items.filter((i) => !i.bought) : items
+  const filtered = options?.onlyUnchecked ? items.filter((i) => !i.checked && !i.bought) : items
   return filtered
     .map((item) => {
       const amt = item.amount !== null ? `${item.amount} ` : ''
