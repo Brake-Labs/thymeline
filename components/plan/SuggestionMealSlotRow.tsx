@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import AssignDayPicker from './AssignDayPicker'
 import VaultSearchSheet from './VaultSearchSheet'
 import type { RecipeSuggestion, DaySelection, MealType } from '@/types'
@@ -44,8 +44,6 @@ export default function SuggestionMealSlotRow({
   const [freeTextError, setFreeTextError] = useState('')
   const [dessertVaultOpen, setDessertVaultOpen] = useState(false)
   const [dessertEntry, setDessertEntry] = useState<{ recipe_id: string; recipe_title: string } | null>(null)
-  const assignRef = useRef<HTMLDivElement>(null)
-
   const isSkipped = selection === null
   const isSelected = (recipeId: string) => selection?.recipe_id === recipeId
   const canHaveDessert = mealType === 'dinner' || mealType === 'lunch'
@@ -181,7 +179,7 @@ export default function SuggestionMealSlotRow({
                   </div>
 
                   {/* Assign to different day */}
-                  <div className="relative mt-1" ref={assignOpen === opt.recipe_id ? assignRef : undefined}>
+                  <div className="mt-1">
                     <button
                       onClick={() => {
                         setAssignRecipe(opt)
@@ -191,17 +189,6 @@ export default function SuggestionMealSlotRow({
                     >
                       Use for a different day
                     </button>
-                    {assignOpen === opt.recipe_id && assignRecipe && (
-                      <AssignDayPicker
-                        activeDates={activeDates}
-                        excludeDate={date}
-                        onSelect={(targetDate) => {
-                          onAssignToDay(assignRecipe, date, targetDate, mealType)
-                          setAssignOpen(null)
-                        }}
-                        onClose={() => setAssignOpen(null)}
-                      />
-                    )}
                   </div>
 
                   {/* From vault badge */}
@@ -286,6 +273,19 @@ export default function SuggestionMealSlotRow({
             )}
           </div>
         </div>
+      )}
+
+      {/* Assign to different day — rendered outside opacity-affected rows so it's never dimmed */}
+      {assignOpen && assignRecipe && (
+        <AssignDayPicker
+          activeDates={activeDates}
+          excludeDate={date}
+          onSelect={(targetDate) => {
+            onAssignToDay(assignRecipe, date, targetDate, mealType)
+            setAssignOpen(null)
+          }}
+          onClose={() => setAssignOpen(null)}
+        />
       )}
 
       {/* Vault search sheet for main slot */}
