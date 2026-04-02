@@ -195,11 +195,15 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
   // ── Share ───────────────────────────────────────────────────────────────────
 
   async function handleShare() {
-    const text = buildPlainTextList(items, recipeScales, planServings, weekStart, { onlyUnchecked: true })
-    const title = `Grocery list — week of ${weekStart}`
+    const header = `Grocery list — week of ${weekStart}`
+    const itemList = buildPlainTextList(items, recipeScales, planServings, weekStart, { onlyUnchecked: true })
+    // Put everything in text — some share targets (iOS Notes, Reminders) use title
+    // and ignore text, showing only one line. Including the header in text ensures
+    // all content reaches the destination regardless of which field the app reads.
+    const text = itemList ? `${header}\n\n${itemList}` : header
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
-        await navigator.share({ title, text })
+        await navigator.share({ text })
         return
       } catch { /* fall through */ }
     }

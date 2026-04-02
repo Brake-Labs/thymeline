@@ -294,12 +294,29 @@ describe('T22 - Share invokes Web Share API with correct format', () => {
     await waitFor(() => {
       expect(shareMock).toHaveBeenCalled()
       const args = shareMock.mock.calls[0]![0]
-      // Each item on its own line, no headers or bullets
-      const lines = args.text.split('\n')
-      expect(lines.length).toBeGreaterThan(0)
+      // Header + blank line + one item per line, no bullets
+      const lines = args.text.split('\n').filter(Boolean)
+      expect(lines.length).toBeGreaterThan(1)
       expect(args.text).toContain('pasta')
       expect(args.text).not.toContain('🛒')
       expect(args.text).not.toMatch(/^[•\-–]/m)
+    })
+  })
+
+  it('regression: share text contains week header so apps that ignore title still show it', async () => {
+    const shareMock = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', { ...navigator, share: shareMock })
+
+    render(<GroceryListView initialList={sampleList} />)
+    fireEvent.click(screen.getByText('Share'))
+
+    await waitFor(() => {
+      expect(shareMock).toHaveBeenCalled()
+      const args = shareMock.mock.calls[0]![0]
+      // Week header must be the first line of text (not a separate title field)
+      expect(args.text).toMatch(/^Grocery list — week of \d{4}-\d{2}-\d{2}/)
+      // No separate title that could shadow the item list
+      expect(args.title).toBeUndefined()
     })
   })
 
