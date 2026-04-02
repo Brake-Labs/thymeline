@@ -24,6 +24,8 @@ interface SuggestionsStepProps {
   onAssignToDay:    (recipe: RecipeSuggestion, sourceDate: string, targetDate: string, mealType: MealType) => void
   onVaultPick:      (date: string, mealType: MealType, recipe: { recipe_id: string; recipe_title: string }) => void
   onFreeTextMatch:  (query: string, date: string, mealType: MealType) => Promise<{ matched: boolean }>
+  onSideDishPick?:  (date: string, mealType: MealType, recipe: { recipe_id: string; recipe_title: string }) => void
+  onSideDishRemove?:(date: string, mealType: MealType) => void
   onDessertPick?:   (date: string, mealType: MealType, recipe: { recipe_id: string; recipe_title: string }) => void
   onDessertRemove?: (date: string, mealType: MealType) => void
   onRegenerate:     (onlyUnselected?: boolean) => void
@@ -36,7 +38,7 @@ type RegeneratePromptState = 'none' | 'prompt'
 export default function SuggestionsStep({
   setup, suggestions, selections,
   onSelect, onSkipSlot, onSwapSlot, onAssignToDay, onVaultPick, onFreeTextMatch,
-  onDessertPick, onDessertRemove,
+  onSideDishPick, onSideDishRemove, onDessertPick, onDessertRemove,
   onRegenerate, onConfirm, onBack,
 }: SuggestionsStepProps) {
   const [regenPrompt, setRegenPrompt] = useState<RegeneratePromptState>('none')
@@ -77,6 +79,8 @@ export default function SuggestionsStep({
             onAssignToDay={onAssignToDay}
             onVaultPick={onVaultPick}
             onFreeTextMatch={onFreeTextMatch}
+            onSideDishPick={onSideDishPick}
+            onSideDishRemove={onSideDishRemove}
             onDessertPick={onDessertPick}
             onDessertRemove={onDessertRemove}
           />

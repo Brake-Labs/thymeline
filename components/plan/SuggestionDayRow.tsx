@@ -21,6 +21,8 @@ interface SuggestionDayRowProps {
   onAssignToDay:      (recipe: RecipeSuggestion, sourceDate: string, targetDate: string, mealType: MealType) => void
   onVaultPick:        (date: string, mealType: MealType, recipe: { recipe_id: string; recipe_title: string }) => void
   onFreeTextMatch:    (query: string, date: string, mealType: MealType) => Promise<{ matched: boolean }>
+  onSideDishPick?:    (date: string, mealType: MealType, recipe: { recipe_id: string; recipe_title: string }) => void
+  onSideDishRemove?:  (date: string, mealType: MealType) => void
   onDessertPick?:     (date: string, mealType: MealType, recipe: { recipe_id: string; recipe_title: string }) => void
   onDessertRemove?:   (date: string, mealType: MealType) => void
 }
@@ -36,7 +38,7 @@ function formatDayHeader(dateStr: string): string {
 export default function SuggestionDayRow({
   date, mealTypeSuggestions, selections, activeMealTypes, activeDates,
   onSelect, onSkip, onSwap, onAssignToDay, onVaultPick, onFreeTextMatch,
-  onDessertPick, onDessertRemove,
+  onSideDishPick, onSideDishRemove, onDessertPick, onDessertRemove,
 }: SuggestionDayRowProps) {
   return (
     <div className="border border-stone-200 rounded-xl overflow-hidden bg-white">
@@ -65,6 +67,8 @@ export default function SuggestionDayRow({
               onAssignToDay={onAssignToDay}
               onVaultPick={onVaultPick}
               onFreeTextMatch={onFreeTextMatch}
+              onSideDishPick={onSideDishPick}
+              onSideDishRemove={onSideDishRemove}
               onDessertPick={onDessertPick}
               onDessertRemove={onDessertRemove}
             />

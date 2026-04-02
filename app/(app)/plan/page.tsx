@@ -44,6 +44,7 @@ function PlanPageInner() {
   })
   const [suggestions, setSuggestions] = useState<SuggestionsState | null>(null)
   const [selections, setSelections] = useState<SelectionsMap>({})
+  const [sideDishSelections, setSideDishSelections] = useState<Record<string, { recipe_id: string; recipe_title: string }>>({})
   const [dessertSelections, setDessertSelections] = useState<Record<string, { recipe_id: string; recipe_title: string }>>({})
   const [isGenerating, setIsGenerating] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -316,6 +317,20 @@ function PlanPageInner() {
     }
   }
 
+  // ── Side dish picks ───────────────────────────────────────────────────────────
+
+  const handleSideDishPick = (date: string, mealType: MealType, recipe: { recipe_id: string; recipe_title: string }) => {
+    setSideDishSelections((prev) => ({ ...prev, [`${date}:${mealType}`]: recipe }))
+  }
+
+  const handleSideDishRemove = (date: string, mealType: MealType) => {
+    setSideDishSelections((prev) => {
+      const next = { ...prev }
+      delete next[`${date}:${mealType}`]
+      return next
+    })
+  }
+
   // ── Dessert picks ─────────────────────────────────────────────────────────────
 
   const handleDessertPick = (date: string, mealType: MealType, recipe: { recipe_id: string; recipe_title: string }) => {
@@ -335,6 +350,7 @@ function PlanPageInner() {
   const handleRegenerate = (onlyUnselected?: boolean) => {
     if (!onlyUnselected) {
       setSelections({})
+      setSideDishSelections({})
       setDessertSelections({})
       fetchSuggestions(setup.activeDates)
     } else {
@@ -375,6 +391,29 @@ function PlanPageInner() {
       }
 
       const savedData = await res.json() as { plan_id: string; entries: SavedPlanEntry[] }
+
+      // Save side dishes: match each side dish to its parent entry by date + meal_type
+      for (const [key, sideDish] of Object.entries(sideDishSelections)) {
+        const colonIdx = key.indexOf(':')
+        const date = key.slice(0, colonIdx)
+        const parentMealType = key.slice(colonIdx + 1) as MealType
+        const parent = savedData.entries.find(
+          (e) => e.planned_date === date && e.meal_type === parentMealType && !e.is_side_dish
+        )
+        if (!parent) continue
+        await fetch('/api/plan/entries', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            week_start:      setup.weekStart,
+            date,
+            recipe_id:       sideDish.recipe_id,
+            meal_type:       parentMealType,
+            is_side_dish:    true,
+            parent_entry_id: parent.id,
+          }),
+        })
+      }
 
       // Save desserts: match each dessert to its parent entry by date + meal_type
       for (const [key, dessert] of Object.entries(dessertSelections)) {
@@ -437,6 +476,8 @@ function PlanPageInner() {
             onAssignToDay={handleAssignToDay}
             onVaultPick={handleVaultPick}
             onFreeTextMatch={handleFreeTextMatch}
+            onSideDishPick={handleSideDishPick}
+            onSideDishRemove={handleSideDishRemove}
             onDessertPick={handleDessertPick}
             onDessertRemove={handleDessertRemove}
             onRegenerate={handleRegenerate}
