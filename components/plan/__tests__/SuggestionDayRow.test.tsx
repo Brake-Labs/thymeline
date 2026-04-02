@@ -142,3 +142,40 @@ describe('From vault label', () => {
     expect(screen.getByText('From vault')).toBeInTheDocument()
   })
 })
+
+// ── Vault/free-text selection not in options list (regression: Bug 2) ─────────
+
+describe('Vault selection absent from options — selected-recipe row (regression)', () => {
+  const VAULT_SEL: DaySelection = {
+    date: DATE,
+    meal_type: 'dinner',
+    recipe_id: 'r-vault',
+    recipe_title: 'My Vault Recipe',
+    from_vault: true,
+  }
+  const key = `${DATE}:dinner`
+
+  it('renders the "From your vault" row with the recipe title when selection is not in options', () => {
+    render(<SuggestionDayRow {...makeRow({ selections: { [key]: VAULT_SEL } })} />)
+    expect(screen.getByText('My Vault Recipe')).toBeInTheDocument()
+    expect(screen.getByText('From your vault')).toBeInTheDocument()
+  })
+
+  it('does NOT render the "From your vault" row when the selection IS one of the options', () => {
+    // r1 (Pasta) is in options — should use the inline selected style, not the vault row
+    const inOptionsSel: DaySelection = { date: DATE, meal_type: 'dinner', recipe_id: 'r1', recipe_title: 'Pasta', from_vault: true }
+    render(<SuggestionDayRow {...makeRow({ selections: { [key]: inOptionsSel } })} />)
+    expect(screen.queryByText('From your vault')).not.toBeInTheDocument()
+  })
+
+  it('clicking the checkmark on the vault row calls onSelect with the matched recipe', () => {
+    const onSelect = vi.fn()
+    render(<SuggestionDayRow {...makeRow({ selections: { [key]: VAULT_SEL }, onSelect })} />)
+    fireEvent.click(screen.getByTitle('Deselect'))
+    expect(onSelect).toHaveBeenCalledWith(
+      DATE,
+      'dinner',
+      expect.objectContaining({ recipe_id: 'r-vault', recipe_title: 'My Vault Recipe' }),
+    )
+  })
+})

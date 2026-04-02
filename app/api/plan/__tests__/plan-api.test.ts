@@ -364,6 +364,36 @@ describe('T22 - POST /api/plan/match returns null when no match', () => {
   })
 })
 
+// ── T22b: Match route handles fenced LLM responses (regression) ──────────────
+
+describe('T22b - POST /api/plan/match handles fenced JSON from LLM', () => {
+  it('returns match when LLM wraps response in markdown fences', async () => {
+    // LLM wraps its JSON in a code fence — previously caused JSON.parse to fail silently
+    mockState.llmResponse = '```json\n{ "recipe_id": "r2" }\n```'
+    const res = await matchPOST(makeReq('POST', 'http://localhost/api/plan/match', {
+      query: 'healthy tacos',
+      date: '2026-03-01',
+    }))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.match?.recipe_id).toBe('r2')
+    expect(body.match?.recipe_title).toBe('Tacos')
+  })
+
+  it('returns match when LLM prefixes fenced JSON with prose', async () => {
+    // LLM adds prose before the fence — the ^ anchor bug
+    mockState.llmResponse = 'Here is the best match:\n```json\n{ "recipe_id": "r3" }\n```'
+    const res = await matchPOST(makeReq('POST', 'http://localhost/api/plan/match', {
+      query: 'comfort soup',
+      date: '2026-03-01',
+    }))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.match?.recipe_id).toBe('r3')
+    expect(body.match?.recipe_title).toBe('Soup')
+  })
+})
+
 // ── T30: Save plan — creates new plan when none exists ────────────────────────
 
 describe('T30 - POST /api/plan creates plan and saves entries via admin client', () => {
