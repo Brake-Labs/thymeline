@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
-import { callLLM, LLM_MODEL_FAST } from '@/lib/llm'
+import { callLLM, LLM_MODEL_CAPABLE, parseLLMJson } from '@/lib/llm'
 import { searchRecipesSchema, parseBody } from '@/lib/schemas'
 import { scopeQuery } from '@/lib/household'
 import type { RecipeFilters } from '@/types'
@@ -30,6 +30,7 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   if (parseError) return parseError
 
   const query = body.query?.trim() ?? ''
+  console.log('[recipes/search] query:', query)
   if (!query) {
     return NextResponse.json({ results: [] })
   }
@@ -45,6 +46,7 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   }
 
   const allRecipes = recipes ?? []
+  console.log('[recipes/search] vault size:', allRecipes.length)
   if (allRecipes.length === 0) {
     return NextResponse.json({ results: [] })
   }
@@ -84,17 +86,17 @@ Return ONLY a JSON array of recipe_id strings, e.g. ["uuid1","uuid2"]. No other 
   let rankedIds: string[] = []
   try {
     const rawText = await callLLM({
-      model: LLM_MODEL_FAST,
+      model: LLM_MODEL_CAPABLE,
       maxTokens: 512,
       system: 'You are a recipe search assistant. Return only valid JSON arrays.',
       user: prompt,
     })
-    const cleaned = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
-    const parsed = JSON.parse(cleaned)
+    const parsed = parseLLMJson<string[]>(rawText)
     rankedIds = Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : []
   } catch {
     rankedIds = []
   }
+  console.log('[recipes/search] LLM results:', rankedIds)
 
   // Security: drop any ID not in the user's recipe list
   const validIdSet = new Set(allRecipes.map((r) => r.id))
