@@ -80,7 +80,7 @@ function makeMockFrom(table: string) {
           const resolvePlans = (): { id: string; week_start: string }[] => {
             if (weekStart !== undefined && Object.keys(mockState.plansByWeekStart).length > 0
                 && weekStart in mockState.plansByWeekStart) {
-              return mockState.plansByWeekStart[weekStart]
+              return mockState.plansByWeekStart[weekStart] ?? []
             }
             if (weekStart !== undefined && Object.keys(mockState.planByWeekStart).length > 0) {
               const p = mockState.planByWeekStart[weekStart] ?? null
