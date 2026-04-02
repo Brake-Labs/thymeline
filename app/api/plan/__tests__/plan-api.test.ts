@@ -345,77 +345,95 @@ describe('T13 - POST /api/plan/suggest/swap returns new options for one day', ()
 
 // ── T21: Free text match ───────────────────────────────────────────────────────
 
-describe('T21 - POST /api/plan/match returns matched recipe', () => {
-  it('returns match when LLM finds a recipe', async () => {
-    mockState.llmResponse = JSON.stringify({ recipe_id: 'r1' })
+describe('T21 - POST /api/plan/match returns matched recipes', () => {
+  it('returns matches array when keyword hits exactly one recipe', async () => {
+    // "pasta" keyword matches r1 directly — LLM not called
+    mockState.llmResponse = JSON.stringify({ recipe_ids: [] })
     const res = await matchPOST(makeReq('POST', 'http://localhost/api/plan/match', {
       query: 'something with pasta',
       date: '2026-03-01',
     }))
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.match.recipe_id).toBe('r1')
-    expect(body.match.recipe_title).toBe('Pasta')
+    expect(body.matches).toHaveLength(1)
+    expect(body.matches[0].recipe_id).toBe('r1')
+    expect(body.matches[0].recipe_title).toBe('Pasta')
+  })
+
+  it('returns up to 3 matches when LLM ranks results', async () => {
+    // Query with no keyword match — LLM returns ranked IDs
+    mockState.llmResponse = JSON.stringify({ recipe_ids: ['r1', 'r2', 'r3'] })
+    const res = await matchPOST(makeReq('POST', 'http://localhost/api/plan/match', {
+      query: 'weeknight dinner option',
+      date: '2026-03-01',
+    }))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.matches).toHaveLength(3)
+    expect(body.matches[0].recipe_id).toBe('r1')
+    expect(body.matches[1].recipe_id).toBe('r2')
+    expect(body.matches[2].recipe_id).toBe('r3')
   })
 })
 
 // ── T21b: Keyword match bypasses LLM ─────────────────────────────────────────
 
-describe('T21b - keyword match resolves without LLM when exactly one recipe matches', () => {
-  it('returns the keyword-matched recipe even if LLM would return null', async () => {
-    // LLM would return null, but keyword match should find r1 ("Pasta") for "pasta"
-    mockState.llmResponse = JSON.stringify({ recipe_id: null })
+describe('T21b - keyword match resolves without LLM when recipes match', () => {
+  it('returns the keyword-matched recipe even if LLM would return empty', async () => {
+    // LLM would return empty, but keyword match should find r1 ("Pasta") for "pasta"
+    mockState.llmResponse = JSON.stringify({ recipe_ids: [] })
     const res = await matchPOST(makeReq('POST', 'http://localhost/api/plan/match', {
       query: 'something with pasta',
       date: '2026-03-01',
     }))
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.match.recipe_id).toBe('r1')
+    expect(body.matches[0].recipe_id).toBe('r1')
   })
 })
 
 // ── T22: Free text no match ───────────────────────────────────────────────────
 
-describe('T22 - POST /api/plan/match returns null when no match', () => {
-  it('returns match=null when LLM returns null', async () => {
-    mockState.llmResponse = JSON.stringify({ recipe_id: null })
+describe('T22 - POST /api/plan/match returns empty array when no match', () => {
+  it('returns empty matches array when LLM finds nothing', async () => {
+    mockState.llmResponse = JSON.stringify({ recipe_ids: [] })
     const res = await matchPOST(makeReq('POST', 'http://localhost/api/plan/match', {
       query: 'something obscure',
       date: '2026-03-01',
     }))
     const body = await res.json()
-    expect(body.match).toBeNull()
+    expect(body.matches).toEqual([])
   })
 })
 
 // ── T22b: Match route handles fenced LLM responses (regression) ──────────────
 
 describe('T22b - POST /api/plan/match handles fenced JSON from LLM', () => {
-  it('returns match when LLM wraps response in markdown fences', async () => {
+  it('returns matches when LLM wraps response in markdown fences', async () => {
     // LLM wraps its JSON in a code fence — previously caused JSON.parse to fail silently
-    mockState.llmResponse = '```json\n{ "recipe_id": "r2" }\n```'
+    // Use a query that won't keyword-match so it goes through the LLM path
+    mockState.llmResponse = '```json\n{ "recipe_ids": ["r2"] }\n```'
     const res = await matchPOST(makeReq('POST', 'http://localhost/api/plan/match', {
-      query: 'healthy tacos',
+      query: 'weeknight dinner option',
       date: '2026-03-01',
     }))
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.match?.recipe_id).toBe('r2')
-    expect(body.match?.recipe_title).toBe('Tacos')
+    expect(body.matches[0]?.recipe_id).toBe('r2')
+    expect(body.matches[0]?.recipe_title).toBe('Tacos')
   })
 
-  it('returns match when LLM prefixes fenced JSON with prose', async () => {
+  it('returns matches when LLM prefixes fenced JSON with prose', async () => {
     // LLM adds prose before the fence — the ^ anchor bug
-    mockState.llmResponse = 'Here is the best match:\n```json\n{ "recipe_id": "r3" }\n```'
+    mockState.llmResponse = 'Here is the best match:\n```json\n{ "recipe_ids": ["r3"] }\n```'
     const res = await matchPOST(makeReq('POST', 'http://localhost/api/plan/match', {
-      query: 'comfort soup',
+      query: 'weeknight dinner option',
       date: '2026-03-01',
     }))
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.match?.recipe_id).toBe('r3')
-    expect(body.match?.recipe_title).toBe('Soup')
+    expect(body.matches[0]?.recipe_id).toBe('r3')
+    expect(body.matches[0]?.recipe_title).toBe('Soup')
   })
 })
 
