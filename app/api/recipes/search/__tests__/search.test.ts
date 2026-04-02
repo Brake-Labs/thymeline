@@ -63,10 +63,15 @@ function makeSupabaseMock(opts: {
 
 // ── LLM mock ─────────────────────────────────────────────────────────────────
 
-vi.mock('@/lib/llm', () => ({
-  callLLM: vi.fn(),
-  LLM_MODEL_FAST: 'claude-haiku-4-5-20251001',
-}))
+vi.mock('@/lib/llm', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/llm')>()
+  return {
+    callLLM: vi.fn(),
+    LLM_MODEL_FAST: 'claude-haiku-4-5-20251001',
+    LLM_MODEL_CAPABLE: 'claude-sonnet-4-6',
+    parseLLMJson: actual.parseLLMJson,
+  }
+})
 
 vi.mock('@/lib/supabase-server', () => ({
   createServerClient: vi.fn(),
@@ -85,6 +90,7 @@ vi.mock('@/lib/household', () => ({
 
 import { createServerClient, createAdminClient } from '@/lib/supabase-server'
 import { callLLM } from '@/lib/llm'
+
 
 function makeReq(body?: unknown, headers: Record<string, string> = {}): Request {
   return new Request('http://localhost/api/recipes/search', {
@@ -183,5 +189,37 @@ describe('POST /api/recipes/search', () => {
     expect(res.status).toBe(200)
     const json = await res.json()
     expect(json.results).toEqual([])
+  })
+
+  it('regression: parses LLM response wrapped in markdown fences', async () => {
+    const mock = makeSupabaseMock({})
+    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
+    // LLM returns JSON wrapped in a ```json fence
+    vi.mocked(callLLM).mockResolvedValueOnce('```json\n["recipe-1","recipe-3"]\n```')
+
+    const { POST } = await import('../route')
+    const req = makeReq({ query: 'chicken or beef' })
+    const res = await POST(req as Parameters<typeof POST>[0])
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.results).toHaveLength(2)
+    expect(json.results[0].recipe_id).toBe('recipe-1')
+    expect(json.results[1].recipe_id).toBe('recipe-3')
+  })
+
+  it('regression: parses LLM response with prose before the fence', async () => {
+    const mock = makeSupabaseMock({})
+    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
+    vi.mocked(callLLM).mockResolvedValueOnce('Here are the matching recipes:\n```json\n["recipe-2"]\n```')
+
+    const { POST } = await import('../route')
+    const req = makeReq({ query: 'quick salad' })
+    const res = await POST(req as Parameters<typeof POST>[0])
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.results).toHaveLength(1)
+    expect(json.results[0].recipe_id).toBe('recipe-2')
   })
 })
