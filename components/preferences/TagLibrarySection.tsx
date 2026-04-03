@@ -23,6 +23,7 @@ interface TagLibrarySectionProps {
   customTags:     CustomTag[]
   hiddenTags:     HiddenTag[]
   getToken:       () => Promise<string> | string
+  readOnly?:      boolean
 }
 
 function SectionCard({ children }: { children: React.ReactNode }) {
@@ -57,6 +58,7 @@ export default function TagLibrarySection({
   customTags: initialCustom,
   hiddenTags: initialHidden,
   getToken,
+  readOnly = false,
 }: TagLibrarySectionProps) {
   const [firstClassTags, setFirstClassTags] = useState<FirstClassTag[]>(initialFirstClass)
   const [customTags, setCustomTags]         = useState<CustomTag[]>(initialCustom)
@@ -238,8 +240,8 @@ export default function TagLibrarySection({
     <SectionCard>
       <SectionTitle>Tag library</SectionTitle>
 
-      {/* Add tag */}
-      <div className="flex gap-2">
+      {/* Add tag — hidden for read-only (member) users */}
+      {!readOnly && <div className="flex gap-2">
         <input
           type="text"
           value={addInput}
@@ -257,7 +259,7 @@ export default function TagLibrarySection({
         >
           {addLoading ? 'Adding…' : 'Add'}
         </button>
-      </div>
+      </div>}
       {addError && <p className="text-xs text-red-500">{addError}</p>}
 
       {/* Built-in tags */}
@@ -271,6 +273,7 @@ export default function TagLibrarySection({
                 name={tag.name}
                 recipeCount={tag.recipe_count}
                 variant="firstClass"
+                readOnly={readOnly}
                 onHide={() => void handleHide(tag.name)}
               />
             ))}
@@ -290,6 +293,7 @@ export default function TagLibrarySection({
                 name={tag.name}
                 recipeCount={tag.recipe_count}
                 variant="custom"
+                readOnly={readOnly}
                 onRename={(newName) => handleRename(tag.name, newName)}
                 onDelete={() => void handleDeleteClick(tag.name)}
                 deleteConfirmCount={
@@ -313,6 +317,7 @@ export default function TagLibrarySection({
                 key={tag.name}
                 name={tag.name}
                 variant="hidden"
+                readOnly={readOnly}
                 onRestore={() => void handleRestore(tag.name)}
               />
             ))}

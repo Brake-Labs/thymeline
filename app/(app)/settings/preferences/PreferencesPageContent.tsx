@@ -15,11 +15,15 @@ export default function PreferencesPageContent() {
   const [customTags, setCustomTags]         = useState<{ name: string; section: string; recipe_count: number }[]>([])
   const [hiddenTags, setHiddenTags]         = useState<{ name: string }[]>([])
   const [tagError, setTagError]             = useState<string | null>(null)
+  // null = loading, 'member' = read-only, anything else = can manage
+  const [householdRole, setHouseholdRole]   = useState<string | null>(null)
+  const [roleLoaded, setRoleLoaded]         = useState(false)
 
   useEffect(() => {
     async function fetchTags() {
       try {
-        const r = await fetch('/api/tags', { headers: { Authorization: `Bearer ${await getAccessToken()}` } })
+        const token = await getAccessToken()
+        const r = await fetch('/api/tags', { headers: { Authorization: `Bearer ${token}` } })
         const data: TagsResponse = await r.json()
         setFirstClassTags(data.firstClass ?? [])
         setCustomTags(data.custom ?? [])
@@ -30,8 +34,27 @@ export default function PreferencesPageContent() {
         console.error(err)
       }
     }
-    fetchTags()
+
+    async function fetchRole() {
+      try {
+        const token = await getAccessToken()
+        const r = await fetch('/api/household', { headers: { Authorization: `Bearer ${token}` } })
+        if (r.ok) {
+          const data = await r.json() as { myRole?: string }
+          setHouseholdRole(data.myRole ?? null)
+        }
+      } catch {
+        // If the request fails, treat as non-household user (full access)
+      } finally {
+        setRoleLoaded(true)
+      }
+    }
+
+    void fetchTags()
+    void fetchRole()
   }, [])
+
+  const readOnly = roleLoaded && householdRole === 'member'
 
   return (
     <>
@@ -40,6 +63,7 @@ export default function PreferencesPageContent() {
         firstClassTags={firstClassTags}
         customTags={customTags}
         hiddenTags={hiddenTags}
+        readOnly={readOnly}
       />
     </>
   )

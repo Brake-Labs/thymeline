@@ -57,6 +57,7 @@ interface PreferencesFormProps {
   firstClassTags: { name: string; recipe_count: number }[]
   customTags:     { name: string; section: string; recipe_count: number }[]
   hiddenTags:     { name: string }[]
+  readOnly?:      boolean
 }
 
 interface PrefsState {
@@ -88,7 +89,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   )
 }
 
-export default function PreferencesForm({ firstClassTags, customTags, hiddenTags }: PreferencesFormProps) {
+export default function PreferencesForm({ firstClassTags, customTags, hiddenTags, readOnly = false }: PreferencesFormProps) {
   const [prefs, setPrefs] = useState<PrefsState>({
     options_per_day: 3,
     cooldown_days: 28,
@@ -288,6 +289,7 @@ export default function PreferencesForm({ firstClassTags, customTags, hiddenTags
           customTags={customTags}
           hiddenTags={hiddenTags}
           getToken={getAccessToken}
+          readOnly={readOnly}
         />
       </div>
     </div>

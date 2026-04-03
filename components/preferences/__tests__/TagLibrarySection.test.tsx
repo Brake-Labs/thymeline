@@ -296,7 +296,7 @@ describe('Spec-19 T11 - restoring a hidden tag moves it back to Built-in', () =>
 // ── Spec-19 T12: Member read-only ────────────────────────────────────────────
 
 describe('Spec-19 T12 - member role: Hide, Rename, Delete absent', () => {
-  it('shows no action buttons when readOnly is true', async () => {
+  it('hides Hide, Rename, Delete, and Add when readOnly is true', async () => {
     await act(async () => {
       render(
         <TagLibrarySection
@@ -304,14 +304,30 @@ describe('Spec-19 T12 - member role: Hide, Rename, Delete absent', () => {
           customTags={sampleCustom}
           hiddenTags={[]}
           getToken={getToken}
-          // Note: readOnly not yet a prop — TagRow readOnly needs to be passed through.
-          // This test verifies the architecture is ready for it.
+          readOnly={true}
         />
       )
     })
-    // All action buttons should be visible for non-readonly (default)
+    expect(screen.queryByText('Hide')).toBeNull()
+    expect(screen.queryByText('Rename')).toBeNull()
+    expect(screen.queryByText('Delete')).toBeNull()
+    expect(screen.queryByPlaceholderText('Add a tag…')).toBeNull()
+  })
+
+  it('shows action buttons when readOnly is false (default)', async () => {
+    await act(async () => {
+      render(
+        <TagLibrarySection
+          firstClassTags={sampleFirstClass}
+          customTags={sampleCustom}
+          hiddenTags={[]}
+          getToken={getToken}
+        />
+      )
+    })
     expect(screen.getAllByText('Hide').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Rename').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Delete').length).toBeGreaterThan(0)
+    expect(screen.getByPlaceholderText('Add a tag…')).toBeDefined()
   })
 })
