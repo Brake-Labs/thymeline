@@ -19,15 +19,24 @@ function escapeRegex(str: string): string {
  * Replaces bare ingredient names in a step with their (scaled) quantity + name,
  * and returns highlight ranges marking the quantity portions.
  *
+ * Only the FIRST occurrence of each ingredient is annotated — within the step
+ * and across steps when the caller passes a shared `seenIngredients` Set.
+ *
  * E.g. "combine flour and butter" with ingredients "2 cups flour\n1/2 cup butter"
  * → text: "combine 2 cups flour and 1/2 cup butter"
  *   highlights: [{start:8, end:14}, {start:25, end:32}]
+ *
+ * @param seenIngredients  Optional shared Set that accumulates ingredient names
+ *   across multiple steps. Pass the same Set for every step so each ingredient's
+ *   quantity is only shown the first time it appears in the whole recipe.
+ *   The Set is mutated in place.
  */
 export function injectStepQuantities(
   stepText: string,
   ingredients: string,
   servings: number,
   originalServings: number,
+  seenIngredients?: Set<string>,
 ): InjectedStep {
   const lines = ingredients.split('\n').filter(Boolean)
   if (lines.length === 0) return { text: stepText, highlights: [] }
@@ -53,14 +62,14 @@ export function injectStepQuantities(
   // Longer match names first to prevent partial-match clobbering
   entries.sort((a, b) => b.matchName.length - a.matchName.length)
 
-  type Match = { start: number; end: number; quantity: string; matched: string }
+  type Match = { start: number; end: number; quantity: string; matched: string; matchName: string }
   const matches: Match[] = []
 
   for (const { matchName, quantity } of entries) {
     const re = new RegExp(`\\b${escapeRegex(matchName)}\\b`, 'gi')
     let m: RegExpExecArray | null
     while ((m = re.exec(stepText)) !== null) {
-      matches.push({ start: m.index, end: m.index + m[0].length, quantity, matched: m[0] })
+      matches.push({ start: m.index, end: m.index + m[0].length, quantity, matched: m[0], matchName })
     }
   }
 
@@ -75,19 +84,25 @@ export function injectStepQuantities(
     }
   }
 
-  // Build modified text + highlight ranges for the quantity portions
+  // Build modified text + highlight ranges for the quantity portions.
+  // Use the caller's shared Set (cross-step) or a fresh local one (within-step only).
+  // Either way, each ingredient's quantity is injected only on its first occurrence.
+  const seen = seenIngredients ?? new Set<string>()
+
   let result = ''
   let cursor = 0
   const highlights: HighlightRange[] = []
 
   for (const match of deduped) {
     result += stepText.slice(cursor, match.start)
-    if (match.quantity) {
+    const key = match.matchName.toLowerCase()
+    if (match.quantity && !seen.has(key)) {
       const qStart = result.length
       result += match.quantity
       highlights.push({ start: qStart, end: result.length })
       result += ' '
     }
+    seen.add(key)
     result += match.matched
     cursor = match.end
   }

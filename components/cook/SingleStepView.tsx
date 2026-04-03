@@ -33,9 +33,18 @@ export default function SingleStepView({
 
   const photo = stepPhotos.find((p) => p.stepIndex === currentStep)
 
+  // Build the set of ingredients already annotated in prior steps so each
+  // ingredient's quantity is only shown the first time it appears in the recipe.
+  const seen = new Set<string>()
+  if (ingredients) {
+    for (let i = 0; i < currentStep; i++) {
+      injectStepQuantities(steps[i] ?? '', ingredients, targetServings, baseServings, seen)
+    }
+  }
+
   const { text: stepText, highlights } =
     ingredients
-      ? injectStepQuantities(steps[currentStep] ?? '', ingredients, targetServings, baseServings)
+      ? injectStepQuantities(steps[currentStep] ?? '', ingredients, targetServings, baseServings, seen)
       : { text: steps[currentStep] ?? '', highlights: [] }
 
   function handleTouchStart(e: React.TouchEvent) {
