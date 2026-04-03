@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useRef, useState } from 'react'
 import { type TimerState, formatTime } from './StepTimer'
 
 interface Props {
@@ -11,11 +12,29 @@ interface Props {
 
 export default function ActiveTimersBar({ timers, onPause, onReset, onDismiss }: Props) {
   const visible = timers.filter((t) => t.running || t.isExpired)
+  const prevCountRef = useRef(visible.length)
+  const [flash, setFlash] = useState(false)
+
+  useEffect(() => {
+    if (visible.length > prevCountRef.current) {
+      // Scroll to top so the timer bar is visible, then flash the bar
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      setFlash(true)
+      const t = setTimeout(() => setFlash(false), 1200)
+      prevCountRef.current = visible.length
+      return () => clearTimeout(t)
+    }
+    prevCountRef.current = visible.length
+  }, [visible.length])
 
   if (visible.length === 0) return null
 
   return (
-    <div className="bg-sage-900 px-4 py-2 flex flex-col gap-2">
+    <div
+      className={`bg-sage-900 px-4 py-2 flex flex-col gap-2 transition-all duration-300 ${
+        flash ? 'ring-2 ring-inset ring-sage-300' : ''
+      }`}
+    >
       {visible.map((timer) => {
         const originalDuration = formatTime(timer.minutes * 60 + timer.seconds)
 
