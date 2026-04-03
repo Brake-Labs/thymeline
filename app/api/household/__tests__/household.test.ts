@@ -476,6 +476,19 @@ describe('T09 - DELETE /api/household/members/[user_id] — member leaves', () =
     )
     expect(res.status).toBe(204)
   })
+
+  it('regression: "me" alias resolves to the authenticated user', async () => {
+    mockState.membership = { household_id: 'h-1', role: 'member' }
+    mockState.members = [
+      { household_id: 'h-1', user_id: 'user-1', role: 'member', joined_at: '2026-01-01' },
+      { household_id: 'h-1', user_id: 'user-2', role: 'owner', joined_at: '2026-01-01' },
+    ]
+    const res = await memberDELETE(
+      makeReq('DELETE', 'http://localhost/api/household/members/me'),
+      { params: { user_id: 'me' } },
+    )
+    expect(res.status).toBe(204)
+  })
 })
 
 // ── T10: Owner cannot leave without transferring ──────────────────────────────
