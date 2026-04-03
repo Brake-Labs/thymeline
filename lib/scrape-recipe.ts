@@ -16,6 +16,7 @@ export interface ScrapeRecipeResult {
   imageUrl:            string | null
   sourceUrl:           string
   partial:             boolean
+  category:            'main_dish' | 'breakfast' | 'dessert' | 'side_dish' | null
   suggestedTags:       string[]
   suggestedNewTags:    { name: string; section: string }[]
   servings:            number | null
@@ -83,6 +84,7 @@ The JSON must have exactly these fields:
 - "totalTimeMinutes": total time in minutes as an integer, or null
 - "inactiveTimeMinutes": inactive/rest/marinate time in minutes as an integer, or null
 - "stepPhotos": array of objects with shape {"stepIndex": number, "imageUrl": string} — 0-based index into the steps lines. [] if none.
+- "category": one of "main_dish", "breakfast", "dessert", "side_dish", or null. "main_dish" = lunch/dinner entrees; "breakfast" = morning meals (pancakes, eggs, etc.); "dessert" = sweet treats (cakes, cookies, ice cream, etc.); "side_dish" = accompaniments (salads, roasted vegetables, bread, etc.).
 
 If a field cannot be found, set it to null (or [] for arrays). Do not invent data.
 
@@ -92,12 +94,14 @@ Page content:
 ${pageContent.slice(0, 20000)}`
 
   type StepPhoto = { stepIndex: number; imageUrl: string }
+  const VALID_CATEGORIES = new Set(['main_dish', 'breakfast', 'dessert', 'side_dish'])
 
   let extracted = {
     title: null as string | null,
     ingredients: null as string | null,
     steps: null as string | null,
     imageUrl: null as string | null,
+    category: null as 'main_dish' | 'breakfast' | 'dessert' | 'side_dish' | null,
     suggestedTags: [] as string[],
     suggestedNewTags: [] as RawNewTag[],
     servings: null as number | null,
@@ -135,6 +139,9 @@ ${pageContent.slice(0, 20000)}`
       ingredients:         typeof parsed.ingredients === 'string' ? parsed.ingredients : null,
       steps:               typeof parsed.steps === 'string' ? parsed.steps : null,
       imageUrl:            typeof parsed.imageUrl === 'string' ? parsed.imageUrl : null,
+      category:            typeof parsed.category === 'string' && VALID_CATEGORIES.has(parsed.category)
+                             ? parsed.category as 'main_dish' | 'breakfast' | 'dessert' | 'side_dish'
+                             : null,
       suggestedTags:       rawSuggested,
       suggestedNewTags:    rawNewTags,
       servings:            Number.isInteger(parsed.servings) ? parsed.servings as number : null,
@@ -197,6 +204,7 @@ ${pageContent.slice(0, 20000)}`
     imageUrl:            extracted.imageUrl,
     sourceUrl:           rawUrl,
     partial,
+    category:            extracted.category,
     suggestedTags,
     suggestedNewTags,
     servings:            extracted.servings,

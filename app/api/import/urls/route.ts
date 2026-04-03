@@ -47,7 +47,7 @@ async function scrapeUrl(
       if (!('error' in data)) {
         const recipe: ParsedRecipe = {
           title:                 data.title ?? '(untitled)',
-          category:              null,
+          category:              data.category ?? null,
           ingredients:           data.ingredients ?? null,
           steps:                 data.steps ?? null,
           notes:                 null,
