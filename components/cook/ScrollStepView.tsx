@@ -28,6 +28,15 @@ export default function ScrollStepView({
   baseServings = 4,
   targetServings = 4,
 }: Props) {
+  // Pre-compute injected text for all steps in order so the shared `seen` Set
+  // accumulates across steps — each ingredient's quantity appears only once.
+  const seen = new Set<string>()
+  const injectedSteps = steps.map((step) =>
+    ingredients
+      ? injectStepQuantities(step, ingredients, targetServings, baseServings, seen)
+      : { text: step, highlights: [] },
+  )
+
   return (
     <div className="px-4 py-4 space-y-4">
       {steps.map((step, i) => {
@@ -35,10 +44,7 @@ export default function ScrollStepView({
         const isCurrent = i === currentStep
         const isPast = i < currentStep
 
-        const { text: stepText, highlights } =
-          ingredients
-            ? injectStepQuantities(step, ingredients, targetServings, baseServings)
-            : { text: step, highlights: [] }
+        const { text: stepText, highlights } = injectedSteps[i]!
 
         return (
           <div
