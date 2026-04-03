@@ -17,6 +17,7 @@ import { getAccessToken, getSupabaseClient } from '@/lib/supabase/browser'
 import { getTodayISO } from '@/lib/date-utils'
 import { TOAST_DURATION_MS } from '@/lib/constants'
 import { convertIngredients } from '@/lib/convert-units'
+import DateInput from '@/components/ui/DateInput'
 
 type RecipeWithHistory = Recipe & { last_made: string | null; times_made: number }
 
@@ -415,12 +416,11 @@ export default function RecipeDetailPage({ params }: Props) {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
           <div className="bg-white rounded-2xl shadow-xl p-6 max-w-xs w-full space-y-4">
             <h2 className="font-display text-base font-semibold text-stone-800">Log a date made</h2>
-            <input
-              type="date"
+            <DateInput
               value={logDate}
+              onChange={setLogDate}
               max={getTodayISO()}
-              onChange={(e) => setLogDate(e.target.value)}
-              className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-700 focus:outline-none focus:ring-2 focus:ring-sage-400"
+              placeholder="Pick a date"
             />
             <div className="flex gap-3">
               <button
