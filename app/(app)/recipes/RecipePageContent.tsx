@@ -95,7 +95,10 @@ export default function RecipePageContent() {
   const [recipes, setRecipes] = useState<RecipeListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [addModalTab, setAddModalTab] = useState<'url' | 'manual'>('url')
   const [showGenerateModal, setShowGenerateModal] = useState(false)
+  const [showAddDropdown, setShowAddDropdown] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
   const [currentUserId, setCurrentUserId] = useState<string | undefined>(undefined)
 
   // View toggle
@@ -172,6 +175,17 @@ export default function RecipePageContent() {
       if (data.session?.user) setCurrentUserId(data.session.user.id)
     })()
   }, [])
+
+  useEffect(() => {
+    if (!showAddDropdown) return
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowAddDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showAddDropdown])
 
   const vaultTags = useMemo(() => {
     const tagSet = new Set<string>()
@@ -411,30 +425,49 @@ export default function RecipePageContent() {
           </button>
         </div>
 
-        {/* Add Recipe */}
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="bg-sage-500 text-white px-4 py-2 rounded text-sm font-medium hover:bg-sage-600 transition-colors whitespace-nowrap"
-        >
-          + Add Recipe
-        </button>
+        {/* Add Recipe dropdown */}
+        <div ref={dropdownRef} className="relative">
+          <button
+            onClick={() => setShowAddDropdown((o) => !o)}
+            className="flex items-center gap-1.5 bg-sage-500 text-white px-4 py-2 rounded text-sm font-medium hover:bg-sage-600 transition-colors whitespace-nowrap"
+          >
+            + Add Recipe
+            <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+            </svg>
+          </button>
 
-        {/* Generate with AI */}
-        <button
-          onClick={() => setShowGenerateModal(true)}
-          className="flex items-center gap-1.5 border border-sage-400 text-sage-700 bg-sage-50 px-4 py-2 rounded text-sm font-medium hover:bg-sage-100 transition-colors whitespace-nowrap"
-        >
-          <span className="text-sage-500">✦</span>
-          Generate with AI
-        </button>
-
-        {/* Import Recipes */}
-        <Link
-          href="/import"
-          className="px-4 py-2 rounded text-sm font-medium whitespace-nowrap border border-[#4A7C59] text-[#4A7C59] hover:bg-sage-50 transition-colors"
-        >
-          Import Recipes
-        </Link>
+          {showAddDropdown && (
+            <div className="absolute right-0 mt-1 w-48 bg-white border border-stone-200 rounded shadow-lg z-50 py-1">
+              <button
+                onClick={() => { setAddModalTab('url'); setShowAddModal(true); setShowAddDropdown(false) }}
+                className="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-sage-50 transition-colors"
+              >
+                Add from URL
+              </button>
+              <button
+                onClick={() => { setAddModalTab('manual'); setShowAddModal(true); setShowAddDropdown(false) }}
+                className="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-sage-50 transition-colors"
+              >
+                Add Manually
+              </button>
+              <button
+                onClick={() => { setShowGenerateModal(true); setShowAddDropdown(false) }}
+                className="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-sage-50 transition-colors flex items-center gap-1.5"
+              >
+                <span className="text-sage-500">✦</span>
+                Generate with AI
+              </button>
+              <Link
+                href="/import"
+                onClick={() => setShowAddDropdown(false)}
+                className="block px-4 py-2 text-sm text-stone-700 hover:bg-sage-50 transition-colors"
+              >
+                Import Recipes
+              </Link>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Search error */}
@@ -546,6 +579,7 @@ export default function RecipePageContent() {
       {/* Add recipe modal */}
       {showAddModal && (
         <AddRecipeModal
+          initialTab={addModalTab}
           onClose={() => setShowAddModal(false)}
           onSaved={() => void fetchRecipes()}
           getToken={getAccessToken}
