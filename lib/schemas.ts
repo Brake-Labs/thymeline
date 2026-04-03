@@ -78,7 +78,6 @@ export const scrapeRecipeSchema = z.object({
 })
 
 export const generateRecipeSchema = z.object({
-  use_pantry: z.boolean(),
   specific_ingredients: z.string(),
   meal_type: mealType,
   style_hints: z.string(),
@@ -176,36 +175,6 @@ export const updatePreferencesSchema = z.object({
   })).optional(),
   onboarding_completed: z.boolean().optional(),
   meal_context: z.string().max(1000).nullable().optional(),
-})
-
-// ─── Pantry ─────────────────────────────────────────────────────────────────
-
-export const createPantryItemSchema = z.object({
-  name: z.string().trim().min(1, 'name is required'),
-  quantity: z.string().nullable().optional(),
-  section: z.string().nullable().optional(),
-  expiry_date: z.string().nullable().optional(),
-})
-
-export const updatePantryItemSchema = z.object({
-  quantity: z.string().nullable().optional(),
-  expiry_date: z.string().nullable().optional(),
-})
-
-export const deletePantryItemsSchema = z.object({
-  ids: z.array(z.string()).min(1, 'ids must be a non-empty array'),
-})
-
-export const importPantrySchema = z.object({
-  items: z.array(z.object({
-    name: z.string().min(1),
-    quantity: z.string().nullable(),
-    section: z.string().nullable(),
-  })).min(1, 'items must be a non-empty array'),
-})
-
-export const scanPantrySchema = z.object({
-  image: z.string().min(1, 'image is required'),
 })
 
 // ─── Groceries ──────────────────────────────────────────────────────────────

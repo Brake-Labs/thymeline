@@ -31,7 +31,7 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   const { data: body, error: parseError } = await parseBody(req, generateRecipeSchema)
   if (parseError) return parseError
 
-  const { use_pantry, specific_ingredients, meal_type, style_hints, dietary_restrictions, tweak_request, previous_recipe } = body
+  const { specific_ingredients, meal_type, style_hints, dietary_restrictions, tweak_request, previous_recipe } = body
 
   // Fetch meal context from user preferences
   let mealContext: string | null = null
@@ -42,37 +42,17 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
     mealContext = (prefsData as { meal_context?: string | null } | null)?.meal_context ?? null
   }
 
-  // Fetch pantry items if requested
-  let pantryLines: string[] = []
-  if (use_pantry) {
-    let pantryQ = db.from('pantry_items').select('name, quantity')
-    pantryQ = scopeQuery(pantryQ, user.id, ctx)
-    const { data: pantryItems } = await pantryQ.order('name')
-
-    pantryLines = (pantryItems ?? []).map((item: { name: string; quantity: string | null }) =>
-      item.quantity ? `${item.quantity} ${item.name}` : item.name
-    )
-  }
-
   // Parse specific_ingredients
-  const specificLines = (specific_ingredients ?? '')
+  const combined = (specific_ingredients ?? '')
     .split(/[,\n]/)
     .map((s: string) => s.trim())
     .filter(Boolean)
-
-  // Deduplicate: pantry names take precedence
-  const pantryLower = new Set(pantryLines.map((l) => l.split(' ').slice(-1)[0]!.toLowerCase()))
-  const dedupedSpecific = specificLines.filter(
-    (l) => !pantryLower.has(l.toLowerCase().split(' ').slice(-1)[0]!)
-  )
-
-  const combined = [...pantryLines, ...dedupedSpecific]
 
   if (combined.length === 0) {
     return NextResponse.json({ error: 'No ingredients provided' }, { status: 400 })
   }
 
-  const combinedIngredientList = combined.map((l) => `- ${l}`).join('\n')
+  const combinedIngredientList = combined.map((l: string) => `- ${l}`).join('\n')
 
   const mealContextLine = mealContext ? `\nHousehold context: ${mealContext}` : ''
   const systemMessage = `You are a creative recipe developer. Generate a complete, practical recipe based on the ingredients and preferences provided. The recipe should be realistic, delicious, and something a home cook can make.${mealContextLine}

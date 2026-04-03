@@ -120,21 +120,3 @@ describe('T11 - Quick action cards link to correct routes', () => {
   })
 })
 
-// ── T28: Pantry nav item appears in desktop and mobile nav ────────────────────
-
-describe('T28 - Pantry link appears in CENTER_NAV and MOBILE_NAV', () => {
-  it('desktop nav has a Pantry link to /pantry', () => {
-    mockPathname.mockReturnValue('/home')
-    render(<AppNav />)
-    const pantryLinks = screen.getAllByRole('link', { name: /pantry/i })
-    expect(pantryLinks.some((l) => l.getAttribute('href') === '/pantry')).toBe(true)
-  })
-
-  it('mobile nav has a Pantry link to /pantry', () => {
-    mockPathname.mockReturnValue('/home')
-    render(<AppNav />)
-    // Mobile nav renders the same links — verify at least 2 Pantry links (desktop + mobile)
-    const pantryLinks = screen.getAllByRole('link', { name: /pantry/i })
-    expect(pantryLinks.length).toBeGreaterThanOrEqual(2)
-  })
-})

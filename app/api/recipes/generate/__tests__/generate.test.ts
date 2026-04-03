@@ -50,21 +50,12 @@ vi.mock('@/lib/household', () => ({
 
 import { createServerClient, createAdminClient } from '@/lib/supabase-server'
 
-function makeAuthMock(pantryItems: unknown[] = []) {
+function makeAuthMock() {
   return {
     auth: {
       getUser: vi.fn().mockResolvedValue({ data: { user: mockUser }, error: null }),
     },
     from: vi.fn((table: string) => {
-      if (table === 'pantry_items') {
-        return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              order: vi.fn().mockResolvedValue({ data: pantryItems, error: null }),
-            }),
-          }),
-        }
-      }
       if (table === 'user_preferences') {
         return {
           select: vi.fn().mockReturnValue({
@@ -88,7 +79,6 @@ function makeReq(body: unknown): Request {
 }
 
 const defaultBody = {
-  use_pantry: false,
   specific_ingredients: 'chicken breast, spinach',
   meal_type: 'dinner',
   style_hints: '',
@@ -100,13 +90,12 @@ const defaultBody = {
 describe('T05 - POST /api/recipes/generate returns 400 when no ingredients', () => {
   beforeEach(() => { vi.resetModules(); mockLLMState.shouldThrow = false })
 
-  it('returns 400 when use_pantry is false and specific_ingredients is blank', async () => {
+  it('returns 400 when specific_ingredients is blank', async () => {
     vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createServerClient>)
     vi.mocked(createAdminClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createAdminClient>)
 
     const { POST } = await import('../route')
     const res = await POST(makeReq({
-      use_pantry: false,
       specific_ingredients: '',
       meal_type: 'dinner',
       style_hints: '',
@@ -116,22 +105,6 @@ describe('T05 - POST /api/recipes/generate returns 400 when no ingredients', () 
     expect(res.status).toBe(400)
     const json = await res.json()
     expect(json.error).toMatch(/no ingredients/i)
-  })
-
-  it('returns 400 when use_pantry is true but pantry is empty and specific_ingredients is blank', async () => {
-    vi.mocked(createServerClient).mockReturnValue(makeAuthMock([]) as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(makeAuthMock([]) as unknown as ReturnType<typeof createAdminClient>)
-
-    const { POST } = await import('../route')
-    const res = await POST(makeReq({
-      use_pantry: true,
-      specific_ingredients: '  ',
-      meal_type: 'dinner',
-      style_hints: '',
-      dietary_restrictions: [],
-    }) as Parameters<typeof POST>[0])
-
-    expect(res.status).toBe(400)
   })
 })
 

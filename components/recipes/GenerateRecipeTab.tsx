@@ -3,13 +3,12 @@
 import { useEffect, useState } from 'react'
 import { getSupabaseClient } from '@/lib/supabase/browser'
 import { DIETARY_TAGS } from '@/lib/tags'
-import type { GeneratedRecipe, MealType, PantryItem } from '@/types'
+import type { GeneratedRecipe, MealType } from '@/types'
 
 interface GenerateRecipeTabProps {
-  getToken:               () => Promise<string> | string
-  onGenerated:            (recipe: GeneratedRecipe) => void
-  initialPantryEnabled?:  boolean
-  initialIngredients?:    string
+  getToken:            () => Promise<string> | string
+  onGenerated:         (recipe: GeneratedRecipe) => void
+  initialIngredients?: string
 }
 
 const MEAL_TYPES: { value: MealType; label: string }[] = [
@@ -23,13 +22,8 @@ const MEAL_TYPES: { value: MealType; label: string }[] = [
 export default function GenerateRecipeTab({
   getToken,
   onGenerated,
-  initialPantryEnabled = false,
   initialIngredients = '',
 }: GenerateRecipeTabProps) {
-  const [pantryEnabled, setPantryEnabled] = useState(initialPantryEnabled)
-  const [pantryItems, setPantryItems] = useState<PantryItem[]>([])
-  const [pantryLoading, setPantryLoading] = useState(false)
-  const [pantryExpanded, setPantryExpanded] = useState(false)
   const [specificIngredients, setSpecificIngredients] = useState(initialIngredients)
   const [mealType, setMealType] = useState<MealType>('dinner')
   const [styleHints, setStyleHints] = useState('')
@@ -62,28 +56,7 @@ export default function GenerateRecipeTab({
     prefillDietary()
   }, [])
 
-  // Fetch pantry items when pantryEnabled first flips true
-  useEffect(() => {
-    if (!pantryEnabled || pantryItems.length > 0) return
-    async function fetchPantry() {
-      setPantryLoading(true)
-      try {
-        const token = await getToken()
-        const res = await fetch('/api/pantry', {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        if (res.ok) {
-          const data = await res.json()
-          setPantryItems(data.items ?? [])
-        }
-      } finally {
-        setPantryLoading(false)
-      }
-    }
-    fetchPantry()
-  }, [pantryEnabled]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const canGenerate = pantryEnabled || specificIngredients.trim().length > 0
+  const canGenerate = specificIngredients.trim().length > 0
 
   async function handleGenerate() {
     setGenerating(true)
@@ -97,7 +70,6 @@ export default function GenerateRecipeTab({
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          use_pantry:           pantryEnabled,
           specific_ingredients: specificIngredients,
           meal_type:            mealType,
           style_hints:          styleHints,
@@ -131,7 +103,6 @@ export default function GenerateRecipeTab({
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          use_pantry:           pantryEnabled,
           specific_ingredients: specificIngredients,
           meal_type:            mealType,
           style_hints:          styleHints,
@@ -167,53 +138,6 @@ export default function GenerateRecipeTab({
 
   return (
     <div className="space-y-5">
-      {/* Pantry toggle */}
-      <div className="border border-stone-200 rounded-xl p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              role="switch"
-              aria-checked={pantryEnabled}
-              onClick={() => setPantryEnabled((v) => !v)}
-              className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-                pantryEnabled ? 'bg-sage-500' : 'bg-stone-200'
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                  pantryEnabled ? 'translate-x-4' : 'translate-x-0'
-                }`}
-              />
-            </button>
-            <span className="text-sm font-medium text-stone-700">Use my pantry ingredients</span>
-          </div>
-          {pantryEnabled && (
-            <button
-              type="button"
-              onClick={() => setPantryExpanded((v) => !v)}
-              className="text-xs text-stone-500 hover:text-stone-700"
-            >
-              {pantryLoading
-                ? 'Loading…'
-                : `Using ${pantryItems.length} pantry items ${pantryExpanded ? '▴' : '▾'}`}
-            </button>
-          )}
-        </div>
-        {pantryEnabled && pantryExpanded && pantryItems.length > 0 && (
-          <ul className="max-h-32 overflow-y-auto space-y-1">
-            {pantryItems.map((item) => (
-              <li key={item.id} className="text-xs text-stone-600">
-                {item.quantity ? `${item.quantity} ` : ''}{item.name}
-              </li>
-            ))}
-          </ul>
-        )}
-        {pantryEnabled && !pantryLoading && pantryItems.length === 0 && (
-          <p className="text-xs text-stone-400">Your pantry is empty. Add items there first.</p>
-        )}
-      </div>
-
       {/* Specific ingredients */}
       <div>
         <label className="block text-sm font-medium text-stone-700 mb-1">

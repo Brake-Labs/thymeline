@@ -7,11 +7,10 @@ import AIGeneratedBadge from './AIGeneratedBadge'
 import type { GeneratedRecipe } from '@/types'
 
 interface Props {
-  onClose:                  () => void
-  onSaved:                  () => void
-  getToken:                 () => Promise<string> | string
-  initialIngredients?:      string
-  initialPantryEnabled?:    boolean
+  onClose:              () => void
+  onSaved:              () => void
+  getToken:             () => Promise<string> | string
+  initialIngredients?:  string
 }
 
 export default function GenerateRecipeModal({
@@ -19,7 +18,6 @@ export default function GenerateRecipeModal({
   onSaved,
   getToken,
   initialIngredients,
-  initialPantryEnabled,
 }: Props) {
   const [generatedRecipe, setGeneratedRecipe] = useState<GeneratedRecipe | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -110,7 +108,6 @@ export default function GenerateRecipeModal({
             <GenerateRecipeTab
               getToken={getToken}
               onGenerated={setGeneratedRecipe}
-              initialPantryEnabled={initialPantryEnabled}
               initialIngredients={initialIngredients}
             />
           ) : (
