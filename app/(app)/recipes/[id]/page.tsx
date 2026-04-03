@@ -18,6 +18,7 @@ import { getTodayISO } from '@/lib/date-utils'
 import { TOAST_DURATION_MS } from '@/lib/constants'
 import { convertIngredients } from '@/lib/convert-units'
 import DateInput from '@/components/ui/DateInput'
+import { Sparkles } from 'lucide-react'
 
 type RecipeWithHistory = Recipe & { last_made: string | null; times_made: number }
 
@@ -371,9 +372,10 @@ export default function RecipeDetailPage({ params }: Props) {
             {isOwner && (
               <button
                 onClick={() => setShowAIEdit(true)}
-                className="font-display font-medium text-[13px] text-sage-600 border border-sage-200 rounded-xl py-2 px-4 bg-white hover:bg-sage-50"
+                className="inline-flex items-center gap-1.5 font-display font-medium text-[13px] text-sage-600 border border-sage-200 rounded-xl py-2 px-4 bg-white hover:bg-sage-50"
               >
-                Edit with AI
+                <Sparkles className="w-3.5 h-3.5" />
+                Adapt
               </button>
             )}
             <button

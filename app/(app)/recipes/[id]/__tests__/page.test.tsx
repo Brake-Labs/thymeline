@@ -145,10 +145,10 @@ describe('RecipeDetailPage — Edit button owner gating', () => {
   })
 })
 
-// ── spec-18 T01: "Edit with AI" button renders for owner ─────────────────────
+// ── spec-18 T01: "Adapt" button renders for owner ────────────────────────────
 
-describe('spec-18 T01 - "Edit with AI" button renders for recipe owner', () => {
-  it('shows "Edit with AI" button when current user is the owner', async () => {
+describe('spec-18 T01 - "Adapt" button renders for recipe owner', () => {
+  it('shows "Adapt" button when current user is the owner', async () => {
     mockGetSession.mockResolvedValue({
       data: { session: { user: { id: 'owner-user' } } },
     })
@@ -157,14 +157,14 @@ describe('spec-18 T01 - "Edit with AI" button renders for recipe owner', () => {
       render(<RecipeDetailPage params={{ id: 'recipe-1' }} />)
     })
 
-    expect(screen.getByRole('button', { name: 'Edit with AI' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Adapt' })).toBeInTheDocument()
   })
 })
 
-// ── spec-18 T02: "Edit with AI" button hidden for non-owners ─────────────────
+// ── spec-18 T02: "Adapt" button hidden for non-owners ────────────────────────
 
-describe('spec-18 T02 - "Edit with AI" button hidden for non-owners', () => {
-  it('hides "Edit with AI" button when current user is not the owner', async () => {
+describe('spec-18 T02 - "Adapt" button hidden for non-owners', () => {
+  it('hides "Adapt" button when current user is not the owner', async () => {
     mockGetSession.mockResolvedValue({
       data: { session: { user: { id: 'other-user' } } },
     })
@@ -173,7 +173,7 @@ describe('spec-18 T02 - "Edit with AI" button hidden for non-owners', () => {
       render(<RecipeDetailPage params={{ id: 'recipe-1' }} />)
     })
 
-    expect(screen.queryByRole('button', { name: 'Edit with AI' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Adapt' })).not.toBeInTheDocument()
   })
 })
 
@@ -194,10 +194,10 @@ describe('spec-18 T03 - "Share with community" toggle removed from recipe detail
   })
 })
 
-// ── spec-18 T04: Clicking "Edit with AI" opens AIEditSheet ───────────────────
+// ── spec-18 T04: Clicking "Adapt" opens AIEditSheet ──────────────────────────
 
-describe('spec-18 T04 - Clicking "Edit with AI" opens AIEditSheet', () => {
-  it('opens the AI edit sheet when "Edit with AI" is clicked', async () => {
+describe('spec-18 T04 - Clicking "Adapt" opens AIEditSheet', () => {
+  it('opens the AI edit sheet when "Adapt" is clicked', async () => {
     mockGetSession.mockResolvedValue({
       data: { session: { user: { id: 'owner-user' } } },
     })
@@ -206,7 +206,7 @@ describe('spec-18 T04 - Clicking "Edit with AI" opens AIEditSheet', () => {
       render(<RecipeDetailPage params={{ id: 'recipe-1' }} />)
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Edit with AI' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Adapt' }))
 
     expect(screen.getByRole('dialog', { name: 'Edit with AI' })).toBeInTheDocument()
   })
@@ -249,7 +249,7 @@ describe('spec-18 T12 - "Cook from this version" stores modified recipe in sessi
     })
 
     // Open AI edit sheet
-    fireEvent.click(screen.getByRole('button', { name: 'Edit with AI' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Adapt' }))
 
     // Send a message
     const textarea = screen.getByPlaceholderText(/What would you like to change/i)
@@ -308,7 +308,7 @@ describe('spec-18 T19 - Closing the sheet reverts recipe preview to original', (
     })
 
     // Open AI edit sheet and send a message
-    fireEvent.click(screen.getByRole('button', { name: 'Edit with AI' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Adapt' }))
     const textarea = screen.getByPlaceholderText(/What would you like to change/i)
     fireEvent.change(textarea, { target: { value: 'rename it' } })
     await act(async () => {
