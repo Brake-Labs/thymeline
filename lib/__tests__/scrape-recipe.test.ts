@@ -56,6 +56,7 @@ const GOOD_LLM_RESPONSE = JSON.stringify({
   imageUrl: null, suggestedTags: [], suggestedNewTags: [],
   servings: null, prepTimeMinutes: 10, cookTimeMinutes: 20,
   totalTimeMinutes: 30, inactiveTimeMinutes: null, stepPhotos: [],
+  category: 'main_dish',
 })
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -66,6 +67,65 @@ beforeAll(() => {
 
 afterAll(() => {
   vi.unstubAllEnvs()
+})
+
+// ── Category extraction tests ─────────────────────────────────────────────────
+
+describe('scrapeRecipe category extraction', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('returns the category from LLM response when valid', async () => {
+    mockCallLLM.mockResolvedValue(JSON.stringify({
+      title: 'Pancakes', ingredients: 'x', steps: 'y',
+      imageUrl: null, suggestedTags: [], suggestedNewTags: [],
+      servings: null, prepTimeMinutes: 5, cookTimeMinutes: 10,
+      totalTimeMinutes: 15, inactiveTimeMinutes: null, stepPhotos: [],
+      category: 'breakfast',
+    }))
+    const { scrapeRecipe } = await import('@/lib/scrape-recipe')
+    const result = await scrapeRecipe('https://example.com', 'user-1', mockDb as never, null)
+    expect('category' in result && result.category).toBe('breakfast')
+  })
+
+  it('includes category field in the LLM prompt', async () => {
+    mockCallLLM.mockResolvedValue(GOOD_LLM_RESPONSE)
+    const { scrapeRecipe } = await import('@/lib/scrape-recipe')
+    await scrapeRecipe('https://example.com', 'user-1', mockDb as never, null)
+    const prompt: string = mockCallLLM.mock.calls[0]?.[0]?.user ?? ''
+    expect(prompt).toContain('"category"')
+    expect(prompt).toContain('main_dish')
+    expect(prompt).toContain('breakfast')
+    expect(prompt).toContain('dessert')
+    expect(prompt).toContain('side_dish')
+  })
+
+  it('falls back to null for an invalid category value', async () => {
+    mockCallLLM.mockResolvedValue(JSON.stringify({
+      title: 'Soup', ingredients: 'x', steps: 'y',
+      imageUrl: null, suggestedTags: [], suggestedNewTags: [],
+      servings: null, prepTimeMinutes: 10, cookTimeMinutes: 20,
+      totalTimeMinutes: 30, inactiveTimeMinutes: null, stepPhotos: [],
+      category: 'soup',  // not a valid value
+    }))
+    const { scrapeRecipe } = await import('@/lib/scrape-recipe')
+    const result = await scrapeRecipe('https://example.com', 'user-1', mockDb as never, null)
+    expect('category' in result && result.category).toBeNull()
+  })
+
+  it('falls back to null when category field is missing', async () => {
+    mockCallLLM.mockResolvedValue(JSON.stringify({
+      title: 'Salad', ingredients: 'x', steps: 'y',
+      imageUrl: null, suggestedTags: [], suggestedNewTags: [],
+      servings: null, prepTimeMinutes: 10, cookTimeMinutes: 5,
+      totalTimeMinutes: 15, inactiveTimeMinutes: null, stepPhotos: [],
+      // no category field
+    }))
+    const { scrapeRecipe } = await import('@/lib/scrape-recipe')
+    const result = await scrapeRecipe('https://example.com', 'user-1', mockDb as never, null)
+    expect('category' in result && result.category).toBeNull()
+  })
 })
 
 describe('scrapeRecipe content limit', () => {

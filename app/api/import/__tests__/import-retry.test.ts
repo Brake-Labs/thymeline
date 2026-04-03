@@ -47,6 +47,7 @@ function makeSupabaseMock() {
 const GOOD_SCRAPE: import('@/lib/scrape-recipe').ScrapeRecipeResult = {
   title: 'Retried Recipe', ingredients: 'x', steps: 'y',
   imageUrl: null, sourceUrl: 'https://example.com/recipe', partial: false,
+  category: null,
   suggestedTags: [], suggestedNewTags: [], servings: null,
   prepTimeMinutes: null, cookTimeMinutes: null, totalTimeMinutes: null,
   inactiveTimeMinutes: null, stepPhotos: [],
