@@ -55,21 +55,19 @@ describe('T52 - scaled quantities reflect current servings', () => {
   })
 })
 
-// ── T53: Same ingredient twice in one step — both occurrences highlighted ─────
+// ── T53: Same ingredient twice in one step — only first occurrence highlighted ─
 
-describe('T53 - same ingredient appearing twice gets both occurrences highlighted', () => {
-  it('injects quantity before each occurrence and records two highlight ranges', () => {
+describe('T53 - same ingredient appearing twice gets only first occurrence highlighted', () => {
+  it('injects quantity before the first occurrence only', () => {
     const result = injectStepQuantities(
       'mix flour until the flour is smooth',
       '2 cups flour',
       4,
       4,
     )
-    expect(result.text).toBe('mix 2 cups flour until the 2 cups flour is smooth')
-    expect(result.highlights).toHaveLength(2)
-    for (const h of result.highlights) {
-      expect(result.text.slice(h.start, h.end)).toBe('2 cups')
-    }
+    expect(result.text).toBe('mix 2 cups flour until the flour is smooth')
+    expect(result.highlights).toHaveLength(1)
+    expect(result.text.slice(result.highlights[0]!.start, result.highlights[0]!.end)).toBe('2 cups')
   })
 })
 
@@ -102,5 +100,40 @@ describe('T55 - ingredient with comma descriptor matches pre-comma name in step'
     expect(result.highlights).toHaveLength(1)
     const span = result.text.slice(result.highlights[0]!.start, result.highlights[0]!.end)
     expect(span).toBe('3 cloves')
+  })
+})
+
+// ── T56: Cross-step dedup — ingredient shown in step 1 has no quantity in step 2
+
+describe('T56 - cross-step dedup via shared seenIngredients Set (regression for #225)', () => {
+  it('does not re-inject quantity for an ingredient already seen in a prior step', () => {
+    const ingredients = '2 cups flour\n1/2 cup butter'
+    const seen = new Set<string>()
+
+    // Step 1 sees "flour" — quantity injected
+    const step1 = injectStepQuantities('combine flour in a bowl', ingredients, 4, 4, seen)
+    expect(step1.text).toBe('combine 2 cups flour in a bowl')
+    expect(step1.highlights).toHaveLength(1)
+
+    // Step 2: "flour" already seen — no quantity; "butter" is new — quantity injected
+    const step2 = injectStepQuantities('fold butter into the flour', ingredients, 4, 4, seen)
+    expect(step2.text).toBe('fold 1/2 cup butter into the flour')
+    expect(step2.highlights).toHaveLength(1)
+    expect(step2.text.slice(step2.highlights[0]!.start, step2.highlights[0]!.end)).toBe('1/2 cup')
+  })
+})
+
+// ── T57: Cross-step dedup — all ingredients already seen → no highlights in later steps
+
+describe('T57 - no highlights once all ingredients have been seen (regression for #225)', () => {
+  it('returns empty highlights when all ingredients were already seen in prior steps', () => {
+    const ingredients = '2 cups flour'
+    const seen = new Set<string>()
+
+    injectStepQuantities('add flour to the bowl', ingredients, 4, 4, seen)
+
+    const step2 = injectStepQuantities('stir the flour mixture', ingredients, 4, 4, seen)
+    expect(step2.text).toBe('stir the flour mixture')
+    expect(step2.highlights).toHaveLength(0)
   })
 })
