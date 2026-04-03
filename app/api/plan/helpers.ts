@@ -174,6 +174,7 @@ export async function fetchUserPreferences(
     limited_tags: data.limited_tags as unknown as LimitedTag[],
     seasonal_rules: data.seasonal_rules as UserPreferences['seasonal_rules'],
     meal_context: (data as { meal_context?: string | null }).meal_context ?? null,
+    hidden_tags: (data.hidden_tags as string[] | null) ?? [],
   } satisfies UserPreferences
 }
 

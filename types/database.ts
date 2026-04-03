@@ -481,6 +481,7 @@ export type Database = {
           cooldown_days: number
           created_at: string
           healthy_bias: boolean | null
+          hidden_tags: string[]
           household_id: string | null
           id: string
           is_active: boolean
@@ -499,6 +500,7 @@ export type Database = {
           cooldown_days?: number
           created_at?: string
           healthy_bias?: boolean | null
+          hidden_tags?: string[]
           household_id?: string | null
           id?: string
           is_active?: boolean
@@ -517,6 +519,7 @@ export type Database = {
           cooldown_days?: number
           created_at?: string
           healthy_bias?: boolean | null
+          hidden_tags?: string[]
           household_id?: string | null
           id?: string
           is_active?: boolean

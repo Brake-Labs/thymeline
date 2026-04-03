@@ -9,20 +9,47 @@ function toTitleCase(str: string): string {
 }
 
 export const GET = withAuth(async (req, { user, db, ctx }) => {
-  const query = scopeQuery(db.from('custom_tags').select('name, section').order('created_at', { ascending: true }), user.id, ctx)
+  // Fetch hidden_tags first — a new user has no preferences row, so use maybeSingle
+  let prefsQ = db.from('user_preferences').select('hidden_tags')
+  prefsQ = scopeQuery(prefsQ, user.id, ctx)
+  const { data: prefs } = await prefsQ.maybeSingle()
+  const hiddenSet = new Set((prefs?.hidden_tags ?? []).map((t: string) => t.toLowerCase()))
 
-  const { data, error } = await query
+  // Fetch custom tags in scope
+  let customQ = db.from('custom_tags').select('name, section').order('created_at', { ascending: true })
+  customQ = scopeQuery(customQ, user.id, ctx)
+  const { data: customData, error: customError } = await customQ
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  if (customError) {
+    return NextResponse.json({ error: customError.message }, { status: 500 })
+  }
+
+  // Fetch all recipe tags to build count map
+  let recipesQ = db.from('recipes').select('tags')
+  recipesQ = scopeQuery(recipesQ, user.id, ctx)
+  const { data: recipes } = await recipesQ
+
+  const counts = new Map<string, number>()
+  for (const row of recipes ?? []) {
+    for (const tag of (row.tags as string[] | null) ?? []) {
+      counts.set(tag, (counts.get(tag) ?? 0) + 1)
+    }
   }
 
   const firstClassLower = new Set(FIRST_CLASS_TAGS.map((t) => t.toLowerCase()))
-  const custom = (data ?? [])
+  const custom = (customData ?? [])
     .filter((t) => !firstClassLower.has(t.name.toLowerCase()))
-    .map((t) => ({ name: t.name, section: t.section }))
+    .map((t) => ({ name: t.name, section: t.section, recipe_count: counts.get(t.name) ?? 0 }))
 
-  return NextResponse.json({ firstClass: FIRST_CLASS_TAGS, custom })
+  const firstClass = FIRST_CLASS_TAGS
+    .filter((t) => !hiddenSet.has(t.toLowerCase()))
+    .map((name) => ({ name, recipe_count: counts.get(name) ?? 0 }))
+
+  const hidden = FIRST_CLASS_TAGS
+    .filter((t) => hiddenSet.has(t.toLowerCase()))
+    .map((name) => ({ name }))
+
+  return NextResponse.json({ firstClass, custom, hidden })
 })
 
 export const POST = withAuth(async (req, { user, db, ctx }) => {

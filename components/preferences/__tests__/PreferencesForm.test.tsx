@@ -49,7 +49,7 @@ describe('T09 - PreferencesForm loads with current saved values', () => {
     })
 
     await act(async () => {
-      render(<PreferencesForm firstClassTags={['Healthy']} customTags={[]} />)
+      render(<PreferencesForm firstClassTags={[{ name: 'Healthy', recipe_count: 0 }]} customTags={[]} hiddenTags={[]} />)
     })
 
     await waitFor(() => {
@@ -64,7 +64,7 @@ describe('T09 - PreferencesForm loads with current saved values', () => {
     })
 
     await act(async () => {
-      render(<PreferencesForm firstClassTags={['Healthy', 'Quick']} customTags={[]} />)
+      render(<PreferencesForm firstClassTags={[{ name: 'Healthy', recipe_count: 0 }, { name: 'Quick', recipe_count: 0 }]} customTags={[]} hiddenTags={[]} />)
     })
 
     await waitFor(() => {
@@ -78,7 +78,7 @@ describe('T09 - PreferencesForm loads with current saved values', () => {
 describe('T12 - Section Save sends only its own fields', () => {
   it('Planning Defaults Save sends only options_per_day and cooldown_days', async () => {
     await act(async () => {
-      render(<PreferencesForm firstClassTags={[]} customTags={[]} />)
+      render(<PreferencesForm firstClassTags={[]} customTags={[]} hiddenTags={[]} />)
     })
 
     // Wait for load
@@ -107,7 +107,7 @@ describe('T12 - Section Save sends only its own fields', () => {
 
   it('Seasonal Mode Save sends only seasonal_mode', async () => {
     await act(async () => {
-      render(<PreferencesForm firstClassTags={[]} customTags={[]} />)
+      render(<PreferencesForm firstClassTags={[]} customTags={[]} hiddenTags={[]} />)
     })
 
     await waitFor(() => {
@@ -136,7 +136,7 @@ describe('T12 - Section Save sends only its own fields', () => {
 describe('T13 - Saved ✓ success state', () => {
   it('shows Saved ✓ after clicking Save', async () => {
     await act(async () => {
-      render(<PreferencesForm firstClassTags={[]} customTags={[]} />)
+      render(<PreferencesForm firstClassTags={[]} customTags={[]} hiddenTags={[]} />)
     })
 
     await waitFor(() => {

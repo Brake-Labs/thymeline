@@ -13,7 +13,7 @@ export default defineConfig({
     alias: {
       'server-only': path.resolve(__dirname, 'test/server-only-mock.ts'),
     },
-    exclude: ['**/node_modules/**', '**/.claude/worktrees/**'],
+    exclude: ['**/node_modules/**', '**/.git/**', '.claude/**', '**/.claude/worktrees/**'],
     globals: true,
     environment: 'node',
     environmentMatchGlobs: [

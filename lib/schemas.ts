@@ -176,6 +176,7 @@ export const updatePreferencesSchema = z.object({
   })).optional(),
   onboarding_completed: z.boolean().optional(),
   meal_context: z.string().max(1000).nullable().optional(),
+  hidden_tags: z.array(z.string()).optional(),
 })
 
 // ─── Pantry ─────────────────────────────────────────────────────────────────
