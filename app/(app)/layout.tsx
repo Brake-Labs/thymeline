@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import AppNav from '@/components/layout/AppNav'
+import { HouseholdProvider } from '@/lib/household-context'
 
 export default async function AppLayout({
   children,
@@ -45,9 +46,9 @@ export default async function AppLayout({
   }
 
   return (
-    <>
+    <HouseholdProvider>
       <AppNav />
       <main>{children}</main>
-    </>
+    </HouseholdProvider>
   )
 }

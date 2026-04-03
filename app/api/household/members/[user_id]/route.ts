@@ -10,7 +10,9 @@ export const DELETE = withAuth(async (req, { user, db, ctx }, params) => {
     return NextResponse.json({ error: 'Not in a household' }, { status: 404 })
   }
 
-  const isSelf = params.user_id! === user.id
+  // "me" is a convenience alias for the authenticated user's own ID
+  const targetUserId = params.user_id === 'me' ? user.id : params.user_id!
+  const isSelf = targetUserId === user.id
 
   // Non-self removal requires canManage
   if (!isSelf && !canManage(ctx.role)) {
@@ -22,7 +24,7 @@ export const DELETE = withAuth(async (req, { user, db, ctx }, params) => {
     .from('household_members')
     .select('role')
     .eq('household_id', ctx.householdId)
-    .eq('user_id', params.user_id!)
+    .eq('user_id', targetUserId)
     .single()
 
   if (!target) {
@@ -46,7 +48,7 @@ export const DELETE = withAuth(async (req, { user, db, ctx }, params) => {
     .from('household_members')
     .delete()
     .eq('household_id', ctx.householdId)
-    .eq('user_id', params.user_id!)
+    .eq('user_id', targetUserId)
 
   if (deleteError) {
     return NextResponse.json({ error: 'Failed to remove member' }, { status: 500 })
