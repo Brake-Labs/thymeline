@@ -25,6 +25,20 @@ export default function CookModePage({ params }: Props) {
   const [recipe, setRecipe] = useState<RecipeWithHistory | null>(null)
   const [loading, setLoading] = useState(true)
   const isModifiedRef = useRef(false)
+
+  // Read sessionStorage once at mount time (before any effects run) so that
+  // React 18 Strict Mode's effect-cleanup-remount cycle cannot clear the key
+  // before the fetch effect reads it.
+  const [storedModified] = useState<ModifiedRecipe | null>(() => {
+    if (typeof window === 'undefined') return null
+    const stored = sessionStorage.getItem(`ai-modified-recipe-${params.id}`)
+    if (!stored) return null
+    try {
+      return JSON.parse(stored) as ModifiedRecipe
+    } catch {
+      return null
+    }
+  })
   const [currentStep, setCurrentStep] = useState(0)
   const [view, setView] = useState<'one' | 'all'>('one')
   const [servings, setServings] = useState(4)
@@ -47,16 +61,10 @@ export default function CookModePage({ params }: Props) {
         })
         if (!res.ok) { router.replace(`/recipes/${params.id}`); return }
         let data: RecipeWithHistory = await res.json()
-        // Check for AI-modified version
-        const stored = sessionStorage.getItem(`ai-modified-recipe-${params.id}`)
-        if (stored) {
-          try {
-            const modified: ModifiedRecipe = JSON.parse(stored)
-            data = { ...data, ...modified }
-            isModifiedRef.current = true
-          } catch {
-            // Ignore malformed sessionStorage value
-          }
+        // Apply AI-modified version if one was snapshotted at mount time
+        if (storedModified) {
+          data = { ...data, ...storedModified }
+          isModifiedRef.current = true
         }
         const steps = (data.steps ?? '').split('\n').filter(Boolean)
         if (steps.length === 0) { router.replace(`/recipes/${params.id}`); return }
