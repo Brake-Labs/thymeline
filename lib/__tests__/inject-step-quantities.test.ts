@@ -87,3 +87,20 @@ describe('T54 - "cook" in timer phrase is not matched as an ingredient', () => {
     expect(result.highlights).toHaveLength(0)
   })
 })
+
+// ── T55: Comma-descriptor ingredients match on pre-comma name ─────────────────
+
+describe('T55 - ingredient with comma descriptor matches pre-comma name in step', () => {
+  it('highlights "3 cloves" before "garlic" when ingredient is "3 cloves garlic, minced"', () => {
+    const result = injectStepQuantities(
+      'add garlic to the pan',
+      '3 cloves garlic, minced',
+      4,
+      4,
+    )
+    expect(result.text).toBe('add 3 cloves garlic to the pan')
+    expect(result.highlights).toHaveLength(1)
+    const span = result.text.slice(result.highlights[0]!.start, result.highlights[0]!.end)
+    expect(span).toBe('3 cloves')
+  })
+})

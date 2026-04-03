@@ -34,7 +34,7 @@ export function injectStepQuantities(
 
   const scaled = scaleIngredients(ingredients, originalServings, servings)
 
-  type Entry = { name: string; quantity: string }
+  type Entry = { name: string; matchName: string; quantity: string }
   const entries: Entry[] = lines
     .map((line, i) => {
       const { rawName } = parseIngredientLine(line)
@@ -43,18 +43,21 @@ export function injectStepQuantities(
       // quantity = everything before rawName in the scaled line
       const idx = scaledLine.indexOf(rawName)
       const quantity = idx > 0 ? scaledLine.slice(0, idx).trim() : ''
-      return { name: rawName, quantity }
+      // Strip comma-separated descriptors so "garlic, minced" matches "garlic" in steps
+      const preComma = rawName.includes(',') ? rawName.split(',')[0]!.trim() : rawName
+      const matchName = preComma || rawName
+      return { name: rawName, matchName, quantity }
     })
     .filter((e): e is Entry => e !== null)
 
-  // Longer names first to prevent partial-match clobbering
-  entries.sort((a, b) => b.name.length - a.name.length)
+  // Longer match names first to prevent partial-match clobbering
+  entries.sort((a, b) => b.matchName.length - a.matchName.length)
 
   type Match = { start: number; end: number; quantity: string; matched: string }
   const matches: Match[] = []
 
-  for (const { name, quantity } of entries) {
-    const re = new RegExp(`\\b${escapeRegex(name)}\\b`, 'gi')
+  for (const { matchName, quantity } of entries) {
+    const re = new RegExp(`\\b${escapeRegex(matchName)}\\b`, 'gi')
     let m: RegExpExecArray | null
     while ((m = re.exec(stepText)) !== null) {
       matches.push({ start: m.index, end: m.index + m[0].length, quantity, matched: m[0] })
