@@ -217,6 +217,16 @@ export default async function HomePage() {
                               )}
                             </div>
                           ))}
+                          <Link
+                            href={
+                              entries.length === 1
+                                ? `/cook/recipes/${entries[0]!.recipe_id}/cook`
+                                : `/cook/meal/${day}`
+                            }
+                            className="block mt-1.5 text-[10px] font-medium text-sage-600 hover:text-sage-700 transition-colors"
+                          >
+                            ▶ Cook
+                          </Link>
                         </div>
                       ) : (
                         <span className="text-stone-300 text-base">&#8212;</span>

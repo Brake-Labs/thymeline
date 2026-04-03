@@ -16,6 +16,7 @@ const MEAL_TYPE_LABELS: Record<MealType, string> = {
 
 interface MealSlotProps {
   mealType:       MealType
+  date?:          string   // YYYY-MM-DD; when provided enables the "▶ Cook" link
   entries:        PlanEntry[]
   onAdd:          (recipeId: string, recipeTitle: string, isSideDish?: boolean, parentEntryId?: string, mealTypeOverride?: MealType) => void
   onDelete:       (entryId: string) => void
@@ -55,7 +56,7 @@ function MealItem({ entry, indented, onDelete }: MealItemProps) {
   )
 }
 
-export default function MealSlot({ mealType, entries, onAdd, onDelete }: MealSlotProps) {
+export default function MealSlot({ mealType, date, entries, onAdd, onDelete }: MealSlotProps) {
   const [vaultOpen, setVaultOpen] = useState(false)
   const [sideDishVaultForParent, setSideDishVaultForParent] = useState<string | null>(null)
   const [dessertVaultForParent, setDessertVaultForParent] = useState<string | null>(null)
@@ -71,13 +72,28 @@ export default function MealSlot({ mealType, entries, onAdd, onDelete }: MealSlo
         <span className="text-[10px] font-display font-bold uppercase tracking-[0.1em] text-sage-500">
           {MEAL_TYPE_LABELS[mealType]}
         </span>
-        <button
-          onClick={() => setVaultOpen(true)}
-          aria-label={`Add ${MEAL_TYPE_LABELS[mealType]}`}
-          className="text-xs border border-sage-200 text-sage-500 hover:bg-sage-50 px-2 py-0.5 rounded transition-colors"
-        >
-          +
-        </button>
+        <div className="flex items-center gap-1.5">
+          {hasMainEntry && date && (
+            <Link
+              href={
+                mainEntries.length === 1
+                  ? `/cook/recipes/${mainEntries[0]!.recipe_id}/cook`
+                  : `/cook/meal/${date}?meal_type=${mealType}`
+              }
+              className="text-[10px] font-medium text-sage-500 border border-sage-200 hover:bg-sage-50 px-2 py-0.5 rounded transition-colors"
+              aria-label={`Cook ${MEAL_TYPE_LABELS[mealType]}`}
+            >
+              ▶ Cook
+            </Link>
+          )}
+          <button
+            onClick={() => setVaultOpen(true)}
+            aria-label={`Add ${MEAL_TYPE_LABELS[mealType]}`}
+            className="text-xs border border-sage-200 text-sage-500 hover:bg-sage-50 px-2 py-0.5 rounded transition-colors"
+          >
+            +
+          </button>
+        </div>
       </div>
 
       {/* Main entries */}

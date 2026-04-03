@@ -65,6 +65,7 @@ export default function DayCard({ date, entries, isExpanded, onToggle, onAddEntr
             <MealSlot
               key={mealType}
               mealType={mealType}
+              date={date}
               entries={entries.filter((e) =>
                 e.meal_type === mealType ||
                 (e.is_side_dish && entries.find((p) => p.id === e.parent_entry_id)?.meal_type === mealType)
