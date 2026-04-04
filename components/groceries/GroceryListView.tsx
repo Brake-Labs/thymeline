@@ -105,6 +105,15 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
     await patch({ items: updated })
   }, [items, weekStart]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const handleEdit = useCallback(async (
+    itemId: string,
+    updates: { name: string; amount: number | null; unit: string | null },
+  ) => {
+    const updated = items.map((i) => i.id === itemId ? { ...i, ...updates } : i)
+    setItems(updated)
+    await patch({ items: updated })
+  }, [items, weekStart]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleDeleteRecipe = useCallback(async (recipeId: string, recipeTitle: string) => {
     const updated = items.filter((i) => !i.recipes.includes(recipeTitle) || i.recipes.length > 1)
     const updatedScales = recipeScales.filter((s) => s.recipe_id !== recipeId)
@@ -264,6 +273,7 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
               onMarkAllBought={() => handleMarkAllBought(title)}
               onDeleteRecipe={() => handleDeleteRecipe(scale.recipe_id, title)}
               onGotIt={handleGotIt}
+              onEdit={handleEdit}
             />
           )
         })}
@@ -286,6 +296,7 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
                     item={item}
                     onToggle={() => handleToggle(item.id)}
                     onRemove={() => handleRemove(item.id)}
+                    onEdit={handleEdit}
                   />
                 ))}
             </div>

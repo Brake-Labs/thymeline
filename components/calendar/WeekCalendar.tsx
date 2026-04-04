@@ -3,7 +3,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import DayCard from './DayCard'
 import { getAccessToken } from '@/lib/supabase/browser'
-import { getMostRecentSunday, addWeeks, getWeekDates, formatWeekRange } from '@/lib/date-utils'
+import Link from 'next/link'
+import { ShoppingCart } from 'lucide-react'
+import { getMostRecentSunday, addWeeks, addDays, getWeekDates, formatWeekRange } from '@/lib/date-utils'
 import type { PlanEntry, MealType } from '@/types'
 
 export default function WeekCalendar() {
@@ -132,14 +134,25 @@ export default function WeekCalendar() {
         <span className="font-display text-sm font-medium text-sage-100">
           {formatWeekRange(weekStart)}
         </span>
-        <button
-          onClick={handleNextWeek}
-          disabled={isAtMaxFuture}
-          aria-label="Next week"
-          className="p-1.5 text-[#8CB89A] hover:text-sage-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-        >
-          →
-        </button>
+        <div className="flex items-center gap-2">
+          {entries.length > 0 && (
+            <Link
+              href={`/groceries?date_from=${weekStart}&date_to=${addDays(weekStart, 6)}`}
+              className="flex items-center gap-1.5 text-sm font-medium text-[#8CB89A] hover:text-sage-100 transition-colors"
+            >
+              <ShoppingCart size={14} />
+              Grocery list
+            </Link>
+          )}
+          <button
+            onClick={handleNextWeek}
+            disabled={isAtMaxFuture}
+            aria-label="Next week"
+            className="p-1.5 text-[#8CB89A] hover:text-sage-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          >
+            →
+          </button>
+        </div>
       </div>
 
       {loading && (

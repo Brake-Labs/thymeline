@@ -121,12 +121,12 @@ describe('T14 - Overridden recipe shows "Custom" badge', () => {
   })
 })
 
-// ── T15: Pantry items show "(optional)" ──────────────────────────────────────
+// ── T15: Pantry items show "(in pantry)" ───────────────────────────────────────────────
 
-describe('T15 - Pantry items show optional text', () => {
-  it('renders (optional) for is_pantry items', () => {
+describe('T15 - Pantry items show in-pantry text', () => {
+  it('renders (in pantry) for unchecked is_pantry items', () => {
     render(<GroceryListView initialList={sampleList} />)
-    expect(screen.getByText('(optional)')).toBeInTheDocument()
+    expect(screen.getByText('(in pantry)')).toBeInTheDocument()
   })
 })
 
@@ -301,6 +301,27 @@ describe('T22 - Share invokes Web Share API with correct format', () => {
       const { text } = shareMock.mock.calls[0]![0]
       expect(text).not.toContain('pasta')
       expect(text).toContain('lettuce')
+    })
+  })
+})
+
+
+// ── T17 (spec-23): Inline quantity edit ────────────────────────────────────────────────
+
+describe('T17 (spec-23) - Inline quantity edit reflected in list and PATCH', () => {
+  it('clicking Edit on an item reveals inputs and Save saves changes', async () => {
+    render(<GroceryListView initialList={sampleList} />)
+    const editBtn = screen.getByLabelText('Edit pasta')
+    fireEvent.click(editBtn)
+    const amountInput = screen.getByPlaceholderText('qty')
+    fireEvent.change(amountInput, { target: { value: '300' } })
+    fireEvent.click(screen.getByText('Save'))
+    await waitFor(() => {
+      const patchCalls = mockFetch.mock.calls.filter(([, opts]) => opts?.method === 'PATCH')
+      expect(patchCalls.length).toBeGreaterThan(0)
+      const body = JSON.parse(patchCalls[0]![1].body)
+      const pastaItem = body.items.find((i: { name: string }) => i.name === 'pasta')
+      expect(pastaItem?.amount).toBe(300)
     })
   })
 })

@@ -17,6 +17,7 @@ interface RecipeSectionGroupProps {
   onMarkAllBought:   () => void
   onDeleteRecipe:    () => void
   onGotIt:           (itemId: string) => void
+  onEdit:            (itemId: string, updates: { name: string; amount: number | null; unit: string | null }) => void
 }
 
 export default function RecipeSectionGroup({
@@ -32,6 +33,7 @@ export default function RecipeSectionGroup({
   onMarkAllBought,
   onDeleteRecipe,
   onGotIt,
+  onEdit,
 }: RecipeSectionGroupProps) {
   // "items" here contains only unchecked items (bought are in Got it section)
   // allBought means no active items remain → show Unmark all
@@ -102,6 +104,7 @@ export default function RecipeSectionGroup({
               onToggle={() => onToggle(item.id)}
               onRemove={() => onRemove(item.id)}
               onGotIt={() => onGotIt(item.id)}
+              onEdit={onEdit}
             />
           ))
         )}

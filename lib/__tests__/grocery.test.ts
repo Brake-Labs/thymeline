@@ -306,6 +306,45 @@ describe('buildPlainTextList', () => {
   })
 })
 
+
+// ── T12: Pantry export semantics ──────────────────────────────────────────────────
+
+describe('T12 - Pantry item export semantics', () => {
+  const pantryScales: RecipeScale[] = [{ recipe_id: 'r1', recipe_title: 'Soup', servings: 4 }]
+
+  it('pantry item with checked=true is included in onlyUnchecked export', () => {
+    const items: GroceryItem[] = [
+      { id: 'i1', name: 'olive oil', amount: 2, unit: 'tbsp', section: 'Pantry', is_pantry: true, checked: true, bought: false, recipes: ['Soup'] },
+    ]
+    const text = buildPlainTextList(items, pantryScales, 2, '2026-03-15', { onlyUnchecked: true })
+    expect(text).toContain('olive oil')
+  })
+
+  it('pantry item with checked=false is excluded from onlyUnchecked export', () => {
+    const items: GroceryItem[] = [
+      { id: 'i1', name: 'olive oil', amount: 2, unit: 'tbsp', section: 'Pantry', is_pantry: true, checked: false, bought: false, recipes: ['Soup'] },
+    ]
+    const text = buildPlainTextList(items, pantryScales, 2, '2026-03-15', { onlyUnchecked: true })
+    expect(text).not.toContain('olive oil')
+  })
+
+  it('non-pantry item with bought=true is excluded from onlyUnchecked export', () => {
+    const items: GroceryItem[] = [
+      { id: 'i1', name: 'pasta', amount: 200, unit: 'g', section: 'Pantry', is_pantry: false, checked: false, bought: true, recipes: ['Soup'] },
+    ]
+    const text = buildPlainTextList(items, pantryScales, 2, '2026-03-15', { onlyUnchecked: true })
+    expect(text).not.toContain('pasta')
+  })
+
+  it('non-pantry item with bought=false is included in onlyUnchecked export', () => {
+    const items: GroceryItem[] = [
+      { id: 'i1', name: 'pasta', amount: 200, unit: 'g', section: 'Pantry', is_pantry: false, checked: false, bought: false, recipes: ['Soup'] },
+    ]
+    const text = buildPlainTextList(items, pantryScales, 2, '2026-03-15', { onlyUnchecked: true })
+    expect(text).toContain('pasta')
+  })
+})
+
 // ── getCurrentWeekSunday ──────────────────────────────────────────────────────
 
 describe('getCurrentWeekSunday', () => {

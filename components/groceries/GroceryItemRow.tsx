@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { GroceryItem } from '@/types'
 
 interface GroceryItemRowProps {
@@ -7,14 +8,84 @@ interface GroceryItemRowProps {
   onToggle:  () => void
   onRemove:  () => void
   onGotIt?:  () => void
+  onEdit?:   (itemId: string, updates: { name: string; amount: number | null; unit: string | null }) => void
 }
 
-export default function GroceryItemRow({ item, onToggle, onRemove, onGotIt }: GroceryItemRowProps) {
+export default function GroceryItemRow({ item, onToggle, onRemove, onGotIt, onEdit }: GroceryItemRowProps) {
+  const [editing,    setEditing   ] = useState(false)
+  const [editName,   setEditName  ] = useState(item.name)
+  const [editAmount, setEditAmount] = useState(item.amount !== null ? String(item.amount) : '')
+  const [editUnit,   setEditUnit  ] = useState(item.unit ?? '')
+
+  const isPantryUnchecked = item.is_pantry && !item.checked
+
+  function handleSave() {
+    if (!onEdit) return
+    const parsed = parseFloat(editAmount)
+    onEdit(item.id, {
+      name:   editName.trim() || item.name,
+      amount: editAmount.trim() !== '' && !isNaN(parsed) ? parsed : null,
+      unit:   editUnit.trim() || null,
+    })
+    setEditing(false)
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter') handleSave()
+    if (e.key === 'Escape') setEditing(false)
+  }
+
   const label = [
     item.amount !== null ? item.amount : null,
     item.unit ?? null,
     item.name,
   ].filter(Boolean).join(' ')
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-2 py-2">
+        <input
+          type="text"
+          value={editAmount}
+          onChange={(e) => setEditAmount(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="qty"
+          className="w-14 text-sm border border-stone-300 rounded px-1.5 py-0.5 focus:outline-none focus:border-sage-400"
+        />
+        <input
+          type="text"
+          value={editUnit}
+          onChange={(e) => setEditUnit(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="unit"
+          className="w-16 text-sm border border-stone-300 rounded px-1.5 py-0.5 focus:outline-none focus:border-sage-400"
+        />
+        <input
+          type="text"
+          value={editName}
+          onChange={(e) => setEditName(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="name"
+          className="flex-1 text-sm border border-stone-300 rounded px-1.5 py-0.5 focus:outline-none focus:border-sage-400"
+          autoFocus
+        />
+        <button
+          type="button"
+          onClick={handleSave}
+          className="text-xs text-sage-600 hover:text-sage-800 font-medium"
+        >
+          Save
+        </button>
+        <button
+          type="button"
+          onClick={() => setEditing(false)}
+          className="text-xs text-stone-400 hover:text-stone-600"
+        >
+          ✕
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className="group flex items-center gap-3 py-2">
@@ -45,12 +116,28 @@ export default function GroceryItemRow({ item, onToggle, onRemove, onGotIt }: Gr
         }`}
       >
         {label}
-        {item.is_pantry && !item.checked && (
-          <span className="ml-1 text-xs text-stone-400">(optional)</span>
+        {isPantryUnchecked && (
+          <span className="ml-1 text-xs text-stone-400">(in pantry)</span>
         )}
       </span>
 
-      {onGotIt && (
+      {onEdit && !editing && (
+        <button
+          type="button"
+          onClick={() => {
+            setEditName(item.name)
+            setEditAmount(item.amount !== null ? String(item.amount) : '')
+            setEditUnit(item.unit ?? '')
+            setEditing(true)
+          }}
+          aria-label={`Edit ${item.name}`}
+          className="opacity-0 group-hover:opacity-100 focus:opacity-100 font-sans text-[11px] text-stone-400 hover:text-stone-600 transition-opacity"
+        >
+          Edit
+        </button>
+      )}
+
+      {onGotIt && !item.is_pantry && !editing && (
         <button
           type="button"
           onClick={onGotIt}
