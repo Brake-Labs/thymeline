@@ -259,7 +259,7 @@ Return ONLY a JSON array with this shape (no explanation):
           ingredients: r.description ?? '',
         }))
         const wasteMap = await Promise.race([
-          detectWasteOverlap(currentPlanRecipes, candidateRecipes, callLLM),
+          detectWasteOverlap(candidateRecipes, currentPlanRecipes, callLLM),
           new Promise<never>((_, reject) =>
             setTimeout(() => reject(new Error('timeout')), DISCOVER_WASTE_TIMEOUT_MS)
           ),
@@ -268,7 +268,7 @@ Return ONLY a JSON array with this shape (no explanation):
           const matches = wasteMap.get(result.url)
           if (matches && matches.length > 0) {
             result.waste_matches = matches.map((m) => ({ ingredient: m.ingredient, waste_risk: m.waste_risk }))
-            result.waste_badge_text = getPlanWasteBadgeText(result.waste_matches)
+            result.waste_badge_text = getPlanWasteBadgeText(matches)
           }
         }
       } catch (err) {

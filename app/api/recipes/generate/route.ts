@@ -189,20 +189,20 @@ Make it practical and delicious.`
   if (currentPlanRecipes.length > 0 && result.ingredients) {
     try {
       const candidateRecipes: RecipeForOverlap[] = [{
-        recipe_id: 'generated',
+        recipe_id: '__generated__',
         title: result.title,
         ingredients: result.ingredients,
       }]
       const wasteMap = await Promise.race([
-        detectWasteOverlap(currentPlanRecipes, candidateRecipes),
+        detectWasteOverlap(candidateRecipes, currentPlanRecipes, callLLM),
         new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error('timeout')), GENERATE_WASTE_TIMEOUT_MS)
         ),
       ])
-      const matches = wasteMap.get('generated')
+      const matches = wasteMap.get('__generated__')
       if (matches && matches.length > 0) {
         result.waste_matches = matches.map((m) => ({ ingredient: m.ingredient, waste_risk: m.waste_risk }))
-        result.waste_badge_text = getPlanWasteBadgeText(result.waste_matches)
+        result.waste_badge_text = getPlanWasteBadgeText(matches)
       }
     } catch (err) {
       console.warn('[generate] waste detection skipped:', err)
