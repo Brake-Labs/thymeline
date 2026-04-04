@@ -1,14 +1,20 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { GroceryItem, GroceryList, RecipeScale } from '@/types'
+import { GroceryItem, GroceryList, GrocerySection, RecipeScale } from '@/types'
 import GroceryItemRow from './GroceryItemRow'
-import RecipeSectionGroup from './RecipeSectionGroup'
 import GotItSection from './GotItSection'
 import AddItemInput from './AddItemInput'
+import StepperInput from '@/components/preferences/StepperInput'
 import { getAccessToken } from '@/lib/supabase/browser'
 import { effectiveServings, formatWeekLabel, buildPlainTextList } from '@/lib/grocery'
 import { TOAST_DURATION_LONG_MS } from '@/lib/constants'
+
+// Aisle order used for grouping "Need to Buy" items
+const SECTION_ORDER: GrocerySection[] = [
+  'Produce', 'Proteins', 'Dairy & Eggs', 'Pantry',
+  'Canned & Jarred', 'Bakery', 'Frozen', 'Other',
+]
 
 interface GroceryListViewProps {
   initialList:    GroceryList
@@ -22,6 +28,7 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
   const [planServings, setPlanServings] = useState(initialList.servings)
   const [recipeScales, setRecipeScales] = useState<RecipeScale[]>(initialList.recipe_scales)
   const [saving, setSaving] = useState(false)
+  const [recipesOpen, setRecipesOpen] = useState(true)
   const [confirmRegenerate, setConfirmRegenerate] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
   const [shareToast, setShareToast] = useState<string | null>(null)
@@ -31,7 +38,7 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
 
   async function patch(payload: {
     items?:         GroceryItem[]
-    servings?:  number
+    servings?:      number
     recipe_scales?: RecipeScale[]
   }) {
     setSaving(true)
@@ -79,8 +86,6 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
     await patch({ items: updated })
   }, [items, weekStart]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Mark all bought for a recipe ─────────────────────────────────────────────
-
   const handleGotIt = useCallback(async (itemId: string) => {
     const updated = items.map((i) =>
       i.id === itemId ? { ...i, bought: true } : i,
@@ -126,7 +131,6 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
 
   const handleRecipeServingsChange = useCallback(async (recipeId: string, recipeTitle: string, newCount: number) => {
     const currentEffective = effectiveServings(recipeId, recipeScales, planServings)
-    // Rescale items belonging to this recipe
     const updated = items.map((item) => {
       if (item.checked || item.amount === null) return item
       if (!item.recipes.includes(recipeTitle)) return item
@@ -145,7 +149,6 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
     const scale = recipeScales.find((s) => s.recipe_id === recipeId)
     if (!scale?.servings) return
     const currentOverride = scale.servings
-    // Rescale back to plan default
     const updated = items.map((item) => {
       if (item.checked || item.amount === null) return item
       if (!item.recipes.includes(recipeTitle)) return item
@@ -191,9 +194,6 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
   async function handleShare() {
     const header = `Grocery list — week of ${weekStart}`
     const itemList = buildPlainTextList(items, recipeScales, planServings, weekStart, { onlyUnchecked: true })
-    // Put everything in text — some share targets (iOS Notes, Reminders) use title
-    // and ignore text, showing only one line. Including the header in text ensures
-    // all content reaches the destination regardless of which field the app reads.
     const text = itemList ? `${header}\n\n${itemList}` : header
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
@@ -201,7 +201,6 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
         return
       } catch { /* fall through */ }
     }
-    // Fallback: clipboard
     try {
       await navigator.clipboard.writeText(text)
       setShareToast('Copied to clipboard!')
@@ -212,14 +211,26 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
     }
   }
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  // ── Derived state ───────────────────────────────────────────────────────────
 
-  const totalCount   = items.length
-  const boughtItems  = items.filter((i) => i.bought)
-  const checkedCount = boughtItems.length
+  const totalCount  = items.length
+  const boughtItems = items.filter((i) => i.bought)
 
-  // Build ordered list of unique recipe titles (from recipeScales, ordered by planned_date)
+  // Need to Buy: non-pantry items not yet bought, grouped by grocery section
+  const needToBuyItems = items.filter((i) => !i.is_pantry && !i.bought)
+  const needToBuyBySection: Partial<Record<GrocerySection, GroceryItem[]>> = {}
+  for (const item of needToBuyItems) {
+    if (!needToBuyBySection[item.section]) needToBuyBySection[item.section] = []
+    needToBuyBySection[item.section]!.push(item)
+  }
+
+  // Pantry Items: is_pantry items not yet bought
+  const pantryItems = items.filter((i) => i.is_pantry && !i.bought)
+
+  const checkedCount = items.filter((i) => i.checked || i.bought).length
   const orderedTitles = recipeScales.map((s) => s.recipe_title)
+
+  // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
@@ -252,57 +263,140 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
         <p className="text-xs text-stone-400">Saving…</p>
       )}
 
-      {/* Recipe sections — exclude bought items */}
-      <div className="space-y-4">
-        {orderedTitles.map((title) => {
-          const scale = recipeScales.find((s) => s.recipe_title === title)!
-          const recipeItems = items.filter((i) => i.recipes.includes(title) && !i.bought)
-          const effective = effectiveServings(scale.recipe_id, recipeScales, planServings)
-          return (
-            <RecipeSectionGroup
-              key={scale.recipe_id}
-              recipeTitle={title}
-              recipeId={scale.recipe_id}
-              items={recipeItems}
-              effectiveCount={effective}
-              isOverridden={scale.servings !== null}
-              onServingsChange={(count) => handleRecipeServingsChange(scale.recipe_id, title, count)}
-              onResetOverride={() => handleResetOverride(scale.recipe_id, title)}
-              onToggle={handleToggle}
-              onRemove={handleRemove}
-              onMarkAllBought={() => handleMarkAllBought(title)}
-              onDeleteRecipe={() => handleDeleteRecipe(scale.recipe_id, title)}
-              onGotIt={handleGotIt}
-              onEdit={handleEdit}
-            />
-          )
-        })}
-
-        {/* User-added items (recipes: []) — exclude bought */}
-        {items.some((i) => i.recipes.length === 0 && !i.bought) && (
-          <section
-            aria-label="Other items"
-            className="border border-stone-200 rounded-xl bg-white overflow-hidden"
+      {/* Recipes panel (collapsible) */}
+      {orderedTitles.length > 0 && (
+        <section
+          aria-label="Recipes in this list"
+          className="border border-stone-200 rounded-xl bg-white overflow-hidden"
+        >
+          <button
+            type="button"
+            onClick={() => setRecipesOpen((o) => !o)}
+            aria-expanded={recipesOpen}
+            className="w-full flex items-center justify-between px-4 pt-4 pb-3 border-b border-stone-100 text-left"
           >
-            <div className="px-4 pt-4 pb-3 border-b border-stone-100">
-              <h3 className="font-display font-semibold text-stone-800 text-sm">Other</h3>
+            <h2 className="font-display font-semibold text-stone-800 text-sm">
+              Recipes ({orderedTitles.length})
+            </h2>
+            <span className="text-xs text-stone-400">{recipesOpen ? '▾' : '▸'}</span>
+          </button>
+
+          {recipesOpen && (
+            <div className="divide-y divide-stone-50">
+              {orderedTitles.map((title) => {
+                const scale = recipeScales.find((s) => s.recipe_title === title)!
+                const effective = effectiveServings(scale.recipe_id, recipeScales, planServings)
+                return (
+                  <div key={scale.recipe_id} className="px-4 py-3 flex items-center flex-wrap gap-x-3 gap-y-1.5">
+                    <span className="font-medium text-stone-800 text-sm flex-1 min-w-0 truncate">
+                      {title}
+                    </span>
+                    <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+                      {scale.servings !== null && (
+                        <>
+                          <span className="text-xs font-medium bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+                            Custom
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleResetOverride(scale.recipe_id, title)}
+                            className="text-xs text-stone-500 hover:text-stone-800 underline"
+                          >
+                            Reset to default
+                          </button>
+                        </>
+                      )}
+                      <StepperInput
+                        value={effective}
+                        min={1}
+                        max={20}
+                        onChange={(count) => handleRecipeServingsChange(scale.recipe_id, title, count)}
+                        label="Servings"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleMarkAllBought(title)}
+                        className="text-xs text-stone-500 hover:text-sage-600 underline transition-colors"
+                      >
+                        Mark all as bought
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteRecipe(scale.recipe_id, title)}
+                        aria-label={`Remove ${title} from list`}
+                        className="text-xs text-stone-400 hover:text-red-500 underline transition-colors"
+                      >
+                        Remove recipe
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
-            <div className="px-4 py-2 divide-y divide-stone-50">
-              {items
-                .filter((i) => i.recipes.length === 0 && !i.bought)
-                .map((item) => (
-                  <GroceryItemRow
-                    key={item.id}
-                    item={item}
-                    onToggle={() => handleToggle(item.id)}
-                    onRemove={() => handleRemove(item.id)}
-                    onEdit={handleEdit}
-                  />
-                ))}
-            </div>
-          </section>
+          )}
+        </section>
+      )}
+
+      {/* Need to Buy */}
+      <section aria-label="Need to Buy">
+        <div className="mb-3">
+          <h2 className="font-display font-semibold text-stone-800">Need to Buy</h2>
+          <p className="text-xs text-stone-400 mt-0.5">Check off items you already have</p>
+        </div>
+
+        {needToBuyItems.length === 0 ? (
+          <p className="text-sm text-stone-400 py-2">All items accounted for.</p>
+        ) : (
+          <div className="space-y-3">
+            {SECTION_ORDER.map((section) => {
+              const sectionItems = needToBuyBySection[section]
+              if (!sectionItems?.length) return null
+              return (
+                <div key={section}>
+                  <p className="text-[11px] font-medium text-stone-400 uppercase tracking-wider mb-1.5 px-1">
+                    {section}
+                  </p>
+                  <div className="border border-stone-200 rounded-xl bg-white px-4 py-1 divide-y divide-stone-50">
+                    {sectionItems.map((item) => (
+                      <GroceryItemRow
+                        key={item.id}
+                        item={item}
+                        mode="need"
+                        onToggle={() => handleToggle(item.id)}
+                        onRemove={() => handleRemove(item.id)}
+                        onGotIt={() => handleGotIt(item.id)}
+                        onEdit={handleEdit}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         )}
-      </div>
+      </section>
+
+      {/* Pantry Items */}
+      {pantryItems.length > 0 && (
+        <section aria-label="Pantry Items">
+          <div className="mb-3">
+            <h2 className="font-display font-semibold text-stone-800">Pantry Items</h2>
+            <p className="text-xs text-stone-400 mt-0.5">Check items you need to pick up</p>
+          </div>
+          <div className="border border-stone-200 rounded-xl bg-white px-4 py-1 divide-y divide-stone-50">
+            {pantryItems.map((item) => (
+              <GroceryItemRow
+                key={item.id}
+                item={item}
+                mode="pantry"
+                onToggle={() => handleToggle(item.id)}
+                onRemove={() => handleRemove(item.id)}
+                onEdit={handleEdit}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Add item */}
       <AddItemInput onAdd={handleAddItem} />
@@ -352,4 +446,3 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
     </div>
   )
 }
-

@@ -5,13 +5,18 @@ import { GroceryItem } from '@/types'
 
 interface GroceryItemRowProps {
   item:      GroceryItem
+  /**
+   * 'need' (default): check means "I already have this" → strikethrough
+   * 'pantry': check means "I need to pick this up" → terra highlight, no strikethrough
+   */
+  mode?:     'need' | 'pantry'
   onToggle:  () => void
   onRemove:  () => void
   onGotIt?:  () => void
   onEdit?:   (itemId: string, updates: { name: string; amount: number | null; unit: string | null }) => void
 }
 
-export default function GroceryItemRow({ item, onToggle, onRemove, onGotIt, onEdit }: GroceryItemRowProps) {
+export default function GroceryItemRow({ item, mode = 'need', onToggle, onRemove, onGotIt, onEdit }: GroceryItemRowProps) {
   const [editing,    setEditing   ] = useState(false)
   const [editName,   setEditName  ] = useState(item.name)
   const [editAmount, setEditAmount] = useState(item.amount !== null ? String(item.amount) : '')
@@ -87,6 +92,63 @@ export default function GroceryItemRow({ item, onToggle, onRemove, onGotIt, onEd
     )
   }
 
+  // ── Pantry mode: check = "need to buy" (terra highlight) ─────────────────────
+  if (mode === 'pantry') {
+    return (
+      <div className="group flex items-center gap-3 py-2">
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-label={item.checked ? `Uncheck ${item.name}` : `Check ${item.name}`}
+          className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+            item.checked
+              ? 'bg-terra-500 border-terra-500'
+              : 'border-stone-300 hover:border-stone-400'
+          }`}
+        >
+          {item.checked && (
+            <svg className="w-3 h-3 text-white" viewBox="0 0 12 10" fill="none">
+              <path d="M1 5l3.5 3.5L11 1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          )}
+        </button>
+
+        <span className={`flex-1 text-sm ${item.checked ? 'text-terra-700 font-medium' : 'text-stone-400'}`}>
+          {label}
+          {isPantryUnchecked && (
+            <span className="ml-1 text-xs text-stone-400">(in pantry)</span>
+          )}
+        </span>
+
+        {onEdit && !editing && (
+          <button
+            type="button"
+            onClick={() => {
+              setEditName(item.name)
+              setEditAmount(item.amount !== null ? String(item.amount) : '')
+              setEditUnit(item.unit ?? '')
+              setEditing(true)
+            }}
+            aria-label={`Edit ${item.name}`}
+            className="opacity-0 group-hover:opacity-100 focus:opacity-100 font-sans text-[11px] text-stone-400 hover:text-stone-600 transition-opacity"
+          >
+            Edit
+          </button>
+        )}
+
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label={`Remove ${item.name}`}
+          className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-stone-400 hover:text-red-500 transition-opacity text-lg leading-none"
+        >
+          ×
+        </button>
+      </div>
+    )
+  }
+
+  // ── Need mode (default): check = "I have this" → strikethrough ───────────────
   return (
     <div className="group flex items-center gap-3 py-2">
       <button
