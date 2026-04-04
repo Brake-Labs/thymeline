@@ -64,6 +64,7 @@ export default function MealSlot({ mealType, date, entries, onAdd, onDelete }: M
   const canHaveSideDishes = mealType === 'dinner' || mealType === 'lunch'
   const mainEntries = entries.filter((e) => !e.is_side_dish)
   const hasMainEntry = mainEntries.length > 0
+  const hasCookableSide = entries.some((e) => e.is_side_dish && e.meal_type !== 'dessert')
 
   return (
     <div className="mb-4 last:mb-0">
@@ -76,7 +77,7 @@ export default function MealSlot({ mealType, date, entries, onAdd, onDelete }: M
           {hasMainEntry && date && (
             <Link
               href={
-                mainEntries.length === 1
+                mainEntries.length === 1 && !hasCookableSide
                   ? `/recipes/${mainEntries[0]!.recipe_id}/cook`
                   : `/meal/${date}?meal_type=${mealType}`
               }

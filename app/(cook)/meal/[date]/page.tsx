@@ -75,6 +75,10 @@ export default function MultiRecipeCookPage({ params }: Props) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Selection screen: shown when > 1 recipe is available
+  const [phase, setPhase] = useState<'select' | 'cook'>('cook')
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+
   const [currentStep, setCurrentStep] = useState(0)
   const [timers, setTimers] = useState<Map<number, TimerState>>(new Map())
   const [logStatus, setLogStatus] = useState<'idle' | 'loading' | 'done'>('idle')
@@ -137,7 +141,12 @@ export default function MultiRecipeCookPage({ params }: Props) {
         if (details.length === 0) { setError('None of the planned recipes have steps.'); setLoading(false); return }
 
         setRecipes(details)
-        setCombinedSteps(buildCombinedSteps(details))
+        setSelectedIds(new Set(details.map((r) => r.id)))
+        if (details.length > 1) {
+          setPhase('select')
+        } else {
+          setCombinedSteps(buildCombinedSteps(details))
+        }
       } catch {
         setError('Something went wrong loading the recipes.')
       } finally {
@@ -224,6 +233,15 @@ export default function MultiRecipeCookPage({ params }: Props) {
     })
   }
 
+  // ── Start cooking (from selection screen) ────────────────────────────────
+
+  function handleStartCooking() {
+    const cooking = recipes.filter((r) => selectedIds.has(r.id))
+    setCombinedSteps(buildCombinedSteps(cooking))
+    setCurrentStep(0)
+    setPhase('cook')
+  }
+
   // ── Log all recipes ──────────────────────────────────────────────────────
 
   async function handleLogAll() {
@@ -231,8 +249,9 @@ export default function MultiRecipeCookPage({ params }: Props) {
     try {
       const token = await getAccessToken()
       const today = getTodayISO()
+      const cookingRecipes = recipes.filter((r) => selectedIds.has(r.id))
       await Promise.all(
-        recipes.map((r) =>
+        cookingRecipes.map((r) =>
           fetch(`/api/recipes/${r.id}/log`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -337,6 +356,83 @@ export default function MultiRecipeCookPage({ params }: Props) {
         >
           Go back
         </button>
+      </div>
+    )
+  }
+
+  // ── Selection screen ─────────────────────────────────────────────────────
+
+  if (phase === 'select') {
+    return (
+      <div className="min-h-screen bg-stone-50 pb-28">
+        <div className="bg-sage-900 fixed top-0 left-0 right-0 z-40 h-14 flex items-center px-4 gap-3">
+          <Link
+            href={`/calendar?week_start=${getMostRecentSunday(new Date(params.date + 'T12:00:00Z'))}`}
+            className="text-white/70 hover:text-white transition-colors shrink-0"
+            aria-label="Exit cook mode"
+          >
+            ✕
+          </Link>
+          <p className="text-white font-display font-semibold text-sm">
+            What are you cooking?
+          </p>
+        </div>
+
+        <div className="pt-14 px-4 py-6 space-y-3">
+          <p className="text-sm text-stone-400 mb-4">Select the recipes you want to cook right now.</p>
+
+          {recipes.map((r) => {
+            const checked = selectedIds.has(r.id)
+            return (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => {
+                  setSelectedIds((prev) => {
+                    const next = new Set(prev)
+                    if (next.has(r.id)) { next.delete(r.id) } else { next.add(r.id) }
+                    return next
+                  })
+                }}
+                className={`w-full flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-colors ${
+                  checked
+                    ? 'border-sage-400 bg-sage-50'
+                    : 'border-stone-200 bg-white'
+                }`}
+              >
+                <span
+                  className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center ${
+                    checked ? 'border-sage-500 bg-sage-500' : 'border-stone-300'
+                  }`}
+                >
+                  {checked && (
+                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 12 12">
+                      <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-stone-800 truncate">{r.title}</p>
+                  {r.total_time_minutes != null && (
+                    <p className="text-xs text-stone-400 mt-0.5">{r.total_time_minutes} min</p>
+                  )}
+                </div>
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="fixed bottom-0 left-0 right-0 bg-sage-900 px-4 py-4">
+          <button
+            type="button"
+            disabled={selectedIds.size === 0}
+            onClick={handleStartCooking}
+            className="w-full font-display text-sm font-medium bg-terra-500 text-white py-3 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            Start cooking
+            {selectedIds.size > 0 && ` (${selectedIds.size} recipe${selectedIds.size !== 1 ? 's' : ''})`}
+          </button>
+        </div>
       </div>
     )
   }
