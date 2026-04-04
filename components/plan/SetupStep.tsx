@@ -25,7 +25,10 @@ export default function SetupStep({ setup, onSetupChange, onGetSuggestions, isGe
       const res = await fetch('/api/tags', { headers: { Authorization: `Bearer ${token}` } })
       if (res.ok) {
         const data = await res.json()
-        setAllTags([...(data.firstClass ?? []), ...(data.custom ?? []).map((t: { name: string; section: string }) => t.name)])
+        setAllTags([
+          ...(data.firstClass ?? []).map((t: { name: string }) => t.name),
+          ...(data.custom ?? []).map((t: { name: string; section: string }) => t.name),
+        ])
       }
     }
     loadTags()
@@ -35,7 +38,7 @@ export default function SetupStep({ setup, onSetupChange, onGetSuggestions, isGe
   const isDisabled = setup.activeDates.length === 0 || isGenerating
 
   return (
-    <div className="space-y-6 max-w-xl">
+    <div className="space-y-6 max-w-xl mx-auto">
       <div>
         <h2 className="font-display text-sm font-semibold text-stone-500 uppercase tracking-wider mb-2">Week</h2>
         <WeekPicker

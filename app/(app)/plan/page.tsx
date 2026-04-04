@@ -490,6 +490,8 @@ function PlanPageInner() {
           <SummaryStep
             setup={setup}
             selections={selections}
+            sideDishSelections={sideDishSelections}
+            dessertSelections={dessertSelections}
             onSave={handleSave}
             isSaving={isSaving}
             onBack={() => router.push('/plan?step=suggestions')}
