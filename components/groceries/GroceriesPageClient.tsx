@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { GroceryList } from '@/types'
 import GroceryListView from './GroceryListView'
 import { getAccessToken } from '@/lib/supabase/browser'
-import { getMostRecentSunday, addDays, formatShortDate as formatDate } from '@/lib/date-utils'
+import { getMostRecentSunday, getMostRecentWeekStart, addDays, formatShortDate as formatDate } from '@/lib/date-utils'
 import DateInput from '@/components/ui/DateInput'
 
 interface Props {
@@ -13,21 +13,45 @@ interface Props {
 }
 
 export default function GroceriesPageClient({ initialDateFrom, initialDateTo }: Props) {
-  const thisSunday = getMostRecentSunday()
-  const nextSunday = addDays(thisSunday, 7)
+  const [weekStartDay, setWeekStartDay] = useState(0)
+  const thisWeekStart = getMostRecentWeekStart(weekStartDay)
+  const nextWeekStart = addDays(thisWeekStart, 7)
 
-  const [dateFrom, setDateFrom] = useState(initialDateFrom ?? thisSunday)
-  const [dateTo,   setDateTo  ] = useState(initialDateTo   ?? addDays(thisSunday, 6))
+  const [dateFrom, setDateFrom] = useState(initialDateFrom ?? getMostRecentSunday())
+  const [dateTo,   setDateTo  ] = useState(initialDateTo   ?? addDays(getMostRecentSunday(), 6))
   const [list,         setList        ] = useState<GroceryList | null | undefined>(undefined)  // undefined = loading
   const [recipeCount,  setRecipeCount ] = useState<number | null>(null)
   const [generating,   setGenerating  ] = useState(false)
   const [genError,     setGenError    ] = useState<string | null>(null)
 
   const presets = [
-    { label: 'This week',   from: thisSunday,            to: addDays(thisSunday, 6)  },
-    { label: 'Next week',   from: nextSunday,            to: addDays(nextSunday, 6)  },
-    { label: 'Next 2 weeks', from: thisSunday,           to: addDays(thisSunday, 13) },
+    { label: 'This week',    from: thisWeekStart,            to: addDays(thisWeekStart, 6)  },
+    { label: 'Next week',    from: nextWeekStart,            to: addDays(nextWeekStart, 6)  },
+    { label: 'Next 2 weeks', from: thisWeekStart,            to: addDays(thisWeekStart, 13) },
   ]
+
+  // Load week_start_day preference once on mount
+  useEffect(() => {
+    async function loadPref() {
+      try {
+        const token = await getAccessToken()
+        const res = await fetch('/api/preferences', { headers: { Authorization: `Bearer ${token}` } })
+        if (res.ok) {
+          const prefs = await res.json()
+          const pref: number = prefs.week_start_day ?? 0
+          if (pref !== 0) {
+            setWeekStartDay(pref)
+            if (!initialDateFrom) {
+              const start = getMostRecentWeekStart(pref)
+              setDateFrom(start)
+              setDateTo(addDays(start, 6))
+            }
+          }
+        }
+      } catch { /* silently fail — default to Sunday */ }
+    }
+    void loadPref()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchList = useCallback(async (from: string, _to: string) => {
     setList(undefined)  // loading

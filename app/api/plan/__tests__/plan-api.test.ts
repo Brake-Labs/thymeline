@@ -578,16 +578,6 @@ describe('POST /api/plan/suggest validation', () => {
     expect(res.status).toBe(400)
   })
 
-  it('returns 400 when week_start is not a Sunday', async () => {
-    const res = await suggestPOST(makeReq('POST', 'http://localhost/api/plan/suggest', {
-      week_start: '2026-03-02', // Monday
-      active_dates: ['2026-03-02'],
-      prefer_this_week: [],
-      avoid_this_week: [],
-      free_text: '',
-    }))
-    expect(res.status).toBe(400)
-  })
 })
 
 describe('POST /api/plan validation', () => {
@@ -599,13 +589,6 @@ describe('POST /api/plan validation', () => {
     expect(res.status).toBe(400)
   })
 
-  it('returns 400 when week_start is not a Sunday', async () => {
-    const res = await planPOST(makeReq('POST', 'http://localhost/api/plan', {
-      week_start: '2026-03-02',
-      entries: [{ date: '2026-03-02', recipe_id: 'r1' }],
-    }))
-    expect(res.status).toBe(400)
-  })
 })
 
 // ── T30: Snack suggestions come only from side_dish + dessert recipes ──────────

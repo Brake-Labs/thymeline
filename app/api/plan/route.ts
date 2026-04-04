@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { createPlanSchema, parseBody } from '@/lib/schemas'
-import { isSunday, getOrCreateMealPlan } from './helpers'
+import { getOrCreateMealPlan } from './helpers'
 import { scopeQuery } from '@/lib/household'
 import type { SavedPlanEntry } from '@/types'
 
@@ -12,10 +12,6 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
   if (parseError) return parseError
 
   const { week_start, entries } = body
-
-  if (!isSunday(week_start)) {
-    return NextResponse.json({ error: 'week_start must be a Sunday' }, { status: 400 })
-  }
 
   const planResult = await getOrCreateMealPlan(db, user.id, week_start, ctx)
   if ('error' in planResult) {

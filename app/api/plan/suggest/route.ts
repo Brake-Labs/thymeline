@@ -5,7 +5,6 @@ import { getTodayISO } from '@/lib/date-utils'
 import { parseLLMJsonSafe, callLLM } from '@/lib/llm'
 import {
   getSeason,
-  isSunday,
   fetchRecipesByMealTypes,
   fetchRecentHistory,
   fetchUserPreferences,
@@ -28,10 +27,6 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
 
   const { week_start, active_dates, prefer_this_week, avoid_this_week, free_text } = body
   const active_meal_types: MealType[] = body.active_meal_types?.length ? body.active_meal_types : ['dinner']
-
-  if (!isSunday(week_start)) {
-    return NextResponse.json({ error: 'week_start must be a Sunday' }, { status: 400 })
-  }
 
   const todayISO = getTodayISO()
 

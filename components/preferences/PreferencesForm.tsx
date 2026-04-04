@@ -68,6 +68,7 @@ interface PrefsState {
   avoided_tags: string[]
   limited_tags: LimitedTag[]
   meal_context: string | null
+  week_start_day: number
 }
 
 function SectionCard({ children }: { children: React.ReactNode }) {
@@ -98,6 +99,7 @@ export default function PreferencesForm({ firstClassTags, customTags, hiddenTags
     avoided_tags: [],
     limited_tags: [],
     meal_context: null,
+    week_start_day: 0,
   })
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -210,9 +212,28 @@ export default function PreferencesForm({ firstClassTags, customTags, hiddenTags
                 onChange={(v) => setPrefs((p) => ({ ...p, cooldown_days: v }))}
               />
             </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-stone-700">Week starts on</label>
+              <div className="flex gap-2">
+                {([{ value: 0, label: 'Sunday' }, { value: 1, label: 'Monday' }] as const).map(({ value, label }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setPrefs((p) => ({ ...p, week_start_day: value }))}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium border-2 transition-colors ${
+                      prefs.week_start_day === value
+                        ? 'border-sage-500 bg-sage-50 text-sage-700'
+                        : 'border-stone-200 text-stone-600 hover:border-stone-300'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
           <SectionSaveButton
-            onSave={() => patch({ options_per_day: prefs.options_per_day, cooldown_days: prefs.cooldown_days })}
+            onSave={() => patch({ options_per_day: prefs.options_per_day, cooldown_days: prefs.cooldown_days, week_start_day: prefs.week_start_day })}
           />
         </SectionCard>
 

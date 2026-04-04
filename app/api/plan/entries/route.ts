@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { createPlanEntrySchema, parseBody } from '@/lib/schemas'
-import { isSunday, getOrCreateMealPlan } from '../helpers'
+import { getOrCreateMealPlan } from '../helpers'
 import type { MealType, PlanEntry } from '@/types'
 
 export const POST = withAuth(async (req, { user, db, ctx }) => {
@@ -10,11 +10,6 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
 
   const { week_start, date, recipe_id, meal_type, parent_entry_id } = body
   const is_side_dish = meal_type === 'dessert' ? true : (body.is_side_dish ?? false)
-
-  // Validate week_start is a Sunday
-  if (!isSunday(week_start)) {
-    return NextResponse.json({ error: 'week_start must be a Sunday' }, { status: 400 })
-  }
 
   // Validate date falls within the week of week_start
   const weekStartDate = new Date(week_start + 'T12:00:00Z')

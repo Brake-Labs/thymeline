@@ -11,11 +11,20 @@ export function getTodayISO(): string {
   return toDateString(new Date())
 }
 
+/**
+ * Return the most-recent occurrence of `weekStartDay` (0 = Sun … 6 = Sat)
+ * at or before `date` as "YYYY-MM-DD".
+ */
+export function getMostRecentWeekStart(weekStartDay: number, date: Date = new Date()): string {
+  const d = new Date(date)
+  const diff = (d.getUTCDay() - weekStartDay + 7) % 7
+  d.setUTCDate(d.getUTCDate() - diff)
+  return toDateString(d)
+}
+
 /** Return the most-recent Sunday (week_start) as "YYYY-MM-DD". */
 export function getMostRecentSunday(date: Date = new Date()): string {
-  const d = new Date(date)
-  d.setUTCDate(d.getUTCDate() - d.getUTCDay())
-  return toDateString(d)
+  return getMostRecentWeekStart(0, date)
 }
 
 /** Add N days to a "YYYY-MM-DD" string, returning a new date string. */
