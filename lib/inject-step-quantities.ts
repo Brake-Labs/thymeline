@@ -97,10 +97,21 @@ export function injectStepQuantities(
     result += stepText.slice(cursor, match.start)
     const key = match.matchName.toLowerCase()
     if (match.quantity && !seen.has(key)) {
-      const qStart = result.length
-      result += match.quantity
-      highlights.push({ start: qStart, end: result.length })
-      result += ' '
+      // Don't prepend the quantity if it already appears in the step text immediately
+      // before this ingredient (e.g. step says "Add 2 tbsp olive oil" — injecting
+      // again would produce "Add 2 tbsp 2 tbsp olive oil").
+      // Look back match.quantity.length + 15 chars to accommodate prepositions like
+      // "1 cup of flour" where "of" separates the quantity from the ingredient.
+      const lookback = stepText.slice(
+        Math.max(0, match.start - match.quantity.length - 15),
+        match.start,
+      )
+      if (!lookback.includes(match.quantity)) {
+        const qStart = result.length
+        result += match.quantity
+        highlights.push({ start: qStart, end: result.length })
+        result += ' '
+      }
     }
     seen.add(key)
     result += match.matched
