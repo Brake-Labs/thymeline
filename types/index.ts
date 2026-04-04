@@ -207,23 +207,6 @@ export interface GroceryList {
   updated_at:    string
 }
 
-export interface PantryItem {
-  id:          string
-  user_id:     string
-  name:        string
-  quantity:    string | null
-  section:     string | null   // GrocerySection value or null
-  expiry_date: string | null   // "YYYY-MM-DD"
-  added_at:    string
-  updated_at:  string
-}
-
-export interface PantryMatch {
-  recipe_id:     string
-  recipe_title:  string
-  match_count:   number
-  matched_items: string[]
-}
 
 export interface GeneratedRecipe {
   title:                 string

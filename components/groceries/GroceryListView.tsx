@@ -82,26 +82,11 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
   // ── Mark all bought for a recipe ─────────────────────────────────────────────
 
   const handleGotIt = useCallback(async (itemId: string) => {
-    const item = items.find((i) => i.id === itemId)
     const updated = items.map((i) =>
       i.id === itemId ? { ...i, bought: true } : i,
     )
     setItems(updated)
     await patch({ items: updated })
-    // Silently import into pantry in the background — fail silently on error
-    if (item) {
-      const quantity = [
-        item.amount !== null ? String(item.amount) : null,
-        item.unit ?? null,
-      ].filter(Boolean).join(' ') || null
-      getAccessToken().then((token) =>
-        fetch('/api/pantry/import', {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body:    JSON.stringify({ items: [{ name: item.name, quantity, section: item.section }] }),
-        }),
-      ).catch(() => { /* fail silently */ })
-    }
   }, [items, weekStart]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleUndoBought = useCallback(async (itemId: string) => {

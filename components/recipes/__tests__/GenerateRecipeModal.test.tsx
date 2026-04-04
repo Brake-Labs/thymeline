@@ -39,12 +39,11 @@ beforeEach(() => {
 // ── T01: GenerateRecipeModal shows generate form ──────────────────────────────
 
 describe('T01 - GenerateRecipeModal renders the generate form on open', () => {
-  it('shows pantry toggle and ingredients field on open', async () => {
+  it('shows ingredients field on open', async () => {
     render(<GenerateRecipeModal {...defaultProps} />)
     await waitFor(() => {
-      expect(screen.getByRole('switch')).toBeInTheDocument()
+      expect(screen.getByPlaceholderText(/e.g. chicken breast/i)).toBeInTheDocument()
     })
-    expect(screen.getByText('Use my pantry ingredients')).toBeInTheDocument()
   })
 
   it('calls onClose when × button is clicked', () => {
@@ -203,7 +202,7 @@ describe('T27 - Re-mounted GenerateRecipeModal starts with clean state', () => {
     rerender(<GenerateRecipeModal {...defaultProps} />)
     await waitFor(() => {
       expect(screen.queryByText(/AI generated/i)).not.toBeInTheDocument()
+      expect(screen.getByPlaceholderText(/e.g. chicken breast/i)).toBeInTheDocument()
     })
-    expect(screen.getByRole('switch')).toBeInTheDocument()
   })
 })
