@@ -17,6 +17,9 @@ const mockRecipes = [
 let capturedSystemMessage = ''
 let capturedUserMessage = ''
 
+let mockRecentHistory: { recipe_id: string }[] = []
+let mockCooldownDays = 0
+
 let tasteProfileOverride = {
   loved_recipe_ids: [] as string[],
   disliked_recipe_ids: [] as string[],
@@ -98,7 +101,7 @@ function makeDb() {
           select: () => chain,
           eq: () => chain,
           in: () => chain,
-          gte: async () => ({ data: [], error: null }),
+          gte: async () => ({ data: mockRecentHistory, error: null }),
           order: () => ({ limit: async () => ({ data: [], error: null }) }),
           then: (resolve: (v: { data: unknown[]; error: null }) => void) =>
             Promise.resolve({ data: [], error: null }).then(resolve),
@@ -110,7 +113,7 @@ function makeDb() {
           select: () => ({
             eq: () => ({
               single: async () => ({
-                data: { user_id: 'user-1', options_per_day: 3, cooldown_days: 0, seasonal_mode: false,
+                data: { user_id: 'user-1', options_per_day: 3, cooldown_days: mockCooldownDays, seasonal_mode: false,
                   preferred_tags: [], avoided_tags: [], limited_tags: [], seasonal_rules: null,
                   onboarding_completed: true, is_active: true },
                 error: null,
@@ -171,6 +174,8 @@ beforeEach(() => {
   vi.resetModules()
   capturedSystemMessage = ''
   capturedUserMessage = ''
+  mockRecentHistory = []
+  mockCooldownDays = 0
   tasteProfileOverride = {
     loved_recipe_ids: [],
     disliked_recipe_ids: [],
@@ -227,5 +232,21 @@ describe('Plan suggest — taste profile injection', () => {
     const res = await POST(makeReq(baseBody) as Parameters<typeof POST>[0])
     expect(res.status).toBe(200)
     expect(capturedSystemMessage).not.toContain('Taste profile:')
+  })
+
+  // T21: Loved recipes still respect cooldown
+  it('T21: loved recipe within cooldown is absent from candidate pool (not boosted past cooldown)', async () => {
+    // r2 (Tacos) is loved but was cooked 3 days ago — within the 28-day cooldown
+    tasteProfileOverride.loved_recipe_ids = ['r2']
+    mockCooldownDays = 28
+    mockRecentHistory = [{ recipe_id: 'r2' }]
+
+    const { POST } = await import('@/app/api/plan/suggest/route')
+    await POST(makeReq(baseBody) as Parameters<typeof POST>[0])
+
+    // r2 must NOT appear in the candidate pool sent to the LLM
+    expect(capturedUserMessage).not.toContain('"r2"')
+    // r1 and r3 (outside cooldown) must still be present
+    expect(capturedUserMessage).toContain('"r1"')
   })
 })
