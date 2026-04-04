@@ -15,8 +15,9 @@ vi.mock('next/navigation', () => ({
 }))
 
 vi.mock('next/link', () => ({
-  default: ({ children, href }: { children: React.ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  default: ({ children, href, ...rest }: { children: React.ReactNode; href: string; [key: string]: any }) => (
+    <a href={href} {...rest}>{children}</a>
   ),
 }))
 
@@ -326,6 +327,43 @@ describe('MealSlot - recipe time display', () => {
       />
     )
     expect(screen.queryByText(/min/)).not.toBeInTheDocument()
+  })
+})
+
+// ── T-COOK-LINK: Cook link uses correct route (regression #242) ───────────────
+
+describe('MealSlot - Cook link routes to correct cook-mode URL (regression #242)', () => {
+  it('single-entry Cook link routes to /recipes/:id/cook (not /cook/recipes/...)', () => {
+    const entry = makeEntry({ recipe_id: 'abc-123', meal_type: 'dinner' })
+    render(
+      <MealSlot
+        mealType="dinner"
+        date={DATE}
+        entries={[entry]}
+        onAdd={vi.fn()}
+        onDelete={vi.fn()}
+        onAddSideDish={vi.fn()}
+      />
+    )
+    const link = screen.getByRole('link', { name: /cook dinner/i })
+    expect(link).toHaveAttribute('href', '/recipes/abc-123/cook')
+  })
+
+  it('multi-entry Cook link routes to /meal/:date (not /cook/meal/...)', () => {
+    const e1 = makeEntry({ id: 'e1', recipe_id: 'r1', meal_type: 'dinner', recipe_title: 'Pasta' })
+    const e2 = makeEntry({ id: 'e2', recipe_id: 'r2', meal_type: 'dinner', recipe_title: 'Tacos' })
+    render(
+      <MealSlot
+        mealType="dinner"
+        date={DATE}
+        entries={[e1, e2]}
+        onAdd={vi.fn()}
+        onDelete={vi.fn()}
+        onAddSideDish={vi.fn()}
+      />
+    )
+    const link = screen.getByRole('link', { name: /cook dinner/i })
+    expect(link).toHaveAttribute('href', `/meal/${DATE}?meal_type=dinner`)
   })
 })
 
