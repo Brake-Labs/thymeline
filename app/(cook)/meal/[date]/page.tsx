@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import ActiveTimersBar from '@/components/cook/ActiveTimersBar'
+import IngredientChecklist from '@/components/cook/IngredientChecklist'
 import StepTimer, { type TimerState } from '@/components/cook/StepTimer'
 import { renderHighlighted } from '@/components/cook/renderHighlighted'
 import { injectStepQuantities } from '@/lib/inject-step-quantities'
@@ -81,6 +82,8 @@ export default function MultiRecipeCookPage({ params }: Props) {
   const [orderError, setOrderError] = useState<string | null>(null)
 
   const [currentStep, setCurrentStep] = useState(0)
+  const [activeTab, setActiveTab] = useState<'steps' | 'ingredients'>('steps')
+  const [checked, setChecked] = useState<Set<number>>(new Set())
   const [timers, setTimers] = useState<Map<number, TimerState>>(new Map())
   const [logStatus, setLogStatus] = useState<'idle' | 'loading' | 'done'>('idle')
   const [wakeLockActive, setWakeLockActive] = useState(false)
@@ -331,37 +334,39 @@ export default function MultiRecipeCookPage({ params }: Props) {
       : { text: step.text, highlights: [] }
 
     return (
-      <div className="px-4 py-4">
-        {/* Recipe badge */}
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-[11px] font-display font-bold uppercase tracking-[0.08em] text-white bg-sage-500 rounded-full px-2.5 py-0.5">
-            {step.recipeTitle}
-          </span>
-          <span className="text-xs text-stone-400">
-            Step {step.recipeStepIndex + 1} of {step.recipeTotalSteps}
-          </span>
+      <div className="px-4 py-4 flex flex-col" style={{ minHeight: 'calc(100svh - 13rem)' }}>
+        <div>
+          {/* Recipe badge */}
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-[11px] font-display font-bold uppercase tracking-[0.08em] text-white bg-sage-500 rounded-full px-2.5 py-0.5">
+              {step.recipeTitle}
+            </span>
+            <span className="text-xs text-stone-400">
+              Step {step.recipeStepIndex + 1} of {step.recipeTotalSteps}
+            </span>
+          </div>
+
+          {/* Step number + text */}
+          <div className="flex items-start gap-3 mb-4">
+            <span className="flex-shrink-0 w-7 h-7 rounded-full bg-sage-500 flex items-center justify-center text-white text-xs font-semibold mt-0.5">
+              {currentStep + 1}
+            </span>
+            <p className="text-stone-800 font-sans text-xl leading-[1.7]">
+              {renderHighlighted(text, highlights)}
+            </p>
+          </div>
+
+          {/* Timer */}
+          <StepTimer
+            stepIndex={currentStep}
+            stepText={step.text}
+            timerState={timers.get(currentStep)}
+            onChange={(state: TimerState | null) => handleTimerChange(currentStep, state)}
+          />
         </div>
 
-        {/* Step number + text */}
-        <div className="flex items-start gap-3 mb-4">
-          <span className="flex-shrink-0 w-7 h-7 rounded-full bg-sage-500 flex items-center justify-center text-white text-xs font-semibold mt-0.5">
-            {currentStep + 1}
-          </span>
-          <p className="text-stone-800 font-sans text-xl leading-[1.7]">
-            {renderHighlighted(text, highlights)}
-          </p>
-        </div>
-
-        {/* Timer */}
-        <StepTimer
-          stepIndex={currentStep}
-          stepText={step.text}
-          timerState={timers.get(currentStep)}
-          onChange={(state: TimerState | null) => handleTimerChange(currentStep, state)}
-        />
-
-        {/* Dot progress */}
-        <div className="flex justify-center gap-1.5 mt-6 flex-wrap">
+        {/* Dot progress — pushed to bottom of available space */}
+        <div className="flex justify-center gap-1.5 mt-auto pt-8 flex-wrap">
           {combinedSteps.map((s, i) => (
             <button
               key={i}
@@ -497,6 +502,14 @@ export default function MultiRecipeCookPage({ params }: Props) {
 
   const isLastStep = currentStep === combinedSteps.length - 1
 
+  // Combined ingredients string for the checklist tab
+  const cookingIngredients = recipes
+    .filter((r) => selectedIds.has(r.id))
+    .map((r) => r.ingredients)
+    .filter(Boolean)
+    .join('\n')
+  const ingredientLineCount = cookingIngredients.split('\n').filter(Boolean).length
+
   return (
     <div className="min-h-screen bg-stone-50 pb-28">
       {/* Header */}
@@ -522,6 +535,24 @@ export default function MultiRecipeCookPage({ params }: Props) {
       </div>
 
       <div className="pt-14">
+        {/* Tab bar */}
+        <div className="flex border-b border-stone-200 bg-white sticky top-14 z-30">
+          {(['steps', 'ingredients'] as const).map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              className={`flex-1 py-3 text-sm font-medium transition-colors ${
+                activeTab === tab
+                  ? 'border-b-2 border-sage-500 text-sage-600'
+                  : 'text-stone-500 hover:text-stone-700'
+              }`}
+            >
+              {tab === 'steps' ? 'Steps' : 'Ingredients'}
+            </button>
+          ))}
+        </div>
+
         {/* Active Timers Bar */}
         <ActiveTimersBar
           timers={[...timers.values()]}
@@ -530,8 +561,29 @@ export default function MultiRecipeCookPage({ params }: Props) {
           onDismiss={(idx) => handleTimerChange(idx, null)}
         />
 
-        {/* Step content */}
-        {renderCurrentStep()}
+        {/* Content */}
+        {activeTab === 'steps' ? (
+          renderCurrentStep()
+        ) : cookingIngredients ? (
+          <IngredientChecklist
+            ingredients={cookingIngredients}
+            baseServings={1}
+            targetServings={1}
+            checked={checked}
+            onToggle={(i) =>
+              setChecked((prev) => {
+                const next = new Set(prev)
+                if (next.has(i)) next.delete(i)
+                else next.add(i)
+                return next
+              })
+            }
+            onCheckAll={() => setChecked(new Set(Array.from({ length: ingredientLineCount }, (_, i) => i)))}
+            onUncheckAll={() => setChecked(new Set())}
+          />
+        ) : (
+          <p className="px-4 py-8 text-stone-400 text-sm">No ingredients listed.</p>
+        )}
       </div>
 
       {/* Fixed footer */}

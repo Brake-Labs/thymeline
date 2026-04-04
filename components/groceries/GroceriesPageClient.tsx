@@ -7,12 +7,17 @@ import { getAccessToken } from '@/lib/supabase/browser'
 import { getMostRecentSunday, addDays, formatShortDate as formatDate } from '@/lib/date-utils'
 import DateInput from '@/components/ui/DateInput'
 
-export default function GroceriesPageClient() {
+interface Props {
+  initialDateFrom?: string
+  initialDateTo?:   string
+}
+
+export default function GroceriesPageClient({ initialDateFrom, initialDateTo }: Props) {
   const thisSunday = getMostRecentSunday()
   const nextSunday = addDays(thisSunday, 7)
 
-  const [dateFrom, setDateFrom] = useState(thisSunday)
-  const [dateTo,   setDateTo  ] = useState(addDays(thisSunday, 6))
+  const [dateFrom, setDateFrom] = useState(initialDateFrom ?? thisSunday)
+  const [dateTo,   setDateTo  ] = useState(initialDateTo   ?? addDays(thisSunday, 6))
   const [list,         setList        ] = useState<GroceryList | null | undefined>(undefined)  // undefined = loading
   const [recipeCount,  setRecipeCount ] = useState<number | null>(null)
   const [generating,   setGenerating  ] = useState(false)
