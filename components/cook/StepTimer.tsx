@@ -104,23 +104,23 @@ export default function StepTimer({ stepIndex, stepText, timerState, onChange }:
     const display = formatTime(timerState.remaining)
 
     return (
-      <div className="flex items-center gap-2 mt-2">
+      <div className="flex items-center gap-3 mt-3">
         {done ? (
           <span className="text-red-500 font-semibold text-sm">Time&apos;s up!</span>
         ) : (
-          <span className="font-mono text-lg">{display}</span>
+          <span className="font-mono text-lg font-medium tabular-nums">{display}</span>
         )}
         <button
           type="button"
           onClick={() => onChange({ ...timerState, running: !timerState.running })}
-          className="text-xs border border-stone-300 rounded px-2 py-1"
+          className="text-sm font-medium bg-sage-500 text-white rounded-lg px-4 py-2 min-h-[40px]"
         >
           {timerState.running ? 'Pause' : 'Resume'}
         </button>
         <button
           type="button"
           onClick={() => onChange(null)}
-          className="text-xs border border-stone-300 rounded px-2 py-1"
+          className="text-sm font-medium border-2 border-stone-300 text-stone-600 rounded-lg px-4 py-2 min-h-[40px]"
         >
           Reset
         </button>
