@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Leaf } from 'lucide-react'
 import AssignDayPicker from './AssignDayPicker'
 import VaultSearchSheet from './VaultSearchSheet'
 import type { RecipeSuggestion, DaySelection, MealType } from '@/types'
@@ -160,6 +161,15 @@ export default function SuggestionMealSlotRow({
                       <p className="text-sm font-medium text-stone-800 truncate">{opt.recipe_title}</p>
                       {opt.reason && (
                         <p className="text-xs text-stone-400 italic mt-0.5">{opt.reason}</p>
+                      )}
+                      {opt.waste_badge_text && (
+                        <div
+                          className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-xs font-medium"
+                          style={{ backgroundColor: '#FFF0C0', color: '#5C4A00' }}
+                        >
+                          <Leaf size={10} className="flex-shrink-0" />
+                          {opt.waste_badge_text}
+                        </div>
                       )}
                     </div>
                     {selected ? (

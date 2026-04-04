@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { suggestSchema, parseBody } from '@/lib/schemas'
 import { getTodayISO } from '@/lib/date-utils'
-import { parseLLMJsonSafe } from '@/lib/llm'
+import { parseLLMJsonSafe, callLLM } from '@/lib/llm'
 import {
   getSeason,
   isSunday,
@@ -16,7 +16,10 @@ import {
   callLLMNonStreaming,
 } from '../helpers'
 import { scopeQuery } from '@/lib/household'
-import type { DaySuggestions, MealType } from '@/types'
+import { detectWasteOverlap, getPrimaryWasteBadgeText, type RecipeForOverlap } from '@/lib/waste-overlap'
+import type { DaySuggestions, MealType, WasteMatch } from '@/types'
+
+const WASTE_DETECTION_TIMEOUT_MS = 8000
 
 export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   const { data: body, error: parseError } = await parseBody(req, suggestSchema)
@@ -108,6 +111,96 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
       return NextResponse.json({ error: 'Suggestion failed. Please try again.' }, { status: 500 })
     }
     const validated = validateSuggestions(parsed.days, validIdsByMealType)
+
+    // ── Step 1: Fetch next week's saved plan ──────────────────────────────────
+    let nextWeekRecipes: RecipeForOverlap[] = []
+
+    if (body.include_next_week_plan) {
+      const nextWeekDate = new Date(week_start)
+      nextWeekDate.setDate(nextWeekDate.getDate() + 7)
+      const nextWeekStart = nextWeekDate.toISOString().slice(0, 10)
+
+      let nextPlanQ = db.from('meal_plans').select('id').eq('week_start', nextWeekStart)
+      nextPlanQ = scopeQuery(nextPlanQ, user.id, ctx)
+      const { data: nextPlan } = await nextPlanQ.maybeSingle()
+
+      if (nextPlan?.id) {
+        const { data: entries } = await db
+          .from('meal_plan_entries')
+          .select('recipe_id, recipes(title, ingredients)')
+          .eq('meal_plan_id', nextPlan.id)
+
+        nextWeekRecipes = (entries ?? [])
+          .map((e) => {
+            const r = e.recipes as { title: string; ingredients: string | null } | null
+            return {
+              recipe_id:   e.recipe_id,
+              title:       r?.title ?? '',
+              ingredients: r?.ingredients ?? '',
+            }
+          })
+          .filter((r) => r.ingredients.trim() !== '')
+      }
+    }
+
+    // ── Step 2: Fetch ingredients for this week's suggestions ─────────────────
+    const suggestedIds = new Set<string>()
+    for (const day of validated) {
+      for (const mts of day.meal_types) {
+        for (const opt of mts.options) {
+          suggestedIds.add(opt.recipe_id)
+        }
+      }
+    }
+
+    const { data: thisWeekData } = await db
+      .from('recipes')
+      .select('id, title, ingredients')
+      .in('id', [...suggestedIds])
+
+    const thisWeekRecipes: RecipeForOverlap[] = (thisWeekData ?? [])
+      .filter((r) => r.ingredients)
+      .map((r) => ({
+        recipe_id:   r.id,
+        title:       r.title,
+        ingredients: r.ingredients!,
+      }))
+
+    // ── Step 3: Run overlap detection with timeout ────────────────────────────
+    let wasteMap: Map<string, WasteMatch[]> | null = null
+
+    if (thisWeekRecipes.length > 0) {
+      const timeoutPromise = new Promise<null>((resolve) =>
+        setTimeout(() => resolve(null), WASTE_DETECTION_TIMEOUT_MS),
+      )
+
+      wasteMap = await Promise.race([
+        detectWasteOverlap(thisWeekRecipes, nextWeekRecipes, callLLM).catch(() => null),
+        timeoutPromise,
+      ])
+    }
+
+    // ── Step 4: Re-rank and attach badge text ─────────────────────────────────
+    if (wasteMap) {
+      for (const day of validated) {
+        for (const mts of day.meal_types) {
+          for (const opt of mts.options) {
+            const matches = wasteMap.get(opt.recipe_id)
+            if (matches?.length) {
+              opt.waste_matches    = matches
+              opt.waste_badge_text = getPrimaryWasteBadgeText(matches)
+            }
+          }
+
+          mts.options.sort((a, b) => {
+            const scoreA = a.waste_matches?.length ?? 0
+            const scoreB = b.waste_matches?.length ?? 0
+            return scoreB - scoreA
+          })
+        }
+      }
+    }
+
     return NextResponse.json({ days: validated })
   } catch (err) {
     console.error('LLM suggest error:', err)

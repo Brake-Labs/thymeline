@@ -1,0 +1,260 @@
+import { z } from 'zod'
+import { RECIPE_CATEGORIES, MEAL_TYPES, TAG_SECTIONS } from '@/types'
+
+// ─── Shared primitives (derived from types/index.ts const arrays) ───────────
+
+const dateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected YYYY-MM-DD date')
+
+const recipeCategory = z.enum(RECIPE_CATEGORIES)
+
+const mealType = z.enum(MEAL_TYPES)
+
+const tagSection = z.enum(TAG_SECTIONS)
+
+const positiveInt = z.number().int().positive()
+const nonNegativeInt = z.number().int().nonnegative()
+
+// ─── Recipes ────────────────────────────────────────────────────────────────
+
+export const createRecipeSchema = z.object({
+  title: z.string().trim().min(1, 'title is required'),
+  category: recipeCategory,
+  tags: z.array(z.string()).default([]),
+  ingredients: z.string().nullable().default(null),
+  steps: z.string().nullable().default(null),
+  notes: z.string().nullable().default(null),
+  url: z.string().nullable().default(null),
+  image_url: z.string().nullable().default(null),
+  prep_time_minutes: nonNegativeInt.nullable().default(null),
+  cook_time_minutes: nonNegativeInt.nullable().default(null),
+  total_time_minutes: nonNegativeInt.nullable().default(null),
+  inactive_time_minutes: nonNegativeInt.nullable().default(null),
+  servings: positiveInt.nullable().default(null),
+  source: z.enum(['scraped', 'manual', 'generated']).default('manual'),
+})
+
+export const updateRecipeSchema = z.object({
+  title: z.string().trim().min(1).optional(),
+  category: recipeCategory.optional(),
+  tags: z.array(z.string()).optional(),
+  ingredients: z.string().nullable().optional(),
+  steps: z.string().nullable().optional(),
+  notes: z.string().nullable().optional(),
+  url: z.string().nullable().optional(),
+  image_url: z.string().nullable().optional(),
+  prep_time_minutes: nonNegativeInt.nullable().optional(),
+  cook_time_minutes: nonNegativeInt.nullable().optional(),
+  total_time_minutes: nonNegativeInt.nullable().optional(),
+  inactive_time_minutes: nonNegativeInt.nullable().optional(),
+  servings: positiveInt.nullable().optional(),
+})
+
+export const shareRecipeSchema = z.object({
+  is_shared: z.boolean(),
+})
+
+export const logRecipeSchema = z.object({
+  made_on: dateString.optional(),
+})
+
+export const deleteLogSchema = z.object({
+  made_on: dateString,
+})
+
+export const searchRecipesSchema = z.object({
+  query: z.string().optional(),
+  filters: z.object({
+    tags: z.array(z.string()),
+    categories: z.array(recipeCategory),
+    maxTotalMinutes: z.number().nullable(),
+    lastMadeFrom: z.string().nullable(),
+    lastMadeTo: z.string().nullable(),
+    neverMade: z.boolean(),
+  }).optional(),
+})
+
+export const scrapeRecipeSchema = z.object({
+  url: z.string().trim().min(1, 'url is required').url('url must be a valid URL'),
+})
+
+export const generateRecipeSchema = z.object({
+  use_pantry: z.boolean(),
+  specific_ingredients: z.string(),
+  meal_type: mealType,
+  style_hints: z.string(),
+  dietary_restrictions: z.array(z.string()),
+})
+
+export const bulkUpdateRecipesSchema = z.object({
+  recipe_ids: z.array(z.string()).min(1, 'recipe_ids is required and must be non-empty'),
+  add_tags: z.array(z.string()).default([]),
+})
+
+// ─── Plan ───────────────────────────────────────────────────────────────────
+
+export const createPlanSchema = z.object({
+  week_start: dateString,
+  entries: z.array(z.object({
+    date: dateString,
+    recipe_id: z.string(),
+    meal_type: mealType.optional(),
+    is_side_dish: z.boolean().optional(),
+    parent_entry_id: z.string().optional(),
+  })).min(1),
+})
+
+export const createPlanEntrySchema = z.object({
+  week_start: dateString,
+  date: dateString,
+  recipe_id: z.string(),
+  meal_type: mealType,
+  is_side_dish: z.boolean().default(false),
+  parent_entry_id: z.string().optional(),
+})
+
+export const suggestSchema = z.object({
+  week_start: dateString,
+  active_dates: z.array(dateString).min(1),
+  active_meal_types: z.array(mealType).default(['dinner']),
+  prefer_this_week: z.array(z.string()).default([]),
+  avoid_this_week: z.array(z.string()).default([]),
+  free_text: z.string().default(''),
+  specific_requests: z.string().default(''),
+})
+
+export const swapSchema = z.object({
+  date: dateString,
+  meal_type: mealType.default('dinner'),
+  week_start: dateString,
+  already_selected: z.array(z.object({
+    date: dateString,
+    recipe_id: z.string(),
+  })).default([]),
+  prefer_this_week: z.array(z.string()).default([]),
+  avoid_this_week: z.array(z.string()).default([]),
+  free_text: z.string().default(''),
+})
+
+export const matchSchema = z.object({
+  query: z.string().min(1),
+  date: dateString.optional(),
+})
+
+// ─── Preferences ────────────────────────────────────────────────────────────
+
+export const updatePreferencesSchema = z.object({
+  options_per_day: z.number().int().min(1).max(5).optional(),
+  cooldown_days: z.number().int().min(1).max(60).optional(),
+  seasonal_mode: z.boolean().optional(),
+  preferred_tags: z.array(z.string()).optional(),
+  avoided_tags: z.array(z.string()).optional(),
+  limited_tags: z.array(z.object({
+    tag: z.string(),
+    cap: z.number().int().min(1).max(7),
+  })).optional(),
+  onboarding_completed: z.boolean().optional(),
+})
+
+// ─── Pantry ─────────────────────────────────────────────────────────────────
+
+export const createPantryItemSchema = z.object({
+  name: z.string().trim().min(1, 'name is required'),
+  quantity: z.string().nullable().optional(),
+  section: z.string().nullable().optional(),
+  expiry_date: z.string().nullable().optional(),
+})
+
+export const updatePantryItemSchema = z.object({
+  quantity: z.string().nullable().optional(),
+  expiry_date: z.string().nullable().optional(),
+})
+
+export const deletePantryItemsSchema = z.object({
+  ids: z.array(z.string()).min(1, 'ids must be a non-empty array'),
+})
+
+export const importPantrySchema = z.object({
+  items: z.array(z.object({
+    name: z.string().min(1),
+    quantity: z.string().nullable(),
+    section: z.string().nullable(),
+  })).min(1, 'items must be a non-empty array'),
+})
+
+export const scanPantrySchema = z.object({
+  image: z.string().min(1, 'image is required'),
+})
+
+// ─── Groceries ──────────────────────────────────────────────────────────────
+
+export const updateGroceryListSchema = z.object({
+  week_start: dateString.optional(),
+  list_id: z.string().optional(),
+  items: z.array(z.unknown()).optional(),
+  servings: z.number().optional(),
+  recipe_scales: z.array(z.unknown()).optional(),
+})
+
+export const generateGroceriesSchema = z.object({
+  week_start: dateString.optional(),
+  date_from: dateString.optional(),
+  date_to: dateString.optional(),
+})
+
+// ─── Tags ───────────────────────────────────────────────────────────────────
+
+export const createTagSchema = z.object({
+  name: z.string().trim().min(1, 'name is required'),
+  section: tagSection.default('cuisine'),
+})
+
+// ─── Household ──────────────────────────────────────────────────────────────
+
+export const createHouseholdSchema = z.object({
+  name: z.string().trim().min(1, 'name is required'),
+})
+
+export const updateMemberRoleSchema = z.object({
+  role: z.enum(['co_owner', 'member']),
+})
+
+export const joinHouseholdSchema = z.object({
+  token: z.string().trim().min(1, 'token is required'),
+})
+
+export const transferOwnershipSchema = z.object({
+  new_owner_id: z.string().min(1),
+})
+
+// ─── Invite ─────────────────────────────────────────────────────────────────
+
+export const consumeInviteSchema = z.object({
+  token: z.string().min(1),
+})
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+import { NextRequest, NextResponse } from 'next/server'
+
+/**
+ * Parse and validate a request body against a Zod schema.
+ * Returns { data, error } — if error is set, return it as the response.
+ */
+export async function parseBody<T extends z.ZodTypeAny>(
+  req: NextRequest,
+  schema: T,
+): Promise<{ data: z.infer<T>; error?: never } | { data?: never; error: NextResponse }> {
+  let raw: unknown
+  try {
+    raw = await req.json()
+  } catch {
+    return { error: NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
+  }
+  const result = schema.safeParse(raw)
+  if (!result.success) {
+    const first = result.error.issues[0]
+    const message = first ? `${first.path.join('.')}: ${first.message}`.replace(/^: /, '') : 'Validation error'
+    return { error: NextResponse.json({ error: message }, { status: 400 }) }
+  }
+  return { data: result.data }
+}

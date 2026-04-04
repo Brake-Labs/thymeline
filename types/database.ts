@@ -369,6 +369,7 @@ export type Database = {
           created_at: string
           id: string
           made_on: string
+          make_again: boolean | null
           recipe_id: string
           user_id: string
         }
@@ -376,6 +377,7 @@ export type Database = {
           created_at?: string
           id?: string
           made_on: string
+          make_again?: boolean | null
           recipe_id: string
           user_id: string
         }
@@ -383,6 +385,7 @@ export type Database = {
           created_at?: string
           id?: string
           made_on?: string
+          make_again?: boolean | null
           recipe_id?: string
           user_id?: string
         }
@@ -486,6 +489,7 @@ export type Database = {
           id: string
           is_active: boolean
           limited_tags: Json
+          meal_context: string | null
           onboarding_completed: boolean
           options_per_day: number
           preferred_tags: string[]
@@ -505,6 +509,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           limited_tags?: Json
+          meal_context?: string | null
           onboarding_completed?: boolean
           options_per_day?: number
           preferred_tags?: string[]
@@ -524,6 +529,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           limited_tags?: Json
+          meal_context?: string | null
           onboarding_completed?: boolean
           options_per_day?: number
           preferred_tags?: string[]
