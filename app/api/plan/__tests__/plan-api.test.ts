@@ -207,6 +207,11 @@ vi.mock('@/lib/household', () => ({
 
 import { resolveHouseholdScope } from '@/lib/household'
 
+vi.mock('@/lib/waste-overlap', () => ({
+  detectWasteOverlap: vi.fn().mockResolvedValue(new Map()),
+  getPrimaryWasteBadgeText: vi.fn().mockReturnValue(''),
+}))
+
 vi.mock('@anthropic-ai/sdk', () => ({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   default: function MockAnthropic(this: any) {
