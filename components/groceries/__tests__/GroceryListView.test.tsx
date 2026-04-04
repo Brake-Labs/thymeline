@@ -345,3 +345,60 @@ describe('T23 - Share falls back to clipboard when Web Share unavailable', () =>
     })
   })
 })
+
+// ── T261-A: Need to Buy section groups non-pantry items (regression for #261) ──
+
+describe('T261-A - Need to Buy section shows non-pantry items (regression for #261)', () => {
+  it('renders Need to Buy heading and places non-pantry items under it', () => {
+    render(<GroceryListView initialList={sampleList} />)
+    expect(screen.getByRole('region', { name: 'Need to Buy' })).toBeInTheDocument()
+    // pasta and lettuce are non-pantry
+    expect(screen.getByLabelText('Check pasta')).toBeInTheDocument()
+    expect(screen.getByLabelText('Check lettuce')).toBeInTheDocument()
+  })
+
+  it('shows grocery section labels for items grouped under Need to Buy', () => {
+    render(<GroceryListView initialList={sampleList} />)
+    // pasta is section:'Pantry', lettuce is section:'Produce'
+    expect(screen.getByText('Pantry')).toBeInTheDocument()
+    expect(screen.getByText('Produce')).toBeInTheDocument()
+  })
+})
+
+// ── T261-B: Pantry Items section shows is_pantry items (regression for #261) ──
+
+describe('T261-B - Pantry Items section shows is_pantry items (regression for #261)', () => {
+  it('renders Pantry Items heading and places is_pantry items under it', () => {
+    render(<GroceryListView initialList={sampleList} />)
+    expect(screen.getByRole('region', { name: 'Pantry Items' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Check olive oil')).toBeInTheDocument()
+  })
+
+  it('checking a pantry item calls PATCH', async () => {
+    render(<GroceryListView initialList={sampleList} />)
+    fireEvent.click(screen.getByLabelText('Check olive oil'))
+    await waitFor(() => {
+      const patchCalls = mockFetch.mock.calls.filter(([, opts]) => opts?.method === 'PATCH')
+      expect(patchCalls.length).toBeGreaterThan(0)
+    })
+  })
+})
+
+// ── T261-C: Recipes panel is collapsible (regression for #261) ───────────────
+
+describe('T261-C - Recipes panel is collapsible (regression for #261)', () => {
+  it('shows recipe titles in an open Recipes panel by default', () => {
+    render(<GroceryListView initialList={sampleList} />)
+    expect(screen.getByRole('region', { name: 'Recipes in this list' })).toBeInTheDocument()
+    expect(screen.getByText('Pasta')).toBeInTheDocument()
+    expect(screen.getByText('Salad')).toBeInTheDocument()
+  })
+
+  it('collapses recipes panel when the header button is clicked', () => {
+    render(<GroceryListView initialList={sampleList} />)
+    const toggleBtn = screen.getByRole('button', { name: /Recipes \(2\)/ })
+    fireEvent.click(toggleBtn)
+    // After collapse, recipe titles disappear
+    expect(screen.queryByText('Pasta')).not.toBeInTheDocument()
+  })
+})
