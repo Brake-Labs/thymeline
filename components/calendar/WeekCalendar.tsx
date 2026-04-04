@@ -11,7 +11,7 @@ export default function WeekCalendar() {
   const [weekStart, setWeekStart] = useState(currentSunday)
   const [entries, setEntries] = useState<PlanEntry[]>([])
   const [expandedDates, setExpandedDates] = useState<Set<string>>(
-    () => new Set(weekStart === currentSunday ? getWeekDates(currentSunday) : [])
+    () => new Set(getWeekDates(currentSunday))
   )
   const [loading, setLoading] = useState(false)
 
@@ -38,8 +38,7 @@ export default function WeekCalendar() {
 
   useEffect(() => {
     fetchPlan(weekStart)
-    // Reset: expand all for current week, collapse all for other weeks
-    setExpandedDates(new Set(weekStart === currentSunday ? getWeekDates(weekStart) : []))
+    setExpandedDates(new Set(getWeekDates(weekStart)))
   }, [weekStart, fetchPlan, currentSunday])
 
   const handlePrevWeek = () => setWeekStart((ws) => addWeeks(ws, -1))

@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import DayCard from '../DayCard'
 import MealSlot from '../MealSlot'
+import WeekCalendar from '../WeekCalendar'
 import type { PlanEntry } from '@/types'
 
 vi.mock('@/lib/supabase/browser', () => ({
@@ -402,6 +403,28 @@ describe('MealSlot - Cook link routes to /meal when a side dish is present (regr
     )
     const link = screen.getByRole('link', { name: /cook dinner/i })
     expect(link).toHaveAttribute('href', '/recipes/main-1/cook')
+  })
+})
+
+// ── T-FUTURE-EXPAND: Future weeks start expanded (regression #247) ────────────
+
+describe('WeekCalendar - future weeks are expanded on navigation (regression #247)', () => {
+  it('shows meal type slots (expanded) after navigating to next week', async () => {
+    global.fetch = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ plan: null }),
+    })) as unknown as typeof fetch
+
+    render(<WeekCalendar />)
+
+    // Current week starts expanded — Dinner labels are visible
+    await waitFor(() => expect(screen.getAllByText('Dinner').length).toBeGreaterThan(0))
+
+    // Navigate to next week
+    fireEvent.click(screen.getByRole('button', { name: /next week/i }))
+
+    // Next week should also be expanded — Dinner labels still visible
+    await waitFor(() => expect(screen.getAllByText('Dinner').length).toBeGreaterThan(0))
   })
 })
 
