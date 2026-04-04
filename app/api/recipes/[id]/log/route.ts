@@ -20,23 +20,42 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }, params)
   const { data: body } = await parseBody(req, logRecipeSchema)
   const madeOn = body?.made_on ?? today
 
-  const { error: insertError } = await db
+  const baseInsert = { recipe_id: id, user_id: user.id, made_on: madeOn }
+  const insertRow = body?.make_again !== undefined
+    ? { ...baseInsert, make_again: body.make_again }
+    : baseInsert
+
+  const { data: inserted, error: insertError } = await db
     .from('recipe_history')
-    .insert({ recipe_id: id, user_id: user.id, made_on: madeOn })
+    .insert(insertRow)
+    .select('id')
+    .single()
 
   // Unique constraint violation = already logged today — treat as idempotent
   const alreadyLogged =
-    insertError !== null &&
+    insertError != null &&
     (insertError.code === '23505' || insertError.message.includes('recipe_history_unique_day'))
 
   if (insertError && !alreadyLogged) {
     return NextResponse.json({ error: insertError.message }, { status: 500 })
   }
 
+  let entryId: string | null = inserted?.id ?? null
+  if (alreadyLogged) {
+    const { data: existing } = await db
+      .from('recipe_history')
+      .select('id')
+      .eq('recipe_id', id)
+      .eq('user_id', user.id)
+      .eq('made_on', madeOn)
+      .single()
+    entryId = existing?.id ?? null
+  }
+
   // Silent pantry deduction — fire and forget, never affects the HTTP response
   if (id) void deductPantryIngredients(id, user.id).catch(() => {})
 
-  return NextResponse.json({ made_on: madeOn, already_logged: alreadyLogged })
+  return NextResponse.json({ made_on: madeOn, already_logged: alreadyLogged, entry_id: entryId })
 })
 
 // Pattern for clearly singular quantities (null quantity is also deductible)

@@ -16,6 +16,7 @@ import {
   callLLMNonStreaming,
 } from '../helpers'
 import { scopeQuery } from '@/lib/household'
+import { deriveTasteProfile } from '@/lib/taste-profile'
 import { detectWasteOverlap, getPrimaryWasteBadgeText, type RecipeForOverlap } from '@/lib/waste-overlap'
 import type { DaySuggestions, MealType, WasteMatch } from '@/types'
 
@@ -34,7 +35,10 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
 
   const todayISO = getTodayISO()
 
-  const prefs = await fetchUserPreferences(db, user.id, ctx)
+  const [prefs, tasteProfile] = await Promise.all([
+    fetchUserPreferences(db, user.id, ctx),
+    deriveTasteProfile(user.id, db, ctx ?? null),
+  ])
   const cooldownDays = prefs?.cooldown_days ?? 28
   const recipesByMealType = await fetchRecipesByMealTypes(db, user.id, cooldownDays, active_meal_types, ctx)
   const recentHistory = await fetchRecentHistory(db, user.id)
@@ -77,6 +81,15 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
     }
   }
 
+  // Filter out disliked recipes; build loved set for prompt annotations
+  const dislikedSet = new Set(tasteProfile.disliked_recipe_ids)
+  const lovedSet = new Set(tasteProfile.loved_recipe_ids)
+  if (dislikedSet.size > 0) {
+    for (const mt of Object.keys(recipesByMealType) as MealType[]) {
+      recipesByMealType[mt] = recipesByMealType[mt].filter((r) => !dislikedSet.has(r.id))
+    }
+  }
+
   const totalRecipes = Object.values(recipesByMealType).reduce((n, r) => n + r.length, 0)
   console.warn(`[suggest] user=${user.id} total_recipes_after_cooldown=${totalRecipes} cooldown_days=${cooldownDays}`)
   if (totalRecipes === 0) {
@@ -86,7 +99,7 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   const today = new Date()
   const season = getSeason(today.getMonth())
 
-  const systemMessage = buildSystemMessage(prefs, prefer_this_week ?? [], avoid_this_week ?? [], season)
+  const systemMessage = buildSystemMessage(prefs, prefer_this_week ?? [], avoid_this_week ?? [], season, tasteProfile)
   const pantryContext = await fetchPantryContext(db, user.id, ctx)
   const userMessage = buildFullWeekUserMessage(
     active_dates,
@@ -95,6 +108,7 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
     free_text ?? '',
     active_meal_types,
     pantryContext,
+    lovedSet,
   )
 
   const validIdsByMealType = new Map<MealType, Set<string>>()

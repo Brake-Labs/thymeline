@@ -212,6 +212,19 @@ vi.mock('@/lib/waste-overlap', () => ({
   getPrimaryWasteBadgeText: vi.fn().mockReturnValue(''),
 }))
 
+vi.mock('@/lib/taste-profile', () => ({
+  deriveTasteProfile: vi.fn().mockResolvedValue({
+    loved_recipe_ids:    [],
+    disliked_recipe_ids: [],
+    top_tags:            [],
+    avoided_tags:        [],
+    preferred_tags:      [],
+    meal_context:        null,
+    cooking_frequency:   'moderate',
+    recent_recipes:      [],
+  }),
+}))
+
 vi.mock('@anthropic-ai/sdk', () => ({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   default: function MockAnthropic(this: any) {
