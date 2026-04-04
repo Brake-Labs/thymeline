@@ -4,17 +4,30 @@ import { parseBody } from '@/lib/schemas'
 import { checkOwnership } from '@/lib/household'
 import { callLLMMultimodal, parseLLMJson, LLMError, LLM_MODEL_CAPABLE } from '@/lib/llm'
 import { aiEditSchema } from '@/lib/schemas'
-import type { ModifiedRecipe } from '@/types'
+import { deriveTasteProfile } from '@/lib/taste-profile'
+import type { ModifiedRecipe, TasteProfile } from '@/types'
 import type { MessageParam } from '@anthropic-ai/sdk/resources/messages'
 
-const SYSTEM_PROMPT = `You are a helpful cooking assistant making real-time modifications to a recipe based on the cook's needs tonight.
+function buildSystemPrompt(profile: TasteProfile | null): string {
+  const base = `You are a helpful cooking assistant making real-time modifications to a recipe based on the cook's needs tonight.
 
 Rules:
 - Make only the changes the user requests — don't alter anything else
 - Be practical: suggest the best substitution if an ingredient is missing
 - Keep the recipe realistic and cookable
 - Respond conversationally — briefly confirm what you changed
-- Return the COMPLETE modified recipe, not just the changed parts
+- Return the COMPLETE modified recipe, not just the changed parts`
+
+  const tasteLines: string[] = []
+  if (profile?.meal_context) tasteLines.push(`Household context: ${profile.meal_context}`)
+  if (profile?.top_tags?.length) tasteLines.push(`Favourite styles: ${profile.top_tags.slice(0, 5).join(', ')}`)
+  if (profile?.avoided_tags?.length) tasteLines.push(`Avoid: ${profile.avoided_tags.join(', ')}`)
+
+  const tasteSection = tasteLines.length > 0
+    ? `\n\nHousehold taste profile:\n${tasteLines.join('\n')}`
+    : ''
+
+  return `${base}${tasteSection}
 
 Return ONLY valid JSON with no prose, preamble, or markdown fences:
 {
@@ -26,6 +39,7 @@ Return ONLY valid JSON with no prose, preamble, or markdown fences:
   "notes": "updated notes or null",
   "servings": 4
 }`
+}
 
 type AIEditResponsePayload = {
   message:     string
@@ -45,6 +59,8 @@ export const POST = withAuth(async (req, { user, db, ctx }, params) => {
   if (!ownership.owned) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
+
+  const tasteProfile = await deriveTasteProfile(user.id, db, ctx ?? null).catch(() => null)
 
   const { message, current_recipe, conversation_history } = body
 
@@ -96,7 +112,7 @@ My new request: ${message}`
     text = await callLLMMultimodal({
       model: LLM_MODEL_CAPABLE,
       maxTokens: 2048,
-      system: SYSTEM_PROMPT,
+      system: buildSystemPrompt(tasteProfile),
       messages,
     })
   } catch (err) {

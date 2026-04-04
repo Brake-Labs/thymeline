@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
-import { anthropic, parseLLMJson, LLM_MODEL_CAPABLE } from '@/lib/llm'
+import { anthropic, callLLM, parseLLMJson, LLM_MODEL_CAPABLE } from '@/lib/llm'
 import { FIRST_CLASS_TAGS } from '@/lib/tags'
 import { scopeQuery } from '@/lib/household'
+import { deriveTasteProfile } from '@/lib/taste-profile'
+import { detectWasteOverlap } from '@/lib/waste-overlap'
+import { fetchCurrentWeekPlan, getPlanWasteBadgeText } from '@/lib/plan-utils'
 import type { DiscoveryResult } from '@/types'
+import type { RecipeForOverlap } from '@/lib/waste-overlap'
 
-const MODEL = process.env.LLM_MODEL ?? 'claude-haiku-4-5-20251001'
+const DISCOVER_WASTE_TIMEOUT_MS = 5000
 // Web search requires a model that supports the web_search_20250305 tool — haiku does not.
 
 export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
@@ -26,25 +30,22 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   const siteFilter = (body.site_filter ?? '').trim()
 
   try {
-    // ── Step 1: Fetch vault context + user preferences ────────────────────────
-    const vaultQuery = scopeQuery(db
-      .from('recipes')
-      .select('title, tags, category')
-      .order('created_at', { ascending: false })
-      .limit(50), user.id, ctx)
+    // ── Step 1: Fetch vault context + taste profile + current plan ────────────
+    let vaultQ = db.from('recipes').select('title, tags, category').order('created_at', { ascending: false }).limit(50)
+    vaultQ = scopeQuery(vaultQ, user.id, ctx)
 
-    let prefsQ = db.from('user_preferences').select('meal_context')
-    prefsQ = scopeQuery(prefsQ, user.id, ctx)
-
-    const [{ data: vaultRecipes }, { data: prefsData }] = await Promise.all([vaultQuery, prefsQ.single()])
+    const [{ data: vaultRecipes }, tasteProfile, currentPlanRecipes] = await Promise.all([
+      vaultQ,
+      deriveTasteProfile(user.id, db, ctx ?? null).catch(() => null),
+      fetchCurrentWeekPlan(user.id, db, ctx ?? null).catch(() => [] as RecipeForOverlap[]),
+    ])
     const vaultContext = (vaultRecipes ?? []).map((r) => ({ title: r.title, tags: r.tags }))
-    const mealContext: string | null = (prefsData as { meal_context?: string | null } | null)?.meal_context ?? null
 
     // ── Step 2: Generate search queries ───────────────────────────────────────
     let searchQueries: string[] = [query]
     try {
       const queryGenMsg = await anthropic.messages.create({
-        model: MODEL,
+        model: LLM_MODEL_CAPABLE,
         max_tokens: 512,
         temperature: 0,
         messages: [
@@ -149,8 +150,15 @@ Extract key ingredients, cooking method, and cuisine style from the request. Ret
 
     let rankedResults: RankedResult[] = []
     try {
+      const tasteSection = (() => {
+        const lines: string[] = []
+        if (tasteProfile?.meal_context) lines.push(`Household context: ${tasteProfile.meal_context}`)
+        if (tasteProfile?.top_tags?.length) lines.push(`Favourite styles: ${tasteProfile.top_tags.slice(0, 5).join(', ')}`)
+        if (tasteProfile?.avoided_tags?.length) lines.push(`Avoid: ${tasteProfile.avoided_tags.join(', ')}`)
+        return lines.length > 0 ? `\n${lines.join('\n')}\n` : ''
+      })()
       const rankMsg = await anthropic.messages.create({
-        model: MODEL,
+        model: LLM_MODEL_CAPABLE,
         max_tokens: 2048,
         temperature: 0,
         messages: [
@@ -159,7 +167,7 @@ Extract key ingredients, cooking method, and cuisine style from the request. Ret
             content: `You are a recipe assistant. Given search results and a user's recipe vault, rank the results and suggest tags.
 
 User query: "${query}"
-${mealContext ? `\nHousehold context: ${mealContext}\n` : ''}
+${tasteSection}
 Search results:
 ${JSON.stringify(rawResults, null, 2)}
 
@@ -210,6 +218,15 @@ Return ONLY a JSON array with this shape (no explanation):
 
     console.log('[discover] after LLM ranking:', JSON.stringify(rankedResults, null, 2))
 
+    // ── Step 4.5: Post-filter recipes that have any avoided tag ─────────────
+    if (tasteProfile?.avoided_tags?.length) {
+      const avoidedSet = new Set(tasteProfile.avoided_tags.map((t) => t.toLowerCase()))
+      rankedResults = rankedResults.filter((r) => {
+        const recipeTags = (r.suggested_tags ?? []).map((t) => t.toLowerCase())
+        return !recipeTags.some((t) => avoidedSet.has(t))
+      })
+    }
+
     // ── Step 5: Validate and return ───────────────────────────────────────────
     const firstClassSet = new Set(FIRST_CLASS_TAGS.map((t) => t.toLowerCase()))
 
@@ -232,6 +249,32 @@ Return ONLY a JSON array with this shape (no explanation):
     }))
 
     console.log('[discover] after tag validation:', JSON.stringify(results, null, 2))
+
+    // ── Step 6: Waste overlap detection ───────────────────────────────────────
+    if (currentPlanRecipes.length > 0 && results.length > 0) {
+      try {
+        const candidateRecipes: RecipeForOverlap[] = results.map((r) => ({
+          recipe_id: r.url,
+          title: r.title,
+          ingredients: r.description ?? '',
+        }))
+        const wasteMap = await Promise.race([
+          detectWasteOverlap(candidateRecipes, currentPlanRecipes, callLLM),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('timeout')), DISCOVER_WASTE_TIMEOUT_MS)
+          ),
+        ])
+        for (const result of results) {
+          const matches = wasteMap.get(result.url)
+          if (matches && matches.length > 0) {
+            result.waste_matches = matches.map((m) => ({ ingredient: m.ingredient, waste_risk: m.waste_risk }))
+            result.waste_badge_text = getPlanWasteBadgeText(matches)
+          }
+        }
+      } catch (err) {
+        console.warn('[discover] waste detection skipped:', err)
+      }
+    }
 
     return NextResponse.json({ results })
   } catch (err) {

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { Leaf } from 'lucide-react'
 import { getSupabaseClient } from '@/lib/supabase/browser'
 import { DIETARY_TAGS } from '@/lib/tags'
 import type { GeneratedRecipe, MealType } from '@/types'
@@ -240,6 +241,16 @@ export default function GenerateRecipeTab({
 
       {generatedRecipe && (
         <div className="border border-stone-200 rounded-xl p-4 space-y-3">
+          <p className="text-sm font-semibold text-stone-800">{generatedRecipe.title}</p>
+          {generatedRecipe.waste_badge_text && (
+            <div
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
+              style={{ backgroundColor: '#FFF0C0', color: '#5C4A00' }}
+            >
+              <Leaf size={10} className="flex-shrink-0" />
+              {generatedRecipe.waste_badge_text}
+            </div>
+          )}
           <label className="block text-sm font-medium text-stone-700">
             Want to adjust anything?
           </label>
