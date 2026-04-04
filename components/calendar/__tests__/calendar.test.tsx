@@ -329,6 +329,57 @@ describe('MealSlot - recipe time display', () => {
   })
 })
 
+// ── T-COOK-LINK: Cook link uses correct route (regression #242) ───────────────
+
+describe('MealSlot - Cook link routes to correct cook-mode URL (regression #242)', () => {
+  it('links to /recipes/[id]/cook for a single-entry slot (not /cook/recipes/[id]/cook)', () => {
+    const entry = makeEntry({ recipe_id: 'abc-123', meal_type: 'dinner' })
+    render(
+      <MealSlot
+        mealType="dinner"
+        date={DATE}
+        entries={[entry]}
+        onAdd={vi.fn()}
+        onDelete={vi.fn()}
+        onAddSideDish={vi.fn()}
+      />
+    )
+    const cookLink = screen.getByRole('link', { name: 'Cook' })
+    expect(cookLink).toHaveAttribute('href', '/recipes/abc-123/cook')
+  })
+
+  it('links to /meal/[date] for a multi-entry slot (not /cook/meal/[date])', () => {
+    const e1 = makeEntry({ id: 'e1', recipe_id: 'r1', meal_type: 'dinner', recipe_title: 'Pasta' })
+    const e2 = makeEntry({ id: 'e2', recipe_id: 'r2', meal_type: 'dinner', recipe_title: 'Tacos' })
+    render(
+      <MealSlot
+        mealType="dinner"
+        date={DATE}
+        entries={[e1, e2]}
+        onAdd={vi.fn()}
+        onDelete={vi.fn()}
+        onAddSideDish={vi.fn()}
+      />
+    )
+    const cookLink = screen.getByRole('link', { name: 'Cook' })
+    expect(cookLink).toHaveAttribute('href', `/meal/${DATE}?meal_type=dinner`)
+  })
+
+  it('does not render a Cook link when date prop is omitted', () => {
+    const entry = makeEntry({ meal_type: 'dinner' })
+    render(
+      <MealSlot
+        mealType="dinner"
+        entries={[entry]}
+        onAdd={vi.fn()}
+        onDelete={vi.fn()}
+        onAddSideDish={vi.fn()}
+      />
+    )
+    expect(screen.queryByRole('link', { name: /Cook/i })).not.toBeInTheDocument()
+  })
+})
+
 // ── T21: Existing dinner-only plan renders correctly ──────────────────────────
 
 describe('T21 - Existing dinner-only plans render correctly in Dinner slot', () => {
