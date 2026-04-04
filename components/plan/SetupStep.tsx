@@ -17,6 +17,7 @@ interface SetupStepProps {
 
 export default function SetupStep({ setup, onSetupChange, onGetSuggestions, isGenerating }: SetupStepProps) {
   const [allTags, setAllTags] = useState<string[]>([])
+  const [tagsExpanded, setTagsExpanded] = useState(false)
 
   useEffect(() => {
     async function loadTags() {
@@ -84,29 +85,49 @@ export default function SetupStep({ setup, onSetupChange, onGetSuggestions, isGe
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <h2 className="font-display text-sm font-semibold text-stone-500 uppercase tracking-wider mb-2">
-            Prefer this week
-          </h2>
-          <TagBucketPicker
-            bucket="preferred"
-            selected={setup.preferThisWeek}
-            available={allTags}
-            onChange={(val) => onSetupChange({ preferThisWeek: val as string[] })}
-          />
-        </div>
-        <div>
-          <h2 className="font-display text-sm font-semibold text-stone-500 uppercase tracking-wider mb-2">
-            Avoid this week
-          </h2>
-          <TagBucketPicker
-            bucket="avoided"
-            selected={setup.avoidThisWeek}
-            available={avoidAvailable}
-            onChange={(val) => onSetupChange({ avoidThisWeek: val as string[] })}
-          />
-        </div>
+      <div>
+        <button
+          type="button"
+          onClick={() => setTagsExpanded((v) => !v)}
+          className="flex items-center gap-2 text-sm font-medium text-stone-500 hover:text-stone-700 transition-colors"
+        >
+          <span className="font-display text-sm font-semibold uppercase tracking-wider">
+            Prefer / Avoid this week
+          </span>
+          {(setup.preferThisWeek.length > 0 || setup.avoidThisWeek.length > 0) && (
+            <span className="text-xs bg-sage-100 text-sage-700 rounded-full px-2 py-0.5 font-medium">
+              {setup.preferThisWeek.length + setup.avoidThisWeek.length} selected
+            </span>
+          )}
+          <span className="text-stone-400 text-xs">{tagsExpanded ? '▲' : '▼'}</span>
+        </button>
+
+        {tagsExpanded && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
+            <div>
+              <h2 className="font-display text-sm font-semibold text-stone-500 uppercase tracking-wider mb-2">
+                Prefer this week
+              </h2>
+              <TagBucketPicker
+                bucket="preferred"
+                selected={setup.preferThisWeek}
+                available={allTags}
+                onChange={(val) => onSetupChange({ preferThisWeek: val as string[] })}
+              />
+            </div>
+            <div>
+              <h2 className="font-display text-sm font-semibold text-stone-500 uppercase tracking-wider mb-2">
+                Avoid this week
+              </h2>
+              <TagBucketPicker
+                bucket="avoided"
+                selected={setup.avoidThisWeek}
+                available={avoidAvailable}
+                onChange={(val) => onSetupChange({ avoidThisWeek: val as string[] })}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <button

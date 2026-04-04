@@ -58,37 +58,39 @@ export default function SuggestionsStep({
 
   return (
     <>
-      <div className="space-y-4 max-w-2xl pb-20">
+      <div className="pb-20">
         {/* Top bar — week label only */}
-        <h2 className="font-display text-base font-semibold text-stone-700">
+        <h2 className="font-display text-base font-semibold text-stone-700 mb-4">
           Suggestions for {formatWeekRange(setup.weekStart)}
         </h2>
 
-        {/* Day rows */}
-        {sortedDays.map((day) => (
-          <SuggestionDayRow
-            key={day.date}
-            date={day.date}
-            mealTypeSuggestions={day.meal_types}
-            selections={selections}
-            activeMealTypes={setup.activeMealTypes}
-            activeDates={setup.activeDates}
-            onSelect={onSelect}
-            onSkip={onSkipSlot}
-            onSwap={onSwapSlot}
-            onAssignToDay={onAssignToDay}
-            onVaultPick={onVaultPick}
-            onFreeTextMatch={onFreeTextMatch}
-            onSideDishPick={onSideDishPick}
-            onSideDishRemove={onSideDishRemove}
-            onDessertPick={onDessertPick}
-            onDessertRemove={onDessertRemove}
-          />
-        ))}
+        {/* Day rows — 1 column on mobile, 2 columns on large screens */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {sortedDays.map((day) => (
+            <SuggestionDayRow
+              key={day.date}
+              date={day.date}
+              mealTypeSuggestions={day.meal_types}
+              selections={selections}
+              activeMealTypes={setup.activeMealTypes}
+              activeDates={setup.activeDates}
+              onSelect={onSelect}
+              onSkip={onSkipSlot}
+              onSwap={onSwapSlot}
+              onAssignToDay={onAssignToDay}
+              onVaultPick={onVaultPick}
+              onFreeTextMatch={onFreeTextMatch}
+              onSideDishPick={onSideDishPick}
+              onSideDishRemove={onSideDishRemove}
+              onDessertPick={onDessertPick}
+              onDessertRemove={onDessertRemove}
+            />
+          ))}
+        </div>
 
         <button
           onClick={onBack}
-          className="text-sm font-medium border border-sage-300 text-sage-700 bg-transparent px-4 py-2 rounded-lg hover:bg-sage-50 transition-colors"
+          className="mt-4 text-sm font-medium border border-sage-300 text-sage-700 bg-transparent px-4 py-2 rounded-lg hover:bg-sage-50 transition-colors"
         >
           ← Back to setup
         </button>

@@ -78,31 +78,42 @@ function makeMockFrom(table: string) {
         eq: (col: string, val: string) => {
           const weekStart = col === 'week_start' ? val : undefined
           const resolvePlans = (): { id: string; week_start: string }[] => {
-            if (weekStart !== undefined && Object.keys(mockState.plansByWeekStart).length > 0
+            // Fetch-all case: no week_start filter (new suggest route queries all plans at once)
+            if (weekStart === undefined) {
+              if (Object.keys(mockState.plansByWeekStart).length > 0) {
+                return Object.values(mockState.plansByWeekStart).flat()
+              }
+              const allByWeekStart = Object.values(mockState.planByWeekStart).filter(Boolean) as { id: string; week_start: string }[]
+              if (allByWeekStart.length > 0) return allByWeekStart
+              return mockState.plan ? [mockState.plan] : []
+            }
+            if (Object.keys(mockState.plansByWeekStart).length > 0
                 && weekStart in mockState.plansByWeekStart) {
               return mockState.plansByWeekStart[weekStart] ?? []
             }
-            if (weekStart !== undefined && Object.keys(mockState.planByWeekStart).length > 0) {
+            if (Object.keys(mockState.planByWeekStart).length > 0) {
               const p = mockState.planByWeekStart[weekStart] ?? null
               return p ? [p] : []
             }
             return mockState.plan ? [mockState.plan] : []
           }
-          return {
-            eq: () => {
-              const plans = resolvePlans()
-              const plan  = plans[0] ?? null
-              // Return a real Promise so `await planQ` works for the suggest route's
-              // plural-plans query, with .single()/.maybeSingle() for other callers.
-              return Object.assign(
+          const plans = resolvePlans()
+          const plan  = plans[0] ?? null
+          // Return a real Promise so `await allPlansQ` works for the suggest route's
+          // all-plans query (single .eq call). Also expose .eq() for callers that
+          // chain a second .eq() (e.g. getOrCreateMealPlan: .eq('week_start').eq('user_id').maybeSingle()).
+          return Object.assign(
+            Promise.resolve({ data: plans, error: null }),
+            {
+              eq: () => Object.assign(
                 Promise.resolve({ data: plans, error: null }),
                 {
                   single:      async () => ({ data: plan, error: plan ? null : { message: 'not found' } }),
                   maybeSingle: async () => ({ data: plan, error: null }),
                 },
-              )
+              ),
             },
-          }
+          )
         },
       }),
       insert: () => ({
