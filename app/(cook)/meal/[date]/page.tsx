@@ -76,8 +76,9 @@ export default function MultiRecipeCookPage({ params }: Props) {
   const [error, setError] = useState<string | null>(null)
 
   // Selection screen: shown when > 1 recipe is available
-  const [phase, setPhase] = useState<'select' | 'cook'>('cook')
+  const [phase, setPhase] = useState<'select' | 'ordering' | 'cook'>('cook')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [orderError, setOrderError] = useState<string | null>(null)
 
   const [currentStep, setCurrentStep] = useState(0)
   const [timers, setTimers] = useState<Map<number, TimerState>>(new Map())
@@ -235,9 +236,54 @@ export default function MultiRecipeCookPage({ params }: Props) {
 
   // ── Start cooking (from selection screen) ────────────────────────────────
 
-  function handleStartCooking() {
+  async function handleStartCooking() {
     const cooking = recipes.filter((r) => selectedIds.has(r.id))
-    setCombinedSteps(buildCombinedSteps(cooking))
+
+    if (cooking.length <= 1) {
+      setCombinedSteps(buildCombinedSteps(cooking))
+      setCurrentStep(0)
+      setPhase('cook')
+      return
+    }
+
+    setPhase('ordering')
+    setOrderError(null)
+
+    try {
+      const token = await getAccessToken()
+      const res = await fetch('/api/cook/order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          recipes: cooking.map((r) => ({ id: r.id, title: r.title, steps: r.steps })),
+        }),
+      })
+
+      if (res.ok) {
+        const data: { ordered: { recipeId: string; stepIndex: number }[] } = await res.json()
+        const recipeMap = new Map(cooking.map((r) => [r.id, r]))
+        const steps: CombinedStep[] = data.ordered.map(({ recipeId, stepIndex }) => {
+          const r = recipeMap.get(recipeId)!
+          return {
+            text:             r.steps[stepIndex]!,
+            recipeId:         r.id,
+            recipeTitle:      r.title,
+            ingredients:      r.ingredients,
+            baseServings:     r.servings,
+            recipeStepIndex:  stepIndex,
+            recipeTotalSteps: r.steps.length,
+          }
+        })
+        setCombinedSteps(steps)
+      } else {
+        // API error — fall back to simple sequential order
+        setCombinedSteps(buildCombinedSteps(cooking))
+      }
+    } catch {
+      // Network error — fall back
+      setCombinedSteps(buildCombinedSteps(cooking))
+    }
+
     setCurrentStep(0)
     setPhase('cook')
   }
@@ -362,6 +408,18 @@ export default function MultiRecipeCookPage({ params }: Props) {
 
   // ── Selection screen ─────────────────────────────────────────────────────
 
+  if (phase === 'ordering') {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-3 text-center px-6">
+        <div className="w-8 h-8 rounded-full border-2 border-sage-400 border-t-transparent animate-spin" />
+        <p className="text-stone-500 font-sans text-sm">Optimising cooking order…</p>
+        {orderError && (
+          <p className="text-stone-400 text-xs">{orderError}</p>
+        )}
+      </div>
+    )
+  }
+
   if (phase === 'select') {
     return (
       <div className="min-h-screen bg-stone-50 pb-28">
@@ -426,7 +484,7 @@ export default function MultiRecipeCookPage({ params }: Props) {
           <button
             type="button"
             disabled={selectedIds.size === 0}
-            onClick={handleStartCooking}
+            onClick={() => { void handleStartCooking() }}
             className="w-full font-display text-sm font-medium bg-terra-500 text-white py-3 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Start cooking
