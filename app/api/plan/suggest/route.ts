@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { suggestSchema, parseBody } from '@/lib/schemas'
-import { getTodayISO, getMostRecentSunday } from '@/lib/date-utils'
+import { getTodayISO } from '@/lib/date-utils'
 import { parseLLMJsonSafe } from '@/lib/llm'
 import {
   getSeason,
@@ -36,42 +36,35 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   const recipesByMealType = await fetchRecipesByMealTypes(db, user.id, cooldownDays, active_meal_types, ctx)
   const recentHistory = await fetchRecentHistory(db, user.id)
 
-  // Exclude recipes already planned in any week that overlaps with "now or future".
-  // This covers two cases:
-  //   1. Recipes already placed in the week being suggested for (same week_start).
-  //   2. Recipes placed in the *current* week when suggesting a future week, so a
-  //      recipe the user is cooking this week is never suggested for next week.
+  // Exclude recipes already planned for any future date across ALL of the user's
+  // meal plans.  Previously only the current week and target week were checked,
+  // which missed recipes scheduled for weeks in between (e.g. a recipe set for
+  // April 8 was still suggested for April 19 even with a 30-day cooldown).
   const alreadyPlannedIds = new Set<string>()
 
-  const weekStartsToCheck = new Set<string>([week_start])
-  const thisWeekStart = getMostRecentSunday()
-  if (thisWeekStart !== week_start) weekStartsToCheck.add(thisWeekStart)
+  // Fetch every plan that belongs to this user/household in one query, then
+  // pull all entries with planned_date >= today in a single batch per plan.
+  const allPlansQ = scopeQuery(
+    db.from('meal_plans').select('id, week_start'),
+    user.id, ctx,
+  )
+  const { data: allPlans } = await allPlansQ
 
-  for (const ws of weekStartsToCheck) {
-    // Use a plain select (not maybeSingle) so that duplicate plan records for
-    // the same week_start are all covered — entries from every matching plan
-    // are added to the exclusion set.
-    const planQ = scopeQuery(db
-      .from('meal_plans')
-      .select('id')
-      .eq('week_start', ws), user.id, ctx)
-    const { data: plans } = await planQ
-    for (const plan of plans ?? []) {
-      // For the target week, only exclude entries from today onward (earlier
-      // slots in the same week have already been decided). For any other week
-      // (e.g. this week when suggesting next week), exclude ALL entries so a
-      // recipe planned for Monday of this week doesn't reappear next week.
-      let entriesQ = db
-        .from('meal_plan_entries')
-        .select('recipe_id')
-        .eq('meal_plan_id', plan.id)
-      if (ws === week_start) {
-        entriesQ = entriesQ.gte('planned_date', todayISO)
-      }
-      const { data: entries } = await entriesQ
-      for (const entry of entries ?? []) {
-        alreadyPlannedIds.add((entry as { recipe_id: string }).recipe_id)
-      }
+  for (const plan of (allPlans ?? []) as { id: string; week_start: string }[]) {
+    // For the target week: only exclude entries from today onward — earlier
+    // slots in the same week are already confirmed and shouldn't block the
+    // remaining days being suggested.
+    // For every other week: still use today as the lower bound so that only
+    // future-scheduled meals are excluded; past meals are handled by the
+    // cooldown filter against recipe_history.
+    const { data: entries } = await db
+      .from('meal_plan_entries')
+      .select('recipe_id')
+      .eq('meal_plan_id', plan.id)
+      .gte('planned_date', todayISO)
+
+    for (const entry of entries ?? []) {
+      alreadyPlannedIds.add((entry as { recipe_id: string }).recipe_id)
     }
   }
 

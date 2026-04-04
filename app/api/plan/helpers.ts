@@ -290,6 +290,15 @@ export async function fetchPantryContext(
   }
 }
 
+function shuffleArray<T>(arr: T[]): T[] {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[a[i], a[j]] = [a[j]!, a[i]!]
+  }
+  return a
+}
+
 export function buildFullWeekUserMessage(
   activeDates: string[],
   recipesByMealType: Record<MealType, RecipeForLLM[]>,
@@ -298,8 +307,10 @@ export function buildFullWeekUserMessage(
   activeMealTypes: MealType[],
   pantryContext: string = '',
 ): string {
+  // Shuffle each meal type's recipe list so the LLM doesn't consistently
+  // favour recipes at the top of the database-returned order (improves variety).
   const recipesSection = activeMealTypes.map((mt) => {
-    const list = (recipesByMealType[mt] ?? []).map((r) => ({ recipe_id: r.id, title: r.title, tags: r.tags }))
+    const list = shuffleArray(recipesByMealType[mt] ?? []).map((r) => ({ recipe_id: r.id, title: r.title, tags: r.tags }))
     return `${mt}: ${JSON.stringify(list)}`
   }).join('\n')
 

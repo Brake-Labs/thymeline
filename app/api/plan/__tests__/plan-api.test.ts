@@ -78,31 +78,42 @@ function makeMockFrom(table: string) {
         eq: (col: string, val: string) => {
           const weekStart = col === 'week_start' ? val : undefined
           const resolvePlans = (): { id: string; week_start: string }[] => {
-            if (weekStart !== undefined && Object.keys(mockState.plansByWeekStart).length > 0
+            // Fetch-all case: no week_start filter (new suggest route queries all plans at once)
+            if (weekStart === undefined) {
+              if (Object.keys(mockState.plansByWeekStart).length > 0) {
+                return Object.values(mockState.plansByWeekStart).flat()
+              }
+              const allByWeekStart = Object.values(mockState.planByWeekStart).filter(Boolean) as { id: string; week_start: string }[]
+              if (allByWeekStart.length > 0) return allByWeekStart
+              return mockState.plan ? [mockState.plan] : []
+            }
+            if (Object.keys(mockState.plansByWeekStart).length > 0
                 && weekStart in mockState.plansByWeekStart) {
               return mockState.plansByWeekStart[weekStart] ?? []
             }
-            if (weekStart !== undefined && Object.keys(mockState.planByWeekStart).length > 0) {
+            if (Object.keys(mockState.planByWeekStart).length > 0) {
               const p = mockState.planByWeekStart[weekStart] ?? null
               return p ? [p] : []
             }
             return mockState.plan ? [mockState.plan] : []
           }
-          return {
-            eq: () => {
-              const plans = resolvePlans()
-              const plan  = plans[0] ?? null
-              // Return a real Promise so `await planQ` works for the suggest route's
-              // plural-plans query, with .single()/.maybeSingle() for other callers.
-              return Object.assign(
+          const plans = resolvePlans()
+          const plan  = plans[0] ?? null
+          // Return a real Promise so `await allPlansQ` works for the suggest route's
+          // all-plans query (single .eq call). Also expose .eq() for callers that
+          // chain a second .eq() (e.g. getOrCreateMealPlan: .eq('week_start').eq('user_id').maybeSingle()).
+          return Object.assign(
+            Promise.resolve({ data: plans, error: null }),
+            {
+              eq: () => Object.assign(
                 Promise.resolve({ data: plans, error: null }),
                 {
                   single:      async () => ({ data: plan, error: plan ? null : { message: 'not found' } }),
                   maybeSingle: async () => ({ data: plan, error: null }),
                 },
-              )
+              ),
             },
-          }
+          )
         },
       }),
       insert: () => ({
@@ -1003,6 +1014,54 @@ describe('T33 - Duplicate meal_plan records: recipes in any plan record are excl
     // r1 was in plan-b → excluded even though plan-a was empty
     expect(options.find((o: { recipe_id: string }) => o.recipe_id === 'r1')).toBeUndefined()
     // r2 in neither plan → available
+    expect(options.find((o: { recipe_id: string }) => o.recipe_id === 'r2')).toBeDefined()
+  })
+})
+
+// ── T34: Intermediate-week cooldown regression ────────────────────────────────
+
+describe('T34 - Intermediate-week cooldown: recipe in a skipped week is excluded from later suggestions', () => {
+  // Regression: the old code only checked week_start and getMostRecentSunday().
+  // A recipe planned for April 8 (week of April 7) was still suggested for
+  // April 19 (week of April 14) even with a 30-day cooldown, because the
+  // intermediate week was never checked.
+  it('excludes a recipe planned for an intermediate week from a later week\'s suggestions', async () => {
+    // Mirrors the real bug: r1 was planned for April 8 (week of Apr 5, a Sunday).
+    // It was still appearing in suggestions for the week of April 19 (also a Sunday)
+    // because only the current week and target week were checked — the intermediate
+    // week (April 5) was skipped.
+    mockState.plansByWeekStart = {
+      '2026-04-05': [{ id: 'plan-inter', week_start: '2026-04-05' }],
+    }
+    mockState.entriesByPlanId = {
+      'plan-inter': [{ recipe_id: 'r1' }],
+    }
+
+    // LLM tries to suggest r1 for the April 19 week — should be excluded
+    mockState.llmResponse = JSON.stringify({
+      days: [{
+        date: '2026-04-21',
+        meal_types: [{ meal_type: 'dinner', options: [
+          { recipe_id: 'r1', recipe_title: 'Pasta',  reason: 'Quick'   },
+          { recipe_id: 'r2', recipe_title: 'Tacos',  reason: 'Healthy' },
+        ]}],
+      }],
+    })
+
+    const res = await suggestPOST(makeReq('POST', 'http://localhost/api/plan/suggest', {
+      week_start:       '2026-04-19',
+      active_dates:     ['2026-04-21'],
+      prefer_this_week: [],
+      avoid_this_week:  [],
+      free_text:        '',
+    }))
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    const options = body.days[0].meal_types[0].options
+    // r1 is already planned for April 8 (intermediate week) — must be excluded
+    expect(options.find((o: { recipe_id: string }) => o.recipe_id === 'r1')).toBeUndefined()
+    // r2 has no future plans — must be available
     expect(options.find((o: { recipe_id: string }) => o.recipe_id === 'r2')).toBeDefined()
   })
 })
