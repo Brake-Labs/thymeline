@@ -367,6 +367,44 @@ describe('MealSlot - Cook link routes to correct cook-mode URL (regression #242)
   })
 })
 
+// ── T-SIDE-DISH-COOK: Side dish routes to multi-recipe cook (regression #245) ─
+
+describe('MealSlot - Cook link routes to /meal when a side dish is present (regression #245)', () => {
+  it('routes to /meal/:date?meal_type when main entry has a non-dessert side dish', () => {
+    const main = makeEntry({ id: 'e1', recipe_id: 'main-1', meal_type: 'dinner', is_side_dish: false })
+    const side = makeEntry({ id: 'e2', recipe_id: 'side-1', meal_type: 'dinner', is_side_dish: true, parent_entry_id: 'e1', recipe_title: 'Garlic Bread' })
+    render(
+      <MealSlot
+        mealType="dinner"
+        date={DATE}
+        entries={[main, side]}
+        onAdd={vi.fn()}
+        onDelete={vi.fn()}
+        onAddSideDish={vi.fn()}
+      />
+    )
+    const link = screen.getByRole('link', { name: /cook dinner/i })
+    expect(link).toHaveAttribute('href', `/meal/${DATE}?meal_type=dinner`)
+  })
+
+  it('still routes to /recipes/:id/cook when main entry has only a dessert (no cookable side)', () => {
+    const main = makeEntry({ id: 'e1', recipe_id: 'main-1', meal_type: 'dinner', is_side_dish: false })
+    const dessert = makeEntry({ id: 'e2', recipe_id: 'dessert-1', meal_type: 'dessert', is_side_dish: true, parent_entry_id: 'e1', recipe_title: 'Ice Cream' })
+    render(
+      <MealSlot
+        mealType="dinner"
+        date={DATE}
+        entries={[main, dessert]}
+        onAdd={vi.fn()}
+        onDelete={vi.fn()}
+        onAddSideDish={vi.fn()}
+      />
+    )
+    const link = screen.getByRole('link', { name: /cook dinner/i })
+    expect(link).toHaveAttribute('href', '/recipes/main-1/cook')
+  })
+})
+
 // ── T21: Existing dinner-only plan renders correctly ──────────────────────────
 
 describe('T21 - Existing dinner-only plans render correctly in Dinner slot', () => {
