@@ -808,3 +808,37 @@ describe('T59 - Timer bar label persists when navigating between steps', () => {
     expect(screen.getByText(/Simmer for 20:00/)).toBeDefined()
   })
 })
+
+// ── T60-T62: Tab bar switching ────────────────────────────────────────────────
+
+describe('T60-T62 - Tab bar: Steps / Ingredients switching', () => {
+  it('T60 - Steps tab is active by default and shows step content', async () => {
+    await renderCookPage()
+    // Step text is visible
+    expect(screen.getByText('Mix ingredients')).toBeDefined()
+    // Ingredients list is not visible
+    expect(screen.queryByText(/2 cups flour/i)).toBeNull()
+  })
+
+  it('T61 - clicking Ingredients tab shows the ingredient checklist', async () => {
+    await renderCookPage()
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^ingredients$/i }))
+    })
+    expect(screen.getByText(/2 cups flour/i)).toBeDefined()
+    // Step text is hidden
+    expect(screen.queryByText('Mix ingredients')).toBeNull()
+  })
+
+  it('T62 - clicking Steps tab after switching to Ingredients returns to step content', async () => {
+    await renderCookPage()
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^ingredients$/i }))
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^steps$/i }))
+    })
+    expect(screen.getByText('Mix ingredients')).toBeDefined()
+    expect(screen.queryByText(/2 cups flour/i)).toBeNull()
+  })
+})
