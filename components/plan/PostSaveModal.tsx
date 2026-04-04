@@ -1,6 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import { addDays } from '@/lib/date-utils'
 
 interface PostSaveModalProps {
   weekStart: string
@@ -19,7 +20,7 @@ export default function PostSaveModal({ weekStart, isOpen }: PostSaveModalProps)
         <p className="text-sm text-stone-600">What would you like to do next?</p>
         <div className="space-y-3">
           <button
-            onClick={() => router.push(`/groceries?week_start=${weekStart}`)}
+            onClick={() => router.push(`/groceries?date_from=${weekStart}&date_to=${addDays(weekStart, 6)}`)}
             className="font-display w-full px-4 py-3 bg-sage-500 text-white text-sm font-medium rounded-lg hover:bg-sage-600 transition-colors"
           >
             Make my grocery list
