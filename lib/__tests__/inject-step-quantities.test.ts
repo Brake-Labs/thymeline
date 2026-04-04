@@ -137,3 +137,33 @@ describe('T57 - no highlights once all ingredients have been seen (regression fo
     expect(step2.highlights).toHaveLength(0)
   })
 })
+
+// ── T58: Step already contains exact quantity — no duplication (regression for #253) ─
+
+describe('T58 - step already contains exact quantity — no duplication (regression for #253)', () => {
+  it('does not prepend quantity when step text already has it before the ingredient name', () => {
+    const result = injectStepQuantities(
+      'Add 2 tbsp olive oil to the pan',
+      '2 tbsp olive oil',
+      4,
+      4,
+    )
+    expect(result.text).toBe('Add 2 tbsp olive oil to the pan')
+    expect(result.highlights).toHaveLength(0)
+  })
+})
+
+// ── T59: Step contains quantity with preposition — no duplication (regression for #253) ─
+
+describe('T59 - step contains quantity with preposition — no duplication (regression for #253)', () => {
+  it('does not inject quantity when step already has "1 cup of chicken broth" with preposition', () => {
+    const result = injectStepQuantities(
+      'Stir in 1 cup of chicken broth and simmer',
+      '1 cup chicken broth',
+      4,
+      4,
+    )
+    expect(result.text).toBe('Stir in 1 cup of chicken broth and simmer')
+    expect(result.highlights).toHaveLength(0)
+  })
+})
