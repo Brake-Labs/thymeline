@@ -13,9 +13,10 @@ export default function GroceriesPageClient() {
 
   const [dateFrom, setDateFrom] = useState(thisSunday)
   const [dateTo,   setDateTo  ] = useState(addDays(thisSunday, 6))
-  const [list,     setList    ] = useState<GroceryList | null | undefined>(undefined)  // undefined = loading
-  const [generating, setGenerating] = useState(false)
-  const [genError,   setGenError  ] = useState<string | null>(null)
+  const [list,         setList        ] = useState<GroceryList | null | undefined>(undefined)  // undefined = loading
+  const [recipeCount,  setRecipeCount ] = useState<number | null>(null)
+  const [generating,   setGenerating  ] = useState(false)
+  const [genError,     setGenError    ] = useState<string | null>(null)
 
   const presets = [
     { label: 'This week',   from: thisSunday,            to: addDays(thisSunday, 6)  },
@@ -38,7 +39,26 @@ export default function GroceriesPageClient() {
     }
   }, [])
 
-  useEffect(() => { fetchList(dateFrom, dateTo) }, [dateFrom, dateTo, fetchList])
+  const fetchCount = useCallback(async (from: string, to: string) => {
+    setRecipeCount(null)
+    try {
+      const token = await getAccessToken()
+      const res = await fetch(`/api/groceries/count?date_from=${from}&date_to=${to}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (res.ok) {
+        const json = await res.json()
+        setRecipeCount(json.recipe_count ?? 0)
+      }
+    } catch {
+      setRecipeCount(0)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchList(dateFrom, dateTo)
+    fetchCount(dateFrom, dateTo)
+  }, [dateFrom, dateTo, fetchList, fetchCount])
 
   async function handleGenerate() {
     setGenerating(true)
@@ -112,13 +132,19 @@ export default function GroceriesPageClient() {
           <h2 className="font-display text-lg font-semibold text-stone-800">
             No grocery list for {formatDate(dateFrom)}–{formatDate(dateTo)}
           </h2>
-          <p className="text-stone-600 text-sm">
-            Generate a list from your meal plans for this date range.
-          </p>
+          {recipeCount === null ? (
+            <p className="text-stone-400 text-sm">Checking meal plan…</p>
+          ) : recipeCount === 0 ? (
+            <p className="text-stone-500 text-sm">No recipes planned for this range.</p>
+          ) : (
+            <p className="text-stone-600 text-sm">
+              {recipeCount} recipe{recipeCount !== 1 ? 's' : ''} planned — generate a list to get started.
+            </p>
+          )}
           <button
             type="button"
             onClick={handleGenerate}
-            disabled={generating}
+            disabled={generating || recipeCount === 0}
             className="font-display px-6 py-3 bg-sage-500 text-white text-sm font-semibold rounded-lg hover:bg-sage-600 disabled:opacity-60 transition-colors"
           >
             {generating ? 'Generating…' : 'Generate grocery list'}
