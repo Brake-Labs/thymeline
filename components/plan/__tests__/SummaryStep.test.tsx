@@ -25,7 +25,7 @@ describe('T26 - Summary shows confirmed days in chronological order', () => {
       <SummaryStep
         setup={makeSetup([SUN, MON])}
         selections={{ [`${SUN}:dinner`]: SEL_SUN, [`${MON}:dinner`]: SEL_MON }}
-        onSave={vi.fn()}
+        sideDishSelections={{}} dessertSelections={{}} onSave={vi.fn()}
         isSaving={false}
         onBack={vi.fn()}
       />
@@ -47,7 +47,7 @@ describe('T27 - Summary shows skipped slots', () => {
           [`${MON}:dinner`]: null,
           [`${TUE}:dinner`]: null,
         }}
-        onSave={vi.fn()}
+        sideDishSelections={{}} dessertSelections={{}} onSave={vi.fn()}
         isSaving={false}
         onBack={vi.fn()}
       />
@@ -67,7 +67,7 @@ describe('T28 - Excluded days do not appear in summary', () => {
       <SummaryStep
         setup={makeSetup([SUN, MON])}
         selections={{ [`${SUN}:dinner`]: SEL_SUN }}
-        onSave={vi.fn()}
+        sideDishSelections={{}} dessertSelections={{}} onSave={vi.fn()}
         isSaving={false}
         onBack={vi.fn()}
       />
@@ -86,7 +86,7 @@ describe('T29 - Go back calls onBack', () => {
       <SummaryStep
         setup={makeSetup([SUN])}
         selections={{ [`${SUN}:dinner`]: SEL_SUN }}
-        onSave={vi.fn()}
+        sideDishSelections={{}} dessertSelections={{}} onSave={vi.fn()}
         isSaving={false}
         onBack={onBack}
       />
@@ -105,6 +105,8 @@ describe('T31 - Save button calls onSave', () => {
       <SummaryStep
         setup={makeSetup([SUN])}
         selections={{ [`${SUN}:dinner`]: SEL_SUN }}
+        sideDishSelections={{}}
+        dessertSelections={{}}
         onSave={onSave}
         isSaving={false}
         onBack={vi.fn()}
@@ -119,7 +121,7 @@ describe('T31 - Save button calls onSave', () => {
       <SummaryStep
         setup={makeSetup([SUN])}
         selections={{ [`${SUN}:dinner`]: SEL_SUN }}
-        onSave={vi.fn()}
+        sideDishSelections={{}} dessertSelections={{}} onSave={vi.fn()}
         isSaving={true}
         onBack={vi.fn()}
       />
@@ -137,6 +139,8 @@ describe('Save error state', () => {
       <SummaryStep
         setup={makeSetup([SUN])}
         selections={{ [`${SUN}:dinner`]: SEL_SUN }}
+        sideDishSelections={{}}
+        dessertSelections={{}}
         onSave={onSave}
         isSaving={false}
         onBack={vi.fn()}
@@ -146,5 +150,57 @@ describe('Save error state', () => {
     await waitFor(() => {
       expect(screen.getByText(/fail/)).toBeInTheDocument()
     })
+  })
+})
+
+// ── T-SIDE-DISH: Side dishes and desserts appear on summary (regression #244) ──
+
+describe('SummaryStep - side dishes and desserts are shown (regression #244)', () => {
+  it('shows side dish title indented below its parent main dish', () => {
+    render(
+      <SummaryStep
+        setup={makeSetup([SUN])}
+        selections={{ [`${SUN}:dinner`]: SEL_SUN }}
+        sideDishSelections={{ [`${SUN}:dinner`]: { recipe_id: 'r5', recipe_title: 'Garlic Bread' } }}
+        dessertSelections={{}}
+        onSave={vi.fn()}
+        isSaving={false}
+        onBack={vi.fn()}
+      />
+    )
+    expect(screen.getByText('Garlic Bread')).toBeInTheDocument()
+    expect(screen.getByText('Side')).toBeInTheDocument()
+  })
+
+  it('shows dessert title indented below its parent main dish', () => {
+    render(
+      <SummaryStep
+        setup={makeSetup([SUN])}
+        selections={{ [`${SUN}:dinner`]: SEL_SUN }}
+        sideDishSelections={{}}
+        dessertSelections={{ [`${SUN}:dinner`]: { recipe_id: 'r6', recipe_title: 'Tiramisu' } }}
+        onSave={vi.fn()}
+        isSaving={false}
+        onBack={vi.fn()}
+      />
+    )
+    expect(screen.getByText('Tiramisu')).toBeInTheDocument()
+    expect(screen.getByText('Dessert')).toBeInTheDocument()
+  })
+
+  it('shows nothing extra when no side dish or dessert is selected', () => {
+    render(
+      <SummaryStep
+        setup={makeSetup([SUN])}
+        selections={{ [`${SUN}:dinner`]: SEL_SUN }}
+        sideDishSelections={{}}
+        dessertSelections={{}}
+        onSave={vi.fn()}
+        isSaving={false}
+        onBack={vi.fn()}
+      />
+    )
+    expect(screen.queryByText('Side')).not.toBeInTheDocument()
+    expect(screen.queryByText('Dessert')).not.toBeInTheDocument()
   })
 })
