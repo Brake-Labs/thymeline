@@ -218,12 +218,12 @@ Return ONLY a JSON array with this shape (no explanation):
 
     console.log('[discover] after LLM ranking:', JSON.stringify(rankedResults, null, 2))
 
-    // ── Step 4.5: Post-filter recipes with only avoided tags ──────────────────
+    // ── Step 4.5: Post-filter recipes that have any avoided tag ─────────────
     if (tasteProfile?.avoided_tags?.length) {
       const avoidedSet = new Set(tasteProfile.avoided_tags.map((t) => t.toLowerCase()))
       rankedResults = rankedResults.filter((r) => {
         const recipeTags = (r.suggested_tags ?? []).map((t) => t.toLowerCase())
-        return !recipeTags.every((t) => avoidedSet.has(t))
+        return !recipeTags.some((t) => avoidedSet.has(t))
       })
     }
 
