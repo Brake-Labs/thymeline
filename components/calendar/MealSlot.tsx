@@ -77,13 +77,13 @@ export default function MealSlot({ mealType, date, entries, onAdd, onDelete }: M
             <Link
               href={
                 mainEntries.length === 1
-                  ? `/cook/recipes/${mainEntries[0]!.recipe_id}/cook`
-                  : `/cook/meal/${date}?meal_type=${mealType}`
+                  ? `/recipes/${mainEntries[0]!.recipe_id}/cook`
+                  : `/meal/${date}?meal_type=${mealType}`
               }
-              className="text-[10px] font-medium text-sage-500 border border-sage-200 hover:bg-sage-50 px-2 py-0.5 rounded transition-colors"
+              className="text-[10px] font-medium text-sage-600 bg-sage-50 border border-sage-200 hover:bg-sage-100 px-2 py-0.5 rounded transition-colors"
               aria-label={`Cook ${MEAL_TYPE_LABELS[mealType]}`}
             >
-              ▶ Cook
+              Cook
             </Link>
           )}
           <button

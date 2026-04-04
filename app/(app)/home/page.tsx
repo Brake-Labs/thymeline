@@ -220,12 +220,12 @@ export default async function HomePage() {
                           <Link
                             href={
                               entries.length === 1
-                                ? `/cook/recipes/${entries[0]!.recipe_id}/cook`
-                                : `/cook/meal/${day}`
+                                ? `/recipes/${entries[0]!.recipe_id}/cook`
+                                : `/meal/${day}`
                             }
-                            className="block mt-1.5 text-[10px] font-medium text-sage-600 hover:text-sage-700 transition-colors"
+                            className="inline-block mt-1.5 text-[10px] font-medium text-sage-600 bg-sage-50 border border-sage-200 hover:bg-sage-100 px-2 py-0.5 rounded transition-colors"
                           >
-                            ▶ Cook
+                            Cook
                           </Link>
                         </div>
                       ) : (
