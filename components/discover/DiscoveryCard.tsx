@@ -1,5 +1,6 @@
 'use client'
 
+import { Leaf } from 'lucide-react'
 import type { DiscoveryResult } from '@/types'
 
 interface DiscoveryCardProps {
@@ -39,6 +40,17 @@ export default function DiscoveryCard({
         <h3 className="font-display font-semibold text-sage-900 text-sm leading-snug line-clamp-2">
           {result.title}
         </h3>
+
+        {/* Waste badge */}
+        {result.waste_badge_text && (
+          <div
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
+            style={{ backgroundColor: '#FFF0C0', color: '#5C4A00' }}
+          >
+            <Leaf size={10} className="flex-shrink-0" />
+            {result.waste_badge_text}
+          </div>
+        )}
 
         {/* Description */}
         {result.description && (

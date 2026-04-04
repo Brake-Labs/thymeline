@@ -242,6 +242,8 @@ export interface GeneratedRecipe {
   total_time_minutes:    number | null
   inactive_time_minutes: number | null
   notes:                 string | null
+  waste_matches?:        Pick<WasteMatch, 'ingredient' | 'waste_risk'>[]
+  waste_badge_text?:     string
 }
 
 export type HouseholdRole = 'owner' | 'co_owner' | 'member'
@@ -279,6 +281,8 @@ export interface DiscoveryResult {
     similar_recipe_title: string
     similarity: 'exact' | 'similar'
   }
+  waste_matches?:    Pick<WasteMatch, 'ingredient' | 'waste_risk'>[]
+  waste_badge_text?: string
 }
 
 /** Scraped recipe data — returned by POST /api/recipes/scrape and used in the discover flow */

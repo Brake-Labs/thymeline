@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { callLLM, classifyLLMError, LLM_MODEL_CAPABLE } from '@/lib/llm'
-import { scopeQuery } from '@/lib/household'
 import { FIRST_CLASS_TAGS } from '@/lib/tags'
 import { generateRecipeSchema, parseBody } from '@/lib/schemas'
+import { deriveTasteProfile } from '@/lib/taste-profile'
+import { detectWasteOverlap } from '@/lib/waste-overlap'
+import { fetchCurrentWeekPlan, getPlanWasteBadgeText } from '@/lib/plan-utils'
 import { RECIPE_CATEGORIES } from '@/types'
 import type { GeneratedRecipe, MealType, RecipeCategory } from '@/types'
+import type { RecipeForOverlap } from '@/lib/waste-overlap'
+
+const GENERATE_WASTE_TIMEOUT_MS = 5000
 
 function mealTypeToCategory(mealType: MealType): RecipeCategory {
   switch (mealType) {
@@ -33,14 +38,11 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
 
   const { specific_ingredients, meal_type, style_hints, dietary_restrictions, tweak_request, previous_recipe } = body
 
-  // Fetch meal context from user preferences
-  let mealContext: string | null = null
-  {
-    let prefsQ = db.from('user_preferences').select('meal_context')
-    prefsQ = scopeQuery(prefsQ, user.id, ctx)
-    const { data: prefsData } = await prefsQ.maybeSingle()
-    mealContext = (prefsData as { meal_context?: string | null } | null)?.meal_context ?? null
-  }
+  // Fetch taste profile + current plan in parallel
+  const [tasteProfile, currentPlanRecipes] = await Promise.all([
+    deriveTasteProfile(user.id, db, ctx ?? null).catch(() => null),
+    fetchCurrentWeekPlan(user.id, db, ctx ?? null).catch(() => [] as RecipeForOverlap[]),
+  ])
 
   // Parse specific_ingredients
   const combined = (specific_ingredients ?? '')
@@ -54,8 +56,14 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
 
   const combinedIngredientList = combined.map((l: string) => `- ${l}`).join('\n')
 
-  const mealContextLine = mealContext ? `\nHousehold context: ${mealContext}` : ''
-  const systemMessage = `You are a creative recipe developer. Generate a complete, practical recipe based on the ingredients and preferences provided. The recipe should be realistic, delicious, and something a home cook can make.${mealContextLine}
+  const tasteLines: string[] = []
+  if (tasteProfile?.meal_context) tasteLines.push(`Household context: ${tasteProfile.meal_context}`)
+  if (tasteProfile?.top_tags?.length) tasteLines.push(`Favourite styles: ${tasteProfile.top_tags.slice(0, 5).join(', ')}`)
+  if (tasteProfile?.avoided_tags?.length) tasteLines.push(`Avoid: ${tasteProfile.avoided_tags.join(', ')}`)
+  if (tasteProfile?.cooking_frequency) tasteLines.push(`Cooking frequency: ${tasteProfile.cooking_frequency}`)
+  const tasteSection = tasteLines.length > 0 ? `\n\n${tasteLines.join('\n')}` : ''
+
+  const systemMessage = `You are a creative recipe developer. Generate a complete, practical recipe based on the ingredients and preferences provided. The recipe should be realistic, delicious, and something a home cook can make.${tasteSection}
 
 Rules:
 - Use the provided ingredients as the primary basis for the recipe
@@ -175,6 +183,30 @@ Make it practical and delicious.`
     total_time_minutes: parseNonNegativeInt(parsed.totalTimeMinutes),
     inactive_time_minutes: parseNonNegativeInt(parsed.inactiveTimeMinutes),
     notes: typeof parsed.notes === 'string' ? parsed.notes : null,
+  }
+
+  // ── Waste overlap detection ───────────────────────────────────────────────
+  if (currentPlanRecipes.length > 0 && result.ingredients) {
+    try {
+      const candidateRecipes: RecipeForOverlap[] = [{
+        recipe_id: 'generated',
+        title: result.title,
+        ingredients: result.ingredients,
+      }]
+      const wasteMap = await Promise.race([
+        detectWasteOverlap(currentPlanRecipes, candidateRecipes),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('timeout')), GENERATE_WASTE_TIMEOUT_MS)
+        ),
+      ])
+      const matches = wasteMap.get('generated')
+      if (matches && matches.length > 0) {
+        result.waste_matches = matches.map((m) => ({ ingredient: m.ingredient, waste_risk: m.waste_risk }))
+        result.waste_badge_text = getPlanWasteBadgeText(result.waste_matches)
+      }
+    } catch (err) {
+      console.warn('[generate] waste detection skipped:', err)
+    }
   }
 
   return NextResponse.json(result)
