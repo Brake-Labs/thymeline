@@ -46,8 +46,18 @@ function makeSupabaseMock(opts: {
         }
       }
       if (table === 'recipe_history') {
+        type EqChain = { single: ReturnType<typeof vi.fn>; eq: () => EqChain }
+        const makeEq = (): EqChain => Object.assign(
+          { single: vi.fn().mockResolvedValue({ data: { id: 'history-existing' }, error: null }) },
+          { eq: () => makeEq() },
+        )
         return {
-          insert: vi.fn().mockResolvedValue({ data: null, error: insertError }),
+          insert: vi.fn().mockReturnValue({
+            select: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({ data: insertError ? null : { id: 'history-1' }, error: insertError }),
+            }),
+          }),
+          select: vi.fn().mockReturnValue({ eq: () => makeEq() }),
         }
       }
       if (table === 'custom_tags') {
@@ -118,8 +128,17 @@ function makeAdminMock(opts: {
         }
       }
       if (table === 'recipe_history') {
+        const makeEq = (): Record<string, unknown> => Object.assign(
+          { single: vi.fn().mockResolvedValue({ data: { id: 'history-existing' }, error: null }) },
+          { eq: () => makeEq() },
+        )
         return {
-          insert: vi.fn().mockResolvedValue({ data: null, error: insertError }),
+          insert: vi.fn().mockReturnValue({
+            select: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({ data: insertError ? null : { id: 'history-1' }, error: insertError }),
+            }),
+          }),
+          select: vi.fn().mockReturnValue({ eq: () => makeEq() }),
         }
       }
       if (table === 'custom_tags') {

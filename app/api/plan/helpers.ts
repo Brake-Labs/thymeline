@@ -2,7 +2,7 @@ import { type SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import { callLLM } from '@/lib/llm'
 import { scopeQuery } from '@/lib/household'
-import type { UserPreferences, LimitedTag, MealType, DaySuggestions, HouseholdContext } from '@/types'
+import type { UserPreferences, LimitedTag, MealType, DaySuggestions, HouseholdContext, TasteProfile } from '@/types'
 
 export const MEAL_TYPE_CATEGORIES: Record<MealType, string[]> = {
   breakfast: ['breakfast'],
@@ -211,11 +211,29 @@ function buildSeasonalInstructions(
   return parts.join(' ')
 }
 
+function buildTasteProfileSection(profile: TasteProfile): string {
+  const parts: string[] = []
+  if (profile.loved_recipe_ids.length) {
+    parts.push(`Loved recipes (boost these in suggestions): ${profile.loved_recipe_ids.join(', ')}`)
+  }
+  if (profile.disliked_recipe_ids.length) {
+    parts.push(`Disliked recipes (avoid these): ${profile.disliked_recipe_ids.join(', ')}`)
+  }
+  if (profile.top_tags.length) {
+    parts.push(`User's top flavor tags: ${profile.top_tags.join(', ')}`)
+  }
+  if (parts.length > 0 && profile.cooking_frequency !== 'moderate') {
+    parts.push(`Cooking frequency: ${profile.cooking_frequency}`)
+  }
+  return parts.length ? `\n\nTaste profile:\n${parts.join('\n')}` : ''
+}
+
 export function buildSystemMessage(
   prefs: UserPreferences | null,
   sessionPrefer: string[],
   sessionAvoid: string[],
   season: 'spring' | 'summer' | 'autumn' | 'winter',
+  profile?: TasteProfile,
 ): string {
   const optionsPerDay = prefs?.options_per_day ?? 3
   const avoided = buildAvoidedTags(prefs, sessionAvoid)
@@ -227,7 +245,7 @@ export function buildSystemMessage(
     ? `\nHousehold context: ${prefs.meal_context}`
     : ''
 
-  return `You are a meal planning assistant. You will be given a list of recipes and user preferences, and you must suggest meals for specific days of the week.${mealContextLine}
+  const base = `You are a meal planning assistant. You will be given a list of recipes and user preferences, and you must suggest meals for specific days of the week.${mealContextLine}
 
 Rules you must follow exactly:
 - Only suggest recipes from the provided recipe list. Never invent recipes.
@@ -261,6 +279,7 @@ Return ONLY valid JSON in this exact format, with no prose, no markdown:
     }
   ]
 }`
+  return base + (profile ? buildTasteProfileSection(profile) : '')
 }
 
 export async function fetchPantryContext(
@@ -306,11 +325,17 @@ export function buildFullWeekUserMessage(
   freeText: string,
   activeMealTypes: MealType[],
   pantryContext: string = '',
+  lovedIds?: Set<string>,
 ): string {
-  // Shuffle each meal type's recipe list so the LLM doesn't consistently
-  // favour recipes at the top of the database-returned order (improves variety).
   const recipesSection = activeMealTypes.map((mt) => {
-    const list = shuffleArray(recipesByMealType[mt] ?? []).map((r) => ({ recipe_id: r.id, title: r.title, tags: r.tags }))
+    const all = recipesByMealType[mt] ?? []
+    const loved = all.filter((r) => lovedIds?.has(r.id))
+    const others = shuffleArray(all.filter((r) => !lovedIds?.has(r.id)))
+    const list = [...loved, ...others].map((r) => ({
+      recipe_id: r.id,
+      title: lovedIds?.has(r.id) ? `${r.title} [LOVED]` : r.title,
+      tags: r.tags,
+    }))
     return `${mt}: ${JSON.stringify(list)}`
   }).join('\n')
 

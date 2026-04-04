@@ -102,10 +102,32 @@ export interface RecipeFilters {
   neverMade: boolean
 }
 
+export type CookingFrequency = 'light' | 'moderate' | 'frequent'
+
+export interface TasteProfile {
+  loved_recipe_ids:    string[]
+  disliked_recipe_ids: string[]
+  top_tags:            string[]
+  avoided_tags:        string[]
+  preferred_tags:      string[]
+  meal_context:        string | null
+  cooking_frequency:   CookingFrequency
+  recent_recipes:      { recipe_id: string; title: string; made_on: string }[]
+}
+
+export interface WasteMatch {
+  ingredient:    string
+  waste_risk:    'high' | 'medium'
+  shared_with:   string[]
+  has_next_week: boolean
+}
+
 export interface RecipeSuggestion {
-  recipe_id:    string
-  recipe_title: string
-  reason?:      string
+  recipe_id:         string
+  recipe_title:      string
+  reason?:           string
+  waste_matches?:    WasteMatch[]
+  waste_badge_text?: string
 }
 
 export interface MealTypeSuggestions {

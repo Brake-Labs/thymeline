@@ -390,9 +390,9 @@ describe('meal_context field', () => {
     expect(body.meal_context).toBe('We like spicy food.')
   })
 
-  it('PATCH rejects meal_context exceeding 1000 chars', async () => {
+  it('PATCH rejects meal_context exceeding 2000 chars', async () => {
     const res = await PATCH(makeRequest('PATCH', 'http://localhost/api/preferences', {
-      meal_context: 'x'.repeat(1001),
+      meal_context: 'x'.repeat(2001),
     }))
     expect(res.status).toBe(400)
   })

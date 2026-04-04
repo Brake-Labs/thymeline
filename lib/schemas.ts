@@ -55,6 +55,11 @@ export const shareRecipeSchema = z.object({
 
 export const logRecipeSchema = z.object({
   made_on: dateString.optional(),
+  make_again: z.boolean().optional(),
+})
+
+export const patchLogSchema = z.object({
+  make_again: z.boolean(),
 })
 
 export const deleteLogSchema = z.object({
@@ -141,6 +146,7 @@ export const suggestSchema = z.object({
   prefer_this_week: z.array(z.string()).default([]),
   avoid_this_week: z.array(z.string()).default([]),
   free_text: z.string().default(''),
+  include_next_week_plan: z.boolean().default(true),
 })
 
 export const swapSchema = z.object({
@@ -174,7 +180,7 @@ export const updatePreferencesSchema = z.object({
     cap: z.number().int().min(1).max(7),
   })).optional(),
   onboarding_completed: z.boolean().optional(),
-  meal_context: z.string().max(1000).nullable().optional(),
+  meal_context: z.string().max(2000).nullable().optional(),
   hidden_tags: z.array(z.string()).optional(),
 })
 
