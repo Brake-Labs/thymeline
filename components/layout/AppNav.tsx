@@ -10,7 +10,7 @@ const CENTER_NAV = [
   { href: '/home',      label: 'Home' },
   { href: '/recipes',   label: 'Recipes' },
   { href: '/discover',  label: 'Discover' },
-  { href: '/plan',      label: 'Plan' },
+  { href: '/plan',      label: 'Planner' },
   { href: '/calendar',  label: 'Calendar' },
   { href: '/groceries', label: 'Groceries' },
 ]
@@ -19,7 +19,7 @@ const MOBILE_NAV = [
   { href: '/home',                  label: 'Home',      icon: '🏠' },
   { href: '/recipes',               label: 'Recipes',   icon: '📖' },
   { href: '/discover',              label: 'Discover',  icon: '🧭' },
-  { href: '/plan',                  label: 'Plan',      icon: '📅' },
+  { href: '/plan',                  label: 'Planner',   icon: '📅' },
   { href: '/calendar',              label: 'Calendar',  icon: '🗓️' },
   { href: '/groceries',             label: 'Groceries', icon: '🛒' },
   { href: '/settings/preferences',  label: 'Settings',  icon: '⚙️' },
