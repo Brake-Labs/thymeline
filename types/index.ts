@@ -29,6 +29,7 @@ export interface UserPreferences {
   onboarding_completed: boolean
   is_active: boolean
   meal_context: string | null
+  hidden_tags: string[]
   created_at: string
 }
 
