@@ -116,9 +116,18 @@ function singularize(word: string): string {
   return word
 }
 
+// Prep-only adjectives whose presence/absence shouldn't prevent two entries from
+// combining ("fresh cilantro" and "cilantro" are the same grocery item).
+const PREP_ADJECTIVE_RE = /^(fresh|raw)\s+/
+
 /** Normalize ingredient name for deduplication. */
 export function normalizeIngredientName(name: string): string {
-  return singularize(name.trim().toLowerCase()).replace(/\s+/g, ' ')
+  let n = name.trim().toLowerCase()
+  // Remove commas so "boneless, skinless chicken breast" matches "boneless skinless chicken breast"
+  n = n.replace(/,/g, '')
+  // Strip leading prep-only adjectives ("fresh cilantro" → "cilantro")
+  n = n.replace(PREP_ADJECTIVE_RE, '')
+  return singularize(n).replace(/\s+/g, ' ')
 }
 
 /** Assign a GrocerySection from the ingredient name. */
@@ -215,7 +224,19 @@ export function parseIngredientLine(line: string): ParsedIngredient {
   }
 
   // The rest is the ingredient name — strip leading punctuation/connectors
-  const rawName = remainder.replace(/^[,\-–\s]+/, '').trim()
+  let rawName = remainder.replace(/^[,\-–\s]+/, '').trim()
+
+  // Strip trailing prep instructions added after a comma: "cut into pieces",
+  // "minced", "diced", etc. These don't belong on a grocery list.
+  // Work backwards through comma-separated segments, removing each one that
+  // looks like a prep/cooking instruction rather than part of the item name.
+  const PREP_SEGMENT_RE = /^\s*(?:about|approximately|finely|roughly|thinly|coarsely|lightly|freshly|cut|chop(?:ped)?|diced?|minced?|sliced?|grated?|shredded?|peeled?|pitted?|halved?|quartered?|trimmed?|rinsed?|drained?|thawed?|softened?|melted?|toasted?|roasted?|julienned?|for\b|to taste|plus more|optional)\b/i
+  const parts = rawName.split(',')
+  while (parts.length > 1 && PREP_SEGMENT_RE.test(parts[parts.length - 1]!)) {
+    parts.pop()
+  }
+  rawName = parts.join(',').trim()
+
   const name = normalizeIngredientName(rawName)
   const section = assignSection(name)
   const is_pantry = isPantryStaple(name)
@@ -285,9 +306,15 @@ export function combineIngredients(inputs: CombineInput[]): {
       }
       if (!isAmbiguous) {
         const first = group[0]!.parsed
+        // Prefer the shortest display name in the group: "cilantro" over "fresh cilantro",
+        // "boneless skinless chicken breast" over "boneless, skinless chicken breast"
+        const displayName = group.reduce((best, inp) => {
+          const n = inp.parsed.rawName || inp.parsed.name
+          return n.length < best.length ? n : best
+        }, first.rawName || first.name)
         resolved.push({
           id:        uuidv4(),
-          name:      first.rawName || first.name,
+          name:      displayName,
           amount:    total !== null ? Math.round(total * 100) / 100 : null,
           unit,
           section:   first.section,

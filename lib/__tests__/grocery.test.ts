@@ -169,6 +169,63 @@ describe('T08 - combineIngredients sums same-unit duplicates', () => {
   })
 })
 
+// ── regression #274: ingredient deduplication ────────────────────────────────
+
+describe('regression #274 - ingredient deduplication', () => {
+  it('normalizeIngredientName strips leading "fresh" so "fresh cilantro" deduplicates with "cilantro"', () => {
+    expect(normalizeIngredientName('fresh cilantro')).toBe('cilantro')
+    expect(normalizeIngredientName('cilantro')).toBe('cilantro')
+  })
+
+  it('normalizeIngredientName removes commas so "boneless, skinless" matches "boneless skinless"', () => {
+    expect(normalizeIngredientName('boneless, skinless chicken breast'))
+      .toBe(normalizeIngredientName('boneless skinless chicken breast'))
+  })
+
+  it('parseIngredientLine strips post-comma prep instruction from rawName', () => {
+    const result = parseIngredientLine('1 lb boneless skinless chicken breast, cut into pieces')
+    expect(result.rawName).toBe('boneless skinless chicken breast')
+    expect(result.rawName).not.toContain('cut')
+  })
+
+  it('parseIngredientLine strips multiple trailing prep segments', () => {
+    const result = parseIngredientLine('2 cloves garlic, peeled, minced')
+    expect(result.rawName).toBe('garlic')
+  })
+
+  it('combines "1 bunch fresh cilantro" and "1 bunch cilantro" into one item', () => {
+    const inputs = [
+      { parsed: parseIngredientLine('1 bunch fresh cilantro'), recipeTitle: 'A', scaleFactor: 1 },
+      { parsed: parseIngredientLine('1 bunch cilantro'), recipeTitle: 'B', scaleFactor: 1 },
+    ]
+    const { resolved, ambiguous } = combineIngredients(inputs)
+    expect(ambiguous).toHaveLength(0)
+    const cilantro = resolved.find((i) => i.name.toLowerCase().includes('cilantro'))!
+    expect(cilantro).toBeDefined()
+    expect(cilantro.recipes).toContain('A')
+    expect(cilantro.recipes).toContain('B')
+    // Display name should be the simpler form (no "fresh" prefix)
+    expect(cilantro.name).toBe('cilantro')
+  })
+
+  it('combines chicken breast with prep detail and without into one item', () => {
+    const inputs = [
+      { parsed: parseIngredientLine('2 lb boneless, skinless chicken breast, cut into pieces'), recipeTitle: 'A', scaleFactor: 1 },
+      { parsed: parseIngredientLine('1 lb boneless skinless chicken breast'), recipeTitle: 'B', scaleFactor: 1 },
+    ]
+    const { resolved, ambiguous } = combineIngredients(inputs)
+    expect(ambiguous).toHaveLength(0)
+    const chicken = resolved.find((i) => i.name.toLowerCase().includes('chicken'))!
+    expect(chicken).toBeDefined()
+    expect(chicken.recipes).toContain('A')
+    expect(chicken.recipes).toContain('B')
+    expect(chicken.amount).toBe(3)
+    // Display name should not include the prep instruction
+    expect(chicken.name).not.toContain('cut')
+    expect(chicken.name).not.toContain('pieces')
+  })
+})
+
 // ── T10: Scaling ──────────────────────────────────────────────────────────────
 
 describe('T10 - Scale factor doubles amounts at 4 people (base 2)', () => {
