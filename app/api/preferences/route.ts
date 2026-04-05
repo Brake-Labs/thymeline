@@ -83,16 +83,42 @@ export const PATCH = withAuth(async (req, { user, db, ctx }) => {
   }
 
   const onConflict = ctx ? 'household_id' : 'user_id'
-  const { data, error } = await db
+  const fullSelect = 'options_per_day, cooldown_days, seasonal_mode, preferred_tags, avoided_tags, limited_tags, onboarding_completed, is_active, meal_context, hidden_tags, week_start_day'
+  const baseSelect = 'options_per_day, cooldown_days, seasonal_mode, preferred_tags, avoided_tags, limited_tags, onboarding_completed, is_active, meal_context'
+  // Columns added in later migrations — not present on older DB instances
+  const newColumns = ['hidden_tags', 'week_start_day'] as const
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic field selection from validated body
+  const { data, error } = await (db as any)
     .from('user_preferences')
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic field selection from validated body
-    .upsert(update as any, { onConflict })
-    .select('options_per_day, cooldown_days, seasonal_mode, preferred_tags, avoided_tags, limited_tags, onboarding_completed, is_active, meal_context, hidden_tags, week_start_day')
+    .upsert(update, { onConflict })
+    .select(fullSelect)
     .single()
 
-  if (error || !data) {
-    console.warn('[PATCH /api/preferences] upsert error:', error?.message, error?.code)
-    return NextResponse.json({ error: 'Failed to update preferences' }, { status: 500 })
+  if (!error) return NextResponse.json(data)
+
+  // PGRST204: column not in schema cache — one or more new migrations haven't run yet.
+  // Retry with only the base columns so existing preferences can still be saved.
+  if (error.code === 'PGRST204') {
+    console.warn('[PATCH /api/preferences] falling back to base columns (pending migration):', error.message)
+    const baseUpdate = { ...update }
+    for (const col of newColumns) delete baseUpdate[col]
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic field selection from validated body
+    const { data: baseData, error: baseError } = await (db as any)
+      .from('user_preferences')
+      .upsert(baseUpdate, { onConflict })
+      .select(baseSelect)
+      .single()
+
+    if (baseError || !baseData) {
+      console.warn('[PATCH /api/preferences] fallback upsert error:', baseError?.message, baseError?.code)
+      return NextResponse.json({ error: 'Failed to update preferences' }, { status: 500 })
+    }
+
+    return NextResponse.json({ ...DEFAULT_PREFS, ...baseData })
   }
-  return NextResponse.json(data)
+
+  console.warn('[PATCH /api/preferences] upsert error:', error.message, error.code)
+  return NextResponse.json({ error: 'Failed to update preferences' }, { status: 500 })
 })
