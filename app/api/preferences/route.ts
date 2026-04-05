@@ -23,13 +23,13 @@ export const GET = withAuth(async (req, { user, db, ctx }) => {
     .from('user_preferences')
     .select('options_per_day, cooldown_days, seasonal_mode, preferred_tags, avoided_tags, limited_tags, onboarding_completed, is_active, meal_context, hidden_tags'), user.id, ctx)
 
-  const { data, error } = await query.single()
+  const { data, error } = await query.maybeSingle()
 
   if (error) {
-    if (error.code === 'PGRST116') {
-      return NextResponse.json(DEFAULT_PREFS)
-    }
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    // Log the error for observability but return defaults so the page renders.
+    // A missing column during a pending migration is the most common cause here.
+    console.error('[GET /api/preferences] DB error:', error.message, '(code:', error.code, ')')
+    return NextResponse.json(DEFAULT_PREFS)
   }
   if (!data) {
     return NextResponse.json(DEFAULT_PREFS)
