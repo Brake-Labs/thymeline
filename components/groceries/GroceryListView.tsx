@@ -287,25 +287,11 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
                 const scale = recipeScales.find((s) => s.recipe_title === title)!
                 const effective = effectiveServings(scale.recipe_id, recipeScales, planServings)
                 return (
-                  <div key={scale.recipe_id} className="px-4 py-3 flex items-center flex-wrap gap-x-3 gap-y-1.5">
-                    <span className="font-medium text-stone-800 text-sm flex-1 min-w-0 truncate">
+                  <div key={scale.recipe_id} className="px-4 py-3 flex flex-col gap-1.5">
+                    <span className="font-medium text-stone-800 text-sm">
                       {title}
                     </span>
-                    <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
-                      {scale.servings !== null && (
-                        <>
-                          <span className="text-xs font-medium bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
-                            Custom
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => handleResetOverride(scale.recipe_id, title)}
-                            className="text-xs text-stone-500 hover:text-stone-800 underline"
-                          >
-                            Reset to default
-                          </button>
-                        </>
-                      )}
+                    <div className="flex items-center gap-2 flex-wrap">
                       <StepperInput
                         value={effective}
                         min={1}
@@ -313,6 +299,15 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
                         onChange={(count) => handleRecipeServingsChange(scale.recipe_id, title, count)}
                         label="Servings"
                       />
+                      {scale.servings !== null && (
+                        <button
+                          type="button"
+                          onClick={() => handleResetOverride(scale.recipe_id, title)}
+                          className="text-xs text-stone-500 hover:text-stone-800 underline"
+                        >
+                          Reset to default
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => handleMarkAllBought(title)}
