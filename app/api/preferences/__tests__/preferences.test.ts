@@ -37,6 +37,12 @@ function makePrefsFrom(table: string) {
           }
           return { data: mockState.prefsRow, error: null }
         },
+        maybeSingle: async () => {
+          if (mockState.prefsError) {
+            return { data: null, error: mockState.prefsError }
+          }
+          return { data: mockState.prefsRow ?? null, error: null }
+        },
       }),
     }),
     upsert: (data: Record<string, unknown>, _opts: unknown) => ({
@@ -82,6 +88,10 @@ function makeAdminFrom(table: string) {
           if (mockState.prefsError) return { data: null, error: mockState.prefsError }
           if (!mockState.prefsRow) return { data: null, error: { code: 'PGRST116', message: 'not found' } }
           return { data: mockState.prefsRow, error: null }
+        },
+        maybeSingle: async () => {
+          if (mockState.prefsError) return { data: null, error: mockState.prefsError }
+          return { data: mockState.prefsRow ?? null, error: null }
         },
       }),
     }),
@@ -159,12 +169,13 @@ describe('GET /api/preferences', () => {
     expect(body.onboarding_completed).toBe(true)
   })
 
-  it('returns 500 when DB returns a non-PGRST116 error (e.g. RLS denial)', async () => {
+  it('returns defaults when DB returns a non-PGRST116 error (e.g. transient error or pending migration)', async () => {
     mockState.prefsError = { code: '42501', message: 'permission denied for table user_preferences' }
     const res = await GET(makeRequest('GET', 'http://localhost/api/preferences'))
-    expect(res.status).toBe(500)
+    expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.error).toContain('permission denied')
+    expect(body.options_per_day).toBe(3)
+    expect(body.cooldown_days).toBe(28)
   })
 })
 
