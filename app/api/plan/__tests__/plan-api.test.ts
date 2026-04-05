@@ -591,6 +591,33 @@ describe('POST /api/plan validation', () => {
 
 })
 
+// ── Monday week_start — isSunday guard removed ────────────────────────────────
+
+describe('Monday week_start — plan routes accept Monday start', () => {
+  // 2026-03-30 is a Monday
+  const mondayWeekStart = '2026-03-30'
+
+  it('POST /api/plan accepts a Monday week_start', async () => {
+    mockState.recipes = [{ id: 'r1', title: 'Pasta', tags: [], category: 'main_dish' }]
+    const res = await planPOST(makeReq('POST', 'http://localhost/api/plan', {
+      week_start: mondayWeekStart,
+      entries: [{ recipe_id: 'r1', date: mondayWeekStart, meal_type: 'dinner' }],
+    }))
+    expect(res.status).not.toBe(400)
+  })
+
+  it('POST /api/plan/suggest accepts a Monday week_start', async () => {
+    const res = await suggestPOST(makeReq('POST', 'http://localhost/api/plan/suggest', {
+      week_start: mondayWeekStart,
+      active_dates: [mondayWeekStart],
+      prefer_this_week: [],
+      avoid_this_week: [],
+      free_text: '',
+    }))
+    expect(res.status).not.toBe(400)
+  })
+})
+
 // ── T30: Snack suggestions come only from side_dish + dessert recipes ──────────
 
 describe('T30 - Snack suggestions use only side_dish recipes', () => {
