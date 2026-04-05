@@ -167,3 +167,69 @@ describe('T59 - step contains quantity with preposition — no duplication (regr
     expect(result.highlights).toHaveLength(0)
   })
 })
+
+// ── T60: Multi-word ingredient — last-word fallback matches short form in step (regression for #269) ─
+
+describe('T60 - multi-word ingredient matched by last word in step text (regression for #269)', () => {
+  it('injects quantity before "oil" when ingredient is "2 tbsp olive oil"', () => {
+    const result = injectStepQuantities(
+      'heat oil in a large pan',
+      '2 tbsp olive oil',
+      4,
+      4,
+    )
+    expect(result.text).toBe('heat 2 tbsp oil in a large pan')
+    expect(result.highlights).toHaveLength(1)
+    expect(result.text.slice(result.highlights[0]!.start, result.highlights[0]!.end)).toBe('2 tbsp')
+  })
+
+  it('injects quantity before "flour" when ingredient is "2 cups all-purpose flour"', () => {
+    const result = injectStepQuantities(
+      'add flour and stir until combined',
+      '2 cups all-purpose flour',
+      4,
+      4,
+    )
+    expect(result.text).toBe('add 2 cups flour and stir until combined')
+    expect(result.highlights).toHaveLength(1)
+    expect(result.text.slice(result.highlights[0]!.start, result.highlights[0]!.end)).toBe('2 cups')
+  })
+
+  it('injects quantity before "eggs" when ingredient is "3 large eggs"', () => {
+    const result = injectStepQuantities(
+      'crack the eggs into the bowl',
+      '3 large eggs',
+      4,
+      4,
+    )
+    expect(result.text).toBe('crack the 3 eggs into the bowl')
+    expect(result.highlights).toHaveLength(1)
+    expect(result.text.slice(result.highlights[0]!.start, result.highlights[0]!.end)).toBe('3')
+  })
+
+  it('prefers full-name match over last-word fallback when both appear in step', () => {
+    // "olive oil" appears in full — should match the full form, not just "oil"
+    const result = injectStepQuantities(
+      'drizzle olive oil over the top',
+      '2 tbsp olive oil',
+      4,
+      4,
+    )
+    expect(result.text).toBe('drizzle 2 tbsp olive oil over the top')
+    expect(result.highlights).toHaveLength(1)
+  })
+
+  it('cross-step dedup tracks by ingredient name regardless of which form matched', () => {
+    const ingredients = '2 tbsp olive oil\n1 tsp salt'
+    const seen = new Set<string>()
+
+    // Step 1 matches via last-word "oil" → seen adds "olive oil"
+    const step1 = injectStepQuantities('heat oil in pan', ingredients, 4, 4, seen)
+    expect(step1.text).toBe('heat 2 tbsp oil in pan')
+
+    // Step 2: "olive oil" already seen, even if full form appears → no quantity
+    const step2 = injectStepQuantities('remove from olive oil', ingredients, 4, 4, seen)
+    expect(step2.text).toBe('remove from olive oil')
+    expect(step2.highlights).toHaveLength(0)
+  })
+})

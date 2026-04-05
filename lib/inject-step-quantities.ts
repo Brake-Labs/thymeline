@@ -43,33 +43,40 @@ export function injectStepQuantities(
 
   const scaled = scaleIngredients(ingredients, originalServings, servings)
 
-  type Entry = { name: string; matchName: string; quantity: string }
-  const entries: Entry[] = lines
-    .map((line, i) => {
-      const { rawName } = parseIngredientLine(line)
-      if (!rawName) return null
-      const scaledLine = scaled[i] ?? line
-      // quantity = everything before rawName in the scaled line
-      const idx = scaledLine.indexOf(rawName)
-      const quantity = idx > 0 ? scaledLine.slice(0, idx).trim() : ''
-      // Strip comma-separated descriptors so "garlic, minced" matches "garlic" in steps
-      const preComma = rawName.includes(',') ? rawName.split(',')[0]!.trim() : rawName
-      const matchName = preComma || rawName
-      return { name: rawName, matchName, quantity }
-    })
-    .filter((e): e is Entry => e !== null)
+  type Entry = { name: string; matchName: string; ingredientName: string; quantity: string }
+  const entries: Entry[] = []
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!
+    const { rawName } = parseIngredientLine(line)
+    if (!rawName) continue
+    const scaledLine = scaled[i] ?? line
+    // quantity = everything before rawName in the scaled line
+    const idx = scaledLine.indexOf(rawName)
+    const quantity = idx > 0 ? scaledLine.slice(0, idx).trim() : ''
+    // Strip comma-separated descriptors so "garlic, minced" matches "garlic" in steps
+    const preComma = rawName.includes(',') ? rawName.split(',')[0]!.trim() : rawName
+    const matchName = preComma || rawName
+    entries.push({ name: rawName, matchName, ingredientName: rawName, quantity })
+    // Add last-word fallback for multi-word names (e.g. "olive oil" → "oil",
+    // "all-purpose flour" → "flour") so step text that uses only the short form still matches.
+    const words = matchName.split(/\s+/)
+    if (words.length > 1) {
+      const lastWord = words[words.length - 1]!
+      entries.push({ name: rawName, matchName: lastWord, ingredientName: rawName, quantity })
+    }
+  }
 
   // Longer match names first to prevent partial-match clobbering
   entries.sort((a, b) => b.matchName.length - a.matchName.length)
 
-  type Match = { start: number; end: number; quantity: string; matched: string; matchName: string }
+  type Match = { start: number; end: number; quantity: string; matched: string; matchName: string; ingredientName: string }
   const matches: Match[] = []
 
-  for (const { matchName, quantity } of entries) {
+  for (const { matchName, ingredientName, quantity } of entries) {
     const re = new RegExp(`\\b${escapeRegex(matchName)}\\b`, 'gi')
     let m: RegExpExecArray | null
     while ((m = re.exec(stepText)) !== null) {
-      matches.push({ start: m.index, end: m.index + m[0].length, quantity, matched: m[0], matchName })
+      matches.push({ start: m.index, end: m.index + m[0].length, quantity, matched: m[0], matchName, ingredientName })
     }
   }
 
@@ -95,7 +102,7 @@ export function injectStepQuantities(
 
   for (const match of deduped) {
     result += stepText.slice(cursor, match.start)
-    const key = match.matchName.toLowerCase()
+    const key = match.ingredientName.toLowerCase()
     if (match.quantity && !seen.has(key)) {
       // Don't prepend the quantity if it already appears in the step text immediately
       // before this ingredient (e.g. step says "Add 2 tbsp olive oil" — injecting
@@ -113,7 +120,7 @@ export function injectStepQuantities(
         result += ' '
       }
     }
-    seen.add(key)
+    seen.add(match.ingredientName.toLowerCase())
     result += match.matched
     cursor = match.end
   }
