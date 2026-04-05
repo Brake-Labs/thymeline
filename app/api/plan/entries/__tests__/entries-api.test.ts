@@ -319,3 +319,19 @@ describe('Dessert entries — meal_type=dessert', () => {
     expect(body.error).toContain('parent_entry_id')
   })
 })
+
+// ── Monday week_start — isSunday guard removed ────────────────────────────────
+
+describe('POST /api/plan/entries — Monday week_start accepted', () => {
+  it('does not return 400 for a Monday week_start', async () => {
+    // 2026-03-30 is a Monday
+    mockState.plan = { id: 'plan-1', week_start: '2026-03-30' }
+    const res = await entriesPOST(makeReq('POST', 'http://localhost/api/plan/entries', {
+      week_start: '2026-03-30',
+      date: '2026-03-30',
+      recipe_id: 'r1',
+      meal_type: 'dinner',
+    }))
+    expect(res.status).not.toBe(400)
+  })
+})

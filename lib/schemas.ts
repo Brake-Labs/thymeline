@@ -182,6 +182,7 @@ export const updatePreferencesSchema = z.object({
   onboarding_completed: z.boolean().optional(),
   meal_context: z.string().max(2000).nullable().optional(),
   hidden_tags: z.array(z.string()).optional(),
+  week_start_day: z.number().int().min(0).max(6).optional(),
 })
 
 // ─── Groceries ──────────────────────────────────────────────────────────────

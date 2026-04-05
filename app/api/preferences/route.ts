@@ -16,12 +16,13 @@ const DEFAULT_PREFS = {
   is_active: true,
   meal_context: null as string | null,
   hidden_tags: [] as string[],
+  week_start_day: 0,
 }
 
 export const GET = withAuth(async (req, { user, db, ctx }) => {
   const query = scopeQuery(db
     .from('user_preferences')
-    .select('options_per_day, cooldown_days, seasonal_mode, preferred_tags, avoided_tags, limited_tags, onboarding_completed, is_active, meal_context, hidden_tags'), user.id, ctx)
+    .select('options_per_day, cooldown_days, seasonal_mode, preferred_tags, avoided_tags, limited_tags, onboarding_completed, is_active, meal_context, hidden_tags, week_start_day'), user.id, ctx)
 
   const { data, error } = await query.maybeSingle()
 
@@ -72,7 +73,7 @@ export const PATCH = withAuth(async (req, { user, db, ctx }) => {
     }
   }
 
-  const allowed = ['options_per_day', 'cooldown_days', 'seasonal_mode', 'preferred_tags', 'avoided_tags', 'limited_tags', 'onboarding_completed', 'meal_context', 'hidden_tags'] as const
+  const allowed = ['options_per_day', 'cooldown_days', 'seasonal_mode', 'preferred_tags', 'avoided_tags', 'limited_tags', 'onboarding_completed', 'meal_context', 'hidden_tags', 'week_start_day'] as const
   const bodyRecord = body as Record<string, unknown>
 
   const update: Record<string, unknown> = { user_id: user.id }
@@ -86,7 +87,7 @@ export const PATCH = withAuth(async (req, { user, db, ctx }) => {
     .from('user_preferences')
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic field selection from validated body
     .upsert(update as any, { onConflict })
-    .select('options_per_day, cooldown_days, seasonal_mode, preferred_tags, avoided_tags, limited_tags, onboarding_completed, is_active, meal_context, hidden_tags')
+    .select('options_per_day, cooldown_days, seasonal_mode, preferred_tags, avoided_tags, limited_tags, onboarding_completed, is_active, meal_context, hidden_tags, week_start_day')
     .single()
 
   if (error || !data) {

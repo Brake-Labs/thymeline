@@ -1,15 +1,16 @@
 'use client'
 
 import { useMemo } from 'react'
-import { getMostRecentSunday, addDays, formatWeekRange } from '@/lib/date-utils'
+import { getMostRecentWeekStart, addDays, formatWeekRange } from '@/lib/date-utils'
 
 interface WeekPickerProps {
   weekStart: string
   onChange: (weekStart: string) => void
+  weekStartDay?: number
 }
 
-export default function WeekPicker({ weekStart, onChange }: WeekPickerProps) {
-  const currentSunday = useMemo(() => getMostRecentSunday(new Date()), [])
+export default function WeekPicker({ weekStart, onChange, weekStartDay = 0 }: WeekPickerProps) {
+  const currentSunday = useMemo(() => getMostRecentWeekStart(weekStartDay, new Date()), [weekStartDay])
   const maxSunday = useMemo(() => addDays(currentSunday, 28), [currentSunday])
 
   const isPrevDisabled = weekStart <= currentSunday

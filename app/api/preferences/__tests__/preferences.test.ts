@@ -416,6 +416,46 @@ describe('meal_context field', () => {
   })
 })
 
+// ── week_start_day ────────────────────────────────────────────────────────────
+
+describe('week_start_day preference', () => {
+  it('GET returns week_start_day from DB row', async () => {
+    mockState.prefsRow = {
+      options_per_day: 3,
+      cooldown_days: 28,
+      seasonal_mode: true,
+      preferred_tags: [],
+      avoided_tags: [],
+      limited_tags: [],
+      onboarding_completed: true,
+      is_active: true,
+      meal_context: null,
+      hidden_tags: [],
+      week_start_day: 1,
+    }
+    const res = await GET(makeRequest('GET', 'http://localhost/api/preferences'))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.week_start_day).toBe(1)
+  })
+
+  it('PATCH saves week_start_day = 1 (Monday) and returns it', async () => {
+    const res = await PATCH(makeRequest('PATCH', 'http://localhost/api/preferences', {
+      week_start_day: 1,
+    }))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.week_start_day).toBe(1)
+  })
+
+  it('PATCH rejects week_start_day outside 0–6', async () => {
+    const res = await PATCH(makeRequest('PATCH', 'http://localhost/api/preferences', {
+      week_start_day: 7,
+    }))
+    expect(res.status).toBe(400)
+  })
+})
+
 // ── T01/T02: Redirect logic (server component, documented) ───────────────────
 describe('T01/T02 - onboarding redirect logic in app layout', () => {
   it('layout.tsx fetches preferences and redirects on onboarding_completed=false', async () => {

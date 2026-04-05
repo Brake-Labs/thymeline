@@ -5,20 +5,44 @@ import DayCard from './DayCard'
 import { getAccessToken } from '@/lib/supabase/browser'
 import Link from 'next/link'
 import { ShoppingCart } from 'lucide-react'
-import { getMostRecentSunday, addWeeks, addDays, getWeekDates, formatWeekRange } from '@/lib/date-utils'
+import { getMostRecentSunday, getMostRecentWeekStart, addWeeks, addDays, getWeekDates, formatWeekRange } from '@/lib/date-utils'
 import type { PlanEntry, MealType } from '@/types'
 
 export default function WeekCalendar() {
-  const currentSunday = getMostRecentSunday()
-  const [weekStart, setWeekStart] = useState(currentSunday)
+  // Start with Sunday as default; updated to user preference once prefs load
+  const [weekStartDay, setWeekStartDay] = useState(0)
+  const defaultStart = getMostRecentSunday()
+  const [weekStart, setWeekStart] = useState(defaultStart)
   const [entries, setEntries] = useState<PlanEntry[]>([])
   const [expandedDates, setExpandedDates] = useState<Set<string>>(
-    () => new Set(getWeekDates(currentSunday))
+    () => new Set(getWeekDates(defaultStart))
   )
   const [loading, setLoading] = useState(false)
 
-  const maxWeekStart = addWeeks(currentSunday, 4)
+  const currentWeekStart = getMostRecentWeekStart(weekStartDay)
+  const maxWeekStart = addWeeks(currentWeekStart, 4)
   const isAtMaxFuture = weekStart >= maxWeekStart
+
+  // Load week_start_day preference once on mount
+  useEffect(() => {
+    async function loadPref() {
+      try {
+        const token = await getAccessToken()
+        const res = await fetch('/api/preferences', { headers: { Authorization: `Bearer ${token}` } })
+        if (res.ok) {
+          const prefs = await res.json()
+          const pref: number = prefs.week_start_day ?? 0
+          if (pref !== 0) {
+            setWeekStartDay(pref)
+            const start = getMostRecentWeekStart(pref)
+            setWeekStart(start)
+            setExpandedDates(new Set(getWeekDates(start)))
+          }
+        }
+      } catch { /* silently fail — default to Sunday */ }
+    }
+    void loadPref()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchPlan = useCallback(async (ws: string) => {
     setLoading(true)
@@ -41,7 +65,7 @@ export default function WeekCalendar() {
   useEffect(() => {
     fetchPlan(weekStart)
     setExpandedDates(new Set(getWeekDates(weekStart)))
-  }, [weekStart, fetchPlan, currentSunday])
+  }, [weekStart, fetchPlan])
 
   const handlePrevWeek = () => setWeekStart((ws) => addWeeks(ws, -1))
   const handleNextWeek = () => {

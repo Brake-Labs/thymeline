@@ -21,7 +21,7 @@ interface SuggestionsState {
   days: DayState[]
 }
 
-import { getMostRecentSunday, getWeekDates } from '@/lib/date-utils'
+import { getMostRecentSunday, getMostRecentWeekStart, getWeekDates } from '@/lib/date-utils'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -50,6 +50,25 @@ function PlanPageInner() {
   const [isSaving, setIsSaving] = useState(false)
   const [savedWeekStart, setSavedWeekStart] = useState<string | null>(null)
   const [generateError, setGenerateError] = useState<string | null>(null)
+
+  // Load week_start_day preference once on mount and update initial weekStart
+  useEffect(() => {
+    async function loadPref() {
+      try {
+        const token = await getAccessToken()
+        const res = await fetch('/api/preferences', { headers: { Authorization: `Bearer ${token}` } })
+        if (res.ok) {
+          const prefs = await res.json()
+          const pref: number = prefs.week_start_day ?? 0
+          if (pref !== 0) {
+            const start = getMostRecentWeekStart(pref)
+            setSetup((prev) => ({ ...prev, weekStart: start, activeDates: getWeekDates(start) }))
+          }
+        }
+      } catch { /* silently fail — default to Sunday */ }
+    }
+    void loadPref()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset active dates when week changes
   useEffect(() => {

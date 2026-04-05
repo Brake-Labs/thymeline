@@ -578,16 +578,6 @@ describe('POST /api/plan/suggest validation', () => {
     expect(res.status).toBe(400)
   })
 
-  it('returns 400 when week_start is not a Sunday', async () => {
-    const res = await suggestPOST(makeReq('POST', 'http://localhost/api/plan/suggest', {
-      week_start: '2026-03-02', // Monday
-      active_dates: ['2026-03-02'],
-      prefer_this_week: [],
-      avoid_this_week: [],
-      free_text: '',
-    }))
-    expect(res.status).toBe(400)
-  })
 })
 
 describe('POST /api/plan validation', () => {
@@ -599,12 +589,32 @@ describe('POST /api/plan validation', () => {
     expect(res.status).toBe(400)
   })
 
-  it('returns 400 when week_start is not a Sunday', async () => {
+})
+
+// ── Monday week_start — isSunday guard removed ────────────────────────────────
+
+describe('Monday week_start — plan routes accept Monday start', () => {
+  // 2026-03-30 is a Monday
+  const mondayWeekStart = '2026-03-30'
+
+  it('POST /api/plan accepts a Monday week_start', async () => {
+    mockState.recipes = [{ id: 'r1', title: 'Pasta', tags: [], category: 'main_dish' }]
     const res = await planPOST(makeReq('POST', 'http://localhost/api/plan', {
-      week_start: '2026-03-02',
-      entries: [{ date: '2026-03-02', recipe_id: 'r1' }],
+      week_start: mondayWeekStart,
+      entries: [{ recipe_id: 'r1', date: mondayWeekStart, meal_type: 'dinner' }],
     }))
-    expect(res.status).toBe(400)
+    expect(res.status).not.toBe(400)
+  })
+
+  it('POST /api/plan/suggest accepts a Monday week_start', async () => {
+    const res = await suggestPOST(makeReq('POST', 'http://localhost/api/plan/suggest', {
+      week_start: mondayWeekStart,
+      active_dates: [mondayWeekStart],
+      prefer_this_week: [],
+      avoid_this_week: [],
+      free_text: '',
+    }))
+    expect(res.status).not.toBe(400)
   })
 })
 
