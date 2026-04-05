@@ -100,10 +100,10 @@ describe('T21 - Remove item removes from list and saves', () => {
   })
 })
 
-// ── T14: Overridden recipe shows "Custom" badge ───────────────────────────────
+// ── T14: Overridden recipe shows "Reset to default" button ───────────────────
 
-describe('T14 - Overridden recipe shows "Custom" badge', () => {
-  it('shows Custom badge when recipe has servings override', () => {
+describe('T14 - Overridden recipe shows reset option', () => {
+  it('shows "Reset to default" when recipe has servings override', () => {
     const listWithOverride = {
       ...sampleList,
       recipe_scales: [
@@ -112,12 +112,13 @@ describe('T14 - Overridden recipe shows "Custom" badge', () => {
       ],
     }
     render(<GroceryListView initialList={listWithOverride} />)
-    expect(screen.getByText('Custom')).toBeInTheDocument()
+    expect(screen.getByText('Reset to default')).toBeInTheDocument()
+    expect(screen.queryByText('Custom')).not.toBeInTheDocument()
   })
 
-  it('does not show Custom badge when no override', () => {
+  it('does not show "Reset to default" when no override', () => {
     render(<GroceryListView initialList={sampleList} />)
-    expect(screen.queryByText('Custom')).not.toBeInTheDocument()
+    expect(screen.queryByText('Reset to default')).not.toBeInTheDocument()
   })
 })
 
