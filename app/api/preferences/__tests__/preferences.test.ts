@@ -12,6 +12,7 @@ const mockState = {
   prefsError: null as { code?: string; message: string } | null,
   userTags: [] as { name: string }[],
   upsertResult: null as Record<string, unknown> | null,
+  upsertError: null as { code?: string; message: string } | null,
 }
 
 // ── Table-specific mock behavior ──────────────────────────────────────────────
@@ -48,6 +49,11 @@ function makePrefsFrom(table: string) {
     upsert: (data: Record<string, unknown>, _opts: unknown) => ({
       select: (_cols: string) => ({
         single: async () => {
+          if (mockState.upsertError) {
+            const err = mockState.upsertError
+            mockState.upsertError = null // fire once — second call (fallback) succeeds
+            return { data: null, error: err }
+          }
           if (mockState.upsertResult) {
             return { data: { ...data, ...mockState.upsertResult }, error: null }
           }
@@ -97,15 +103,22 @@ function makeAdminFrom(table: string) {
     }),
     upsert: (data: Record<string, unknown>, _opts: unknown) => ({
       select: (_cols: string) => ({
-        single: async () => ({
-          data: {
-            options_per_day: 3, cooldown_days: 28, seasonal_mode: true,
-            preferred_tags: [], avoided_tags: [], limited_tags: [],
-            onboarding_completed: false, meal_context: null, ...data,
-            ...(mockState.upsertResult ?? {}),
-          },
-          error: null,
-        }),
+        single: async () => {
+          if (mockState.upsertError) {
+            const err = mockState.upsertError
+            mockState.upsertError = null
+            return { data: null, error: err }
+          }
+          return {
+            data: {
+              options_per_day: 3, cooldown_days: 28, seasonal_mode: true,
+              preferred_tags: [], avoided_tags: [], limited_tags: [],
+              onboarding_completed: false, meal_context: null, ...data,
+              ...(mockState.upsertResult ?? {}),
+            },
+            error: null,
+          }
+        },
       }),
     }),
   }
@@ -138,6 +151,7 @@ beforeEach(() => {
   mockState.prefsError = null
   mockState.userTags = []
   mockState.upsertResult = null
+  mockState.upsertError = null
 })
 
 // ── GET /api/preferences ─────────────────────────────────────────────────────
@@ -453,6 +467,23 @@ describe('week_start_day preference', () => {
       week_start_day: 7,
     }))
     expect(res.status).toBe(400)
+  })
+})
+
+// ── PGRST204 fallback — pending migration columns ─────────────────────────────
+describe('PGRST204 fallback — pending migration', () => {
+  it('PATCH returns 200 with base prefs when upsert fails with PGRST204', async () => {
+    mockState.upsertError = {
+      code: 'PGRST204',
+      message: 'column week_start_day of relation user_preferences does not exist',
+    }
+    const res = await PATCH(makeRequest('PATCH', 'http://localhost/api/preferences', { cooldown_days: 14 }))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.cooldown_days).toBe(14)
+    // New columns should fall back to DEFAULT_PREFS values when migration hasn't run
+    expect(body.hidden_tags).toEqual([])
+    expect(body.week_start_day).toBe(0)
   })
 })
 
