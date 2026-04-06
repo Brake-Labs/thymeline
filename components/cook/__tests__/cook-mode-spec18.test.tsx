@@ -3,7 +3,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 
 // ── Mock next/navigation ──────────────────────────────────────────────────────
 
@@ -153,5 +153,78 @@ describe('spec-18 T22 - sessionStorage key cleared on Cook Mode unmount', () => 
     unmount()
 
     expect(sessionStorage.getItem('ai-modified-recipe-recipe-1')).toBeNull()
+  })
+})
+
+// ── spec-18 T15/T16: handleSaveAsNew — button render, POST call, status ────────
+
+describe('spec-18 T15/T16 - handleSaveAsNew: button render, POST call, saveStatus transitions', () => {
+  const modifiedFor3Steps = {
+    title: 'Test Recipe',
+    ingredients: 'modified ingredients',
+    steps: 'Step 1\nStep 2\nStep 3',
+    notes: null,
+    servings: 4,
+  }
+
+  it('does not render "Save as New" button on last step when recipe is not modified', async () => {
+    const { default: CookModePage } = await import('@/app/(cook)/recipes/[id]/cook/page')
+    render(<CookModePage params={{ id: 'recipe-1' }} />)
+    // sampleRecipe has 3 steps — navigate to last step
+    await waitFor(() => expect(screen.getByText('Next →')).toBeDefined(), { timeout: 2000 })
+    fireEvent.click(screen.getByText('Next →'))
+    fireEvent.click(screen.getByText('Next →'))
+    expect(screen.queryByText('Save as New')).toBeNull()
+  })
+
+  it('renders "Save as New" button on last step when recipe is modified', async () => {
+    sessionStorage.setItem('ai-modified-recipe-recipe-1', JSON.stringify(modifiedFor3Steps))
+    const { default: CookModePage } = await import('@/app/(cook)/recipes/[id]/cook/page')
+    render(<CookModePage params={{ id: 'recipe-1' }} />)
+    await waitFor(() => expect(screen.getByText('Modified for tonight')).toBeDefined(), { timeout: 2000 })
+    fireEvent.click(screen.getByText('Next →'))
+    fireEvent.click(screen.getByText('Next →'))
+    expect(screen.getByText('Save as New')).toBeDefined()
+  })
+
+  it('POSTs to /api/recipes with title suffixed " (modified)"', async () => {
+    sessionStorage.setItem('ai-modified-recipe-recipe-1', JSON.stringify(modifiedFor3Steps))
+
+    let capturedBody: Record<string, unknown> | null = null
+    global.fetch = vi.fn().mockImplementation(async (_url: string, opts?: RequestInit) => {
+      if (opts?.method === 'POST') {
+        capturedBody = JSON.parse(opts.body as string) as Record<string, unknown>
+        return { ok: true, json: async () => ({ id: 'new-id' }), status: 201 }
+      }
+      return { ok: true, json: async () => sampleRecipe, status: 200 }
+    })
+
+    const { default: CookModePage } = await import('@/app/(cook)/recipes/[id]/cook/page')
+    render(<CookModePage params={{ id: 'recipe-1' }} />)
+    await waitFor(() => expect(screen.getByText('Modified for tonight')).toBeDefined(), { timeout: 2000 })
+    fireEvent.click(screen.getByText('Next →'))
+    fireEvent.click(screen.getByText('Next →'))
+    fireEvent.click(screen.getByText('Save as New'))
+    await waitFor(() => expect(capturedBody).not.toBeNull(), { timeout: 2000 })
+    expect((capturedBody as unknown as Record<string, unknown>).title).toBe('Test Recipe (modified)')
+  })
+
+  it('transitions to "✓ Saved!" after a successful POST', async () => {
+    sessionStorage.setItem('ai-modified-recipe-recipe-1', JSON.stringify(modifiedFor3Steps))
+
+    global.fetch = vi.fn().mockImplementation(async (_url: string, opts?: RequestInit) => {
+      if (opts?.method === 'POST') {
+        return { ok: true, json: async () => ({ id: 'new-id' }), status: 201 }
+      }
+      return { ok: true, json: async () => sampleRecipe, status: 200 }
+    })
+
+    const { default: CookModePage } = await import('@/app/(cook)/recipes/[id]/cook/page')
+    render(<CookModePage params={{ id: 'recipe-1' }} />)
+    await waitFor(() => expect(screen.getByText('Modified for tonight')).toBeDefined(), { timeout: 2000 })
+    fireEvent.click(screen.getByText('Next →'))
+    fireEvent.click(screen.getByText('Next →'))
+    fireEvent.click(screen.getByText('Save as New'))
+    await waitFor(() => expect(screen.getByText('✓ Saved!')).toBeDefined(), { timeout: 2000 })
   })
 })

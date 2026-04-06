@@ -78,7 +78,7 @@ export default function CookModePage({ params }: Props) {
       }
     }
     void load()
-  }, [params.id, router])
+  }, [params.id, router, storedModified])
 
   // Clear AI-modified sessionStorage key on unmount
   useEffect(() => {
@@ -227,7 +227,7 @@ export default function CookModePage({ params }: Props) {
           Authorization: `Bearer ${await getAccessToken()}`,
         },
         body: JSON.stringify({
-          title: recipe.title,
+          title: `${recipe.title} (modified)`,
           category: recipe.category,
           tags: recipe.tags ?? [],
           ingredients: recipe.ingredients ?? null,
