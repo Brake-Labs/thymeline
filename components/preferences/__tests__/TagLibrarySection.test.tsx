@@ -181,6 +181,77 @@ describe('Spec-19 T5 - renaming a custom tag updates in place', () => {
   })
 })
 
+// ── Spec-19 T6: Rename to duplicate rejected ─────────────────────────────────
+
+describe('Spec-19 T6 - renaming to an already-existing name is rejected', () => {
+  it('shows error when new name matches an existing custom tag', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 409,
+      json: async () => ({ error: "A tag named 'Weeknight' already exists." }),
+    })
+
+    await act(async () => {
+      render(
+        <TagLibrarySection
+          firstClassTags={[]}
+          customTags={[
+            { name: 'Date Night', section: 'style', recipe_count: 2 },
+            { name: 'Weeknight', section: 'style', recipe_count: 8 },
+          ]}
+          hiddenTags={[]}
+          getToken={getToken}
+        />
+      )
+    })
+
+    const renameButtons = screen.getAllByText('Rename')
+    fireEvent.click(renameButtons[0]!)
+    const input = screen.getByDisplayValue('Date Night')
+    fireEvent.change(input, { target: { value: 'Weeknight' } })
+    fireEvent.click(screen.getByText('Save'))
+
+    await waitFor(() =>
+      expect(screen.getByText("A tag named 'Weeknight' already exists.")).toBeDefined()
+    )
+    // Old name still present (no rename applied)
+    expect(screen.queryByText('Date Night')).toBeDefined()
+  })
+})
+
+// ── Spec-19 T7: Rename to first-class tag name rejected ───────────────────────
+
+describe('Spec-19 T7 - renaming to a first-class tag name is rejected', () => {
+  it('shows error when new name matches a built-in tag', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: "'Quick' is a built-in tag name and cannot be used for a custom tag." }),
+    })
+
+    await act(async () => {
+      render(
+        <TagLibrarySection
+          firstClassTags={[{ name: 'Quick', recipe_count: 5 }]}
+          customTags={[{ name: 'Date Night', section: 'style', recipe_count: 2 }]}
+          hiddenTags={[]}
+          getToken={getToken}
+        />
+      )
+    })
+
+    fireEvent.click(screen.getByText('Rename'))
+    const input = screen.getByDisplayValue('Date Night')
+    fireEvent.change(input, { target: { value: 'Quick' } })
+    fireEvent.click(screen.getByText('Save'))
+
+    await waitFor(() =>
+      expect(screen.getByText("'Quick' is a built-in tag name and cannot be used for a custom tag.")).toBeDefined()
+    )
+    expect(screen.queryByText('Date Night')).toBeDefined()
+  })
+})
+
 // ── Spec-19 T8: Delete confirmation shows correct count ───────────────────────
 
 describe('Spec-19 T8 - delete confirmation shows recipe count', () => {

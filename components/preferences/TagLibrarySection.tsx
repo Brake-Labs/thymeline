@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import TagRow from './TagRow'
 
 interface FirstClassTag {
@@ -63,6 +63,14 @@ export default function TagLibrarySection({
   const [firstClassTags, setFirstClassTags] = useState<FirstClassTag[]>(initialFirstClass)
   const [customTags, setCustomTags]         = useState<CustomTag[]>(initialCustom)
   const [hiddenTags, setHiddenTags]         = useState<HiddenTag[]>(initialHidden)
+
+  // Sync state when the parent fetch completes (useState only uses the initial value at mount,
+  // so we need an effect to pick up the async data that arrives after first render)
+  useEffect(() => {
+    setFirstClassTags(initialFirstClass)
+    setCustomTags(initialCustom)
+    setHiddenTags(initialHidden)
+  }, [initialFirstClass, initialCustom, initialHidden])
 
   const [addInput, setAddInput]   = useState('')
   const [addError, setAddError]   = useState<string | null>(null)
