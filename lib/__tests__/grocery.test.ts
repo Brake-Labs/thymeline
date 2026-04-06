@@ -400,6 +400,15 @@ describe('T12 - Pantry item export semantics', () => {
     const text = buildPlainTextList(items, pantryScales, 2, '2026-03-15', { onlyUnchecked: true })
     expect(text).toContain('pasta')
   })
+
+  it('non-pantry item with checked=true is excluded from onlyUnchecked export (#276)', () => {
+    // checked=true on a non-pantry item means "I already have this" — should not be exported
+    const items: GroceryItem[] = [
+      { id: 'i1', name: 'pasta', amount: 200, unit: 'g', section: 'Pantry', is_pantry: false, checked: true, bought: false, recipes: ['Soup'] },
+    ]
+    const text = buildPlainTextList(items, pantryScales, 2, '2026-03-15', { onlyUnchecked: true })
+    expect(text).not.toContain('pasta')
+  })
 })
 
 // ── getCurrentWeekSunday ──────────────────────────────────────────────────────
