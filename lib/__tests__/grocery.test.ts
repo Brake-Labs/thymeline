@@ -411,6 +411,48 @@ describe('T12 - Pantry item export semantics', () => {
   })
 })
 
+// ── T13: Combined pantry + non-pantry export (#287) ───────────────────────────
+
+describe('T13 - Combined export: unchecked Need-to-Buy + checked Pantry (#287)', () => {
+  const scales: RecipeScale[] = [{ recipe_id: 'r1', recipe_title: 'Soup', servings: 4 }]
+
+  it('exports unchecked Need-to-Buy and checked Pantry items; excludes all others', () => {
+    const items: GroceryItem[] = [
+      // Need to Buy — unchecked: should be included
+      { id: 'i1', name: 'chicken', amount: 1, unit: 'lb', section: 'Proteins', is_pantry: false, checked: false, bought: false, recipes: ['Soup'] },
+      // Need to Buy — checked ("I already have this"): should be excluded
+      { id: 'i2', name: 'carrots', amount: 3, unit: null, section: 'Produce', is_pantry: false, checked: true, bought: false, recipes: ['Soup'] },
+      // Need to Buy — bought ("Got It"): should be excluded
+      { id: 'i3', name: 'celery', amount: 2, unit: null, section: 'Produce', is_pantry: false, checked: false, bought: true, recipes: ['Soup'] },
+      // Pantry — checked ("need to buy"): should be included
+      { id: 'i4', name: 'olive oil', amount: 2, unit: 'tbsp', section: 'Pantry', is_pantry: true, checked: true, bought: false, recipes: ['Soup'] },
+      // Pantry — unchecked ("have it in pantry"): should be excluded
+      { id: 'i5', name: 'salt', amount: null, unit: null, section: 'Pantry', is_pantry: true, checked: false, bought: false, recipes: ['Soup'] },
+    ]
+    const text = buildPlainTextList(items, scales, 4, '2026-03-30', { onlyUnchecked: true })
+    const lines = text.split('\n')
+    expect(lines).toHaveLength(2)
+    expect(text).toContain('chicken')   // unchecked Need to Buy ✓
+    expect(text).toContain('olive oil') // checked Pantry ✓
+    expect(text).not.toContain('carrots')  // checked Need to Buy ✗
+    expect(text).not.toContain('celery')   // bought ✗
+    expect(text).not.toContain('salt')     // unchecked Pantry ✗
+  })
+
+  it('export lines are one item per line with no headers or bullets', () => {
+    const items: GroceryItem[] = [
+      { id: 'i1', name: 'chicken', amount: 1, unit: 'lb', section: 'Proteins', is_pantry: false, checked: false, bought: false, recipes: ['Soup'] },
+      { id: 'i4', name: 'olive oil', amount: 2, unit: 'tbsp', section: 'Pantry', is_pantry: true, checked: true, bought: false, recipes: ['Soup'] },
+    ]
+    const text = buildPlainTextList(items, scales, 4, '2026-03-30', { onlyUnchecked: true })
+    const lines = text.split('\n')
+    expect(lines).toHaveLength(2)
+    expect(lines[0]).toBe('1 lb chicken')
+    expect(lines[1]).toBe('2 tbsp olive oil')
+    expect(text).not.toMatch(/^[•\-–🛒]/m)
+  })
+})
+
 // ── getCurrentWeekSunday ──────────────────────────────────────────────────────
 
 describe('getCurrentWeekSunday', () => {
