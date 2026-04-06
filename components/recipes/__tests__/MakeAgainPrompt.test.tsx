@@ -90,6 +90,22 @@ describe('MakeAgainPrompt', () => {
     expect(onDismiss).toHaveBeenCalled()
   })
 
+  // T24: Prompt appears on Cook Mode final step after log
+  // Note: The cook mode page is an integration test; this unit test verifies that
+  // MakeAgainPrompt renders correctly when mounted with a cook-mode-sourced entry_id.
+  it('T24: renders correctly when supplied with a cook-mode entry_id', () => {
+    render(
+      <MakeAgainPrompt
+        entryId="cook-entry-42"
+        recipeId="recipe-99"
+        getToken={async () => 'tok'}
+        onDismiss={vi.fn()}
+      />
+    )
+    expect(screen.getByText(/how did it go/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /make again/i })).toBeInTheDocument()
+  })
+
   // Error handling: PATCH failure still calls onDismiss after 1s
   it('still calls onDismiss after 1s even when PATCH fails', async () => {
     const onDismiss = vi.fn()

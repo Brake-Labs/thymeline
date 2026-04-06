@@ -13,6 +13,7 @@ import { getAccessToken } from '@/lib/supabase/browser'
 import { getTodayISO } from '@/lib/date-utils'
 import { TOAST_DURATION_LONG_MS } from '@/lib/constants'
 import { type Recipe } from '@/types'
+import MakeAgainPrompt from '@/components/recipes/MakeAgainPrompt'
 
 type RecipeWithHistory = Recipe & { last_made: string | null; times_made: number }
 
@@ -46,6 +47,7 @@ export default function CookModePage({ params }: Props) {
   const [checked, setChecked] = useState<Set<number>>(new Set())
   const [timers, setTimers] = useState<Map<number, TimerState>>(new Map())
   const [logStatus, setLogStatus] = useState<'idle' | 'loading' | 'success' | 'already_logged'>('idle')
+  const [makeAgainEntryId, setMakeAgainEntryId] = useState<string | null>(null)
   const [wakeLockActive, setWakeLockActive] = useState(false)
   const [unitSystem, setUnitSystem] = useState<'imperial' | 'metric'>('imperial')
   const wakeLockRef = useRef<WakeLockSentinel | null>(null)
@@ -204,8 +206,9 @@ export default function CookModePage({ params }: Props) {
         body: JSON.stringify({ made_on: today }),
       })
       if (res.ok) {
-        const data: { made_on: string; already_logged: boolean } = await res.json()
+        const data: { made_on: string; already_logged: boolean; entry_id: string | null } = await res.json()
         setLogStatus(data.already_logged ? 'already_logged' : 'success')
+        if (!data.already_logged && data.entry_id) setMakeAgainEntryId(data.entry_id)
         setTimeout(() => setLogStatus('idle'), TOAST_DURATION_LONG_MS)
       } else {
         setLogStatus('idle')
@@ -358,6 +361,18 @@ export default function CookModePage({ params }: Props) {
 
       {/* Voice control */}
       <VoiceControl onCommand={handleVoiceCommand} />
+
+      {/* Make Again prompt — shown on the last step after a fresh log */}
+      {isLastStep && makeAgainEntryId && recipe && (
+        <div className="px-4 py-4">
+          <MakeAgainPrompt
+            entryId={makeAgainEntryId}
+            recipeId={params.id}
+            getToken={getAccessToken}
+            onDismiss={() => setMakeAgainEntryId(null)}
+          />
+        </div>
+      )}
 
       {/* Fixed footer */}
       <div

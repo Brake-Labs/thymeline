@@ -19,6 +19,7 @@ import { TOAST_DURATION_MS } from '@/lib/constants'
 import { convertIngredients } from '@/lib/convert-units'
 import DateInput from '@/components/ui/DateInput'
 import { Sparkles } from 'lucide-react'
+import MakeAgainPrompt from '@/components/recipes/MakeAgainPrompt'
 
 type RecipeWithHistory = Recipe & { last_made: string | null; times_made: number }
 
@@ -45,6 +46,7 @@ export default function RecipeDetailPage({ params }: Props) {
   const [modifiedRecipe, setModifiedRecipe]   = useState<ModifiedRecipe | null>(null)
   const [showAddRecipe, setShowAddRecipe]     = useState(false)
   const [saveAsNewPrefill, setSaveAsNewPrefill] = useState<ModifiedRecipe | null>(null)
+  const [makeAgainEntryId, setMakeAgainEntryId] = useState<string | null>(null)
 
   const isOwner = !!currentUserId && recipe?.user_id === currentUserId
 
@@ -99,7 +101,7 @@ export default function RecipeDetailPage({ params }: Props) {
         body: JSON.stringify({ made_on: logDate }),
       })
       if (res.ok) {
-        const data: { made_on: string; already_logged: boolean } = await res.json()
+        const data: { made_on: string; already_logged: boolean; entry_id: string | null } = await res.json()
         if (data.already_logged) {
           setLogStatus('already_logged')
         } else {
@@ -107,6 +109,7 @@ export default function RecipeDetailPage({ params }: Props) {
           setDatesMade((prev) =>
             prev.includes(data.made_on) ? prev : [data.made_on, ...prev].sort().reverse()
           )
+          if (data.entry_id) setMakeAgainEntryId(data.entry_id)
         }
         setTimeout(() => setLogStatus('idle'), TOAST_DURATION_MS)
       } else {
@@ -328,6 +331,18 @@ export default function RecipeDetailPage({ params }: Props) {
 
           {/* Footer dashed divider */}
           <div className="mx-6 border-t border-dashed border-stone-200" />
+
+          {/* Make Again prompt — shown after a fresh log */}
+          {makeAgainEntryId && recipe && (
+            <div className="px-6 pt-4">
+              <MakeAgainPrompt
+                entryId={makeAgainEntryId}
+                recipeId={recipe.id}
+                getToken={getAccessToken}
+                onDismiss={() => setMakeAgainEntryId(null)}
+              />
+            </div>
+          )}
 
           {/* Footer */}
           {logError && (
