@@ -485,6 +485,19 @@ describe('PGRST204 fallback — pending migration', () => {
     expect(body.hidden_tags).toEqual([])
     expect(body.week_start_day).toBe(0)
   })
+
+  it('PATCH returns 200 with base prefs when upsert fails with 42703 (column does not exist)', async () => {
+    mockState.upsertError = {
+      code: '42703',
+      message: 'column user_preferences.hidden_tags does not exist',
+    }
+    const res = await PATCH(makeRequest('PATCH', 'http://localhost/api/preferences', { meal_context: 'family of 4' }))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.meal_context).toBe('family of 4')
+    expect(body.hidden_tags).toEqual([])
+    expect(body.week_start_day).toBe(0)
+  })
 })
 
 

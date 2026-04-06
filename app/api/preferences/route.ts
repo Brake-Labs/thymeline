@@ -98,8 +98,9 @@ export const PATCH = withAuth(async (req, { user, db, ctx }) => {
   if (!error) return NextResponse.json(data)
 
   // PGRST204: column not in schema cache — one or more new migrations haven't run yet.
+  // 42703: PostgreSQL "column does not exist" — same root cause, different DB version.
   // Retry with only the base columns so existing preferences can still be saved.
-  if (error.code === 'PGRST204') {
+  if (error.code === 'PGRST204' || error.code === '42703') {
     console.warn('[PATCH /api/preferences] falling back to base columns (pending migration):', error.message)
     const baseUpdate = { ...update }
     for (const col of newColumns) delete baseUpdate[col]
