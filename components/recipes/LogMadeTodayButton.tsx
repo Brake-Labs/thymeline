@@ -6,7 +6,7 @@ import { TOAST_DURATION_MS } from '@/lib/constants'
 interface LogMadeTodayButtonProps {
   recipeId: string
   getToken: () => Promise<string> | string
-  onLogged?: () => void
+  onLogged?: (entryId: string | null) => void
 }
 
 type Status = 'idle' | 'loading' | 'success' | 'already_logged'
@@ -26,12 +26,12 @@ export default function LogMadeTodayButton({
         headers: { Authorization: `Bearer ${await getToken()}` },
       })
       if (res.ok) {
-        const data: { made_on: string; already_logged: boolean } = await res.json()
+        const data: { made_on: string; already_logged: boolean; entry_id: string | null } = await res.json()
         if (data.already_logged) {
           setStatus('already_logged')
         } else {
           setStatus('success')
-          onLogged?.()
+          onLogged?.(data.entry_id ?? null)
         }
         // Reset after toast duration
         setTimeout(() => setStatus('idle'), TOAST_DURATION_MS)
