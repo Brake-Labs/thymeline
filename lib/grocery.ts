@@ -370,9 +370,10 @@ export function buildPlainTextList(
   _weekStart: string,
   options?: { onlyUnchecked?: boolean },
 ): string {
-  // Pantry semantics: checked=true means "add to cart"; non-pantry: bought=true means "Got it" (exclude)
+  // Pantry semantics: checked=true means "add to cart" (include).
+  // Non-pantry: checked=true means "I already have this" (exclude); bought=true means "Got it" (exclude).
   const filtered = options?.onlyUnchecked
-    ? items.filter((i) => i.is_pantry ? i.checked : !i.bought)
+    ? items.filter((i) => i.is_pantry ? i.checked : !i.checked && !i.bought)
     : items
   return filtered
     .map((item) => {
