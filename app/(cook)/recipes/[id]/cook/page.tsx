@@ -46,7 +46,6 @@ export default function CookModePage({ params }: Props) {
   const [checked, setChecked] = useState<Set<number>>(new Set())
   const [timers, setTimers] = useState<Map<number, TimerState>>(new Map())
   const [logStatus, setLogStatus] = useState<'idle' | 'loading' | 'success' | 'already_logged'>('idle')
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [wakeLockActive, setWakeLockActive] = useState(false)
   const [unitSystem, setUnitSystem] = useState<'imperial' | 'metric'>('imperial')
   const wakeLockRef = useRef<WakeLockSentinel | null>(null)
@@ -216,39 +215,6 @@ export default function CookModePage({ params }: Props) {
     }
   }
 
-  async function handleSaveAsNew() {
-    if (!recipe) return
-    setSaveStatus('loading')
-    try {
-      const res = await fetch('/api/recipes', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${await getAccessToken()}`,
-        },
-        body: JSON.stringify({
-          title: recipe.title,
-          category: recipe.category,
-          tags: recipe.tags ?? [],
-          ingredients: recipe.ingredients ?? null,
-          steps: recipe.steps ?? null,
-          notes: recipe.notes ?? null,
-          servings: recipe.servings ?? null,
-          source: 'manual',
-        }),
-      })
-      if (res.ok) {
-        setSaveStatus('success')
-      } else {
-        setSaveStatus('error')
-        setTimeout(() => setSaveStatus('idle'), TOAST_DURATION_LONG_MS)
-      }
-    } catch {
-      setSaveStatus('error')
-      setTimeout(() => setSaveStatus('idle'), TOAST_DURATION_LONG_MS)
-    }
-  }
-
   function handleVoiceCommand(cmd: VoiceCommand) {
     if (!recipe) return
     const steps = (recipe.steps ?? '').split('\n').filter(Boolean)
@@ -411,26 +377,14 @@ export default function CookModePage({ params }: Props) {
               Step {currentStep + 1} of {steps.length}
             </span>
             {isLastStep ? (
-              <div className="flex items-center gap-2">
-                {isModifiedRef.current && (
-                  <button
-                    type="button"
-                    onClick={handleSaveAsNew}
-                    disabled={saveStatus === 'loading' || saveStatus === 'success'}
-                    className="font-medium text-xs bg-amber-400 text-stone-900 rounded-xl py-2 px-3 min-h-[44px] disabled:opacity-50 whitespace-nowrap"
-                  >
-                    {saveStatus === 'success' ? '✓ Saved!' : saveStatus === 'error' ? 'Save failed' : 'Save as New'}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={handleLog}
-                  disabled={logStatus === 'loading'}
-                  className="font-medium text-sm bg-white text-stone-800 rounded-xl py-2 px-4 min-h-[44px] disabled:opacity-50 whitespace-nowrap"
-                >
-                  {logStatus === 'success' ? '✓ Logged!' : logStatus === 'already_logged' ? 'Already logged today' : 'Log Made Today'}
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={handleLog}
+                disabled={logStatus === 'loading'}
+                className="font-medium text-sm bg-white text-stone-800 rounded-xl py-2 px-4 min-h-[44px] disabled:opacity-50"
+              >
+                {logStatus === 'success' ? '✓ Logged!' : logStatus === 'already_logged' ? 'Already logged today' : 'Log Made Today'}
+              </button>
             ) : (
               <button
                 type="button"
@@ -443,26 +397,14 @@ export default function CookModePage({ params }: Props) {
           </>
         )}
         {view === 'all' && (
-          <div className="w-full flex flex-col gap-2">
-            {isModifiedRef.current && (
-              <button
-                type="button"
-                onClick={handleSaveAsNew}
-                disabled={saveStatus === 'loading' || saveStatus === 'success'}
-                className="w-full font-medium text-sm bg-amber-400 text-stone-900 rounded-xl py-3 disabled:opacity-50"
-              >
-                {saveStatus === 'success' ? '✓ Saved as new recipe!' : saveStatus === 'error' ? 'Save failed — tap to retry' : 'Save as New Recipe'}
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={handleLog}
-              disabled={logStatus === 'loading'}
-              className="w-full font-medium text-sm bg-white text-stone-800 rounded-xl py-3 disabled:opacity-50"
-            >
-              {logStatus === 'success' ? '✓ Logged!' : logStatus === 'already_logged' ? 'Already logged today' : 'Log Made Today'}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleLog}
+            disabled={logStatus === 'loading'}
+            className="w-full font-medium text-sm bg-white text-stone-800 rounded-xl py-3 disabled:opacity-50"
+          >
+            {logStatus === 'success' ? '✓ Logged!' : logStatus === 'already_logged' ? 'Already logged today' : 'Log Made Today'}
+          </button>
         )}
       </div>
     </div>
