@@ -32,11 +32,12 @@ function PlanPageInner() {
   const searchParams = useSearchParams()
   const step = searchParams.get('step') ?? 'setup'
 
-  const initialSunday = getMostRecentSunday()
+  const initialWeekStart = getMostRecentSunday()
 
+  const [weekStartDay, setWeekStartDay] = useState(0)
   const [setup, setSetup] = useState<PlanSetup>({
-    weekStart:       initialSunday,
-    activeDates:     getWeekDates(initialSunday),
+    weekStart:       initialWeekStart,
+    activeDates:     getWeekDates(initialWeekStart),
     activeMealTypes: ['dinner'],
     preferThisWeek:  [],
     avoidThisWeek:   [],
@@ -60,6 +61,7 @@ function PlanPageInner() {
         if (res.ok) {
           const prefs = await res.json()
           const pref: number = prefs.week_start_day ?? 0
+          setWeekStartDay(pref)
           if (pref !== 0) {
             const start = getMostRecentWeekStart(pref)
             setSetup((prev) => ({ ...prev, weekStart: start, activeDates: getWeekDates(start) }))
@@ -478,6 +480,7 @@ function PlanPageInner() {
         {step === 'setup' && (
           <SetupStep
             setup={setup}
+            weekStartDay={weekStartDay}
             onSetupChange={(updates) => setSetup((prev) => ({ ...prev, ...updates }))}
             onGetSuggestions={handleGetSuggestions}
             isGenerating={isGenerating}

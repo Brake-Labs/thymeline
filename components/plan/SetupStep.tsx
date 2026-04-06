@@ -10,12 +10,13 @@ import type { PlanSetup } from '@/types'
 
 interface SetupStepProps {
   setup: PlanSetup
+  weekStartDay?: number
   onSetupChange: (updates: Partial<PlanSetup>) => void
   onGetSuggestions: () => void
   isGenerating: boolean
 }
 
-export default function SetupStep({ setup, onSetupChange, onGetSuggestions, isGenerating }: SetupStepProps) {
+export default function SetupStep({ setup, weekStartDay = 0, onSetupChange, onGetSuggestions, isGenerating }: SetupStepProps) {
   const [allTags, setAllTags] = useState<string[]>([])
   const [tagsExpanded, setTagsExpanded] = useState(false)
 
@@ -43,6 +44,7 @@ export default function SetupStep({ setup, onSetupChange, onGetSuggestions, isGe
         <h2 className="font-display text-sm font-semibold text-stone-500 uppercase tracking-wider mb-2">Week</h2>
         <WeekPicker
           weekStart={setup.weekStart}
+          weekStartDay={weekStartDay}
           onChange={(weekStart) => onSetupChange({ weekStart })}
         />
       </div>
