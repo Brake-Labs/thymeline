@@ -214,6 +214,7 @@ export default function PreferencesForm({ firstClassTags, customTags, hiddenTags
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-stone-700">Week starts on</label>
+              {/* Intentionally limited to Sunday/Monday for now; schema supports 0–6 for future expansion */}
               <div className="flex gap-2">
                 {([{ value: 0, label: 'Sunday' }, { value: 1, label: 'Monday' }] as const).map(({ value, label }) => (
                   <button

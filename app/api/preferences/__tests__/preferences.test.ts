@@ -487,6 +487,7 @@ describe('PGRST204 fallback — pending migration', () => {
   })
 })
 
+
 // ── T01/T02: Redirect logic (server component, documented) ───────────────────
 describe('T01/T02 - onboarding redirect logic in app layout', () => {
   it('layout.tsx fetches preferences and redirects on onboarding_completed=false', async () => {
