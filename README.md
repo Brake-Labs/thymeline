@@ -11,11 +11,13 @@ AI-powered weekly meal planning app built with Next.js, Better Auth, Drizzle ORM
 
 ## Local Development
 
-### 1. Start Postgres
+### 1. Start the database
 
 ```bash
 docker compose up -d
 ```
+
+This starts a Postgres 16 container on port 5432 with a named volume for data persistence. The app itself runs via `npm run dev` (step 5).
 
 ### 2. Set up Google OAuth
 
@@ -61,15 +63,13 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000). Sign in with Google.
 
-## Docker (full app)
+### Dev auth bypass (for testing without Google OAuth)
+
+Set `DEV_BYPASS_AUTH=true` in `.env.local` to skip Google sign-in. All routes will use a dev user. Seed the dev user's database records first:
 
 ```bash
-cp .env.local.example .env
-# Edit .env with your credentials
-docker compose up --build
+npx tsx scripts/seed-dev.ts
 ```
-
-The app will be available at `http://localhost:3000`.
 
 ## Useful commands
 
@@ -83,10 +83,13 @@ The app will be available at `http://localhost:3000`.
 | `npx drizzle-kit push` | Push schema to database |
 | `npx drizzle-kit studio` | Open Drizzle Studio (DB browser) |
 | `npx drizzle-kit generate` | Generate migration files |
+| `docker compose up -d` | Start Postgres |
+| `docker compose down` | Stop Postgres (data persists in volume) |
+| `docker compose down -v` | Stop Postgres and delete data |
 
 ## Architecture
 
 - **Auth:** Better Auth with Google OAuth. Server config in `lib/auth-server.ts`, client in `lib/auth-client.ts`. All API routes use `withAuth()` HOF from `lib/auth.ts`.
 - **Database:** Postgres via Drizzle ORM. Schema in `lib/db/schema.ts`, client in `lib/db/index.ts`.
-- **Access control:** Email whitelist via `ALLOWED_EMAILS` env var.
+- **Access control:** Email whitelist via `ALLOWED_EMAILS` env var, enforced server-side in `withAuth()`.
 - **LLM:** Anthropic Claude via `lib/llm.ts`.
