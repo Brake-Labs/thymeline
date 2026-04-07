@@ -7,7 +7,7 @@ import GotItSection from './GotItSection'
 import AddItemInput from './AddItemInput'
 import StepperInput from '@/components/preferences/StepperInput'
 import { getAccessToken } from '@/lib/supabase/browser'
-import { effectiveServings, formatWeekLabel, buildPlainTextList } from '@/lib/grocery'
+import { effectiveServings, formatWeekLabel, buildPlainTextList, buildICSExport } from '@/lib/grocery'
 import { TOAST_DURATION_LONG_MS } from '@/lib/constants'
 
 // Aisle order used for grouping "Need to Buy" items
@@ -195,6 +195,23 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
     const header = `Grocery list — week of ${weekStart}`
     const itemList = buildPlainTextList(items, recipeScales, planServings, weekStart, { onlyUnchecked: true })
     const text = itemList ? `${header}\n\n${itemList}` : header
+
+    // Prefer sharing an .ics file — iOS Reminders imports each VTODO as a separate item.
+    // Plain-text share creates only one reminder regardless of newlines.
+    if (typeof navigator !== 'undefined' && navigator.canShare) {
+      const ics = buildICSExport(items, { onlyUnchecked: true })
+      const file = new File([ics], 'grocery-list.ics', { type: 'text/calendar' })
+      if (navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: header })
+          return
+        } catch (err) {
+          if ((err as Error).name === 'AbortError') return
+          // share failed — fall through to plain-text share
+        }
+      }
+    }
+
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({ text })

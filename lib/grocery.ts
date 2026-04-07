@@ -384,6 +384,44 @@ export function buildPlainTextList(
     .join('\n')
 }
 
+/**
+ * Build an iCalendar (.ics) payload with one VTODO per grocery item.
+ * iOS Reminders imports each VTODO as a separate reminder when the file is shared.
+ * Uses CRLF line endings as required by RFC 5545.
+ */
+export function buildICSExport(
+  items: GroceryItem[],
+  options?: { onlyUnchecked?: boolean },
+): string {
+  const filtered = options?.onlyUnchecked
+    ? items.filter((i) => i.is_pantry ? i.checked : !i.checked && !i.bought)
+    : items
+
+  const CRLF = '\r\n'
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z'
+  const vtodos = filtered.map((item) => {
+    const amt = item.amount !== null ? `${item.amount} ` : ''
+    const unit = item.unit ? `${item.unit} ` : ''
+    const summary = `${amt}${unit}${item.name}`.replace(/[\\;,]/g, (c) => `\\${c}`)
+    return [
+      'BEGIN:VTODO',
+      `DTSTAMP:${stamp}`,
+      `UID:${crypto.randomUUID()}@thymeline`,
+      `SUMMARY:${summary}`,
+      'STATUS:NEEDS-ACTION',
+      'END:VTODO',
+    ].join(CRLF)
+  })
+
+  return [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Thymeline//Grocery List//EN',
+    ...vtodos,
+    'END:VCALENDAR',
+  ].join(CRLF)
+}
+
 // ── Week helpers (re-exported from date-utils) ───────────────────────────────
 
 export { getMostRecentSunday as getCurrentWeekSunday, addDays, formatDateRange as formatDateRangeLabel, formatWeekRange as formatWeekLabel } from '@/lib/date-utils'
