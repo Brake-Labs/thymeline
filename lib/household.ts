@@ -1,6 +1,6 @@
 import { eq, type SQL, type Column } from 'drizzle-orm'
 import { db } from './db'
-import { householdMembers, recipes, mealPlans, customTags, groceryLists, pantryItems, userPreferences, recipeHistory } from './db/schema'
+import { householdMembers, recipes, mealPlans, customTags, groceryLists, pantryItems, userPreferences } from './db/schema'
 import type { HouseholdContext, HouseholdRole } from '@/types'
 
 /**
@@ -71,7 +71,6 @@ const tableRegistry: Record<string, any> = {
   grocery_lists: groceryLists,
   pantry_items: pantryItems,
   user_preferences: userPreferences,
-  recipe_history: recipeHistory,
 }
 
 /**

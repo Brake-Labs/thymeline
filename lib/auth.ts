@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from './auth-server'
 import { db } from './db'
+import { config } from './config'
 import { resolveHouseholdScope } from './household'
 import type { HouseholdContext } from '@/types'
 
@@ -62,6 +63,12 @@ export function withAuth(
         email: session.user.email,
         name: session.user.name ?? null,
         image: session.user.image ?? null,
+      }
+
+      // Enforce email whitelist (empty list = open access)
+      const allowed = config.allowedEmails
+      if (allowed.length > 0 && !allowed.includes(user.email.toLowerCase())) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
     }
 

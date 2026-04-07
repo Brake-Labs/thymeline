@@ -56,13 +56,9 @@ vi.mock('@/lib/household', () => ({
 
 vi.mock('@/lib/config', () => ({
   config: {
-    supabase: {
-      url: 'http://localhost:54321',
-      anonKey: 'test-anon-key',
-      serviceRoleKey: 'test-service-role-key',
-    },
     get admin() { return { userId: mockConfig.adminUserId } },
     get siteUrl() { return mockConfig.siteUrl },
+    get allowedEmails() { return [] },
   },
 }))
 

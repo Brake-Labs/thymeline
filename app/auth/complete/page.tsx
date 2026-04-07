@@ -16,14 +16,17 @@ export default function AuthCompletePage() {
         return
       }
 
-      // Check email allowlist via server endpoint
-      const eligRes = await fetch('/api/auth/check-email')
-      if (eligRes.ok) {
-        const eligData = await eligRes.json()
-        if (!eligData.allowed) {
+      // Check email allowlist via server endpoint — deny on error or rejection
+      try {
+        const eligRes = await fetch('/api/auth/check-email')
+        if (!eligRes.ok || !(await eligRes.json()).allowed) {
           router.push('/inactive')
           return
         }
+      } catch {
+        // Network error — deny access (fail closed)
+        router.push('/inactive')
+        return
       }
 
       // Check if user already has preferences (cookies sent automatically)
