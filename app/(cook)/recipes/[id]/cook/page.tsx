@@ -14,6 +14,7 @@ import { getTodayISO } from '@/lib/date-utils'
 import { TOAST_DURATION_LONG_MS } from '@/lib/constants'
 import { type Recipe } from '@/types'
 import MakeAgainPrompt from '@/components/recipes/MakeAgainPrompt'
+import AddRecipeModal from '@/components/recipes/AddRecipeModal'
 
 type RecipeWithHistory = Recipe & { last_made: string | null; times_made: number }
 
@@ -26,6 +27,7 @@ export default function CookModePage({ params }: Props) {
   const [recipe, setRecipe] = useState<RecipeWithHistory | null>(null)
   const [loading, setLoading] = useState(true)
   const isModifiedRef = useRef(false)
+  const [showSaveAsNew, setShowSaveAsNew] = useState(false)
 
   // Read sessionStorage once at mount time (before any effects run) so that
   // React 18 Strict Mode's effect-cleanup-remount cycle cannot clear the key
@@ -392,14 +394,25 @@ export default function CookModePage({ params }: Props) {
               Step {currentStep + 1} of {steps.length}
             </span>
             {isLastStep ? (
-              <button
-                type="button"
-                onClick={handleLog}
-                disabled={logStatus === 'loading'}
-                className="font-medium text-sm bg-white text-stone-800 rounded-xl py-2 px-4 min-h-[44px] disabled:opacity-50"
-              >
-                {logStatus === 'success' ? '✓ Logged!' : logStatus === 'already_logged' ? 'Already logged today' : 'Log Made Today'}
-              </button>
+              <div className="flex items-center gap-2">
+                {isModifiedRef.current && (
+                  <button
+                    type="button"
+                    onClick={() => setShowSaveAsNew(true)}
+                    className="font-medium text-sm text-white border border-white/40 rounded-xl py-2 px-4 min-h-[44px] hover:bg-white/10"
+                  >
+                    Save as New
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleLog}
+                  disabled={logStatus === 'loading'}
+                  className="font-medium text-sm bg-white text-stone-800 rounded-xl py-2 px-4 min-h-[44px] disabled:opacity-50"
+                >
+                  {logStatus === 'success' ? '✓ Logged!' : logStatus === 'already_logged' ? 'Already logged today' : 'Log Made Today'}
+                </button>
+              </div>
             ) : (
               <button
                 type="button"
@@ -412,16 +425,42 @@ export default function CookModePage({ params }: Props) {
           </>
         )}
         {view === 'all' && (
-          <button
-            type="button"
-            onClick={handleLog}
-            disabled={logStatus === 'loading'}
-            className="w-full font-medium text-sm bg-white text-stone-800 rounded-xl py-3 disabled:opacity-50"
-          >
-            {logStatus === 'success' ? '✓ Logged!' : logStatus === 'already_logged' ? 'Already logged today' : 'Log Made Today'}
-          </button>
+          <div className="w-full flex flex-col gap-2">
+            {isModifiedRef.current && (
+              <button
+                type="button"
+                onClick={() => setShowSaveAsNew(true)}
+                className="w-full font-medium text-sm text-white border border-white/40 rounded-xl py-3 hover:bg-white/10"
+              >
+                Save as New Recipe
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleLog}
+              disabled={logStatus === 'loading'}
+              className="w-full font-medium text-sm bg-white text-stone-800 rounded-xl py-3 disabled:opacity-50"
+            >
+              {logStatus === 'success' ? '✓ Logged!' : logStatus === 'already_logged' ? 'Already logged today' : 'Log Made Today'}
+            </button>
+          </div>
         )}
       </div>
+
+      {showSaveAsNew && recipe && storedModified && (
+        <AddRecipeModal
+          onClose={() => setShowSaveAsNew(false)}
+          onSaved={() => setShowSaveAsNew(false)}
+          getToken={getAccessToken}
+          prefillManual={{
+            title:       `${storedModified.title} (modified)`,
+            ingredients: storedModified.ingredients,
+            steps:       storedModified.steps,
+            notes:       storedModified.notes ?? undefined,
+            servings:    storedModified.servings !== null ? String(storedModified.servings) : '',
+          }}
+        />
+      )}
     </div>
   )
 }
