@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { Settings } from 'lucide-react'
-import { getSupabaseClient } from '@/lib/supabase/browser'
+import { authClient } from '@/lib/auth-client'
 import ThymelineLogo from './ThymelineLogo'
 
 const CENTER_NAV = [
@@ -30,8 +30,7 @@ export default function AppNav() {
   const router = useRouter()
 
   async function handleSignOut() {
-    const supabase = getSupabaseClient()
-    await supabase.auth.signOut()
+    await authClient.signOut()
     router.push('/login')
   }
 

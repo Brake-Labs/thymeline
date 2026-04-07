@@ -9,10 +9,6 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(''),
 }))
 
-vi.mock('@/lib/supabase/browser', () => ({
-  getAccessToken: async () => 'mock-token',
-  getSupabaseClient: () => ({ auth: { getUser: async () => ({ data: { user: null } }) } }),
-}))
 
 // Prevent network calls from SetupStep's tag-loading effect
 global.fetch = vi.fn(() =>

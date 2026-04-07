@@ -6,7 +6,6 @@ import StepperInput from './StepperInput'
 import CooldownSlider from './CooldownSlider'
 import TagBucketPicker from './TagBucketPicker'
 import TagLibrarySection from './TagLibrarySection'
-import { getAccessToken } from '@/lib/supabase/browser'
 import { TOAST_DURATION_MS } from '@/lib/constants'
 
 interface SectionSaveButtonProps {
@@ -107,9 +106,7 @@ export default function PreferencesForm({ firstClassTags, customTags, hiddenTags
   useEffect(() => {
     async function fetchPrefs() {
       try {
-        const r = await fetch('/api/preferences', {
-          headers: { Authorization: `Bearer ${await getAccessToken()}` },
-        })
+        const r = await fetch('/api/preferences')
         if (!r.ok) throw new Error('Failed to load preferences')
         const data: PrefsState = await r.json()
         setPrefs(data)
@@ -129,7 +126,6 @@ export default function PreferencesForm({ firstClassTags, customTags, hiddenTags
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${await getAccessToken()}`,
       },
       body: JSON.stringify(fields),
     })
@@ -310,7 +306,6 @@ export default function PreferencesForm({ firstClassTags, customTags, hiddenTags
           firstClassTags={firstClassTags}
           customTags={customTags}
           hiddenTags={hiddenTags}
-          getToken={getAccessToken}
           readOnly={readOnly}
         />
       </div>

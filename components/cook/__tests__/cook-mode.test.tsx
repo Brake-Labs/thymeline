@@ -19,14 +19,6 @@ vi.mock('next/link', () => ({
     <a href={href} {...props}>{children}</a>,
 }))
 
-// ── Mock auth ────────────────────────────────────────────────────────────────
-
-vi.mock('@/lib/supabase/browser', () => ({
-  getAccessToken: async () => 'test-token',
-  getSupabaseClient: () => ({
-    auth: { getSession: async () => ({ data: { session: { user: { id: 'user-1' } } } }) },
-  }),
-}))
 
 // ── Wake lock mock ────────────────────────────────────────────────────────────
 

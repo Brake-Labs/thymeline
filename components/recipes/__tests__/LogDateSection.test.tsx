@@ -3,9 +3,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import LogDateSection from '../LogDateSection'
 
-vi.mock('@/lib/supabase/browser', () => ({
-  getAccessToken: async () => 'mock-token',
-}))
 
 const mockFetch = vi.fn()
 vi.stubGlobal('fetch', mockFetch)
@@ -19,7 +16,6 @@ function makeLogResponse(alreadyLogged = false, madeOn = '2026-03-13') {
 
 const defaultProps = {
   recipeId: 'recipe-1',
-  getToken: async () => 'token',
   onLogged: vi.fn(),
 }
 

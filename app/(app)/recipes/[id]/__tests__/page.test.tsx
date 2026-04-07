@@ -2,7 +2,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, act, fireEvent, waitFor } from '@testing-library/react'
 
-const mockGetSession = vi.fn()
 const mockPush = vi.fn()
 
 vi.mock('next/navigation', () => ({
@@ -12,12 +11,6 @@ vi.mock('next/link', () => ({
   default: ({ href, children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) => (
     <a href={href} {...props}>{children}</a>
   ),
-}))
-vi.mock('@/lib/supabase/browser', () => ({
-  getAccessToken: async () => 'mock-token',
-  getSupabaseClient: () => ({
-    auth: { getSession: mockGetSession },
-  }),
 }))
 
 const mockFetch = vi.fn()
@@ -55,16 +48,26 @@ function makeTagsResponse() {
   })
 }
 
-beforeEach(() => {
-  mockFetch.mockReset()
-  mockGetSession.mockReset()
+/** Helper to build a mockFetch implementation that includes session + recipe */
+function setupFetchWithSession(userId: string | null) {
   mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
+    if (url.includes('/api/auth/get-session')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => (userId ? { user: { id: userId } } : { user: null }),
+      })
+    }
     if (url.includes('/api/tags') && (!opts?.method || opts.method === 'GET')) return makeTagsResponse()
     if (url.includes('/api/recipes/recipe-1') && (!opts?.method || opts.method === 'GET')) {
       return Promise.resolve({ ok: true, status: 200, json: async () => MOCK_RECIPE })
     }
     return Promise.resolve({ ok: false, status: 404, json: async () => ({}) })
   })
+}
+
+beforeEach(() => {
+  mockFetch.mockReset()
+  setupFetchWithSession(null)
 })
 
 // Lazy import so mocks are registered first
@@ -72,8 +75,10 @@ const { default: RecipeDetailPage } = await import('../page')
 
 describe('RecipeDetailPage — source URL link', () => {
   it('renders "View original recipe →" link when recipe.url is present', async () => {
-    mockGetSession.mockResolvedValue({ data: { session: null } })
     mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
+      if (url.includes('/api/auth/get-session')) {
+        return Promise.resolve({ ok: true, json: async () => ({ user: null }) })
+      }
       if (url.includes('/api/recipes/recipe-1') && (!opts?.method || opts.method === 'GET')) {
         return Promise.resolve({
           ok: true, status: 200,
@@ -94,7 +99,7 @@ describe('RecipeDetailPage — source URL link', () => {
   })
 
   it('hides "View original recipe →" link when recipe.url is null', async () => {
-    mockGetSession.mockResolvedValue({ data: { session: null } })
+    setupFetchWithSession(null)
 
     await act(async () => {
       render(<RecipeDetailPage params={{ id: 'recipe-1' }} />)
@@ -106,9 +111,7 @@ describe('RecipeDetailPage — source URL link', () => {
 
 describe('RecipeDetailPage — Edit button owner gating', () => {
   it('shows Edit and Delete buttons when current user is the owner', async () => {
-    mockGetSession.mockResolvedValue({
-      data: { session: { user: { id: 'owner-user' } } },
-    })
+    setupFetchWithSession('owner-user')
 
     await act(async () => {
       render(<RecipeDetailPage params={{ id: 'recipe-1' }} />)
@@ -119,9 +122,7 @@ describe('RecipeDetailPage — Edit button owner gating', () => {
   })
 
   it('hides Edit and Delete buttons when current user is not the owner', async () => {
-    mockGetSession.mockResolvedValue({
-      data: { session: { user: { id: 'other-user' } } },
-    })
+    setupFetchWithSession('other-user')
 
     await act(async () => {
       render(<RecipeDetailPage params={{ id: 'recipe-1' }} />)
@@ -132,9 +133,7 @@ describe('RecipeDetailPage — Edit button owner gating', () => {
   })
 
   it('hides Edit and Delete buttons when not logged in', async () => {
-    mockGetSession.mockResolvedValue({
-      data: { session: null },
-    })
+    setupFetchWithSession(null)
 
     await act(async () => {
       render(<RecipeDetailPage params={{ id: 'recipe-1' }} />)
@@ -149,9 +148,7 @@ describe('RecipeDetailPage — Edit button owner gating', () => {
 
 describe('spec-18 T01 - "Adapt" button renders for recipe owner', () => {
   it('shows "Adapt" button when current user is the owner', async () => {
-    mockGetSession.mockResolvedValue({
-      data: { session: { user: { id: 'owner-user' } } },
-    })
+    setupFetchWithSession('owner-user')
 
     await act(async () => {
       render(<RecipeDetailPage params={{ id: 'recipe-1' }} />)
@@ -165,9 +162,7 @@ describe('spec-18 T01 - "Adapt" button renders for recipe owner', () => {
 
 describe('spec-18 T02 - "Adapt" button hidden for non-owners', () => {
   it('hides "Adapt" button when current user is not the owner', async () => {
-    mockGetSession.mockResolvedValue({
-      data: { session: { user: { id: 'other-user' } } },
-    })
+    setupFetchWithSession('other-user')
 
     await act(async () => {
       render(<RecipeDetailPage params={{ id: 'recipe-1' }} />)
@@ -181,9 +176,7 @@ describe('spec-18 T02 - "Adapt" button hidden for non-owners', () => {
 
 describe('spec-18 T03 - "Share with community" toggle removed from recipe detail page', () => {
   it('does not render ShareToggle or any "Share" toggle', async () => {
-    mockGetSession.mockResolvedValue({
-      data: { session: { user: { id: 'owner-user' } } },
-    })
+    setupFetchWithSession('owner-user')
 
     await act(async () => {
       render(<RecipeDetailPage params={{ id: 'recipe-1' }} />)
@@ -198,9 +191,7 @@ describe('spec-18 T03 - "Share with community" toggle removed from recipe detail
 
 describe('spec-18 T04 - Clicking "Adapt" opens AIEditSheet', () => {
   it('opens the AI edit sheet when "Adapt" is clicked', async () => {
-    mockGetSession.mockResolvedValue({
-      data: { session: { user: { id: 'owner-user' } } },
-    })
+    setupFetchWithSession('owner-user')
 
     await act(async () => {
       render(<RecipeDetailPage params={{ id: 'recipe-1' }} />)
@@ -218,10 +209,10 @@ describe('spec-18 T12 - "Cook from this version" stores modified recipe in sessi
   it('stores the modified recipe with key ai-modified-recipe-{id}', async () => {
     const setItemSpy = vi.spyOn(Storage.prototype, 'setItem')
 
-    mockGetSession.mockResolvedValue({
-      data: { session: { user: { id: 'owner-user' } } },
-    })
     mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
+      if (url.includes('/api/auth/get-session')) {
+        return Promise.resolve({ ok: true, json: async () => ({ user: { id: 'owner-user' } }) })
+      }
       if (url.includes('/api/recipes/recipe-1/ai-edit') && opts?.method === 'POST') {
         return Promise.resolve({
           ok: true,
@@ -277,10 +268,10 @@ describe('spec-18 T12 - "Cook from this version" stores modified recipe in sessi
 
 describe('spec-18 T19 - Closing the sheet reverts recipe preview to original', () => {
   it('reverts modifiedRecipe to null when sheet is closed', async () => {
-    mockGetSession.mockResolvedValue({
-      data: { session: { user: { id: 'owner-user' } } },
-    })
     mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
+      if (url.includes('/api/auth/get-session')) {
+        return Promise.resolve({ ok: true, json: async () => ({ user: { id: 'owner-user' } }) })
+      }
       if (url.includes('/api/recipes/recipe-1/ai-edit') && opts?.method === 'POST') {
         return Promise.resolve({
           ok: true,

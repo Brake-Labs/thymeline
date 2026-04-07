@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import PreferencesForm from '@/components/preferences/PreferencesForm'
-import { getAccessToken } from '@/lib/supabase/browser'
 
 type TagsResponse = {
   firstClass: { name: string; recipe_count: number }[]
@@ -22,8 +21,7 @@ export default function PreferencesPageContent() {
   useEffect(() => {
     async function fetchTags() {
       try {
-        const token = await getAccessToken()
-        const r = await fetch('/api/tags', { headers: { Authorization: `Bearer ${token}` } })
+        const r = await fetch('/api/tags')
         const data: TagsResponse = await r.json()
         setFirstClassTags(data.firstClass ?? [])
         setCustomTags(data.custom ?? [])
@@ -37,8 +35,7 @@ export default function PreferencesPageContent() {
 
     async function fetchRole() {
       try {
-        const token = await getAccessToken()
-        const r = await fetch('/api/household', { headers: { Authorization: `Bearer ${token}` } })
+        const r = await fetch('/api/household')
         if (r.ok) {
           const data = await r.json() as { myRole?: string }
           setHouseholdRole(data.myRole ?? null)

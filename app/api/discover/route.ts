@@ -2,17 +2,20 @@ import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { anthropic, callLLM, parseLLMJson, LLM_MODEL_CAPABLE } from '@/lib/llm'
 import { FIRST_CLASS_TAGS } from '@/lib/tags'
-import { scopeQuery } from '@/lib/household'
+import { scopeCondition } from '@/lib/household'
 import { deriveTasteProfile } from '@/lib/taste-profile'
 import { detectWasteOverlap } from '@/lib/waste-overlap'
 import { fetchCurrentWeekPlan, getPlanWasteBadgeText } from '@/lib/plan-utils'
+import { db } from '@/lib/db'
+import { recipes } from '@/lib/db/schema'
+import { desc } from 'drizzle-orm'
 import type { DiscoveryResult } from '@/types'
 import type { RecipeForOverlap } from '@/lib/waste-overlap'
 
 const DISCOVER_WASTE_TIMEOUT_MS = 5000
 // Web search requires a model that supports the web_search_20250305 tool — haiku does not.
 
-export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
+export const POST = withAuth(async (req: NextRequest, { user, db: _db, ctx }) => {
   let body: { query?: string; site_filter?: string }
   try {
     body = await req.json()
@@ -31,15 +34,24 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
 
   try {
     // ── Step 1: Fetch vault context + taste profile + current plan ────────────
-    let vaultQ = db.from('recipes').select('title, tags, category').order('created_at', { ascending: false }).limit(50)
-    vaultQ = scopeQuery(vaultQ, user.id, ctx)
+    const vaultPromise = db
+      .select({
+        title: recipes.title,
+        tags: recipes.tags,
+        category: recipes.category,
+      })
+      .from(recipes)
+      .where(scopeCondition({ userId: recipes.userId, householdId: recipes.householdId }, user.id, ctx))
+      .orderBy(desc(recipes.createdAt))
+      .limit(50)
 
-    const [{ data: vaultRecipes }, tasteProfile, currentPlanRecipes] = await Promise.all([
-      vaultQ,
-      deriveTasteProfile(user.id, db, ctx ?? null).catch(() => null),
-      fetchCurrentWeekPlan(user.id, db, ctx ?? null).catch(() => [] as RecipeForOverlap[]),
+    const [vaultRecipes, tasteProfile, currentPlanRecipes] = await Promise.all([
+      vaultPromise,
+      // These functions still use Supabase internally — pass _db for compatibility
+      deriveTasteProfile(user.id, _db, ctx ?? null).catch(() => null),
+      fetchCurrentWeekPlan(user.id, _db, ctx ?? null).catch(() => [] as RecipeForOverlap[]),
     ])
-    const vaultContext = (vaultRecipes ?? []).map((r) => ({ title: r.title, tags: r.tags }))
+    const vaultContext = vaultRecipes.map((r) => ({ title: r.title, tags: r.tags }))
 
     // ── Step 2: Generate search queries ───────────────────────────────────────
     let searchQueries: string[] = [query]

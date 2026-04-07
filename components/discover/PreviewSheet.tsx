@@ -5,7 +5,6 @@ import type { DiscoveryResult, RecipeListItem, ScrapeResult } from '@/types'
 
 interface PreviewSheetProps {
   result:             DiscoveryResult
-  getToken:           () => Promise<string>
   onClose:            () => void
   onSaved:            (url: string) => void
   onEditBeforeSaving: (scrapeResult: ScrapeResult) => void
@@ -23,7 +22,6 @@ function formatMinutes(minutes: number | null): string | null {
 
 export default function PreviewSheet({
   result,
-  getToken,
   onClose,
   onSaved,
   onEditBeforeSaving,
@@ -38,12 +36,10 @@ export default function PreviewSheet({
     let cancelled = false
     async function load() {
       try {
-        const token = await getToken()
         const res = await fetch('/api/recipes/scrape', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({ url: result.url }),
         })
@@ -58,9 +54,7 @@ export default function PreviewSheet({
 
         // Duplicate check — fetch all recipes and filter client-side for matching URL
         try {
-          const listRes = await fetch('/api/recipes', {
-            headers: { Authorization: `Bearer ${token}` },
-          })
+          const listRes = await fetch('/api/recipes')
           if (!cancelled && listRes.ok) {
             const recipes: RecipeListItem[] = await listRes.json()
             // RecipeListItem doesn't have url, but the API returns it; cast via unknown
@@ -89,12 +83,10 @@ export default function PreviewSheet({
     if (!scrapeResult) return
     setState('saving')
     try {
-      const token = await getToken()
       const res = await fetch('/api/recipes', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           title: scrapeResult.title ?? result.title,

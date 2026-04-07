@@ -13,9 +13,6 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => ({ get: () => null }),
 }))
 
-vi.mock('@/lib/supabase/browser', () => ({
-  getAccessToken: async () => 'test-token',
-}))
 
 vi.mock('@/components/plan/SetupStep', () => ({
   default: () => React.createElement('div', { 'data-testid': 'setup-step' }, 'SetupStep'),

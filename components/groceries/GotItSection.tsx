@@ -2,7 +2,6 @@
 
 import { useCallback, useState } from 'react'
 import { GroceryItem } from '@/types'
-import { getAccessToken } from '@/lib/supabase/browser'
 import { TOAST_DURATION_MS } from '@/lib/constants'
 
 interface GotItSectionProps {
@@ -15,12 +14,10 @@ export default function GotItSection({ items, onUndo }: GotItSectionProps) {
   const [showToast, setShowToast] = useState(false)
 
   const addToPantry = useCallback(async (toAdd: GroceryItem[]) => {
-    const token = await getAccessToken()
     await fetch('/api/pantry/import', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
         items: toAdd.map((item) => ({

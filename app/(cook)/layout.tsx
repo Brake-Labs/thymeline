@@ -1,15 +1,22 @@
 import { redirect } from 'next/navigation'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getSessionUser } from '@/lib/auth-helpers'
+import { db } from '@/lib/db'
+import { eq } from 'drizzle-orm'
+import { userPreferences } from '@/lib/db/schema'
 
 export default async function CookLayout({ children }: { children: React.ReactNode }) {
-  const supabase = createSupabaseServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
+  const user = await getSessionUser()
   if (!user) {
     redirect('/login')
   }
 
-  if (user.user_metadata?.is_active === false) {
+  const prefs = await db
+    .select({ isActive: userPreferences.isActive })
+    .from(userPreferences)
+    .where(eq(userPreferences.userId, user.id))
+    .limit(1)
+
+  if (prefs[0] && prefs[0].isActive === false) {
     redirect('/inactive')
   }
 

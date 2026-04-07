@@ -21,18 +21,29 @@ vi.mock('@/lib/llm', () => ({
   callLLM: vi.fn(),
 }))
 
-vi.mock('@/lib/supabase-server', () => ({
-  createServerClient: vi.fn(),
-  createAdminClient:  vi.fn(),
+vi.mock('@/lib/db', () => ({
+  db: { select: vi.fn(), insert: vi.fn(), update: vi.fn(), delete: vi.fn(), execute: vi.fn() },
+}))
+
+vi.mock('@/lib/db/schema', () => ({
+  recipes: { title: 'title', tags: 'tags', category: 'category', userId: 'userId', householdId: 'householdId', createdAt: 'createdAt' },
+}))
+
+vi.mock('@/lib/auth-server', () => ({
+  auth: { api: { getSession: vi.fn() } },
+}))
+
+vi.mock('drizzle-orm', () => ({
+  desc: vi.fn(),
+  eq: vi.fn(),
+  and: vi.fn(),
+  or: vi.fn(),
+  sql: vi.fn(),
 }))
 
 vi.mock('@/lib/household', () => ({
   resolveHouseholdScope: vi.fn().mockResolvedValue(null),
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  scopeQuery: (query: any, userId: string, ctx: any) => {
-    if (ctx) return query.eq('household_id', ctx.householdId)
-    return query.eq('user_id', userId)
-  },
+  scopeCondition: vi.fn().mockReturnValue({}),
 }))
 
 vi.mock('@/lib/taste-profile', () => ({
@@ -52,7 +63,8 @@ vi.mock('@/lib/plan-utils', () => ({
   }),
 }))
 
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
+import { db } from '@/lib/db'
+import { auth } from '@/lib/auth-server'
 import { deriveTasteProfile } from '@/lib/taste-profile'
 import { detectWasteOverlap } from '@/lib/waste-overlap'
 import { fetchCurrentWeekPlan } from '@/lib/plan-utils'
@@ -64,17 +76,23 @@ const vaultRecipes = [
   { title: 'Chicken Stir Fry', tags: ['Quick'], category: 'main_dish' },
 ]
 
-function makeSupabaseMock() {
-  const vaultChain = {
-    select: vi.fn().mockReturnThis(),
-    order:  vi.fn().mockReturnThis(),
-    limit:  vi.fn().mockReturnThis(),
-    eq:     vi.fn().mockResolvedValue({ data: vaultRecipes, error: null }),
+function mockDbChain(result: unknown[] = []) {
+  const chain: Record<string, unknown> = {}
+  for (const m of ['from','select','where','orderBy','limit','offset','innerJoin','leftJoin','set','values','onConflictDoUpdate','onConflictDoNothing','returning','groupBy']) {
+    chain[m] = vi.fn().mockReturnValue(chain)
   }
-  return {
-    auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null }) },
-    from: vi.fn(() => vaultChain),
-  }
+  chain.then = vi.fn().mockImplementation((resolve: (v: unknown) => void) => Promise.resolve(result).then(resolve))
+  return chain
+}
+
+function setupMocks() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  vi.mocked(db.select).mockReturnValue(mockDbChain(vaultRecipes) as any)
+  vi.mocked(auth.api.getSession).mockResolvedValue({
+    user: { id: 'user-1', email: 'test@example.com', name: 'Test', image: null },
+    session: { id: 'sess-1', createdAt: new Date(), updatedAt: new Date(), userId: 'user-1', expiresAt: new Date(Date.now() + 86400000), token: 'tok' },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as any)
 }
 
 function makeReq(body: unknown): Request {
@@ -134,9 +152,7 @@ describe('POST /api/discover — spec-22 taste profile (T01–T03)', () => {
   })
 
   it('T01: calls deriveTasteProfile in the discover route', async () => {
-    const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
+    setupMocks()
 
     setupSuccessfulLLMCalls()
 
@@ -147,9 +163,7 @@ describe('POST /api/discover — spec-22 taste profile (T01–T03)', () => {
   })
 
   it('T03: ranking prompt includes top_tags from taste profile', async () => {
-    const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
+    setupMocks()
 
     vi.mocked(deriveTasteProfile).mockResolvedValue({
       ...defaultProfile,
@@ -171,9 +185,7 @@ describe('POST /api/discover — spec-22 taste profile (T01–T03)', () => {
   })
 
   it('T22: ranking step uses LLM_MODEL_CAPABLE', async () => {
-    const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
+    setupMocks()
 
     setupSuccessfulLLMCalls()
 
@@ -194,9 +206,7 @@ describe('POST /api/discover — spec-22 avoided-tag filter (T02)', () => {
   })
 
   it('T02: results with avoided tags are filtered out', async () => {
-    const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
+    setupMocks()
 
     vi.mocked(deriveTasteProfile).mockResolvedValue({
       ...defaultProfile,
@@ -246,9 +256,7 @@ describe('POST /api/discover — spec-22 waste detection (T04–T07)', () => {
   })
 
   it('T04: waste overlap detection runs against current week plan', async () => {
-    const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
+    setupMocks()
 
     const currentPlan = [{ recipe_id: 'r1', title: 'Pasta', ingredients: '200g pasta, spinach' }]
     vi.mocked(fetchCurrentWeekPlan).mockResolvedValue(currentPlan)
@@ -267,9 +275,7 @@ describe('POST /api/discover — spec-22 waste detection (T04–T07)', () => {
   })
 
   it('T05: result with waste match gets waste_badge_text', async () => {
-    const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
+    setupMocks()
 
     vi.mocked(fetchCurrentWeekPlan).mockResolvedValue([
       { recipe_id: 'r1', title: 'Pasta', ingredients: 'spinach, pasta' },
@@ -291,9 +297,7 @@ describe('POST /api/discover — spec-22 waste detection (T04–T07)', () => {
   })
 
   it('T06: result without waste match has no waste_badge_text', async () => {
-    const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
+    setupMocks()
 
     vi.mocked(fetchCurrentWeekPlan).mockResolvedValue([
       { recipe_id: 'r1', title: 'Pasta', ingredients: 'pasta' },
@@ -311,9 +315,7 @@ describe('POST /api/discover — spec-22 waste detection (T04–T07)', () => {
   })
 
   it('T07: waste detection timeout returns results without badges', async () => {
-    const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
+    setupMocks()
 
     vi.mocked(fetchCurrentWeekPlan).mockResolvedValue([
       { recipe_id: 'r1', title: 'Pasta', ingredients: 'spinach, pasta' },
@@ -343,9 +345,7 @@ describe('POST /api/discover — spec-22 waste detection (T04–T07)', () => {
   })
 
   it('T19: no current week plan — waste detection is skipped', async () => {
-    const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
+    setupMocks()
 
     vi.mocked(fetchCurrentWeekPlan).mockResolvedValue([])
 
@@ -359,9 +359,7 @@ describe('POST /api/discover — spec-22 waste detection (T04–T07)', () => {
   })
 
   it('T21: all discovered recipes sent in a single waste detection call', async () => {
-    const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
+    setupMocks()
 
     vi.mocked(fetchCurrentWeekPlan).mockResolvedValue([
       { recipe_id: 'r1', title: 'Pasta', ingredients: 'pasta' },

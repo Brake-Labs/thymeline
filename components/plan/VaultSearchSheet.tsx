@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { getAccessToken } from '@/lib/supabase/browser'
 import type { MealType } from '@/types'
 import { MEAL_TYPE_CATEGORIES_CLIENT } from '@/lib/meal-type-categories'
 
@@ -33,8 +32,7 @@ export default function VaultSearchSheet({ forDate: _forDate, mealType, allowedC
 
   useEffect(() => {
     async function loadRecipes() {
-      const token = await getAccessToken()
-      const res = await fetch('/api/recipes', { headers: { Authorization: `Bearer ${token}` } })
+      const res = await fetch('/api/recipes')
       if (res.ok) {
         const data = await res.json()
         setRecipes(Array.isArray(data) ? data : [])

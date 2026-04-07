@@ -14,9 +14,6 @@ vi.mock('next/link', () => ({
   default: ({ href, children, ...props }: { href: string; children: React.ReactNode; [key: string]: unknown }) =>
     <a href={href} {...props}>{children}</a>,
 }))
-vi.mock('@/lib/supabase/browser', () => ({
-  getAccessToken: async () => 'test-token',
-}))
 vi.mock('@/components/recipes/AddRecipeModal', () => ({
   default: ({ onClose }: { onClose: () => void }) => (
     <div data-testid="add-recipe-modal">

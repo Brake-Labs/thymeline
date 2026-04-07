@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { getSupabaseClient } from '@/lib/supabase/browser'
 import type { DiscoveryResult, ScrapeResult } from '@/types'
 import DiscoverySearch from './DiscoverySearch'
 import DiscoveryResults from './DiscoveryResults'
@@ -17,12 +16,6 @@ export default function DiscoveryPageClient() {
   const [status, setStatus] = useState<Status>('idle')
   const [editScrapeResult, setEditScrapeResult] = useState<ScrapeResult | null>(null)
 
-  const getToken = useCallback(async () => {
-    const supabase = getSupabaseClient()
-    const { data: { session } } = await supabase.auth.getSession()
-    return session?.access_token ?? ''
-  }, [])
-
   const handleSubmit = useCallback(async (q: string, site: string) => {
     if (!q.trim()) return
     setStatus('loading')
@@ -30,12 +23,10 @@ export default function DiscoveryPageClient() {
     setDismissedUrls(new Set())
 
     try {
-      const token = await getToken()
       const res = await fetch('/api/discover', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           query: q.trim(),
@@ -54,7 +45,7 @@ export default function DiscoveryPageClient() {
     } catch {
       setStatus('error')
     }
-  }, [getToken])
+  }, [])
 
   const handleSearchSubmit = useCallback(() => {
     handleSubmit(query, siteFilter)
@@ -91,7 +82,6 @@ export default function DiscoveryPageClient() {
         siteFilter={siteFilter}
         onDismiss={handleDismiss}
         onClearSiteFilter={handleClearSiteFilter}
-        getToken={getToken}
         onSaved={() => { /* no-op: saved badge handled inside DiscoveryResults */ }}
         onEditBeforeSaving={(scrapeResult) => setEditScrapeResult(scrapeResult)}
       />
@@ -100,7 +90,6 @@ export default function DiscoveryPageClient() {
         <AddRecipeModal
           onClose={() => setEditScrapeResult(null)}
           onSaved={() => setEditScrapeResult(null)}
-          getToken={getToken}
           prefillScrapeResult={editScrapeResult}
         />
       )}

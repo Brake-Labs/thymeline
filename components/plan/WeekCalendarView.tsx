@@ -4,7 +4,6 @@ import { useState } from 'react'
 import MealCard from './MealCard'
 import SwapModeBanner from './SwapModeBanner'
 import SwapToast from './SwapToast'
-import { getAccessToken } from '@/lib/supabase/browser'
 
 export interface WeekCalendarViewEntry {
   id: string
@@ -62,12 +61,10 @@ export default function WeekCalendarView({ entries, weekStart: _weekStart }: Wee
     })
 
     try {
-      const token = await getAccessToken()
       const res = await fetch('/api/plan/swap', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ entry_id_a: idA, entry_id_b: idB }),
       })

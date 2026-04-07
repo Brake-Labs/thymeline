@@ -7,9 +7,6 @@ import WeekCalendar from '../WeekCalendar'
 import type { PlanEntry } from '@/types'
 import { getMostRecentSunday, addDays } from '@/lib/date-utils'
 
-vi.mock('@/lib/supabase/browser', () => ({
-  getAccessToken: async () => 'mock-token',
-}))
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),

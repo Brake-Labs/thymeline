@@ -25,9 +25,6 @@ vi.mock('next/link', () => ({
   }) => <a href={href} {...props}>{children}</a>,
 }))
 
-vi.mock('@/lib/supabase/browser', () => ({
-  getAccessToken: async () => 'test-token',
-}))
 
 // ── Sample data ───────────────────────────────────────────────────────────────
 

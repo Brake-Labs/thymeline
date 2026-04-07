@@ -5,12 +5,11 @@ import { detectDuplicates } from '@/lib/import/detect-duplicates'
 import { scrapeRecipe } from '@/lib/scrape-recipe'
 import { createJob, updateJob, evictExpired } from '@/lib/import-jobs'
 import type { HouseholdContext, ParsedRecipe } from '@/types'
-import type { SupabaseClient } from '@supabase/supabase-js'
 import type { JobResultStatus } from '@/lib/import-jobs'
 
 export type { JobResultStatus, JobResult, ImportJob } from '@/lib/import-jobs'
 
-// ─── Concurrency semaphore ──────────────────────────────────────────────────
+// ── Concurrency semaphore ──────────────────────────────────────────────────
 
 let running = 0
 const CONCURRENCY = 3
@@ -26,14 +25,13 @@ function release() {
   running--
 }
 
-// ─── Background scraper ─────────────────────────────────────────────────────
+// ── Background scraper ─────────────────────────────────────────────────────
 
 const MAX_RETRIES = 3
 
 async function scrapeUrl(
   url: string,
   jobId: string,
-  db: SupabaseClient,
   userId: string,
   ctx: HouseholdContext | null,
 ): Promise<void> {
@@ -42,7 +40,7 @@ async function scrapeUrl(
     let lastError = 'Scrape failed'
 
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-      const data = await scrapeRecipe(url, userId, db, ctx)
+      const data = await scrapeRecipe(url, userId, null, ctx)
 
       if (!('error' in data)) {
         const recipe: ParsedRecipe = {
@@ -66,7 +64,7 @@ async function scrapeUrl(
           ? (recipe.title ? 'partial' : 'failed')
           : 'success'
 
-        const [dup] = await detectDuplicates([recipe], db, userId, ctx)
+        const [dup] = await detectDuplicates([recipe], null, userId, ctx)
 
         updateJob(jobId, {
           url,
@@ -99,9 +97,9 @@ async function scrapeUrl(
   }
 }
 
-// ─── POST /api/import/urls ──────────────────────────────────────────────────
+// ── POST /api/import/urls ──────────────────────────────────────────────────
 
-export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
+export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
   const { data: body, error: parseError } = await parseBody(req, importUrlsSchema)
   if (parseError) return parseError
 
@@ -112,7 +110,7 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
 
   // Fire and forget — do NOT await
   void Promise.all(
-    body.urls.map((url) => scrapeUrl(url, jobId, db, user.id, ctx)),
+    body.urls.map((url) => scrapeUrl(url, jobId, user.id, ctx)),
   )
 
   return NextResponse.json({ job_id: jobId, total: body.urls.length }, { status: 202 })

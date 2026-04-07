@@ -3,19 +3,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import GenerateRecipeModal from '../GenerateRecipeModal'
 
-vi.mock('@/lib/supabase/browser', () => ({
-  getAccessToken: async () => 'mock-token',
-  getSupabaseClient: () => ({
-    auth: { getUser: async () => ({ data: { user: { id: 'user-1' } } }) },
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          single: async () => ({ data: { avoided_tags: [] }, error: null }),
-        }),
-      }),
-    }),
-  }),
-}))
 
 vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
   ok: true,
@@ -25,7 +12,6 @@ vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
 const defaultProps = {
   onClose: vi.fn(),
   onSaved: vi.fn(),
-  getToken: async () => 'token',
 }
 
 beforeEach(() => {

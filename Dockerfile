@@ -11,20 +11,13 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # NEXT_PUBLIC_* vars are inlined into the client bundle at build time.
-# Provide real values via --build-arg for production images.
-# Defaults are placeholders so CI builds succeed without secrets.
-ARG NEXT_PUBLIC_SUPABASE_URL=https://placeholder.supabase.co
-ARG NEXT_PUBLIC_SUPABASE_ANON_KEY=placeholder
-ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
-ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+ARG NEXT_PUBLIC_SITE_URL=http://localhost:3000
+ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# SUPABASE_SERVICE_ROLE_KEY is server-side only (not inlined by Next.js),
-# so provide it inline for the build step only — no ARG/ENV to avoid
-# leaking into image layer metadata.
 # Ensure public/ exists so the runner COPY always succeeds even if the
 # repo has no public assets yet.
-RUN mkdir -p /app/public && SUPABASE_SERVICE_ROLE_KEY=placeholder npm run build
+RUN mkdir -p /app/public && npm run build
 
 # Stage 3: Production runtime
 FROM node:20-slim AS runner

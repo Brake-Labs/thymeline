@@ -1,36 +1,44 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
+import { db } from '@/lib/db'
+import { eq } from 'drizzle-orm'
+import { mealPlanEntries, mealPlans } from '@/lib/db/schema'
+import { dbFirst } from '@/lib/db/helpers'
 
-export const DELETE = withAuth(async (req, { user, db, ctx }, params) => {
-  const entry_id = params.entry_id!
+export const DELETE = withAuth(async (req, { user, ctx }, params) => {
+  const entryId = params.entry_id!
 
-  // Look up the entry and verify ownership via join on meal_plans
-  const { data: entry } = await db
-    .from('meal_plan_entries')
-    .select('id, meal_plan_id, meal_plans(user_id, household_id)')
-    .eq('id', entry_id)
-    .maybeSingle()
+  try {
+    // Look up the entry and verify ownership via join on meal_plans
+    const rows = await db
+      .select({
+        id: mealPlanEntries.id,
+        mealPlanId: mealPlanEntries.mealPlanId,
+        planUserId: mealPlans.userId,
+        planHouseholdId: mealPlans.householdId,
+      })
+      .from(mealPlanEntries)
+      .innerJoin(mealPlans, eq(mealPlanEntries.mealPlanId, mealPlans.id))
+      .where(eq(mealPlanEntries.id, entryId))
 
-  if (!entry) {
-    return NextResponse.json({ error: 'Entry not found' }, { status: 404 })
-  }
+    const entry = dbFirst(rows)
 
-  const plan = entry.meal_plans
-  const authorized = ctx
-    ? plan?.household_id === ctx.householdId
-    : plan?.user_id === user.id
-  if (!authorized) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
+    if (!entry) {
+      return NextResponse.json({ error: 'Entry not found' }, { status: 404 })
+    }
 
-  const { error: deleteError } = await db
-    .from('meal_plan_entries')
-    .delete()
-    .eq('id', entry_id)
+    const authorized = ctx
+      ? entry.planHouseholdId === ctx.householdId
+      : entry.planUserId === user.id
+    if (!authorized) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
-  if (deleteError) {
+    await db.delete(mealPlanEntries).where(eq(mealPlanEntries.id, entryId))
+
+    return new NextResponse(null, { status: 204 })
+  } catch (err) {
+    console.error('DB error:', err)
     return NextResponse.json({ error: 'Failed to delete entry' }, { status: 500 })
   }
-
-  return new NextResponse(null, { status: 204 })
 })

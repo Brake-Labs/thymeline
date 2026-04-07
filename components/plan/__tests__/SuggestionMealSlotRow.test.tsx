@@ -4,9 +4,6 @@ import { render, screen } from '@testing-library/react'
 import SuggestionMealSlotRow from '../SuggestionMealSlotRow'
 import type { RecipeSuggestion, DaySelection, MealType } from '@/types'
 
-vi.mock('@/lib/supabase/browser', () => ({
-  getAccessToken: async () => 'mock-token',
-}))
 
 vi.mock('../AssignDayPicker', () => ({
   default: () => null,

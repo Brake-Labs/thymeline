@@ -22,7 +22,6 @@ interface TagLibrarySectionProps {
   firstClassTags: FirstClassTag[]
   customTags:     CustomTag[]
   hiddenTags:     HiddenTag[]
-  getToken:       () => Promise<string> | string
   readOnly?:      boolean
 }
 
@@ -57,7 +56,6 @@ export default function TagLibrarySection({
   firstClassTags: initialFirstClass,
   customTags: initialCustom,
   hiddenTags: initialHidden,
-  getToken,
   readOnly = false,
 }: TagLibrarySectionProps) {
   const [firstClassTags, setFirstClassTags] = useState<FirstClassTag[]>(initialFirstClass)
@@ -100,10 +98,9 @@ export default function TagLibrarySection({
     setAddLoading(true)
     setAddError(null)
     try {
-      const token = await getToken()
       const res = await fetch('/api/tags', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: trimmed, section: 'style' }),
       })
       if (res.ok || res.status === 201) {
@@ -130,10 +127,8 @@ export default function TagLibrarySection({
     setHiddenTags((prev) => [...prev, { name: tagName }])
 
     try {
-      const token = await getToken()
       const res = await fetch(`/api/tags/${encodeURIComponent(tagName)}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
       })
       if (!res.ok && res.status !== 204) {
         // Roll back
@@ -154,18 +149,15 @@ export default function TagLibrarySection({
     setFirstClassTags((prev) => [...prev, { name: tagName, recipe_count: 0 }])
 
     try {
-      const token = await getToken()
       // Fetch current hidden_tags from preferences, then remove this one
-      const prefsRes = await fetch('/api/preferences', {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      const prefsRes = await fetch('/api/preferences')
       const prefs: { hidden_tags?: string[] } = await prefsRes.json()
       const updated = (prefs.hidden_tags ?? []).filter(
         (t) => t.toLowerCase() !== tagName.toLowerCase()
       )
       const patchRes = await fetch('/api/preferences', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ hidden_tags: updated }),
       })
       if (!patchRes.ok) {
@@ -182,10 +174,9 @@ export default function TagLibrarySection({
   // ── Rename ────────────────────────────────────────────────────────────────────
 
   async function handleRename(oldName: string, newName: string): Promise<void> {
-    const token = await getToken()
     const res = await fetch(`/api/tags/${encodeURIComponent(oldName)}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: newName }),
     })
     if (!res.ok) {
@@ -204,10 +195,7 @@ export default function TagLibrarySection({
     setDeleteConfirm({ name: tagName, count: null })
     setDeleteError(null)
     try {
-      const token = await getToken()
-      const res = await fetch(`/api/tags/${encodeURIComponent(tagName)}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      const res = await fetch(`/api/tags/${encodeURIComponent(tagName)}`)
       if (res.ok) {
         const data: { recipe_count: number } = await res.json()
         setDeleteConfirm({ name: tagName, count: data.recipe_count })
@@ -225,10 +213,8 @@ export default function TagLibrarySection({
     if (!deleteConfirm) return
     const { name: tagName } = deleteConfirm
     try {
-      const token = await getToken()
       const res = await fetch(`/api/tags/${encodeURIComponent(tagName)}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
       })
       if (res.ok || res.status === 204) {
         setCustomTags((prev) => prev.filter((t) => t.name !== tagName))

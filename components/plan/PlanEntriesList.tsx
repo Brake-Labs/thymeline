@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import MakeAgainPrompt from '@/components/recipes/MakeAgainPrompt'
-import { getAccessToken } from '@/lib/supabase/browser'
 import { TOAST_DURATION_MS } from '@/lib/constants'
 
 interface PlanEntry {
@@ -39,7 +38,6 @@ export default function PlanEntriesList({ entries }: Props) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${await getAccessToken()}`,
         },
         body: JSON.stringify({ made_on: entry.planned_date }),
       })
@@ -97,7 +95,6 @@ export default function PlanEntriesList({ entries }: Props) {
               <MakeAgainPrompt
                 entryId={state.makeAgainEntryId}
                 recipeId={entry.recipe_id}
-                getToken={getAccessToken}
                 onDismiss={() =>
                   setEntryStates((prev) => ({ ...prev, [key]: { ...prev[key]!, makeAgainEntryId: null } }))
                 }

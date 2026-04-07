@@ -7,7 +7,6 @@ import { RecipeListItem } from '@/types'
 import { CATEGORY_LABELS } from '@/lib/category-labels'
 import TagPill from './TagPill'
 import DeleteConfirmDialog from './DeleteConfirmDialog'
-import { getAccessToken } from '@/lib/supabase/browser'
 
 export type SortKey = 'title' | 'category' | 'last_made'
 export type SortDir = 'asc' | 'desc'
@@ -140,7 +139,6 @@ export default function RecipeTable({ recipes, sortKey, sortDir, onSort, current
       {deleteId && (
         <DeleteConfirmDialog
           recipeId={deleteId}
-          getToken={getAccessToken}
           onCancel={() => setDeleteId(null)}
         />
       )}

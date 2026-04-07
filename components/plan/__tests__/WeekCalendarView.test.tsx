@@ -3,9 +3,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 import WeekCalendarView, { type WeekCalendarViewEntry } from '../WeekCalendarView'
 
-vi.mock('@/lib/supabase/browser', () => ({
-  getAccessToken: async () => 'mock-token',
-}))
 
 // ── Fetch mock ────────────────────────────────────────────────────────────────
 
@@ -147,7 +144,6 @@ describe('T08 - Tapping second card calls POST /api/plan/swap', () => {
 
     expect(mockFetch).toHaveBeenCalledWith('/api/plan/swap', expect.objectContaining({
       method: 'POST',
-      headers: expect.objectContaining({ Authorization: 'Bearer mock-token' }),
       body: JSON.stringify({ entry_id_a: 'e1', entry_id_b: 'e2' }),
     }))
   })

@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { STYLE_TAGS, DIETARY_TAGS, SEASONAL_TAGS, CUISINE_TAGS, PROTEIN_TAGS, FIRST_CLASS_TAGS } from '@/lib/tags'
-import { getAccessToken } from '@/lib/supabase/browser'
 import { TOAST_DURATION_LONG_MS } from '@/lib/constants'
 
 type Section = 'style' | 'dietary' | 'seasonal' | 'cuisine' | 'protein'
@@ -62,10 +61,7 @@ export default function TagSelector({
   useEffect(() => {
     async function loadCustomTags() {
       try {
-        const token = await getAccessToken()
-        const res = await fetch('/api/tags', {
-          headers: { Authorization: `Bearer ${token}` },
-        })
+        const res = await fetch('/api/tags')
         if (res.ok) {
           const data: { firstClass: string[]; custom: CustomTag[] } = await res.json()
           setCustomTags(data.custom ?? [])
@@ -103,10 +99,9 @@ export default function TagSelector({
 
   async function handleConfirmPendingNew(tag: PendingNewTag) {
     try {
-      const token = await getAccessToken()
       const res = await fetch('/api/tags', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: tag.name, section: tag.section }),
       })
       if (res.ok) {
@@ -141,10 +136,9 @@ export default function TagSelector({
     const normalized = toTitleCase(trimmed)
     const section = showInput || 'cuisine'
     try {
-      const token = await getAccessToken()
       const res = await fetch('/api/tags', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: normalized, section }),
       })
       if (res.ok) {

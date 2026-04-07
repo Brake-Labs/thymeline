@@ -1,6 +1,9 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getSessionUser } from '@/lib/auth-helpers'
+import { db } from '@/lib/db'
+import { eq, and } from 'drizzle-orm'
+import { mealPlans, mealPlanEntries, recipes } from '@/lib/db/schema'
 import { getMostRecentSunday, formatWeekRange, addWeeks } from '@/lib/date-utils'
 import WeekCalendarView from '@/components/plan/WeekCalendarView'
 
@@ -10,8 +13,7 @@ interface Props {
 
 export default async function PlanWeekPage({ params }: Props) {
   const { week_start } = params
-  const supabase = createSupabaseServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSessionUser()
   if (!user) notFound()
 
   // Week navigation
@@ -52,12 +54,12 @@ export default async function PlanWeekPage({ params }: Props) {
     </div>
   )
 
-  const { data: plan } = await supabase
-    .from('meal_plans')
-    .select('id, week_start')
-    .eq('user_id', user!.id)
-    .eq('week_start', week_start)
-    .maybeSingle()
+  const planRows = await db
+    .select({ id: mealPlans.id, weekStart: mealPlans.weekStart })
+    .from(mealPlans)
+    .where(and(eq(mealPlans.userId, user.id), eq(mealPlans.weekStart, week_start)))
+    .limit(1)
+  const plan = planRows[0] ?? null
 
   if (!plan) {
     return (
@@ -76,18 +78,26 @@ export default async function PlanWeekPage({ params }: Props) {
     )
   }
 
-  const { data: entries } = await supabase
-    .from('meal_plan_entries')
-    .select('id, planned_date, recipe_id, position, confirmed, meal_type, recipes(title)')
-    .eq('meal_plan_id', plan.id)
-    .order('planned_date')
-    .order('position')
+  const entries = await db
+    .select({
+      id: mealPlanEntries.id,
+      plannedDate: mealPlanEntries.plannedDate,
+      recipeId: mealPlanEntries.recipeId,
+      position: mealPlanEntries.position,
+      confirmed: mealPlanEntries.confirmed,
+      mealType: mealPlanEntries.mealType,
+      recipeTitle: recipes.title,
+    })
+    .from(mealPlanEntries)
+    .innerJoin(recipes, eq(mealPlanEntries.recipeId, recipes.id))
+    .where(eq(mealPlanEntries.mealPlanId, plan.id))
+    .orderBy(mealPlanEntries.plannedDate, mealPlanEntries.position)
 
-  const enriched = (entries ?? []).map((e) => ({
+  const enriched = entries.map((e) => ({
     id:            e.id,
-    planned_date:  e.planned_date,
-    recipe_title:  ((e.recipes as unknown) as { title: string } | null)?.title ?? '',
-    meal_type:     e.meal_type ?? 'dinner',
+    planned_date:  e.plannedDate,
+    recipe_title:  e.recipeTitle ?? '',
+    meal_type:     e.mealType ?? 'dinner',
     confirmed:     e.confirmed,
   }))
 

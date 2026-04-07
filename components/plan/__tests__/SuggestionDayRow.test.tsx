@@ -4,9 +4,6 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import SuggestionDayRow, { type MealTypeState } from '../SuggestionDayRow'
 import type { RecipeSuggestion, DaySelection, MealType } from '@/types'
 
-vi.mock('@/lib/supabase/browser', () => ({
-  getAccessToken: async () => 'mock-token',
-}))
 
 const DATE = '2026-03-02'
 const OTHER_DATE = '2026-03-03'

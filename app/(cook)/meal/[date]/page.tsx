@@ -8,7 +8,6 @@ import IngredientChecklist from '@/components/cook/IngredientChecklist'
 import StepTimer, { type TimerState } from '@/components/cook/StepTimer'
 import { renderHighlighted } from '@/components/cook/renderHighlighted'
 import { injectStepQuantities } from '@/lib/inject-step-quantities'
-import { getAccessToken } from '@/lib/supabase/browser'
 import { getMostRecentSunday, getTodayISO } from '@/lib/date-utils'
 import { TOAST_DURATION_LONG_MS } from '@/lib/constants'
 import type { MealType, Recipe } from '@/types'
@@ -97,14 +96,11 @@ export default function MultiRecipeCookPage({ params }: Props) {
   useEffect(() => {
     async function load() {
       try {
-        const token = await getAccessToken()
-        const headers = { Authorization: `Bearer ${token}` }
-
         // Compute the week_start that contains `params.date`
         const weekStart = getMostRecentSunday(new Date(params.date + 'T12:00:00Z'))
 
         // Fetch the plan for that week
-        const planRes = await fetch(`/api/plan?week_start=${weekStart}`, { headers })
+        const planRes = await fetch(`/api/plan?week_start=${weekStart}`)
         if (!planRes.ok) { setError('Could not load meal plan.'); setLoading(false); return }
         const planData: { plan: { entries: { recipe_id: string; planned_date: string; meal_type: MealType; is_side_dish: boolean; parent_entry_id: string | null }[] } | null } = await planRes.json()
 
@@ -127,7 +123,7 @@ export default function MultiRecipeCookPage({ params }: Props) {
         // Fetch each recipe
         const fetched = await Promise.all(
           recipeIds.map((id) =>
-            fetch(`/api/recipes/${id}`, { headers }).then((r) => (r.ok ? r.json() as Promise<Recipe> : null)),
+            fetch(`/api/recipes/${id}`).then((r) => (r.ok ? r.json() as Promise<Recipe> : null)),
           ),
         )
 
@@ -253,10 +249,9 @@ export default function MultiRecipeCookPage({ params }: Props) {
     setOrderError(null)
 
     try {
-      const token = await getAccessToken()
       const res = await fetch('/api/cook/order', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           recipes: cooking.map((r) => ({ id: r.id, title: r.title, steps: r.steps })),
         }),
@@ -296,14 +291,13 @@ export default function MultiRecipeCookPage({ params }: Props) {
   async function handleLogAll() {
     setLogStatus('loading')
     try {
-      const token = await getAccessToken()
       const today = getTodayISO()
       const cookingRecipes = recipes.filter((r) => selectedIds.has(r.id))
       await Promise.all(
         cookingRecipes.map((r) =>
           fetch(`/api/recipes/${r.id}/log`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ made_on: today }),
           }),
         ),

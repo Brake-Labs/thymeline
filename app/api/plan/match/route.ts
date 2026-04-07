@@ -1,23 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { matchSchema, parseBody } from '@/lib/schemas'
-import { scopeQuery } from '@/lib/household'
+import { scopeCondition } from '@/lib/household'
 import { callLLMNonStreaming } from '../helpers'
 import { parseLLMJson } from '@/lib/llm'
+import { db } from '@/lib/db'
+import { recipes } from '@/lib/db/schema'
 
 const MAX_MATCHES = 3
 
-export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
+export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
   const { data: body, error: parseError } = await parseBody(req, matchSchema)
   if (parseError) return parseError
 
   const { query } = body
 
   // Fetch all recipes scoped by household or user (all categories)
-  const recipesQ = scopeQuery(db.from('recipes').select('id, title, tags'), user.id, ctx)
-  const { data: recipes } = await recipesQ
+  const recipeRows = await db
+    .select({ id: recipes.id, title: recipes.title, tags: recipes.tags })
+    .from(recipes)
+    .where(scopeCondition({ userId: recipes.userId, householdId: recipes.householdId }, user.id, ctx))
 
-  const recipeList = (recipes ?? []) as { id: string; title: string; tags: string[] }[]
+  const recipeList = recipeRows as { id: string; title: string; tags: string[] }[]
 
   const toMatch = (r: { id: string; title: string }) => ({ recipe_id: r.id, recipe_title: r.title })
 

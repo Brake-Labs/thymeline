@@ -4,9 +4,6 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import SetupStep from '../SetupStep'
 import type { PlanSetup } from '@/types'
 
-vi.mock('@/lib/supabase/browser', () => ({
-  getAccessToken: vi.fn(async () => 'mock-token'),
-}))
 
 const SETUP: PlanSetup = {
   weekStart:       '2026-04-06',
@@ -92,7 +89,6 @@ describe('SetupStep - tags expansion (regression #244)', () => {
     // Wait for the tags API call to resolve
     await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(
       expect.stringContaining('/api/tags'),
-      expect.any(Object),
     ))
 
     // Expand the prefer/avoid section

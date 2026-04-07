@@ -9,7 +9,6 @@ type Tab = 'url' | 'manual'
 interface AddRecipeModalProps {
   onClose:   () => void
   onSaved:   () => void
-  getToken:  () => Promise<string> | string
   initialTab?: Tab
   prefillScrapeResult?: ScrapeResult
   prefillManual?: Partial<RecipeFormValues>
@@ -18,7 +17,6 @@ interface AddRecipeModalProps {
 export default function AddRecipeModal({
   onClose,
   onSaved,
-  getToken,
   initialTab = 'url',
   prefillScrapeResult,
   prefillManual,
@@ -38,7 +36,6 @@ export default function AddRecipeModal({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${await getToken()}`,
         },
         body: JSON.stringify({ url: urlInput }),
       })
@@ -58,15 +55,12 @@ export default function AddRecipeModal({
   async function handleSubmit(values: RecipeFormValues) {
     setIsSubmitting(true)
     try {
-      const token = await getToken()
-
       const source: 'scraped' | 'manual' = tab === 'url' ? 'scraped' : 'manual'
 
       const res = await fetch('/api/recipes', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           title: values.title,
@@ -95,7 +89,6 @@ export default function AddRecipeModal({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({ made_on: values.lastMade }),
         })

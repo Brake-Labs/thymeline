@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Recipe } from '@/types'
 import RecipeForm, { RecipeFormValues } from '@/components/recipes/RecipeForm'
-import { getAccessToken } from '@/lib/supabase/browser'
 import { getTodayISO } from '@/lib/date-utils'
 
 interface Props {
@@ -29,9 +28,7 @@ export default function EditRecipePage({ params }: Props) {
   useEffect(() => {
     async function fetchRecipe() {
       try {
-        const r = await fetch(`/api/recipes/${params.id}`, {
-          headers: { Authorization: `Bearer ${await getAccessToken()}` },
-        })
+        const r = await fetch(`/api/recipes/${params.id}`)
         if (r.status === 404) { setNotFound(true); setLoading(false); return }
         if (!r.ok) throw new Error('Failed to load recipe')
         const data: Recipe = await r.json()
@@ -54,12 +51,10 @@ export default function EditRecipePage({ params }: Props) {
     setSaveError(null)
     setIsSubmitting(true)
     try {
-      const token = await getAccessToken()
       const res = await fetch(`/api/recipes/${params.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           title: values.title,
@@ -81,7 +76,7 @@ export default function EditRecipePage({ params }: Props) {
         if (values.lastMade) {
           const logRes = await fetch(`/api/recipes/${params.id}/log`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ made_on: values.lastMade }),
           })
           if (logRes.ok) {
@@ -104,10 +99,9 @@ export default function EditRecipePage({ params }: Props) {
   async function handleAddDate() {
     if (!addDateValue) return
     setDateError(null)
-    const token = await getAccessToken()
     const res = await fetch(`/api/recipes/${params.id}/log`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ made_on: addDateValue }),
     })
     if (res.ok) {
@@ -122,10 +116,9 @@ export default function EditRecipePage({ params }: Props) {
   }
 
   async function handleRemoveDate(date: string) {
-    const token = await getAccessToken()
     await fetch(`/api/recipes/${params.id}/log`, {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ made_on: date }),
     })
     setDatesMade((prev) => prev.filter((d) => d !== date))

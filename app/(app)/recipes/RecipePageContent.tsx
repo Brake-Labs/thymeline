@@ -10,7 +10,6 @@ import BulkActionBar from '@/components/recipes/BulkActionBar'
 import BulkTagModal from '@/components/recipes/BulkTagModal'
 import AddRecipeModal from '@/components/recipes/AddRecipeModal'
 import GenerateRecipeModal from '@/components/recipes/GenerateRecipeModal'
-import { getAccessToken, getSupabaseClient } from '@/lib/supabase/browser'
 import Link from 'next/link'
 
 const VIEW_KEY = 'thymeline:recipe-view'
@@ -150,9 +149,7 @@ export default function RecipePageContent() {
   const fetchRecipes = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/recipes', {
-        headers: { Authorization: `Bearer ${await getAccessToken()}` },
-      })
+      const res = await fetch('/api/recipes')
       if (res.ok) {
         const data: RecipeListItem[] = await res.json()
         setRecipes(data)
@@ -171,8 +168,13 @@ export default function RecipePageContent() {
 
   useEffect(() => {
     void (async () => {
-      const { data } = await getSupabaseClient().auth.getSession()
-      if (data.session?.user) setCurrentUserId(data.session.user.id)
+      try {
+        const res = await fetch('/api/auth/get-session')
+        if (res.ok) {
+          const data = await res.json()
+          if (data.user?.id) setCurrentUserId(data.user.id)
+        }
+      } catch { /* ignore */ }
     })()
   }, [])
 
@@ -217,10 +219,9 @@ export default function RecipePageContent() {
     setSearchLoading(true)
     setSearchError(null)
     try {
-      const token = await getAccessToken()
       const res = await fetch('/api/recipes/search', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: q }),
       })
       if (res.ok) {
@@ -249,10 +250,8 @@ export default function RecipePageContent() {
   }
 
   async function handleDeleteCustomTag(tagName: string) {
-    const token = await getAccessToken()
     const res = await fetch(`/api/tags/${encodeURIComponent(tagName)}`, {
       method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
     })
     if (res.ok || res.status === 204) {
       await fetchRecipes()
@@ -300,10 +299,9 @@ export default function RecipePageContent() {
   }
 
   async function handleBulkAddTags(tags: string[]) {
-    const token = await getAccessToken()
     const res = await fetch('/api/recipes/bulk', {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ recipe_ids: Array.from(selectedIds), add_tags: tags }),
     })
     if (!res.ok) {
@@ -317,12 +315,10 @@ export default function RecipePageContent() {
   async function handleBulkDelete() {
     setBulkDeleting(true)
     try {
-      const token = await getAccessToken()
       await Promise.all(
         Array.from(selectedIds).map((id) =>
           fetch(`/api/recipes/${id}`, {
             method: 'DELETE',
-            headers: { Authorization: `Bearer ${token}` },
           })
         )
       )
@@ -582,7 +578,6 @@ export default function RecipePageContent() {
           initialTab={addModalTab}
           onClose={() => setShowAddModal(false)}
           onSaved={() => void fetchRecipes()}
-          getToken={getAccessToken}
         />
       )}
 
@@ -591,7 +586,6 @@ export default function RecipePageContent() {
         <GenerateRecipeModal
           onClose={() => setShowGenerateModal(false)}
           onSaved={() => void fetchRecipes()}
-          getToken={getAccessToken}
         />
       )}
 

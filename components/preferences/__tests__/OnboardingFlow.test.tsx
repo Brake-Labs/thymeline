@@ -9,10 +9,6 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush }),
 }))
 
-// Mock Supabase browser client
-vi.mock('@/lib/supabase/browser', () => ({
-  getAccessToken: async () => 'mock-token',
-}))
 
 // Mock fetch
 const mockFetch = vi.fn()
