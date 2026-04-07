@@ -77,7 +77,7 @@ export const PATCH = withAuth(async (req, { user, db, ctx }) => {
     .single()
 
   if (updateError || !updated) {
-    logger.error({ error: updateError, listId: existing.id }, 'failed to update grocery list')
+    logger.error({ error: updateError?.message, code: updateError?.code, listId: existing.id }, 'failed to update grocery list')
     return NextResponse.json({ error: 'Failed to update grocery list' }, { status: 500 })
   }
 

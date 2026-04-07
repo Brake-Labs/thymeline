@@ -244,6 +244,10 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
   // ── Add to Reminders (via Apple Shortcuts) ──────────────────────────────────
 
   function handleAddToReminders() {
+    // We set this optimistically — there's no way to detect if the Shortcut is
+    // actually installed from the browser. If it's not, Shortcuts app shows an
+    // error and the user can click "Add to Reminders" again (dialog still accessible
+    // via long-press or after clearing localStorage).
     localStorage.setItem('thymeline-shortcut-installed', 'true')
     setShortcutInstalled(true)
     setShowRemindersDialog(false)
