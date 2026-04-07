@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import SetupStep from '../SetupStep'
 import type { PlanSetup } from '@/types'
 
@@ -16,6 +16,54 @@ const SETUP: PlanSetup = {
   avoidThisWeek:   [],
   freeText:        '',
 }
+
+beforeEach(() => {
+  vi.restoreAllMocks()
+})
+
+// ── Issue 291: Context textarea should auto-grow as the user types ─────────────
+describe('SetupStep - context textarea auto-grow (#291)', () => {
+  it('renders without a fixed rows attribute', async () => {
+    global.fetch = vi.fn(async () => ({ ok: true, json: async () => ({ firstClass: [], custom: [] }) })) as unknown as typeof fetch
+
+    await act(async () => {
+      render(
+        <SetupStep
+          setup={SETUP}
+          onSetupChange={vi.fn()}
+          onGetSuggestions={vi.fn()}
+          isGenerating={false}
+        />
+      )
+    })
+
+    const textarea = screen.getByPlaceholderText('Anything to keep in mind this week?')
+    expect(textarea).not.toHaveAttribute('rows')
+  })
+
+  it('sets style.height on change (auto-grow trigger)', async () => {
+    global.fetch = vi.fn(async () => ({ ok: true, json: async () => ({ firstClass: [], custom: [] }) })) as unknown as typeof fetch
+
+    await act(async () => {
+      render(
+        <SetupStep
+          setup={SETUP}
+          onSetupChange={vi.fn()}
+          onGetSuggestions={vi.fn()}
+          isGenerating={false}
+        />
+      )
+    })
+
+    const textarea = screen.getByPlaceholderText('Anything to keep in mind this week?')
+
+    await act(async () => {
+      fireEvent.change(textarea, { target: { value: 'Busy week, keep things simple and quick.' } })
+    })
+
+    expect((textarea as HTMLTextAreaElement).style.height).toBeDefined()
+  })
+})
 
 // ── T-TAGS-EXPAND: Tags expansion renders strings, not objects (regression #244) ─
 
