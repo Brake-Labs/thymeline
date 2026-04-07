@@ -2,6 +2,7 @@ import 'server-only'
 
 import FirecrawlApp from 'firecrawl'
 import { callLLM, LLM_MODEL_FAST, LLMError } from '@/lib/llm'
+import { logger } from '@/lib/logger'
 import { scopeQuery } from '@/lib/household'
 import { FIRST_CLASS_TAGS } from '@/lib/tags'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -57,7 +58,7 @@ export async function scrapeRecipe(
     const result = await firecrawl.scrape(rawUrl, { formats: ['markdown'] })
     pageContent = result.markdown ?? ''
   } catch (err) {
-    console.error('[scrapeRecipe] Firecrawl error:', err)
+    logger.error({ url: rawUrl, error: err instanceof Error ? err.message : String(err) }, 'scrapeRecipe: firecrawl failed')
     return { error: 'Failed to fetch URL content' }
   }
 
@@ -163,9 +164,10 @@ ${pageContent.slice(0, 20000)}`
       const cause = err.cause as { headers?: { get: (key: string) => string | null } } | undefined
       const retryAfterHeader = cause?.headers?.get('retry-after')
       const retryAfterMs = retryAfterHeader ? parseInt(retryAfterHeader, 10) * 1000 : undefined
+      logger.warn({ url: rawUrl, retryAfterMs }, 'scrapeRecipe: rate limited')
       return { error: 'Rate limited by LLM provider', code: 'rate_limit', retryAfterMs }
     }
-    console.error('[scrapeRecipe] LLM extraction error:', err)
+    logger.error({ url: rawUrl, error: err instanceof Error ? err.message : String(err) }, 'scrapeRecipe: LLM extraction failed')
     // Continue with null fields — caller will mark as partial
   }
 

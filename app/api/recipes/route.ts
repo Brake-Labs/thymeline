@@ -3,6 +3,7 @@ import { withAuth } from '@/lib/auth'
 import { validateTags } from '@/lib/tags'
 import { scopeQuery } from '@/lib/household'
 import { createRecipeSchema, parseBody } from '@/lib/schemas'
+import { logger } from '@/lib/logger'
 
 export const GET = withAuth(async (req, { user, db, ctx }) => {
   const { searchParams } = new URL(req.url)
@@ -19,6 +20,7 @@ export const GET = withAuth(async (req, { user, db, ctx }) => {
 
   const { data: recipes, error } = await query
   if (error) {
+    logger.error({ error: error.message, code: error.code, userId: user.id }, 'failed to fetch recipes')
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
@@ -111,6 +113,7 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
     .single()
 
   if (error) {
+    logger.error({ error: error.message, code: error.code, title: body.title }, 'failed to insert recipe')
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 

@@ -3,6 +3,7 @@ import { withAuth } from '@/lib/auth'
 import { GroceryItem, RecipeScale } from '@/types'
 import { scopeQuery } from '@/lib/household'
 import { updateGroceryListSchema, parseBody } from '@/lib/schemas'
+import { logger } from '@/lib/logger'
 
 // ── GET /api/groceries?week_start=YYYY-MM-DD  (or ?date_from=YYYY-MM-DD) ─────
 
@@ -14,13 +15,16 @@ export const GET = withAuth(async (req, { user, db, ctx }) => {
     return NextResponse.json({ error: 'week_start or date_from is required' }, { status: 400 })
   }
 
+  logger.debug({ weekStart, userId: user.id }, 'fetching grocery list')
   const listQ = scopeQuery(db.from('grocery_lists').select('*').eq('week_start', weekStart), user.id, ctx)
   const { data: list, error } = await listQ.single()
 
   if (error && error.code !== 'PGRST116') {
+    logger.error({ error, weekStart }, 'failed to fetch grocery list')
     return NextResponse.json({ error: 'Failed to fetch grocery list' }, { status: 500 })
   }
 
+  logger.debug({ weekStart, found: !!list }, 'grocery list fetched')
   return NextResponse.json({ list: list ?? null })
 })
 
@@ -73,6 +77,7 @@ export const PATCH = withAuth(async (req, { user, db, ctx }) => {
     .single()
 
   if (updateError || !updated) {
+    logger.error({ error: updateError, listId: existing.id }, 'failed to update grocery list')
     return NextResponse.json({ error: 'Failed to update grocery list' }, { status: 500 })
   }
 

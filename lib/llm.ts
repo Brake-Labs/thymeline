@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { MessageParam } from '@anthropic-ai/sdk/resources/messages'
+import { logger } from './logger'
 
 /**
  * Centralized Anthropic client with retry and timeout.
@@ -79,6 +80,7 @@ export interface CallLLMOptions {
  */
 export async function callLLM(opts: CallLLMOptions): Promise<string> {
   const model = opts.model ?? process.env.LLM_MODEL ?? 'claude-haiku-4-5-20251001'
+  logger.debug({ model, maxTokens: opts.maxTokens }, 'callLLM start')
   try {
     const response = await anthropic.messages.create({
       model,
@@ -89,11 +91,15 @@ export async function callLLM(opts: CallLLMOptions): Promise<string> {
     const text =
       response.content[0]?.type === 'text' ? response.content[0].text : ''
     if (!text) {
+      logger.error({ model }, 'callLLM returned empty response')
       throw new LLMError('Empty response from LLM', 'bad_response')
     }
+    logger.debug({ model, inputTokens: response.usage?.input_tokens, outputTokens: response.usage?.output_tokens }, 'callLLM ok')
     return text
   } catch (err) {
-    throw classifyLLMError(err)
+    const classified = classifyLLMError(err)
+    logger.error({ model, code: classified.code, message: classified.message }, 'callLLM failed')
+    throw classified
   }
 }
 
@@ -112,6 +118,7 @@ export interface CallLLMMultimodalOptions {
  */
 export async function callLLMMultimodal(opts: CallLLMMultimodalOptions): Promise<string> {
   const model = opts.model ?? LLM_MODEL_FAST
+  logger.debug({ model, maxTokens: opts.maxTokens, messageCount: opts.messages.length }, 'callLLMMultimodal start')
   try {
     const response = await anthropic.messages.create({
       model,
@@ -122,11 +129,15 @@ export async function callLLMMultimodal(opts: CallLLMMultimodalOptions): Promise
     const text =
       response.content[0]?.type === 'text' ? response.content[0].text : ''
     if (!text) {
+      logger.error({ model }, 'callLLMMultimodal returned empty response')
       throw new LLMError('Empty response from LLM', 'bad_response')
     }
+    logger.debug({ model, inputTokens: response.usage?.input_tokens, outputTokens: response.usage?.output_tokens }, 'callLLMMultimodal ok')
     return text
   } catch (err) {
-    throw classifyLLMError(err)
+    const classified = classifyLLMError(err)
+    logger.error({ model, code: classified.code, message: classified.message }, 'callLLMMultimodal failed')
+    throw classified
   }
 }
 
@@ -170,7 +181,7 @@ export function parseLLMJsonSafe<T>(text: string): T | null {
     const stripped = extractJsonFromText(text)
     return JSON.parse(stripped) as T
   } catch (err) {
-    console.warn('[parseLLMJsonSafe] Failed to parse:', err instanceof Error ? err.message : err)
+    logger.warn({ error: err instanceof Error ? err.message : String(err) }, 'parseLLMJsonSafe failed to parse')
     return null
   }
 }

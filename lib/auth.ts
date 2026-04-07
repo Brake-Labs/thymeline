@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient, createAdminClient } from './supabase-server'
 import { resolveHouseholdScope } from './household'
+import { logger } from './logger'
 import type { SupabaseClient, User } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import type { HouseholdContext } from '@/types'
@@ -43,10 +44,13 @@ export function withAuth(
       error,
     } = await supabase.auth.getUser()
     if (error || !user) {
+      const route = new URL(req.url).pathname
+      logger.debug({ route, error: error?.message ?? 'no user' }, 'auth failed — 401')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     const db = createAdminClient()
     const ctx = await resolveHouseholdScope(db, user.id)
+    logger.debug({ userId: user.id, household: ctx?.householdId ?? null, route: new URL(req.url).pathname }, 'auth ok')
     return handler(req, { user, db, ctx }, routeContext?.params ?? {})
   }
 }

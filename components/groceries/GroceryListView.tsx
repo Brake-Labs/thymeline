@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { GroceryItem, GroceryList, GrocerySection, RecipeScale } from '@/types'
 import GroceryItemRow from './GroceryItemRow'
 import GotItSection from './GotItSection'
 import AddItemInput from './AddItemInput'
 import StepperInput from '@/components/preferences/StepperInput'
 import { getAccessToken } from '@/lib/supabase/browser'
-import { effectiveServings, formatWeekLabel, buildPlainTextList } from '@/lib/grocery'
+import { effectiveServings, formatWeekLabel, buildPlainTextList, buildICSExport, buildShortcutsURL } from '@/lib/grocery'
 import { TOAST_DURATION_LONG_MS } from '@/lib/constants'
 
 // Aisle order used for grouping "Need to Buy" items
@@ -32,7 +32,17 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
   const [confirmRegenerate, setConfirmRegenerate] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
   const [shareToast, setShareToast] = useState<string | null>(null)
+  const [showRemindersDialog, setShowRemindersDialog] = useState(false)
+  const [isMac, setIsMac] = useState(false)
+  const [shortcutInstalled, setShortcutInstalled] = useState(false)
   const weekStart = initialList.week_start
+
+  useEffect(() => {
+    if (typeof navigator !== 'undefined') {
+      setIsMac(/Macintosh/.test(navigator.userAgent))
+    }
+    setShortcutInstalled(localStorage.getItem('thymeline-shortcut-installed') === 'true')
+  }, [])
 
   // ── Persist helpers ─────────────────────────────────────────────────────────
 
@@ -193,14 +203,34 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
 
   async function handleShare() {
     const header = `Grocery list — week of ${weekStart}`
-    const itemList = buildPlainTextList(items, recipeScales, planServings, weekStart, { onlyUnchecked: true })
+    const itemList = buildPlainTextList(items, { onlyUnchecked: true })
     const text = itemList ? `${header}\n\n${itemList}` : header
+
+    // 1. On iOS, sharing the .ics file makes Reminders appear in the share sheet
+    //    and imports each VTODO as a separate reminder.
+    const ics = buildICSExport(items, { onlyUnchecked: true })
+    const file = new File([ics], 'grocery-list.ics', { type: 'text/calendar' })
+    if (typeof navigator !== 'undefined' && navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: header })
+        setShareToast('Sent to Reminders')
+        setTimeout(() => setShareToast(null), TOAST_DURATION_LONG_MS)
+        return
+      } catch (err) {
+        if ((err as Error).name === 'AbortError') return
+        // file share failed — fall through to text share
+      }
+    }
+
+    // 2. Text share — opens the native share sheet (Notes, Messages, Mail, etc.)
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({ text })
         return
       } catch { /* fall through */ }
     }
+
+    // 3. Last resort: clipboard copy
     try {
       await navigator.clipboard.writeText(text)
       setShareToast('Copied to clipboard!')
@@ -209,6 +239,16 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
       setShareToast('Could not share list')
       setTimeout(() => setShareToast(null), TOAST_DURATION_LONG_MS)
     }
+  }
+
+  // ── Add to Reminders (via Apple Shortcuts) ──────────────────────────────────
+
+  function handleAddToReminders() {
+    localStorage.setItem('thymeline-shortcut-installed', 'true')
+    setShortcutInstalled(true)
+    setShowRemindersDialog(false)
+    const url = buildShortcutsURL(items, { onlyUnchecked: true })
+    window.location.href = url
   }
 
   // ── Derived state ───────────────────────────────────────────────────────────
@@ -256,6 +296,15 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
           >
             Share
           </button>
+          {isMac && (
+            <button
+              type="button"
+              onClick={() => shortcutInstalled ? handleAddToReminders() : setShowRemindersDialog(true)}
+              className="text-sm px-4 py-2 border border-sage-400 text-sage-700 rounded-lg hover:bg-sage-50"
+            >
+              Add to Reminders
+            </button>
+          )}
         </div>
       </div>
 
@@ -424,6 +473,48 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
                 type="button"
                 onClick={() => setConfirmRegenerate(false)}
                 className="flex-1 px-4 py-2 border border-stone-300 text-stone-700 text-sm font-medium rounded-lg hover:bg-stone-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add to Reminders — first-time setup dialog */}
+      {showRemindersDialog && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full space-y-4">
+            <h2 className="font-display text-base font-semibold text-stone-800">Set up Reminders</h2>
+            <p className="text-sm text-stone-600">
+              To add grocery items to Apple Reminders, you need to install a free
+              shortcut first. This is a one-time setup.
+            </p>
+            <ol className="text-sm text-stone-600 list-decimal list-inside space-y-1">
+              <li>
+                <a
+                  href="https://www.icloud.com/shortcuts/a15dc8284acb4ecf912e934afc8c238c"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sage-600 hover:text-sage-800 underline"
+                >
+                  Install the &ldquo;Thymeline Groceries&rdquo; shortcut
+                </a>
+              </li>
+              <li>Come back here and tap the button below</li>
+            </ol>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={handleAddToReminders}
+                className="font-display w-full px-4 py-2 bg-sage-500 text-white text-sm font-medium rounded-lg hover:bg-sage-600"
+              >
+                Send to Reminders
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowRemindersDialog(false)}
+                className="w-full px-4 py-2 border border-stone-300 text-stone-700 text-sm font-medium rounded-lg hover:bg-stone-50"
               >
                 Cancel
               </button>

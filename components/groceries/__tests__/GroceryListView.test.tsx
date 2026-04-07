@@ -245,9 +245,9 @@ describe('T33 - Got it button marks item as bought', () => {
 // ── T22: Share invokes Web Share API ─────────────────────────────────────────
 
 describe('T22 - Share invokes Web Share API with correct format', () => {
-  it('calls navigator.share when available', async () => {
+  it('calls navigator.share with text when canShare is unavailable', async () => {
     const shareMock = vi.fn().mockResolvedValue(undefined)
-    vi.stubGlobal('navigator', { ...navigator, share: shareMock })
+    vi.stubGlobal('navigator', { share: shareMock, canShare: undefined })
 
     render(<GroceryListView initialList={sampleList} />)
     fireEvent.click(screen.getByText('Share'))
@@ -266,7 +266,7 @@ describe('T22 - Share invokes Web Share API with correct format', () => {
 
   it('regression: share text contains week header so apps that ignore title still show it', async () => {
     const shareMock = vi.fn().mockResolvedValue(undefined)
-    vi.stubGlobal('navigator', { ...navigator, share: shareMock })
+    vi.stubGlobal('navigator', { share: shareMock, canShare: undefined })
 
     render(<GroceryListView initialList={sampleList} />)
     fireEvent.click(screen.getByText('Share'))
@@ -283,7 +283,7 @@ describe('T22 - Share invokes Web Share API with correct format', () => {
 
   it('excludes bought items from the share payload', async () => {
     const shareMock = vi.fn().mockResolvedValue(undefined)
-    vi.stubGlobal('navigator', { ...navigator, share: shareMock })
+    vi.stubGlobal('navigator', { share: shareMock, canShare: undefined })
 
     const listWithBought: GroceryList = {
       ...sampleList,
@@ -334,6 +334,7 @@ describe('T23 - Share falls back to clipboard when Web Share unavailable', () =>
     const writeTextMock = vi.fn().mockResolvedValue(undefined)
     vi.stubGlobal('navigator', {
       share: undefined,
+      canShare: undefined,
       clipboard: { writeText: writeTextMock },
     })
 
@@ -344,6 +345,139 @@ describe('T23 - Share falls back to clipboard when Web Share unavailable', () =>
       expect(writeTextMock).toHaveBeenCalled()
       expect(screen.getByText('Copied to clipboard!')).toBeInTheDocument()
     })
+  })
+})
+
+// ── ICS file share tests ────────────────────────────────────────────────────
+
+describe('ICS file share — .ics export for Reminders', () => {
+  it('shares .ics file when canShare supports files', async () => {
+    const shareMock = vi.fn().mockResolvedValue(undefined)
+    const canShareMock = vi.fn().mockReturnValue(true)
+    vi.stubGlobal('navigator', { share: shareMock, canShare: canShareMock })
+
+    render(<GroceryListView initialList={sampleList} />)
+    fireEvent.click(screen.getByText('Share'))
+
+    await waitFor(() => {
+      expect(canShareMock).toHaveBeenCalled()
+      expect(shareMock).toHaveBeenCalled()
+      const args = shareMock.mock.calls[0]![0]
+      expect(args.files).toHaveLength(1)
+      expect(args.files[0].type).toBe('text/calendar')
+      expect(args.files[0].name).toBe('grocery-list.ics')
+      expect(screen.getByText('Sent to Reminders')).toBeInTheDocument()
+    })
+  })
+
+  it('does not fall through when user cancels (AbortError)', async () => {
+    const shareMock = vi.fn().mockRejectedValue(new DOMException('', 'AbortError'))
+    const canShareMock = vi.fn().mockReturnValue(true)
+    const writeTextMock = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', { share: shareMock, canShare: canShareMock, clipboard: { writeText: writeTextMock } })
+
+    render(<GroceryListView initialList={sampleList} />)
+    fireEvent.click(screen.getByText('Share'))
+
+    await waitFor(() => {
+      expect(shareMock).toHaveBeenCalled()
+    })
+    // Should not fall through to clipboard
+    expect(writeTextMock).not.toHaveBeenCalled()
+  })
+
+  it('falls through to text share when .ics share fails with non-AbortError', async () => {
+    let callCount = 0
+    const shareMock = vi.fn().mockImplementation((_args) => {
+      callCount++
+      if (callCount === 1) return Promise.reject(new Error('Share failed'))
+      return Promise.resolve()
+    })
+    const canShareMock = vi.fn().mockReturnValue(true)
+    vi.stubGlobal('navigator', { share: shareMock, canShare: canShareMock })
+
+    render(<GroceryListView initialList={sampleList} />)
+    fireEvent.click(screen.getByText('Share'))
+
+    await waitFor(() => {
+      // First call: .ics file share (fails), second call: text share (succeeds)
+      expect(shareMock).toHaveBeenCalledTimes(2)
+      const secondCallArgs = shareMock.mock.calls[1]![0]
+      expect(secondCallArgs.text).toContain('Grocery list')
+    })
+  })
+
+  it('skips .ics path when canShare returns false', async () => {
+    const shareMock = vi.fn().mockResolvedValue(undefined)
+    const canShareMock = vi.fn().mockReturnValue(false)
+    vi.stubGlobal('navigator', { share: shareMock, canShare: canShareMock })
+
+    render(<GroceryListView initialList={sampleList} />)
+    fireEvent.click(screen.getByText('Share'))
+
+    await waitFor(() => {
+      expect(shareMock).toHaveBeenCalled()
+      const args = shareMock.mock.calls[0]![0]
+      // Should be text share, not file share
+      expect(args.text).toContain('Grocery list')
+      expect(args.files).toBeUndefined()
+    })
+  })
+
+  it('skips .ics path when canShare is undefined (optional chaining)', async () => {
+    const shareMock = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', { share: shareMock, canShare: undefined })
+
+    render(<GroceryListView initialList={sampleList} />)
+    fireEvent.click(screen.getByText('Share'))
+
+    await waitFor(() => {
+      expect(shareMock).toHaveBeenCalled()
+      const args = shareMock.mock.calls[0]![0]
+      expect(args.text).toContain('Grocery list')
+      expect(args.files).toBeUndefined()
+    })
+  })
+})
+
+// ── Add to Reminders button (macOS only) ────────────────────────────────────
+
+describe('Add to Reminders button', () => {
+  it('renders on macOS user agents', async () => {
+    vi.stubGlobal('navigator', { ...navigator, userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)' })
+    render(<GroceryListView initialList={sampleList} />)
+    await waitFor(() => {
+      expect(screen.getByText('Add to Reminders')).toBeInTheDocument()
+    })
+  })
+
+  it('does not render on non-Apple user agents', () => {
+    vi.stubGlobal('navigator', { ...navigator, userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' })
+    render(<GroceryListView initialList={sampleList} />)
+    expect(screen.queryByText('Add to Reminders')).not.toBeInTheDocument()
+  })
+
+  it('shows setup dialog on first click', async () => {
+    vi.stubGlobal('navigator', { ...navigator, userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)' })
+    localStorage.removeItem('thymeline-shortcut-installed')
+    render(<GroceryListView initialList={sampleList} />)
+    await waitFor(() => expect(screen.getByText('Add to Reminders')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Add to Reminders'))
+    await waitFor(() => {
+      expect(screen.getByText('Set up Reminders')).toBeInTheDocument()
+      expect(screen.getByText('Send to Reminders')).toBeInTheDocument()
+    })
+  })
+
+  it('dismisses dialog on Cancel', async () => {
+    vi.stubGlobal('navigator', { ...navigator, userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)' })
+    localStorage.removeItem('thymeline-shortcut-installed')
+    render(<GroceryListView initialList={sampleList} />)
+    await waitFor(() => expect(screen.getByText('Add to Reminders')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Add to Reminders'))
+    await waitFor(() => expect(screen.getByText('Set up Reminders')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Cancel'))
+    await waitFor(() => expect(screen.queryByText('Set up Reminders')).not.toBeInTheDocument())
   })
 })
 

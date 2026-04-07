@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { callLLM, LLM_MODEL_FAST } from './llm'
+import { logger } from './logger'
 
 interface RecipeForIngredients {
   recipe_id: string
@@ -18,7 +19,10 @@ export async function resolveRecipeIngredients(
   recipe: RecipeForIngredients,
   firecrawlKey?: string,
 ): Promise<string | null> {
-  if (recipe.ingredients) return recipe.ingredients
+  if (recipe.ingredients) {
+    logger.debug({ recipeId: recipe.recipe_id }, 'using stored ingredients')
+    return recipe.ingredients
+  }
 
   if (!recipe.url || !firecrawlKey) return null
 
@@ -42,7 +46,7 @@ export async function resolveRecipeIngredients(
       return parsed.ingredients
     }
   } catch (err) {
-    console.warn(`Failed to scrape/extract ingredients for "${recipe.recipe_title}":`, err)
+    logger.error({ recipeId: recipe.recipe_id, recipeTitle: recipe.recipe_title, error: err instanceof Error ? err.message : String(err) }, 'failed to scrape/extract ingredients')
   }
 
   return null
