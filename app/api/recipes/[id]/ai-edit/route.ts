@@ -51,16 +51,16 @@ type AIEditResponsePayload = {
   servings:    number | null
 }
 
-export const POST = withAuth(async (req, { user, db, ctx }, params) => {
+export const POST = withAuth(async (req, { user, ctx }, params) => {
   const { data: body, error } = await parseBody(req, aiEditSchema)
   if (error) return error
 
-  const ownership = await checkOwnership(db, 'recipes', params.id!, user.id, ctx)
+  const ownership = await checkOwnership('recipes', params.id!, user.id, ctx)
   if (!ownership.owned) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const tasteProfile = await deriveTasteProfile(user.id, db, ctx ?? null).catch(() => null)
+  const tasteProfile = await deriveTasteProfile(user.id, null, ctx ?? null).catch(() => null)
 
   const { message, current_recipe, conversation_history } = body
 

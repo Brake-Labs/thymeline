@@ -7,41 +7,59 @@ import React from 'react'
 
 const mockState = {
   user: { id: 'user-1' } as { id: string } | null,
-  plan: null as { id: string; week_start: string } | null,
-  entries: [] as { planned_date: string; recipe_id: string; position: number; confirmed: boolean; recipes: { title: string } | null }[],
+  planRows: [] as { id: string; weekStart: string }[],
+  entries: [] as { id: string; plannedDate: string; recipeId: string; position: number; confirmed: boolean; mealType: string; recipeTitle: string }[],
 }
 
-vi.mock('@/lib/supabase/server', () => ({
-  createSupabaseServerClient: () => ({
-    auth: {
-      getUser: async () => ({ data: { user: mockState.user }, error: null }),
+vi.mock('@/lib/auth-server', () => ({
+  auth: {
+    api: {
+      getSession: async () =>
+        mockState.user ? { user: mockState.user } : null,
     },
-    from: (table: string) => {
-      if (table === 'meal_plans') {
-        return {
-          select: () => ({
-            eq: () => ({
-              eq: () => ({
-                maybeSingle: async () => ({ data: mockState.plan, error: null }),
-              }),
-            }),
-          }),
-        }
-      }
-      if (table === 'meal_plan_entries') {
-        return {
-          select: () => ({
-            eq: () => ({
-              order: () => ({
-                order: async () => ({ data: mockState.entries, error: null }),
-              }),
-            }),
-          }),
-        }
-      }
-      return {}
+  },
+}))
+
+vi.mock('next/headers', () => ({
+  headers: async () => new Headers(),
+}))
+
+// Mock drizzle db with chainable query builder
+// Each call to db.select() returns the next set of rows from mockState
+let _selectCallCount = 0
+
+vi.mock('@/lib/db', () => {
+  const createChain = (getRows: () => unknown[]) => {
+    const chain: Record<string, unknown> = {}
+    const methods = ['select', 'from', 'where', 'innerJoin', 'orderBy', 'limit']
+    for (const m of methods) {
+      chain[m] = (..._args: unknown[]) => chain
+    }
+    // Make the chain thenable so `await db.select(...)...` resolves
+    chain.then = (resolve: (v: unknown) => void) => resolve(getRows())
+    return chain
+  }
+  return {
+    db: {
+      select: (..._args: unknown[]) => {
+        _selectCallCount++
+        const callNum = _selectCallCount
+        return createChain(() => callNum === 1 ? mockState.planRows : mockState.entries)
+      },
     },
-  }),
+  }
+})
+
+// Need to mock drizzle-orm operators
+vi.mock('drizzle-orm', () => ({
+  eq: (...args: unknown[]) => args,
+  and: (...args: unknown[]) => args,
+}))
+
+vi.mock('@/lib/db/schema', () => ({
+  mealPlans: { id: 'id', userId: 'userId', weekStart: 'weekStart' },
+  mealPlanEntries: { id: 'id', mealPlanId: 'mealPlanId', plannedDate: 'plannedDate', recipeId: 'recipeId', position: 'position', confirmed: 'confirmed', mealType: 'mealType' },
+  recipes: { id: 'id', title: 'title' },
 }))
 
 vi.mock('next/navigation', () => ({
@@ -66,8 +84,9 @@ const WEEK_START = '2026-03-01'
 
 beforeEach(() => {
   mockState.user = { id: 'user-1' }
-  mockState.plan = null
+  mockState.planRows = []
   mockState.entries = []
+  _selectCallCount = 0
   vi.mocked(nextNavigation.notFound).mockClear()
 })
 
@@ -75,10 +94,10 @@ beforeEach(() => {
 
 describe('T36 - /plan/[week_start] renders saved plan entries', () => {
   it('shows each recipe title and day when a plan exists', async () => {
-    mockState.plan = { id: 'plan-1', week_start: WEEK_START }
+    mockState.planRows = [{ id: 'plan-1', weekStart: WEEK_START }]
     mockState.entries = [
-      { planned_date: '2026-03-01', recipe_id: 'r1', position: 1, confirmed: true,  recipes: { title: 'Pasta' } },
-      { planned_date: '2026-03-03', recipe_id: 'r2', position: 1, confirmed: false, recipes: { title: 'Tacos' } },
+      { id: 'e1', plannedDate: '2026-03-01', recipeId: 'r1', position: 1, confirmed: true,  mealType: 'dinner', recipeTitle: 'Pasta' },
+      { id: 'e2', plannedDate: '2026-03-03', recipeId: 'r2', position: 1, confirmed: false, mealType: 'dinner', recipeTitle: 'Tacos' },
     ]
 
     const element = await PlanWeekPage({ params: { week_start: WEEK_START } })
@@ -91,9 +110,9 @@ describe('T36 - /plan/[week_start] renders saved plan entries', () => {
   })
 
   it('shows "Make grocery list" and "Re-plan this week" buttons', async () => {
-    mockState.plan = { id: 'plan-1', week_start: WEEK_START }
+    mockState.planRows = [{ id: 'plan-1', weekStart: WEEK_START }]
     mockState.entries = [
-      { planned_date: '2026-03-01', recipe_id: 'r1', position: 1, confirmed: true, recipes: { title: 'Pasta' } },
+      { id: 'e1', plannedDate: '2026-03-01', recipeId: 'r1', position: 1, confirmed: true, mealType: 'dinner', recipeTitle: 'Pasta' },
     ]
 
     const element = await PlanWeekPage({ params: { week_start: WEEK_START } })
@@ -113,7 +132,7 @@ describe('T36 - /plan/[week_start] renders saved plan entries', () => {
 
 describe('T37 - /plan/[week_start] shows no-plan state when plan does not exist', () => {
   it('shows "No plan for this week" and a "Plan this week" link', async () => {
-    mockState.plan = null
+    mockState.planRows = []
 
     const element = await PlanWeekPage({ params: { week_start: WEEK_START } })
     render(element as React.ReactElement)
@@ -126,7 +145,7 @@ describe('T37 - /plan/[week_start] shows no-plan state when plan does not exist'
   })
 
   it('does not show grocery or re-plan buttons when no plan exists', async () => {
-    mockState.plan = null
+    mockState.planRows = []
 
     const element = await PlanWeekPage({ params: { week_start: WEEK_START } })
     render(element as React.ReactElement)

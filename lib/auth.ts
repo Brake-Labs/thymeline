@@ -1,30 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, createAdminClient } from './supabase-server'
+import { auth } from './auth-server'
+import { db } from './db'
+import { config } from './config'
 import { resolveHouseholdScope } from './household'
-import type { SupabaseClient, User } from '@supabase/supabase-js'
-import type { Database } from '@/types/database'
 import type { HouseholdContext } from '@/types'
 
+export interface AuthUser {
+  id: string
+  email: string
+  name: string | null
+  image: string | null
+}
+
 export interface AuthContext {
-  user: User
-  db: SupabaseClient<Database>
+  user: AuthUser
+  db: typeof db
   ctx: HouseholdContext | null
 }
 
 /**
+ * Dev-only auth bypass user. When DEV_BYPASS_AUTH is set,
+ * all API routes use this user without requiring a real session.
+ */
+const DEV_USER: AuthUser = {
+  id: process.env.DEV_BYPASS_AUTH_USER_ID ?? 'dev-user',
+  email: process.env.DEV_BYPASS_AUTH_EMAIL ?? 'dev@localhost',
+  name: 'Dev User',
+  image: null,
+}
+
+/**
  * Higher-order function that wraps an API route handler with authentication.
- * Verifies the user via Supabase auth, creates an admin DB client,
- * and resolves household scope before calling the handler.
+ * Verifies the user via Better Auth session cookie, resolves household scope,
+ * and provides the Drizzle db client.
  *
- * Usage:
- *   export const GET = withAuth(async (req, { user, db, ctx }) => {
- *     // route logic — user is guaranteed to be authenticated
- *   })
- *
- *   // With dynamic route params:
- *   export const GET = withAuth(async (req, { user, db, ctx }, params) => {
- *     const { id } = params
- *   })
+ * When DEV_BYPASS_AUTH=true is set, skips authentication entirely and uses
+ * a dev user. This allows Playwright and other test tools to exercise
+ * authenticated routes without Google OAuth.
  */
 export function withAuth(
   handler: (
@@ -37,16 +49,30 @@ export function withAuth(
     req: NextRequest,
     routeContext?: { params: Record<string, string> },
   ): Promise<NextResponse> => {
-    const supabase = createServerClient(req)
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser()
-    if (error || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    let user: AuthUser
+
+    if (process.env.DEV_BYPASS_AUTH === 'true') {
+      user = DEV_USER
+    } else {
+      const session = await auth.api.getSession({ headers: req.headers })
+      if (!session?.user) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+      user = {
+        id: session.user.id,
+        email: session.user.email,
+        name: session.user.name ?? null,
+        image: session.user.image ?? null,
+      }
+
+      // Enforce email whitelist (empty list = open access)
+      const allowed = config.allowedEmails
+      if (allowed.length > 0 && !allowed.includes(user.email.toLowerCase())) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
     }
-    const db = createAdminClient()
-    const ctx = await resolveHouseholdScope(db, user.id)
+
+    const ctx = await resolveHouseholdScope(user.id)
     return handler(req, { user, db, ctx }, routeContext?.params ?? {})
   }
 }

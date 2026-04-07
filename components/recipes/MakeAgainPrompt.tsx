@@ -5,11 +5,10 @@ import { useState } from 'react'
 interface MakeAgainPromptProps {
   entryId:  string
   recipeId: string
-  getToken: () => Promise<string> | string
   onDismiss: () => void
 }
 
-export default function MakeAgainPrompt({ entryId, recipeId, getToken, onDismiss }: MakeAgainPromptProps) {
+export default function MakeAgainPrompt({ entryId, recipeId, onDismiss }: MakeAgainPromptProps) {
   const [status, setStatus] = useState<'idle' | 'saving' | 'done'>('idle')
   const [selected, setSelected] = useState<'loved' | 'disliked' | null>(null)
 
@@ -17,12 +16,10 @@ export default function MakeAgainPrompt({ entryId, recipeId, getToken, onDismiss
     setSelected(makeAgain ? 'loved' : 'disliked')
     setStatus('saving')
     try {
-      const token = await getToken()
       await fetch(`/api/recipes/${recipeId}/log/${entryId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ make_again: makeAgain }),
       })

@@ -5,53 +5,63 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-// ── Supabase mock ──────────────────────────────────────────────────────────────
+// ── Auth mock ─────────────────────────────────────────────────────────────────
 
-const mockUser = { id: 'user-1' }
+const _mockUser = { id: 'user-1' }
 
 const vaultRecipes = [
   { title: 'Chicken Stir Fry', tags: ['Chicken', 'Quick'], category: 'main_dish' },
   { title: 'Beef Tacos',        tags: ['Beef', 'Mexican'],  category: 'main_dish' },
 ]
 
-function makeSupabaseMock(user = mockUser) {
-  const vaultChain = {
-    select: vi.fn().mockReturnThis(),
-    order:  vi.fn().mockReturnThis(),
-    limit:  vi.fn().mockReturnThis(),
-    eq:     vi.fn().mockResolvedValue({ data: vaultRecipes, error: null }),
+function mockDbChain(result: unknown[] = []) {
+  const chain: Record<string, unknown> = {}
+  for (const m of ['from','select','where','orderBy','limit','offset','innerJoin','leftJoin','set','values','onConflictDoUpdate','onConflictDoNothing','returning','groupBy']) {
+    chain[m] = vi.fn().mockReturnValue(chain)
   }
-
-  const prefsChain = {
-    select: vi.fn().mockReturnThis(),
-    eq:     vi.fn().mockReturnValue({
-      single: vi.fn().mockResolvedValue({ data: { meal_context: null }, error: null }),
-    }),
-  }
-
-  return {
-    auth: {
-      getUser: vi.fn().mockResolvedValue({ data: { user }, error: null }),
-    },
-    from: vi.fn((table: string) => {
-      if (table === 'user_preferences') return prefsChain
-      return vaultChain
-    }),
-  }
+  chain.then = vi.fn().mockImplementation((resolve: (v: unknown) => void) => Promise.resolve(result).then(resolve))
+  return chain
 }
 
-vi.mock('@/lib/supabase-server', () => ({
-  createServerClient: vi.fn(),
-  createAdminClient:  vi.fn(),
+function setupMocks() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  vi.mocked(db.select).mockReturnValue(mockDbChain(vaultRecipes) as any)
+  vi.mocked(auth.api.getSession).mockResolvedValue({
+    user: { id: 'user-1', email: 'test@example.com', name: 'Test', image: null },
+    session: { id: 'sess-1', createdAt: new Date(), updatedAt: new Date(), userId: 'user-1', expiresAt: new Date(Date.now() + 86400000), token: 'tok' },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as any)
+}
+
+function setupUnauthMocks() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  vi.mocked(db.select).mockReturnValue(mockDbChain(vaultRecipes) as any)
+  vi.mocked(auth.api.getSession).mockResolvedValue(null as never)
+}
+
+vi.mock('@/lib/db', () => ({
+  db: { select: vi.fn(), insert: vi.fn(), update: vi.fn(), delete: vi.fn(), execute: vi.fn() },
+}))
+
+vi.mock('@/lib/db/schema', () => ({
+  recipes: { title: 'title', tags: 'tags', category: 'category', userId: 'userId', householdId: 'householdId', createdAt: 'createdAt' },
+}))
+
+vi.mock('@/lib/auth-server', () => ({
+  auth: { api: { getSession: vi.fn() } },
+}))
+
+vi.mock('drizzle-orm', () => ({
+  desc: vi.fn(),
+  eq: vi.fn(),
+  and: vi.fn(),
+  or: vi.fn(),
+  sql: vi.fn(),
 }))
 
 vi.mock('@/lib/household', () => ({
   resolveHouseholdScope: vi.fn().mockResolvedValue(null),
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  scopeQuery: (query: any, userId: string, ctx: any) => {
-    if (ctx) return query.eq('household_id', ctx.householdId)
-    return query.eq('user_id', userId)
-  },
+  scopeCondition: vi.fn().mockReturnValue({}),
 }))
 
 // ── LLM mock ──────────────────────────────────────────────────────────────────
@@ -71,7 +81,8 @@ vi.mock('@/lib/llm', () => ({
   LLM_MODEL_CAPABLE: 'claude-sonnet-4-6',
 }))
 
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
+import { db } from '@/lib/db'
+import { auth } from '@/lib/auth-server'
 
 beforeEach(() => {
   mockAnthropicCreate.mockClear()
@@ -137,9 +148,7 @@ describe('POST /api/discover — T03: returns 400 for empty query', () => {
   beforeEach(() => { vi.resetModules() })
 
   it('returns 400 when query is missing', async () => {
-    const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
+    setupMocks()
 
     const { POST } = await import('../route')
     const res = await POST(makeReq({}) as Parameters<typeof POST>[0])
@@ -149,9 +158,7 @@ describe('POST /api/discover — T03: returns 400 for empty query', () => {
   })
 
   it('returns 400 when query is whitespace only', async () => {
-    const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
+    setupMocks()
 
     const { POST } = await import('../route')
     const res = await POST(makeReq({ query: '   ' }) as Parameters<typeof POST>[0])
@@ -163,9 +170,7 @@ describe('POST /api/discover — T04: returns results array', () => {
   beforeEach(() => { vi.resetModules() })
 
   it('returns 200 with results when LLM and web search succeed', async () => {
-    const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
+    setupMocks()
 
     // Step 2 — query gen
     mockAnthropicCreate
@@ -184,9 +189,7 @@ describe('POST /api/discover — T04: returns results array', () => {
   })
 
   it('returns empty results array when web search returns nothing', async () => {
-    const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
+    setupMocks()
 
     mockAnthropicCreate
       .mockResolvedValueOnce(makeTextMsg('["query one"]'))
@@ -204,9 +207,7 @@ describe('POST /api/discover — T05: suggested_tags filtered to FIRST_CLASS_TAG
   beforeEach(() => { vi.resetModules() })
 
   it('strips tags not in FIRST_CLASS_TAGS from results', async () => {
-    const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
+    setupMocks()
 
     const resultsWithBadTags = [
       {
@@ -240,9 +241,7 @@ describe('POST /api/discover — T06: vault_match populated when similar recipe 
   beforeEach(() => { vi.resetModules() })
 
   it('includes vault_match in result when LLM identifies a match', async () => {
-    const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
+    setupMocks()
 
     const resultsWithMatch = [
       {
@@ -278,9 +277,7 @@ describe('POST /api/discover — T07: site_filter appends site: operator', () =>
   beforeEach(() => { vi.resetModules() })
 
   it('includes site: operator in search query when site_filter is set', async () => {
-    const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
+    setupMocks()
 
     mockAnthropicCreate
       .mockResolvedValueOnce(makeTextMsg('["chicken stir fry site:budgetbytes.com"]'))
@@ -304,14 +301,7 @@ describe('POST /api/discover — auth', () => {
   beforeEach(() => { vi.resetModules() })
 
   it('returns 401 when not authenticated', async () => {
-    const unauthMock = {
-      auth: {
-        getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: new Error('No user') }),
-      },
-      from: vi.fn(),
-    }
-    vi.mocked(createServerClient).mockReturnValue(unauthMock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(unauthMock as unknown as ReturnType<typeof createAdminClient>)
+    setupUnauthMocks()
 
     const { POST } = await import('../route')
     const res = await POST(makeReq({ query: 'test' }) as Parameters<typeof POST>[0])

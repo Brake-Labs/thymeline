@@ -5,7 +5,6 @@ import { TOAST_DURATION_MS } from '@/lib/constants'
 
 interface LogMadeTodayButtonProps {
   recipeId: string
-  getToken: () => Promise<string> | string
   onLogged?: (entryId: string | null) => void
 }
 
@@ -13,7 +12,6 @@ type Status = 'idle' | 'loading' | 'success' | 'already_logged'
 
 export default function LogMadeTodayButton({
   recipeId,
-  getToken,
   onLogged,
 }: LogMadeTodayButtonProps) {
   const [status, setStatus] = useState<Status>('idle')
@@ -23,7 +21,6 @@ export default function LogMadeTodayButton({
     try {
       const res = await fetch(`/api/recipes/${recipeId}/log`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${await getToken()}` },
       })
       if (res.ok) {
         const data: { made_on: string; already_logged: boolean; entry_id: string | null } = await res.json()

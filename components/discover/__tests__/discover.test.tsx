@@ -9,12 +9,10 @@ import type { DiscoveryResult } from '@/types'
 
 // ── Mocks ──────────────────────────────────────────────────────────────────────
 
-vi.mock('@/lib/supabase/browser', () => ({
-  getSupabaseClient: () => ({
-    auth: {
-      getSession: async () => ({ data: { session: { access_token: 'mock-token' } } }),
-    },
-  }),
+vi.mock('@/lib/auth-client', () => ({
+  authClient: {
+    signOut: vi.fn().mockResolvedValue({}),
+  },
 }))
 
 vi.mock('next/navigation', () => ({
@@ -26,15 +24,6 @@ vi.mock('next/link', () => ({
   default: ({ href, children, ...props }: { href: string; children: React.ReactNode; [key: string]: unknown }) => (
     <a href={href} {...props}>{children}</a>
   ),
-}))
-
-vi.mock('@/lib/supabase/browser', () => ({
-  getSupabaseClient: () => ({
-    auth: {
-      getSession: async () => ({ data: { session: { access_token: 'mock-token' } } }),
-      signOut:    async () => ({}),
-    },
-  }),
 }))
 
 // ── Fixtures ───────────────────────────────────────────────────────────────────
@@ -62,8 +51,6 @@ const resultWithSimilarMatch: DiscoveryResult = {
     similarity: 'similar',
   },
 }
-
-const getToken = async () => 'mock-token'
 
 // ── DiscoverySearch ────────────────────────────────────────────────────────────
 
@@ -259,7 +246,6 @@ describe('T08 — no results for site filter shows "try all sites" prompt', () =
         siteFilter="budgetbytes.com"
         onDismiss={vi.fn()}
         onClearSiteFilter={vi.fn()}
-        getToken={getToken}
         onSaved={vi.fn()}
         onEditBeforeSaving={vi.fn()}
       />
@@ -279,7 +265,6 @@ describe('T08 — no results for site filter shows "try all sites" prompt', () =
         siteFilter="budgetbytes.com"
         onDismiss={vi.fn()}
         onClearSiteFilter={onClearSiteFilter}
-        getToken={getToken}
         onSaved={vi.fn()}
         onEditBeforeSaving={vi.fn()}
       />
@@ -300,7 +285,6 @@ describe('T23 — results grid renders 2 columns on desktop', () => {
         siteFilter=""
         onDismiss={vi.fn()}
         onClearSiteFilter={vi.fn()}
-        getToken={getToken}
         onSaved={vi.fn()}
         onEditBeforeSaving={vi.fn()}
       />
@@ -348,7 +332,6 @@ describe('T12 — PreviewSheet calls POST /api/recipes/scrape with the URL', () 
       render(
         <PreviewSheet
           result={sampleResult}
-          getToken={getToken}
           onClose={vi.fn()}
           onSaved={vi.fn()}
           onEditBeforeSaving={vi.fn()}
@@ -365,11 +348,8 @@ describe('T12 — PreviewSheet calls POST /api/recipes/scrape with the URL', () 
 
 describe('T13 — PreviewSheet shows loading state while scraping', () => {
   it('shows loading spinner before scrape resolves', async () => {
-    // PreviewSheet initialises with state='loading'; the spinner is rendered immediately
-    // before any fetch completes.
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
       if (String(url).includes('/api/recipes/scrape')) {
-        // Delay indefinitely so the loading state stays visible during the assertion
         return new Promise<Response>(() => { /* never resolves */ })
       }
       return { ok: true, json: async () => [] } as Response
@@ -379,14 +359,12 @@ describe('T13 — PreviewSheet shows loading state while scraping', () => {
     render(
       <PreviewSheet
         result={sampleResult}
-        getToken={getToken}
         onClose={vi.fn()}
         onSaved={vi.fn()}
         onEditBeforeSaving={vi.fn()}
       />
     )
 
-    // Initial state is 'loading' — spinner and message should be visible immediately
     expect(screen.getByText('Loading recipe…')).toBeInTheDocument()
   })
 })
@@ -408,7 +386,6 @@ describe('T14 — scrape success renders title, ingredients, steps', () => {
       render(
         <PreviewSheet
           result={sampleResult}
-          getToken={getToken}
           onClose={vi.fn()}
           onSaved={vi.fn()}
           onEditBeforeSaving={vi.fn()}
@@ -446,7 +423,6 @@ describe('T15 — "Save to Vault" calls POST /api/recipes with source: scraped',
       render(
         <PreviewSheet
           result={sampleResult}
-          getToken={getToken}
           onClose={vi.fn()}
           onSaved={vi.fn()}
           onEditBeforeSaving={vi.fn()}
@@ -473,7 +449,7 @@ describe('T15 — "Save to Vault" calls POST /api/recipes with source: scraped',
   })
 })
 
-describe('T16 — Save success shows "Saved to vault ✓" and view link', () => {
+describe('T16 — Save success shows "Saved to vault" and view link', () => {
   beforeEach(() => { vi.restoreAllMocks() })
 
   it('renders saved state after successful save', async () => {
@@ -494,7 +470,6 @@ describe('T16 — Save success shows "Saved to vault ✓" and view link', () => 
       render(
         <PreviewSheet
           result={sampleResult}
-          getToken={getToken}
           onClose={vi.fn()}
           onSaved={onSaved}
           onEditBeforeSaving={vi.fn()}
@@ -511,8 +486,8 @@ describe('T16 — Save success shows "Saved to vault ✓" and view link', () => 
     })
 
     await waitFor(() => {
-      expect(screen.getByText(/Saved to vault ✓/)).toBeInTheDocument()
-      expect(screen.getByText(/View in vault →/)).toBeInTheDocument()
+      expect(screen.getByText(/Saved to vault/)).toBeInTheDocument()
+      expect(screen.getByText(/View in vault/)).toBeInTheDocument()
     })
     expect(onSaved).toHaveBeenCalledWith(sampleResult.url)
   })
@@ -528,7 +503,6 @@ describe('T17 — duplicate URL shows "Already in your vault"', () => {
         return { ok: true, json: async () => scrapePayload } as Response
       }
       if (urlStr === '/api/recipes') {
-        // Return a recipe with matching URL
         return {
           ok: true,
           json: async () => [
@@ -544,7 +518,6 @@ describe('T17 — duplicate URL shows "Already in your vault"', () => {
       render(
         <PreviewSheet
           result={sampleResult}
-          getToken={getToken}
           onClose={vi.fn()}
           onSaved={vi.fn()}
           onEditBeforeSaving={vi.fn()}
@@ -577,7 +550,6 @@ describe('T18 — "Edit before saving" opens AddRecipeModal with pre-filled fiel
       render(
         <PreviewSheet
           result={sampleResult}
-          getToken={getToken}
           onClose={onClose}
           onSaved={vi.fn()}
           onEditBeforeSaving={onEditBeforeSaving}
@@ -617,7 +589,6 @@ describe('T19 — scrape failure shows error with link to original URL', () => {
       render(
         <PreviewSheet
           result={sampleResult}
-          getToken={getToken}
           onClose={vi.fn()}
           onSaved={vi.fn()}
           onEditBeforeSaving={vi.fn()}
@@ -647,7 +618,6 @@ describe('T22 — Discover nav item appears in AppNav', () => {
     const { default: AppNav } = await import('@/components/layout/AppNav')
     render(<AppNav />)
     const discoverLinks = screen.getAllByRole('link', { name: /discover/i })
-    // Both desktop and mobile nav render links — expect at least 2
     expect(discoverLinks.length).toBeGreaterThanOrEqual(2)
   })
 })

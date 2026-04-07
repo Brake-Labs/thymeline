@@ -24,7 +24,6 @@ describe('DeleteConfirmDialog - content', () => {
     render(
       <DeleteConfirmDialog
         recipeId="recipe-1"
-        getToken={async () => 'token'}
         onCancel={vi.fn()}
       />,
     )
@@ -42,7 +41,6 @@ describe('DeleteConfirmDialog - cancel', () => {
     render(
       <DeleteConfirmDialog
         recipeId="recipe-1"
-        getToken={async () => 'token'}
         onCancel={onCancel}
       />,
     )
@@ -54,7 +52,6 @@ describe('DeleteConfirmDialog - cancel', () => {
     render(
       <DeleteConfirmDialog
         recipeId="recipe-1"
-        getToken={async () => 'token'}
         onCancel={vi.fn()}
       />,
     )
@@ -67,12 +64,11 @@ describe('DeleteConfirmDialog - cancel', () => {
 // ── Confirm delete ────────────────────────────────────────────────────────────
 
 describe('DeleteConfirmDialog - confirm delete', () => {
-  it('calls DELETE /api/recipes/[id] with auth header', async () => {
+  it('calls DELETE /api/recipes/[id]', async () => {
     mockFetch.mockResolvedValueOnce({ ok: true })
     render(
       <DeleteConfirmDialog
         recipeId="recipe-1"
-        getToken={async () => 'test-token'}
         onCancel={vi.fn()}
       />,
     )
@@ -82,7 +78,6 @@ describe('DeleteConfirmDialog - confirm delete', () => {
         '/api/recipes/recipe-1',
         expect.objectContaining({
           method: 'DELETE',
-          headers: expect.objectContaining({ Authorization: 'Bearer test-token' }),
         }),
       )
     })
@@ -93,7 +88,6 @@ describe('DeleteConfirmDialog - confirm delete', () => {
     render(
       <DeleteConfirmDialog
         recipeId="recipe-1"
-        getToken={async () => 'token'}
         onCancel={vi.fn()}
       />,
     )
@@ -103,13 +97,12 @@ describe('DeleteConfirmDialog - confirm delete', () => {
     })
   })
 
-  it('shows "Deleting…" while the request is in flight', async () => {
+  it('shows "Deleting..." while the request is in flight', async () => {
     let resolve: (v: unknown) => void
     mockFetch.mockReturnValueOnce(new Promise((r) => { resolve = r }))
     render(
       <DeleteConfirmDialog
         recipeId="recipe-1"
-        getToken={async () => 'token'}
         onCancel={vi.fn()}
       />,
     )
@@ -123,7 +116,6 @@ describe('DeleteConfirmDialog - confirm delete', () => {
     render(
       <DeleteConfirmDialog
         recipeId="recipe-1"
-        getToken={async () => 'token'}
         onCancel={vi.fn()}
       />,
     )

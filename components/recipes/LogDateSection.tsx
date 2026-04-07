@@ -7,7 +7,6 @@ import { TOAST_DURATION_MS } from '@/lib/constants'
 
 interface LogDateSectionProps {
   recipeId: string
-  getToken: () => Promise<string> | string
   onLogged?: (date: string) => void
 }
 
@@ -27,7 +26,6 @@ const btnSecondary = `${btnBase} border border-stone-200 text-[#3D3028] bg-trans
 
 export default function LogDateSection({
   recipeId,
-  getToken,
   onLogged,
 }: LogDateSectionProps) {
   const [status, setStatus] = useState<Status>('idle')
@@ -40,7 +38,6 @@ export default function LogDateSection({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${await getToken()}`,
         },
         body: JSON.stringify({ made_on: dateStr }),
       })

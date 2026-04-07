@@ -24,14 +24,6 @@ vi.mock('next/link', () => ({
   ),
 }))
 
-vi.mock('@/lib/supabase/browser', () => ({
-  getAccessToken: async () => 'test-token',
-  getSupabaseClient: () => ({
-    auth: {
-      getSession: async () => ({ data: { session: { user: { id: 'user-1' } } } }),
-    },
-  }),
-}))
 
 // Stub heavy child components — FilterSidebar is mocked to expose onDeleteTag
 const mockOnDeleteTag = vi.fn()
@@ -78,12 +70,27 @@ describe('RecipePageContent - handleDeleteCustomTag', () => {
     localStorage.clear()
   })
 
-  function makeRecipesResponse(recipes = []): Response {
-    return { ok: true, json: async () => recipes } as Response
-  }
-
   function makeDeleteResponse(status = 204): Response {
     return { ok: status < 400, status, json: async () => ({}) } as Response
+  }
+
+  /** Creates a url-based fetch implementation that handles session, recipes, and optionally tag delete */
+  function setupUrlBasedFetch(opts: { deleteStatus?: number } = {}) {
+    const fetchMock = vi.mocked(fetch)
+    fetchMock.mockImplementation(async (url, reqOpts) => {
+      const urlStr = String(url)
+      if (urlStr.includes('/api/auth/get-session')) {
+        return { ok: true, json: async () => ({ user: { id: 'user-1' } }) } as Response
+      }
+      if (urlStr.includes('/api/tags/') && (reqOpts as RequestInit)?.method === 'DELETE') {
+        return makeDeleteResponse(opts.deleteStatus ?? 204)
+      }
+      if (urlStr === '/api/recipes') {
+        return { ok: true, json: async () => [] } as Response
+      }
+      return { ok: true, json: async () => ({}) } as Response
+    })
+    return fetchMock
   }
 
   /** Renders RecipePageContent with the sidebar pre-opened (via localStorage) so
@@ -91,15 +98,11 @@ describe('RecipePageContent - handleDeleteCustomTag', () => {
   async function renderWithSidebar(fetchMock: ReturnType<typeof vi.mocked<typeof fetch>>) {
     render(<RecipePageContent />)
     await waitFor(() => expect(screen.getByTestId('filter-sidebar')).toBeInTheDocument())
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/recipes', expect.anything()))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/recipes'))
   }
 
-  it('calls DELETE /api/tags/:name with Bearer auth header', async () => {
-    const fetchMock = vi.mocked(fetch)
-    fetchMock
-      .mockResolvedValueOnce({ ok: true, json: async () => [] } as Response)
-      .mockResolvedValueOnce(makeDeleteResponse(204))
-      .mockResolvedValue(makeRecipesResponse())
+  it('calls DELETE /api/tags/:name', async () => {
+    const fetchMock = setupUrlBasedFetch()
 
     await renderWithSidebar(fetchMock)
 
@@ -109,17 +112,12 @@ describe('RecipePageContent - handleDeleteCustomTag', () => {
       '/api/tags/Seafood',
       expect.objectContaining({
         method: 'DELETE',
-        headers: expect.objectContaining({ Authorization: 'Bearer test-token' }),
       }),
     )
   })
 
   it('refetches /api/recipes after a successful delete', async () => {
-    const fetchMock = vi.mocked(fetch)
-    fetchMock
-      .mockResolvedValueOnce({ ok: true, json: async () => [] } as Response)  // initial load
-      .mockResolvedValueOnce(makeDeleteResponse(204))                          // delete
-      .mockResolvedValueOnce(makeRecipesResponse())                            // refetch
+    const fetchMock = setupUrlBasedFetch()
 
     await renderWithSidebar(fetchMock)
 
@@ -134,11 +132,7 @@ describe('RecipePageContent - handleDeleteCustomTag', () => {
   })
 
   it('encodes tag names with special characters in the URL', async () => {
-    const fetchMock = vi.mocked(fetch)
-    fetchMock
-      .mockResolvedValueOnce({ ok: true, json: async () => [] } as Response)
-      .mockResolvedValueOnce(makeDeleteResponse(204))
-      .mockResolvedValue(makeRecipesResponse())
+    const fetchMock = setupUrlBasedFetch()
 
     await renderWithSidebar(fetchMock)
 

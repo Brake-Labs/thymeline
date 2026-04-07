@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import DayCard from './DayCard'
-import { getAccessToken } from '@/lib/supabase/browser'
 import Link from 'next/link'
 import { ShoppingCart } from 'lucide-react'
 import SwapModeBanner from '@/components/plan/SwapModeBanner'
@@ -33,11 +32,11 @@ export default function WeekCalendar() {
   useEffect(() => {
     async function loadPref() {
       try {
-        const token = await getAccessToken()
-        const res = await fetch('/api/preferences', { headers: { Authorization: `Bearer ${token}` } })
+        const res = await fetch('/api/preferences')
         if (res.ok) {
           const prefs = await res.json()
-          const pref: number = prefs.week_start_day ?? 0
+          const raw = prefs.week_start_day ?? 'sunday'
+          const pref: number = raw === 'monday' ? 1 : typeof raw === 'number' ? raw : 0
           if (pref !== 0) {
             setWeekStartDay(pref)
             const start = getMostRecentWeekStart(pref)
@@ -53,10 +52,7 @@ export default function WeekCalendar() {
   const fetchPlan = useCallback(async (ws: string) => {
     setLoading(true)
     try {
-      const token = await getAccessToken()
-      const res = await fetch(`/api/plan?week_start=${ws}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      const res = await fetch(`/api/plan?week_start=${ws}`)
       if (res.ok) {
         const data = await res.json()
         setEntries((data.plan?.entries ?? []) as PlanEntry[])
@@ -112,10 +108,8 @@ export default function WeekCalendar() {
         const toDelete = [existingMain.id, ...entries.filter((e) => e.parent_entry_id === existingMain.id).map((e) => e.id)]
         for (const id of toDelete) {
           try {
-            const token = await getAccessToken()
             await fetch(`/api/plan/entries/${id}`, {
               method: 'DELETE',
-              headers: { Authorization: `Bearer ${token}` },
             })
           } catch { /* ignore */ }
         }
@@ -124,10 +118,9 @@ export default function WeekCalendar() {
     }
 
     try {
-      const token = await getAccessToken()
       const res = await fetch('/api/plan/entries', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           week_start:      weekStart,
           date,
@@ -148,10 +141,8 @@ export default function WeekCalendar() {
     // Optimistically remove from UI (cascade children too)
     setEntries((prev) => prev.filter((e) => e.id !== entryId && e.parent_entry_id !== entryId))
     try {
-      const token = await getAccessToken()
       await fetch(`/api/plan/entries/${entryId}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
       })
     } catch { /* ignore */ }
   }
@@ -188,10 +179,9 @@ export default function WeekCalendar() {
     }))
 
     try {
-      const token = await getAccessToken()
       const res = await fetch('/api/plan/swap', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ entry_id_a: idA, entry_id_b: idB }),
       })
       if (!res.ok) throw new Error('Swap failed')

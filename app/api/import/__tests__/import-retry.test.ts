@@ -13,36 +13,39 @@ vi.mock('@/lib/scrape-recipe', () => ({
   scrapeRecipe: mockScrapeRecipe,
 }))
 
-vi.mock('@/lib/supabase-server', () => ({
-  createServerClient: vi.fn(),
-  createAdminClient:  vi.fn(),
+vi.mock('@/lib/db', () => ({
+  db: {
+    select: vi.fn(),
+    insert: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    execute: vi.fn().mockResolvedValue({ rows: [] }),
+  },
+}))
+
+vi.mock('@/lib/auth-server', () => ({
+  auth: { api: { getSession: vi.fn() } },
+}))
+
+vi.mock('@/lib/db/schema', () => ({
+  recipes: { id: 'id', userId: 'userId', householdId: 'householdId', title: 'title', url: 'url' },
+  customTags: { name: 'name', userId: 'userId' },
+}))
+
+vi.mock('@/lib/db/helpers', () => ({
+  dbFirst: (rows: unknown[]) => rows[0] ?? null,
 }))
 
 vi.mock('@/lib/household', () => ({
   resolveHouseholdScope: vi.fn().mockResolvedValue(null),
-  scopeQuery:            vi.fn((q: { eq: (col: string, val: string) => unknown }) => q.eq('user_id', 'user-1')),
-  scopeInsert:           vi.fn((_u: unknown, _c: unknown, p: unknown) => ({ ...(p as object), user_id: 'user-1' })),
-  checkOwnership:        vi.fn().mockResolvedValue({ owned: true }),
+  scopeCondition: vi.fn().mockReturnValue({}),
+  scopeInsert: vi.fn((userId: string) => ({ userId })),
+  checkOwnership: vi.fn().mockResolvedValue({ owned: true }),
 }))
 
 vi.mock('@/lib/import/detect-duplicates', () => ({
   detectDuplicates: vi.fn().mockResolvedValue([undefined]),
 }))
-
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-
-const mockUser = { id: 'user-1' }
-
-function makeSupabaseMock() {
-  const mock = {
-    auth: { getUser: vi.fn().mockResolvedValue({ data: { user: mockUser }, error: null }) },
-    from: vi.fn(() => ({
-      select: vi.fn().mockReturnThis(),
-      eq:     vi.fn().mockResolvedValue({ data: [], error: null }),
-    })),
-  }
-  return mock
-}
 
 const GOOD_SCRAPE: import('@/lib/scrape-recipe').ScrapeRecipeResult = {
   title: 'Retried Recipe', ingredients: 'x', steps: 'y',
@@ -57,12 +60,30 @@ const RATE_LIMIT_ERROR = { error: 'Rate limited', code: 'rate_limit', retryAfter
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
+function mockChain(result: unknown[] = []) {
+  const chain: Record<string, unknown> = {}
+  for (const m of ['from', 'where', 'orderBy', 'limit', 'offset', 'innerJoin', 'leftJoin',
+    'set', 'values', 'onConflictDoUpdate', 'onConflictDoNothing', 'returning', 'groupBy']) {
+    chain[m] = vi.fn().mockReturnValue(chain)
+  }
+  chain.then = vi.fn().mockImplementation(
+    (resolve: (v: unknown) => void) => Promise.resolve(result).then(resolve),
+  )
+  return chain
+}
+
 describe('scrapeUrl rate-limit retry', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks()
-    const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
+    const { auth } = await import('@/lib/auth-server')
+    vi.mocked(auth.api.getSession).mockResolvedValue({
+      user: { id: 'user-1', email: 'test@example.com', name: 'Test', image: null },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
+
+    const { db } = await import('@/lib/db')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(db.select).mockReturnValue(mockChain([]) as any)
   })
 
   it('retries on rate_limit and succeeds on 3rd attempt', async () => {
@@ -145,7 +166,7 @@ describe('scrapeUrl rate-limit retry', () => {
     expect(mockScrapeRecipe).toHaveBeenCalledWith(
       'https://example.com/recipe',
       'user-1',
-      expect.anything(),
+      null,
       null,
     )
   })

@@ -388,13 +388,9 @@ describe('DuplicateActions', () => {
   })
 })
 
-// ── Regression: hotfix/import-urls-auth — fetch calls include Authorization header ──
+// ── Regression: hotfix/import-urls-auth — fetch calls are issued (auth is cookie-based now) ──
 
-vi.mock('@/lib/supabase/browser', () => ({
-  getAccessToken: vi.fn().mockResolvedValue('test-token'),
-}))
-
-describe('ImportWizard auth headers (regression: hotfix/import-urls-auth)', () => {
+describe('ImportWizard fetch calls (regression: hotfix/import-urls-auth)', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok:   true,
@@ -402,7 +398,7 @@ describe('ImportWizard auth headers (regression: hotfix/import-urls-auth)', () =
     }))
   })
 
-  it('POST /api/import/urls fetch includes Authorization header', async () => {
+  it('POST /api/import/urls fetch is issued on Start Import', async () => {
     const { default: ImportWizard } = await import('../ImportWizard')
 
     const { unmount } = render(<ImportWizard />)
@@ -416,14 +412,14 @@ describe('ImportWizard auth headers (regression: hotfix/import-urls-auth)', () =
     expect(vi.mocked(fetch)).toHaveBeenCalledWith(
       '/api/import/urls',
       expect.objectContaining({
-        headers: expect.objectContaining({ Authorization: 'Bearer test-token' }),
+        method: 'POST',
       }),
     )
     unmount()
   })
 })
 
-describe('ImportProgress auth headers (regression: hotfix/import-urls-auth)', () => {
+describe('ImportProgress fetch calls (regression: hotfix/import-urls-auth)', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok:   true,
@@ -431,7 +427,7 @@ describe('ImportProgress auth headers (regression: hotfix/import-urls-auth)', ()
     }))
   })
 
-  it('polling GET /api/import/:job_id includes Authorization header', async () => {
+  it('polling GET /api/import/:job_id is issued', async () => {
     const { default: ImportProgress } = await import('../ImportProgress')
 
     await act(async () => {
@@ -440,9 +436,6 @@ describe('ImportProgress auth headers (regression: hotfix/import-urls-auth)', ()
 
     expect(vi.mocked(fetch)).toHaveBeenCalledWith(
       '/api/import/job-abc',
-      expect.objectContaining({
-        headers: expect.objectContaining({ Authorization: 'Bearer test-token' }),
-      }),
     )
   })
 })

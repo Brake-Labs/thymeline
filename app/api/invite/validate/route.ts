@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { db } from '@/lib/db'
+import { invites } from '@/lib/db/schema'
+import { eq } from 'drizzle-orm'
+import { dbFirst } from '@/lib/db/helpers'
 
-// Public route — no auth required. Uses service anon key directly.
-function createAnonClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  )
-}
-
+// Public route — no auth required.
 export async function GET(req: NextRequest) {
   const token = new URL(req.url).searchParams.get('token')
 
@@ -16,25 +12,29 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ valid: false, reason: 'Token not found' })
   }
 
-  const supabase = createAnonClient()
-  const { data, error } = await supabase
-    .from('invites')
-    .select('used_by, expires_at')
-    .eq('token', token)
-    .single()
+  try {
+    const rows = await db
+      .select({ usedBy: invites.usedBy, expiresAt: invites.expiresAt })
+      .from(invites)
+      .where(eq(invites.token, token))
 
-  // Always return 200 — never 404 for missing tokens (avoids enumeration)
-  if (error || !data) {
+    const data = dbFirst(rows)
+
+    // Always return 200 — never 404 for missing tokens (avoids enumeration)
+    if (!data) {
+      return NextResponse.json({ valid: false, reason: 'Token not found' })
+    }
+
+    if (data.usedBy) {
+      return NextResponse.json({ valid: false, reason: 'Already used' })
+    }
+
+    if (new Date(data.expiresAt) <= new Date()) {
+      return NextResponse.json({ valid: false, reason: 'Expired' })
+    }
+
+    return NextResponse.json({ valid: true })
+  } catch {
     return NextResponse.json({ valid: false, reason: 'Token not found' })
   }
-
-  if (data.used_by) {
-    return NextResponse.json({ valid: false, reason: 'Already used' })
-  }
-
-  if (new Date(data.expires_at) <= new Date()) {
-    return NextResponse.json({ valid: false, reason: 'Expired' })
-  }
-
-  return NextResponse.json({ valid: true })
 }

@@ -1,59 +1,69 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { FIRST_CLASS_TAGS } from '@/lib/tags'
-import { scopeQuery } from '@/lib/household'
+import { scopeCondition, scopeInsert } from '@/lib/household'
 import { createTagSchema, parseBody } from '@/lib/schemas'
+import { db } from '@/lib/db'
+import { asc } from 'drizzle-orm'
+import { recipes, customTags, userPreferences } from '@/lib/db/schema'
+import { dbFirst } from '@/lib/db/helpers'
 
 function toTitleCase(str: string): string {
   return str.replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-export const GET = withAuth(async (req, { user, db, ctx }) => {
-  // Fetch hidden_tags first — a new user has no preferences row, so use maybeSingle
-  let prefsQ = db.from('user_preferences').select('hidden_tags')
-  prefsQ = scopeQuery(prefsQ, user.id, ctx)
-  const { data: prefs } = await prefsQ.maybeSingle()
-  const hiddenSet = new Set((prefs?.hidden_tags ?? []).map((t: string) => t.toLowerCase()))
+export const GET = withAuth(async (req, { user, ctx }) => {
+  try {
+    // Fetch hidden_tags first — a new user has no preferences row, so use dbFirst
+    const prefsRows = await db
+      .select({ hiddenTags: userPreferences.hiddenTags })
+      .from(userPreferences)
+      .where(scopeCondition({ userId: userPreferences.userId, householdId: userPreferences.householdId }, user.id, ctx))
 
-  // Fetch custom tags in scope
-  let customQ = db.from('custom_tags').select('name, section').order('created_at', { ascending: true })
-  customQ = scopeQuery(customQ, user.id, ctx)
-  const { data: customData, error: customError } = await customQ
+    const prefs = dbFirst(prefsRows)
+    const hiddenSet = new Set((prefs?.hiddenTags ?? []).map((t: string) => t.toLowerCase()))
 
-  if (customError) {
-    console.error('Failed to fetch custom tags:', customError.message, customError.code)
+    // Fetch custom tags in scope
+    const customData = await db
+      .select({ name: customTags.name, section: customTags.section })
+      .from(customTags)
+      .where(scopeCondition({ userId: customTags.userId, householdId: customTags.householdId }, user.id, ctx))
+      .orderBy(asc(customTags.createdAt))
+
+    // Fetch all recipe tags to build count map
+    const recipeRows = await db
+      .select({ tags: recipes.tags })
+      .from(recipes)
+      .where(scopeCondition({ userId: recipes.userId, householdId: recipes.householdId }, user.id, ctx))
+
+    const counts = new Map<string, number>()
+    for (const row of recipeRows) {
+      for (const tag of row.tags ?? []) {
+        counts.set(tag, (counts.get(tag) ?? 0) + 1)
+      }
+    }
+
+    const firstClassLower = new Set(FIRST_CLASS_TAGS.map((t) => t.toLowerCase()))
+    const custom = customData
+      .filter((t) => !firstClassLower.has(t.name.toLowerCase()))
+      .map((t) => ({ name: t.name, section: t.section, recipe_count: counts.get(t.name) ?? 0 }))
+
+    const firstClass = FIRST_CLASS_TAGS
+      .filter((t) => !hiddenSet.has(t.toLowerCase()))
+      .map((name) => ({ name, recipe_count: counts.get(name) ?? 0 }))
+
+    const hidden = FIRST_CLASS_TAGS
+      .filter((t) => hiddenSet.has(t.toLowerCase()))
+      .map((name) => ({ name }))
+
+    return NextResponse.json({ firstClass, custom, hidden })
+  } catch (err) {
+    console.error('DB error:', err)
     return NextResponse.json({ error: 'Failed to fetch tags' }, { status: 500 })
   }
-
-  // Fetch all recipe tags to build count map
-  let recipesQ = db.from('recipes').select('tags')
-  recipesQ = scopeQuery(recipesQ, user.id, ctx)
-  const { data: recipes } = await recipesQ
-
-  const counts = new Map<string, number>()
-  for (const row of recipes ?? []) {
-    for (const tag of (row.tags as string[] | null) ?? []) {
-      counts.set(tag, (counts.get(tag) ?? 0) + 1)
-    }
-  }
-
-  const firstClassLower = new Set(FIRST_CLASS_TAGS.map((t) => t.toLowerCase()))
-  const custom = (customData ?? [])
-    .filter((t) => !firstClassLower.has(t.name.toLowerCase()))
-    .map((t) => ({ name: t.name, section: t.section, recipe_count: counts.get(t.name) ?? 0 }))
-
-  const firstClass = FIRST_CLASS_TAGS
-    .filter((t) => !hiddenSet.has(t.toLowerCase()))
-    .map((name) => ({ name, recipe_count: counts.get(name) ?? 0 }))
-
-  const hidden = FIRST_CLASS_TAGS
-    .filter((t) => hiddenSet.has(t.toLowerCase()))
-    .map((name) => ({ name }))
-
-  return NextResponse.json({ firstClass, custom, hidden })
 })
 
-export const POST = withAuth(async (req, { user, db, ctx }) => {
+export const POST = withAuth(async (req, { user, ctx }) => {
   const { data: body, error: parseError } = await parseBody(req, createTagSchema)
   if (parseError) return parseError
 
@@ -70,29 +80,32 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
     )
   }
 
-  // Check for duplicate custom tag (case-insensitive) in scope
-  const existingQuery = scopeQuery(db.from('custom_tags').select('id, name'), user.id, ctx)
-  const { data: existing } = await existingQuery
+  try {
+    // Check for duplicate custom tag (case-insensitive) in scope
+    const existing = await db
+      .select({ id: customTags.id, name: customTags.name })
+      .from(customTags)
+      .where(scopeCondition({ userId: customTags.userId, householdId: customTags.householdId }, user.id, ctx))
 
-  const duplicate = (existing ?? []).find((t) => t.name.toLowerCase() === lc)
-  if (duplicate) {
-    return NextResponse.json({ error: 'Tag already exists' }, { status: 409 })
-  }
+    const duplicate = existing.find((t) => t.name.toLowerCase() === lc)
+    if (duplicate) {
+      return NextResponse.json({ error: 'Tag already exists' }, { status: 409 })
+    }
 
-  const insertPayload = ctx
-    ? { household_id: ctx.householdId, user_id: user.id, name: normalized, section }
-    : { user_id: user.id, name: normalized, section }
+    const insertPayload = {
+      ...scopeInsert(user.id, ctx),
+      name: normalized,
+      section,
+    }
 
-  const { data: created, error: insertError } = await db
-    .from('custom_tags')
-    .insert(insertPayload)
-    .select('id, name, section')
-    .single()
+    const [created] = await db
+      .insert(customTags)
+      .values(insertPayload)
+      .returning({ id: customTags.id, name: customTags.name, section: customTags.section })
 
-  if (insertError) {
-    console.error('Failed to create tag:', insertError.message, insertError.code)
+    return NextResponse.json(created, { status: 201 })
+  } catch (err) {
+    console.error('DB error:', err)
     return NextResponse.json({ error: 'Failed to create tag' }, { status: 500 })
   }
-
-  return NextResponse.json(created, { status: 201 })
 })

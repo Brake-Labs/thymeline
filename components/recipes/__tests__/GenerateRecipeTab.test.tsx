@@ -8,24 +8,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import GenerateRecipeTab from '../GenerateRecipeTab'
 
-// ── Supabase mock ─────────────────────────────────────────────────────────────
-
-const mockGetUser = vi.fn()
-const mockSelect = vi.fn()
-
-vi.mock('@/lib/supabase/browser', () => ({
-  getSupabaseClient: () => ({
-    auth: { getUser: mockGetUser },
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          single: mockSelect,
-        }),
-      }),
-    }),
-  }),
-}))
-
 // ── Fetch mock ────────────────────────────────────────────────────────────────
 
 const mockFetch = vi.fn()
@@ -34,18 +16,21 @@ vi.stubGlobal('fetch', mockFetch)
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const defaultProps = {
-  getToken: async () => 'test-token',
   onGenerated: vi.fn(),
+}
+
+function mockPreferences(avoided_tags: string[] = []) {
+  mockFetch.mockImplementation(async (url: string) => {
+    if (String(url).includes('/api/preferences')) {
+      return { ok: true, json: async () => ({ avoided_tags }) } as Response
+    }
+    return { ok: true, json: async () => ({}) } as Response
+  })
 }
 
 beforeEach(() => {
   vi.clearAllMocks()
-  mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } })
-  mockSelect.mockResolvedValue({ data: { avoided_tags: [] }, error: null })
-  mockFetch.mockResolvedValue({
-    ok: true,
-    json: async () => ({}),
-  } as Response)
+  mockPreferences([])
 })
 
 // ── T02: Generate button disabled when ingredients empty ──────────────────────
@@ -86,10 +71,7 @@ describe('T04 - Generate button enabled when specificIngredients is non-empty', 
 
 describe('T25 - Dietary restrictions from avoided_tags ∩ DIETARY_TAGS are pre-checked', () => {
   it('pre-checks dietary tags that match the user avoided_tags', async () => {
-    mockSelect.mockResolvedValue({
-      data: { avoided_tags: ['Gluten-Free', 'Vegan', 'Quick'] },
-      error: null,
-    })
+    mockPreferences(['Gluten-Free', 'Vegan', 'Quick'])
     render(<GenerateRecipeTab {...defaultProps} />)
 
     await waitFor(() => {
@@ -103,10 +85,7 @@ describe('T25 - Dietary restrictions from avoided_tags ∩ DIETARY_TAGS are pre-
   })
 
   it('does NOT pre-check non-dietary avoided_tags (like "Quick")', async () => {
-    mockSelect.mockResolvedValue({
-      data: { avoided_tags: ['Quick', 'Vegan'] },
-      error: null,
-    })
+    mockPreferences(['Quick', 'Vegan'])
     render(<GenerateRecipeTab {...defaultProps} />)
 
     // Quick is not in DIETARY_TAGS so it won't appear as a dietary button
@@ -122,7 +101,7 @@ describe('T25 - Dietary restrictions from avoided_tags ∩ DIETARY_TAGS are pre-
   })
 
   it('leaves all dietary tags unchecked when avoided_tags is empty', async () => {
-    mockSelect.mockResolvedValue({ data: { avoided_tags: [] }, error: null })
+    mockPreferences([])
     render(<GenerateRecipeTab {...defaultProps} />)
 
     await waitFor(() => {

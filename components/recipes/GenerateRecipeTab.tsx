@@ -2,12 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { Leaf } from 'lucide-react'
-import { getSupabaseClient } from '@/lib/supabase/browser'
 import { DIETARY_TAGS } from '@/lib/tags'
 import type { GeneratedRecipe, MealType } from '@/types'
 
 interface GenerateRecipeTabProps {
-  getToken:            () => Promise<string> | string
   onGenerated:         (recipe: GeneratedRecipe) => void
   initialIngredients?: string
 }
@@ -21,7 +19,6 @@ const MEAL_TYPES: { value: MealType; label: string }[] = [
 ]
 
 export default function GenerateRecipeTab({
-  getToken,
   onGenerated,
   initialIngredients = '',
 }: GenerateRecipeTabProps) {
@@ -39,20 +36,17 @@ export default function GenerateRecipeTab({
   // Pre-populate dietary restrictions from user preferences
   useEffect(() => {
     async function prefillDietary() {
-      const supabase = getSupabaseClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data } = await supabase
-        .from('user_preferences')
-        .select('avoided_tags')
-        .eq('user_id', user.id)
-        .single()
-      if (data?.avoided_tags) {
-        const preChecked = data.avoided_tags.filter((t: string) =>
-          (DIETARY_TAGS as readonly string[]).includes(t)
-        )
-        setDietaryRestrictions(preChecked)
-      }
+      try {
+        const res = await fetch('/api/preferences')
+        if (!res.ok) return
+        const data = await res.json()
+        if (data?.avoided_tags) {
+          const preChecked = data.avoided_tags.filter((t: string) =>
+            (DIETARY_TAGS as readonly string[]).includes(t)
+          )
+          setDietaryRestrictions(preChecked)
+        }
+      } catch { /* non-fatal */ }
     }
     prefillDietary()
   }, [])
@@ -63,12 +57,10 @@ export default function GenerateRecipeTab({
     setGenerating(true)
     setError(null)
     try {
-      const token = await getToken()
       const res = await fetch('/api/recipes/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           specific_ingredients: specificIngredients,
@@ -96,12 +88,10 @@ export default function GenerateRecipeTab({
     setTweaking(true)
     setTweakError(null)
     try {
-      const token = await getToken()
       const res = await fetch('/api/recipes/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           specific_ingredients: specificIngredients,

@@ -3,10 +3,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import TagLibrarySection from '../TagLibrarySection'
 
-vi.mock('@/lib/supabase/browser', () => ({
-  getAccessToken: async () => 'mock-token',
-}))
-
 const mockFetch = vi.fn()
 global.fetch = mockFetch
 
@@ -19,8 +15,6 @@ const sampleCustom = [
   { name: 'Date Night', section: 'style', recipe_count: 2 },
 ]
 const sampleHidden = [{ name: 'Keto' }]
-
-const getToken = async () => 'mock-token'
 
 beforeEach(() => {
   mockFetch.mockClear()
@@ -37,7 +31,6 @@ describe('Spec-19 T1 - tag library loads with recipe counts', () => {
           firstClassTags={sampleFirstClass}
           customTags={sampleCustom}
           hiddenTags={[]}
-          getToken={getToken}
         />
       )
     })
@@ -58,7 +51,6 @@ describe('Spec-19 T2 - hidden tags appear in Hidden section', () => {
           firstClassTags={sampleFirstClass}
           customTags={[]}
           hiddenTags={sampleHidden}
-          getToken={getToken}
         />
       )
     })
@@ -78,7 +70,6 @@ describe('Spec-19 T2 - hidden tags appear in Hidden section', () => {
           firstClassTags={sampleFirstClass}
           customTags={[]}
           hiddenTags={[]}
-          getToken={getToken}
         />
       )
     })
@@ -102,7 +93,6 @@ describe('Spec-19 T3 - adding a new tag appends to Your tags', () => {
           firstClassTags={[]}
           customTags={[]}
           hiddenTags={[]}
-          getToken={getToken}
         />
       )
     })
@@ -129,7 +119,6 @@ describe('Spec-19 T4 - adding duplicate name shows error and does not create', (
           firstClassTags={sampleFirstClass}
           customTags={sampleCustom}
           hiddenTags={[]}
-          getToken={getToken}
         />
       )
     })
@@ -162,7 +151,6 @@ describe('Spec-19 T5 - renaming a custom tag updates in place', () => {
           firstClassTags={[]}
           customTags={[{ name: 'Date Night', section: 'style', recipe_count: 2 }]}
           hiddenTags={[]}
-          getToken={getToken}
         />
       )
     })
@@ -200,7 +188,6 @@ describe('Spec-19 T6 - renaming to an already-existing name is rejected', () => 
             { name: 'Weeknight', section: 'style', recipe_count: 8 },
           ]}
           hiddenTags={[]}
-          getToken={getToken}
         />
       )
     })
@@ -235,7 +222,6 @@ describe('Spec-19 T7 - renaming to a first-class tag name is rejected', () => {
           firstClassTags={[{ name: 'Quick', recipe_count: 5 }]}
           customTags={[{ name: 'Date Night', section: 'style', recipe_count: 2 }]}
           hiddenTags={[]}
-          getToken={getToken}
         />
       )
     })
@@ -267,7 +253,6 @@ describe('Spec-19 T8 - delete confirmation shows recipe count', () => {
           firstClassTags={[]}
           customTags={[{ name: 'Weeknight', section: 'style', recipe_count: 8 }]}
           hiddenTags={[]}
-          getToken={getToken}
         />
       )
     })
@@ -294,7 +279,6 @@ describe('Spec-19 T9 - deleting a custom tag removes it from the list', () => {
           firstClassTags={[]}
           customTags={[{ name: 'Weeknight', section: 'style', recipe_count: 0 }]}
           hiddenTags={[]}
-          getToken={getToken}
         />
       )
     })
@@ -322,7 +306,6 @@ describe('Spec-19 T10 - hiding a first-class tag moves it to Hidden', () => {
           firstClassTags={[{ name: 'Keto', recipe_count: 0 }]}
           customTags={[]}
           hiddenTags={[]}
-          getToken={getToken}
         />
       )
     })
@@ -352,7 +335,6 @@ describe('Spec-19 T11 - restoring a hidden tag moves it back to Built-in', () =>
           firstClassTags={[]}
           customTags={[]}
           hiddenTags={[{ name: 'Keto' }]}
-          getToken={getToken}
         />
       )
     })
@@ -374,7 +356,6 @@ describe('Spec-19 T12 - member role: Hide, Rename, Delete absent', () => {
           firstClassTags={sampleFirstClass}
           customTags={sampleCustom}
           hiddenTags={[]}
-          getToken={getToken}
           readOnly={true}
         />
       )
@@ -392,7 +373,6 @@ describe('Spec-19 T12 - member role: Hide, Rename, Delete absent', () => {
           firstClassTags={sampleFirstClass}
           customTags={sampleCustom}
           hiddenTags={[]}
-          getToken={getToken}
         />
       )
     })

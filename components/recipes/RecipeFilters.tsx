@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { getAccessToken } from '@/lib/supabase/browser'
 import { CATEGORY_OPTIONS } from '@/lib/category-labels'
 
 const FILTER_CATEGORY_OPTIONS = [
@@ -18,9 +17,7 @@ export default function RecipeFilters() {
   useEffect(() => {
     async function fetchTags() {
       try {
-        const r = await fetch('/api/tags', {
-          headers: { Authorization: `Bearer ${await getAccessToken()}` },
-        })
+        const r = await fetch('/api/tags')
         const data: { firstClass: string[]; custom: { name: string }[] } = await r.json()
         setTags([...(data.firstClass ?? []), ...(data.custom ?? []).map((t) => t.name)])
       } catch {}

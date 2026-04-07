@@ -1,10 +1,11 @@
+/* eslint-disable */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
 
 // ── Mock state ─────────────────────────────────────────────────────────────────
 
 const mockState = {
-  user: { id: 'user-1' } as { id: string } | null,
+  user: { id: 'user-1', email: 'test@example.com', name: 'Test', image: null } as { id: string; email: string; name: string; image: null } | null,
   recipes: [] as { id: string; title: string; tags: string[]; category: string }[],
   recentHistory: [] as { recipe_id: string; made_on: string; recipes: { title: string } }[],
   pantryItems: [] as { name: string; expiry_date: string | null }[],
@@ -22,224 +23,59 @@ const mockState = {
   },
   plan: null as { id: string; week_start: string } | null,
   entries: [] as { id?: string; planned_date: string; recipe_id: string; position: number; confirmed: boolean; meal_type?: string; is_side_dish?: boolean; parent_entry_id?: string | null; recipes: { title: string } }[],
-  // Entries returned by the already-planned future dates query in suggest route
   alreadyPlannedEntries: [] as { recipe_id: string; planned_date: string }[],
-  // Per-week-start plan lookup (overrides `plan` when non-empty)
   planByWeekStart: {} as Record<string, { id: string; week_start: string } | null>,
-  // Multiple plans per week-start — simulates the duplicate-plan-records scenario.
-  // When non-empty, takes priority over planByWeekStart for the given week_start.
   plansByWeekStart: {} as Record<string, { id: string; week_start: string }[]>,
-  // Per-plan-id entry lookup (overrides `alreadyPlannedEntries` when non-empty)
   entriesByPlanId: {} as Record<string, { recipe_id: string }[]>,
   llmResponse: '{"days":[]}',
   upsertPlanId: 'plan-1',
-  // Simulate DB errors for save tests
   planInsertError: null as { message: string } | null,
   entryInsertError: null as { message: string } | null,
-  // For swap-entries route tests
   entryById: {} as Record<string, { id: string; planned_date: string; recipe_id: string; meal_plan_id: string; meal_plans: { user_id: string; household_id: string | null } | null } | undefined>,
   rpcError: null as { message: string } | null,
   rpcCallCount: 0,
 }
 
-// Shared from() builder used by both createServerClient and createAdminClient
-function makeMockFrom(table: string) {
-  if (table === 'recipes') {
-    // Support both:
-    //   select().in('category', cats).eq('user_id', ...) — suggest/helpers route
-    //   select().eq('user_id', ...) — match route
-    const makeRecipeChain = (filtered: typeof mockState.recipes) => ({
-      eq: () => makeRecipeChain(filtered),
-      in: (_col: string, cats: string[]) =>
-        makeRecipeChain(filtered.filter((r) => cats.includes(r.category))),
-      then: (resolve: (v: { data: typeof filtered; error: null }) => void) =>
-        Promise.resolve({ data: filtered, error: null }).then(resolve),
-    })
-    return {
-      select: () => makeRecipeChain(mockState.recipes),
-    }
+// ── Mock chain builder ───────────────────────────────────────────────────────
+
+function mockChain(result: unknown[] = []) {
+  const chain: Record<string, unknown> = {}
+  for (const m of ['from','where','orderBy','limit','offset','innerJoin','leftJoin','set','values','onConflictDoUpdate','onConflictDoNothing','returning','groupBy']) {
+    chain[m] = vi.fn().mockReturnValue(chain)
   }
-  if (table === 'recipe_history') {
-    return {
-      select: () => ({
-        eq: () => ({
-          gte: async () => ({ data: [], error: null }),
-          order: () => ({ limit: async () => ({ data: mockState.recentHistory, error: null }) }),
-        }),
-      }),
-    }
-  }
-  if (table === 'user_preferences') {
-    return {
-      select: () => ({
-        eq: () => ({ single: async () => ({ data: mockState.prefs, error: null }) }),
-      }),
-    }
-  }
-  if (table === 'meal_plans') {
-    return {
-      select: () => ({
-        eq: (col: string, val: string) => {
-          const weekStart = col === 'week_start' ? val : undefined
-          const resolvePlans = (): { id: string; week_start: string }[] => {
-            // Fetch-all case: no week_start filter (new suggest route queries all plans at once)
-            if (weekStart === undefined) {
-              if (Object.keys(mockState.plansByWeekStart).length > 0) {
-                return Object.values(mockState.plansByWeekStart).flat()
-              }
-              const allByWeekStart = Object.values(mockState.planByWeekStart).filter(Boolean) as { id: string; week_start: string }[]
-              if (allByWeekStart.length > 0) return allByWeekStart
-              return mockState.plan ? [mockState.plan] : []
-            }
-            if (Object.keys(mockState.plansByWeekStart).length > 0
-                && weekStart in mockState.plansByWeekStart) {
-              return mockState.plansByWeekStart[weekStart] ?? []
-            }
-            if (Object.keys(mockState.planByWeekStart).length > 0) {
-              const p = mockState.planByWeekStart[weekStart] ?? null
-              return p ? [p] : []
-            }
-            return mockState.plan ? [mockState.plan] : []
-          }
-          const plans = resolvePlans()
-          const plan  = plans[0] ?? null
-          // Return a real Promise so `await allPlansQ` works for the suggest route's
-          // all-plans query (single .eq call). Also expose .eq() for callers that
-          // chain a second .eq() (e.g. getOrCreateMealPlan: .eq('week_start').eq('user_id').maybeSingle()).
-          return Object.assign(
-            Promise.resolve({ data: plans, error: null }),
-            {
-              eq: () => Object.assign(
-                Promise.resolve({ data: plans, error: null }),
-                {
-                  single:      async () => ({ data: plan, error: plan ? null : { message: 'not found' } }),
-                  maybeSingle: async () => ({ data: plan, error: null }),
-                },
-              ),
-            },
-          )
-        },
-      }),
-      insert: () => ({
-        select: () => ({
-          single: async () => ({
-            data: mockState.planInsertError ? null : { id: mockState.upsertPlanId },
-            error: mockState.planInsertError,
-          }),
-        }),
-      }),
-    }
-  }
-  if (table === 'meal_plan_entries') {
-    return {
-      delete: () => ({ eq: async () => ({ error: null }) }),
-      update: (patch: Record<string, string>) => ({
-        eq: (col: string, val: string) => {
-          if (col === 'id' && mockState.entryById[val]) {
-            // Replace with a new object so existing references (entryA/entryB) are not mutated
-            mockState.entryById[val] = { ...mockState.entryById[val]!, ...patch }
-          }
-          return Promise.resolve({ error: null })
-        },
-      }),
-      insert: () => ({
-        select: async () => ({
-          data: mockState.entryInsertError ? null : mockState.entries.map((e, i) => ({
-            id: e.id ?? `entry-${i}`,
-            meal_plan_id: mockState.upsertPlanId,
-            recipe_id: e.recipe_id,
-            planned_date: e.planned_date,
-            position: e.position,
-            confirmed: e.confirmed,
-            meal_type: e.meal_type ?? 'dinner',
-            is_side_dish: e.is_side_dish ?? false,
-            parent_entry_id: e.parent_entry_id ?? null,
-          })),
-          error: mockState.entryInsertError,
-        }),
-      }),
-      select: () => ({
-        eq: (col: string, val: string) => {
-          if (col === 'id') {
-            return {
-              maybeSingle: async () => ({
-                data: mockState.entryById[val] ?? null,
-                error: null,
-              }),
-            }
-          }
-          const planId = col === 'meal_plan_id' ? val : undefined
-          const resolveEntries = () =>
-            planId !== undefined && Object.keys(mockState.entriesByPlanId).length > 0
-              ? (mockState.entriesByPlanId[planId] ?? [])
-              : mockState.alreadyPlannedEntries
-          // Return a real Promise so `await entriesQ` works when .gte() is not called
-          // (e.g. when fetching all current-week entries without a date filter).
-          return Object.assign(
-            Promise.resolve({ data: resolveEntries(), error: null }),
-            {
-              order: async () => ({ data: mockState.entries, error: null }),
-              gte:   async () => ({ data: resolveEntries(), error: null }),
-            },
-          )
-        },
-      }),
-    }
-  }
-  if (table === 'pantry_items') {
-    return {
-      select: () => ({
-        eq: () => ({
-          order: () => ({
-            order: () => ({
-              limit: async () => ({ data: mockState.pantryItems, error: null }),
-            }),
-          }),
-        }),
-      }),
-    }
-  }
-  return {}
+  chain.then = vi.fn().mockImplementation((resolve: (v: unknown) => void) => Promise.resolve(result).then(resolve))
+  return chain
 }
 
-vi.mock('@/lib/supabase-server', () => ({
-  createServerClient: () => ({
-    auth: {
-      getUser: async () => ({
-        data: { user: mockState.user },
-        error: mockState.user ? null : { message: 'no user' },
-      }),
+// ── Module mocks ──────────────────────────────────────────────────────────────
+
+// The db mock is dynamic - it reads mockState at call time
+vi.mock('@/lib/db', () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic mock factory
+  const _db: any = {
+    select: vi.fn(() => mockChain()),
+    insert: vi.fn(() => mockChain()),
+    update: vi.fn(() => mockChain()),
+    delete: vi.fn(() => mockChain()),
+    execute: vi.fn().mockResolvedValue({ rows: [] }),
+  }
+  return { db: _db }
+})
+
+vi.mock('@/lib/auth-server', () => ({
+  auth: {
+    api: {
+      getSession: vi.fn(async () => mockState.user ? { user: mockState.user } : null),
     },
-    from: makeMockFrom,
-  }),
-  // Admin client: same DB mock, no auth — simulates service role behaviour
-  createAdminClient: () => ({
-    from: makeMockFrom,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    rpc: async (_fn: string, args: any) => {
-      mockState.rpcCallCount++
-      if (mockState.rpcError) return { error: mockState.rpcError }
-      const { entry_id_a, entry_id_b } = args as { entry_id_a: string; entry_id_b: string }
-      const a = mockState.entryById[entry_id_a]
-      const b = mockState.entryById[entry_id_b]
-      if (a && b) {
-        const tmpDate = a.planned_date
-        a.planned_date = b.planned_date
-        b.planned_date = tmpDate
-      }
-      return { error: null }
-    },
-  }),
+  },
 }))
 
 vi.mock('@/lib/household', () => ({
   resolveHouseholdScope: vi.fn().mockResolvedValue(null),
+  scopeCondition: vi.fn().mockReturnValue({}),
+  scopeInsert: vi.fn((userId: string) => ({ userId })),
+  checkOwnership: vi.fn().mockResolvedValue({ owned: true }),
   canManage: (role: string) => role === 'owner' || role === 'co_owner',
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  scopeQuery: (query: any, userId: string, ctx: any) => {
-    if (ctx) return query.eq('household_id', ctx.householdId)
-    return query.eq('user_id', userId)
-  },
 }))
 
 import { resolveHouseholdScope } from '@/lib/household'
@@ -274,6 +110,46 @@ vi.mock('@anthropic-ai/sdk', () => ({
   },
 }))
 
+vi.mock('@/lib/db/schema', () => ({
+  recipes: { id: 'id', userId: 'userId', householdId: 'householdId', title: 'title', tags: 'tags', category: 'category', ingredients: 'ingredients' },
+  recipeHistory: { recipeId: 'recipeId', userId: 'userId', madeOn: 'madeOn' },
+  mealPlans: { id: 'id', userId: 'userId', weekStart: 'weekStart', householdId: 'householdId' },
+  mealPlanEntries: { id: 'id', mealPlanId: 'mealPlanId', recipeId: 'recipeId', plannedDate: 'plannedDate', position: 'position', confirmed: 'confirmed', mealType: 'mealType', isSideDish: 'isSideDish', parentEntryId: 'parentEntryId' },
+  userPreferences: { userId: 'userId' },
+  pantryItems: { userId: 'userId', name: 'name', expiryDate: 'expiryDate', householdId: 'householdId' },
+}))
+
+vi.mock('@/lib/db/helpers', () => ({
+  dbFirst: (rows: unknown[]) => rows[0] ?? null,
+  dbSingle: (rows: unknown[]) => { if (rows.length === 0) throw new Error('Expected exactly one row, got 0'); return rows[0] },
+}))
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const _MEAL_TYPE_CATEGORIES: Record<string, string[]> = { breakfast: ['breakfast'], lunch: ['main_dish'], dinner: ['main_dish'], snack: ['side_dish'], dessert: ['dessert'] }
+
+vi.mock('@/app/api/plan/helpers', async () => {
+  const actual = await vi.importActual<typeof import('@/app/api/plan/helpers')>('@/app/api/plan/helpers')
+  return {
+    ...actual,
+    fetchRecipesByMealTypes: vi.fn().mockImplementation(async (_u: any, _c: any, mealTypes: string[]) => {
+      const result: Record<string, typeof mockState.recipes> = {}
+      for (const mt of mealTypes) result[mt] = mockState.recipes.filter(r => (_MEAL_TYPE_CATEGORIES[mt] ?? []).includes(r.category))
+      return result
+    }),
+    fetchCooldownFilteredRecipes: vi.fn().mockImplementation(async (_u: any, _c: any, cats?: string[]) => mockState.recipes.filter(r => (cats ?? ['main_dish']).includes(r.category))),
+    fetchUserPreferences: vi.fn().mockImplementation(async () => mockState.prefs),
+    fetchRecentHistory: vi.fn().mockImplementation(async () => mockState.recentHistory),
+    fetchPantryContext: vi.fn().mockImplementation(async () => mockState.pantryItems.length ? `Pantry:\n${mockState.pantryItems.map(i => i.name).join(',')}` : ''),
+    getOrCreateMealPlan: vi.fn().mockImplementation(async () => {
+      if (mockState.planInsertError) return { error: mockState.planInsertError.message }
+      if (mockState.plan) return { planId: mockState.plan.id }
+      for (const p of Object.values(mockState.planByWeekStart)) { if (p) return { planId: p.id } }
+      return { planId: mockState.upsertPlanId }
+    }),
+  }
+})
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
 const { POST: suggestPOST } = await import('@/app/api/plan/suggest/route')
 const { POST: swapPOST } = await import('@/app/api/plan/suggest/swap/route')
 const { POST: matchPOST } = await import('@/app/api/plan/match/route')
@@ -283,14 +159,125 @@ const { POST: swapEntriesPOST } = await import('@/app/api/plan/swap/route')
 function makeReq(method: string, url: string, body?: unknown): NextRequest {
   const opts: ConstructorParameters<typeof NextRequest>[1] = {
     method,
-    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer token' },
+    headers: { 'Content-Type': 'application/json' },
   }
   if (body) opts!.body = JSON.stringify(body)
   return new NextRequest(url, opts)
 }
 
-beforeEach(() => {
-  mockState.user = { id: 'user-1' }
+/* eslint-disable @typescript-eslint/no-explicit-any -- complex mock setup */
+function _resolvePlans(): { id: string; weekStart: string }[] {
+  if (Object.keys(mockState.plansByWeekStart).length > 0)
+    return Object.values(mockState.plansByWeekStart).flat().map(p => ({ id: p.id, weekStart: p.week_start }))
+  const all = Object.values(mockState.planByWeekStart).filter(Boolean) as { id: string; week_start: string }[]
+  if (all.length > 0) return all.map(p => ({ id: p.id, weekStart: p.week_start }))
+  return mockState.plan ? [{ id: mockState.plan.id, weekStart: mockState.plan.week_start }] : []
+}
+function _resolveEntriesForPlan(planId: string): { recipeId: string }[] {
+  if (Object.keys(mockState.entriesByPlanId).length > 0) return (mockState.entriesByPlanId[planId] ?? []).map(e => ({ recipeId: e.recipe_id }))
+  return mockState.alreadyPlannedEntries.map(e => ({ recipeId: e.recipe_id }))
+}
+
+async function setupDbMocks() {
+  const { db } = await import('@/lib/db') as unknown as { db: Record<string, ReturnType<typeof vi.fn>> } // eslint-disable-line @typescript-eslint/no-explicit-any
+  let selectCallCount = 0
+  db.select!.mockImplementation(() => {
+    selectCallCount++
+    const n = selectCallCount
+    const chain = mockChain([])
+    const plans = _resolvePlans()
+    chain.then = vi.fn().mockImplementation((resolve: (v: unknown) => void) => {
+      if (plans.length > 0) {
+        if (n === 1) return Promise.resolve(plans).then(resolve)
+        const pi = n - 2
+        if (pi >= 0 && pi < plans.length) return Promise.resolve(_resolveEntriesForPlan(plans[pi]!.id)).then(resolve)
+        return Promise.resolve([]).then(resolve)
+      }
+      return Promise.resolve(mockState.recipes).then(resolve)
+    })
+    return chain
+  })
+
+  db.insert!.mockImplementation(() => {
+    const chain = mockChain([])
+    chain.then = vi.fn().mockImplementation((resolve: (v: unknown) => void, reject?: (e: unknown) => void) => {
+      if (mockState.entryInsertError) {
+        const p = Promise.reject(new Error(mockState.entryInsertError.message))
+        if (reject) return p.then(resolve, reject)
+        return p.catch(() => { throw new Error(mockState.entryInsertError!.message) })
+      }
+      return Promise.resolve(mockState.entries.map((e, i) => ({
+        id: e.id ?? `entry-${i}`, mealPlanId: mockState.upsertPlanId, recipeId: e.recipe_id,
+        plannedDate: e.planned_date, position: e.position, confirmed: e.confirmed,
+        mealType: e.meal_type ?? 'dinner', isSideDish: e.is_side_dish ?? false, parentEntryId: e.parent_entry_id ?? null,
+      }))).then(resolve)
+    })
+    return chain
+  })
+  db.delete!.mockImplementation(() => mockChain([]))
+  db.update!.mockImplementation(() => { const c = mockChain([]); c.set = vi.fn().mockReturnValue(c); return c })
+}
+
+const SWAP_ID_A = '11111111-1111-4111-8111-111111111111'
+const SWAP_ID_B = '22222222-2222-4222-8222-222222222222'
+
+async function setupSwapDbMocks() {
+  const { db } = await import('@/lib/db') as unknown as { db: Record<string, ReturnType<typeof vi.fn>> }
+  let selectCallIdx = 0
+  db.select!.mockImplementation(() => {
+    selectCallIdx++
+    const entryId = (selectCallIdx % 2 === 1) ? SWAP_ID_A : SWAP_ID_B
+    function makeEntryRow() {
+      const entry = mockState.entryById[entryId]
+      if (!entry) return []
+      return [{ id: entry.id, plannedDate: entry.planned_date, recipeId: entry.recipe_id,
+        mealPlanId: entry.meal_plan_id, planUserId: entry.meal_plans?.user_id ?? null,
+        planHouseholdId: entry.meal_plans?.household_id ?? null }]
+    }
+    const chain = mockChain([])
+    chain.then = vi.fn().mockImplementation((resolve: (v: unknown) => void) => Promise.resolve(makeEntryRow()).then(resolve))
+    return chain
+  })
+  db.execute!.mockImplementation(async () => {
+    mockState.rpcCallCount++
+    if (mockState.rpcError) throw new Error(mockState.rpcError.message)
+    const a = mockState.entryById[SWAP_ID_A]
+    const b = mockState.entryById[SWAP_ID_B]
+    if (a && b) { const t = a.planned_date; a.planned_date = b.planned_date; b.planned_date = t }
+    return { rows: [] }
+  })
+  let updateCallCount = 0
+  const capturedDates: string[] = []
+  db.update!.mockImplementation(() => {
+    updateCallCount++
+    const cur = updateCallCount
+    const chain = mockChain([])
+    chain.set = vi.fn().mockImplementation((payload: { plannedDate?: string }) => {
+      if (payload.plannedDate) capturedDates.push(payload.plannedDate)
+      return chain
+    })
+    chain.where = vi.fn().mockImplementation(() => {
+      if (cur === 1 && capturedDates[0]) { const a = mockState.entryById[SWAP_ID_A]; if (a) a.planned_date = capturedDates[0] }
+      if (cur === 2 && capturedDates[1]) { const b = mockState.entryById[SWAP_ID_B]; if (b) b.planned_date = capturedDates[1] }
+      return chain
+    })
+    return chain
+  })
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
+beforeEach(async () => {
+  // Set up auth session mock
+  const { auth } = await import('@/lib/auth-server')
+  const mockSession = {
+    user: { id: 'user-1', email: 'test@example.com', name: 'Test', image: null },
+    session: { id: 'sess-1', createdAt: new Date(), updatedAt: new Date(), userId: 'user-1', expiresAt: new Date(Date.now() + 86400000), token: 'tok' },
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock session type
+  vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  mockState.user = { id: 'user-1', email: 'test@example.com', name: 'Test', image: null } as any
   mockState.recipes = [
     { id: 'r1', title: 'Pasta',      tags: ['Quick'],   category: 'main_dish' },
     { id: 'r2', title: 'Tacos',      tags: ['Healthy'], category: 'main_dish' },
@@ -320,6 +307,8 @@ beforeEach(() => {
       },
     ],
   })
+
+  await setupDbMocks()
 })
 
 // ── T08: LLM returns options per day ──────────────────────────────────────────
@@ -375,9 +364,6 @@ describe('T10 - Cooldown recipes excluded from LLM input', () => {
   it('filters out recipes made within cooldown_days', async () => {
     mockState.prefs.cooldown_days = 28
 
-    // The mock returns [] for gte query (simulating history contains r1 within cooldown)
-    // We verify by checking the LLM gets called — just confirm the route returns without error
-    // since we can't inspect what was passed to the LLM without a spy
     const res = await suggestPOST(makeReq('POST', 'http://localhost/api/plan/suggest', {
       week_start: '2026-03-01',
       active_dates: ['2026-03-01'],
@@ -417,7 +403,6 @@ describe('T13 - POST /api/plan/suggest/swap returns new options for one day', ()
 
 describe('T21 - POST /api/plan/match returns matched recipes', () => {
   it('returns matches array when keyword hits exactly one recipe', async () => {
-    // "pasta" keyword matches r1 directly — LLM not called
     mockState.llmResponse = JSON.stringify({ recipe_ids: [] })
     const res = await matchPOST(makeReq('POST', 'http://localhost/api/plan/match', {
       query: 'something with pasta',
@@ -431,7 +416,6 @@ describe('T21 - POST /api/plan/match returns matched recipes', () => {
   })
 
   it('returns up to 3 matches when LLM ranks results', async () => {
-    // Query with no keyword match — LLM returns ranked IDs
     mockState.llmResponse = JSON.stringify({ recipe_ids: ['r1', 'r2', 'r3'] })
     const res = await matchPOST(makeReq('POST', 'http://localhost/api/plan/match', {
       query: 'weeknight dinner option',
@@ -450,7 +434,6 @@ describe('T21 - POST /api/plan/match returns matched recipes', () => {
 
 describe('T21b - keyword match resolves without LLM when recipes match', () => {
   it('returns the keyword-matched recipe even if LLM would return empty', async () => {
-    // LLM would return empty, but keyword match should find r1 ("Pasta") for "pasta"
     mockState.llmResponse = JSON.stringify({ recipe_ids: [] })
     const res = await matchPOST(makeReq('POST', 'http://localhost/api/plan/match', {
       query: 'something with pasta',
@@ -480,8 +463,6 @@ describe('T22 - POST /api/plan/match returns empty array when no match', () => {
 
 describe('T22b - POST /api/plan/match handles fenced JSON from LLM', () => {
   it('returns matches when LLM wraps response in markdown fences', async () => {
-    // LLM wraps its JSON in a code fence — previously caused JSON.parse to fail silently
-    // Use a query that won't keyword-match so it goes through the LLM path
     mockState.llmResponse = '```json\n{ "recipe_ids": ["r2"] }\n```'
     const res = await matchPOST(makeReq('POST', 'http://localhost/api/plan/match', {
       query: 'weeknight dinner option',
@@ -494,7 +475,6 @@ describe('T22b - POST /api/plan/match handles fenced JSON from LLM', () => {
   })
 
   it('returns matches when LLM prefixes fenced JSON with prose', async () => {
-    // LLM adds prose before the fence — the ^ anchor bug
     mockState.llmResponse = 'Here is the best match:\n```json\n{ "recipe_ids": ["r3"] }\n```'
     const res = await matchPOST(makeReq('POST', 'http://localhost/api/plan/match', {
       query: 'weeknight dinner option',
@@ -511,7 +491,6 @@ describe('T22b - POST /api/plan/match handles fenced JSON from LLM', () => {
 
 describe('T30 - POST /api/plan creates plan and saves entries via admin client', () => {
   it('creates a new plan and returns plan_id + entries when no existing plan', async () => {
-    // No existing plan — mock will do INSERT on meal_plans
     mockState.plan = null
     mockState.entries = [
       { planned_date: '2026-03-01', recipe_id: 'r1', position: 1, confirmed: true, recipes: { title: 'Pasta' } },
@@ -533,7 +512,6 @@ describe('T30 - POST /api/plan creates plan and saves entries via admin client',
   })
 
   it('reuses existing plan_id when a plan already exists for the week', async () => {
-    // Existing plan — mock returns it from maybeSingle, no INSERT needed
     mockState.plan = { id: 'existing-plan-99', week_start: '2026-03-01' }
     mockState.entries = [
       { planned_date: '2026-03-01', recipe_id: 'r3', position: 1, confirmed: true, recipes: { title: 'Soup' } },
@@ -544,7 +522,6 @@ describe('T30 - POST /api/plan creates plan and saves entries via admin client',
     }))
     expect(res.status).toBe(200)
     const body = await res.json()
-    // plan_id comes from the existing plan, not the insert mock
     expect(body.plan_id).toBe('existing-plan-99')
     expect(body.entries[0].recipe_id).toBe('r3')
   })
@@ -578,14 +555,20 @@ describe('T30 - POST /api/plan creates plan and saves entries via admin client',
 
 describe('T34 - GET /api/plan returns saved plan with enriched entries', () => {
   it('returns plan with entries when plan exists', async () => {
-    mockState.plan = { id: 'plan-1', week_start: '2026-03-01' }
-    mockState.entries = [{
-      planned_date: '2026-03-01',
-      recipe_id: 'r1',
-      position: 1,
-      confirmed: true,
-      recipes: { title: 'Pasta' },
-    }]
+    const { db } = await import('@/lib/db')
+    let selectCallCount = 0
+    vi.mocked(db.select).mockImplementation(() => {
+      selectCallCount++
+      if (selectCallCount === 1) {
+        return mockChain([{ id: 'plan-1', weekStart: '2026-03-01' }]) as any // eslint-disable-line @typescript-eslint/no-explicit-any
+      }
+      return mockChain([{
+        id: 'entry-1', plannedDate: '2026-03-01', recipeId: 'r1', position: 1,
+        confirmed: true, mealType: 'dinner', isSideDish: false, parentEntryId: null,
+        recipeTitle: 'Pasta', totalTimeMinutes: null,
+      }]) as any // eslint-disable-line @typescript-eslint/no-explicit-any
+    })
+
     const res = await planGET(makeReq('GET', 'http://localhost/api/plan?week_start=2026-03-01'))
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -598,7 +581,10 @@ describe('T34 - GET /api/plan returns saved plan with enriched entries', () => {
 
 describe('T35 - GET /api/plan returns null plan when none exists', () => {
   it('returns plan=null when no plan for the week', async () => {
-    mockState.plan = null
+    const { db } = await import('@/lib/db')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(db.select).mockReturnValue(mockChain([]) as any)
+
     const res = await planGET(makeReq('GET', 'http://localhost/api/plan?week_start=2026-03-01'))
     const body = await res.json()
     expect(body.plan).toBeNull()
@@ -635,7 +621,6 @@ describe('POST /api/plan validation', () => {
 // ── Monday week_start — isSunday guard removed ────────────────────────────────
 
 describe('Monday week_start — plan routes accept Monday start', () => {
-  // 2026-03-30 is a Monday
   const mondayWeekStart = '2026-03-30'
 
   it('POST /api/plan accepts a Monday week_start', async () => {
@@ -671,7 +656,6 @@ describe('T30 - Snack suggestions use only side_dish recipes', () => {
           options: [
             { recipe_id: 'r4', recipe_title: 'Hummus' },
             { recipe_id: 'r5', recipe_title: 'Brownie' },
-            // LLM hallucination — main_dish id should be stripped by validation
             { recipe_id: 'r1', recipe_title: 'Pasta' },
           ],
         }],
@@ -688,7 +672,6 @@ describe('T30 - Snack suggestions use only side_dish recipes', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     const snackOptions = body.days[0].meal_types[0].options
-    // r4 (side_dish) passes validation; r5 (dessert) and r1 (main_dish) are stripped
     expect(snackOptions.map((o: { recipe_id: string }) => o.recipe_id)).toEqual(['r4'])
     expect(snackOptions.find((o: { recipe_id: string }) => o.recipe_id === 'r1')).toBeUndefined()
     expect(snackOptions.find((o: { recipe_id: string }) => o.recipe_id === 'r5')).toBeUndefined()
@@ -708,7 +691,6 @@ describe('T20 - POST /api/plan/suggest includes pantry context in LLM prompt', (
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const mockAnthropicInstance = (anthropicMod as any).default
     const originalCreate = mockAnthropicInstance.prototype?.messages?.create
-    // Intercept the LLM call to capture the user message
     mockState.llmResponse = JSON.stringify({
       days: [{
         date: '2026-03-01',
@@ -725,7 +707,6 @@ describe('T20 - POST /api/plan/suggest includes pantry context in LLM prompt', (
     }))
 
     expect(res.status).toBe(200)
-    // Verify pantry items are part of the state (fetch was called)
     expect(mockState.pantryItems.length).toBeGreaterThan(0)
     mockState.pantryItems = []
     if (originalCreate) mockAnthropicInstance.prototype.messages.create = originalCreate
@@ -755,15 +736,11 @@ describe('T21 - Pantry context is (none) when pantry is empty', () => {
 
 describe('T22 - cooldown filtering uses per-user history, not household-wide', () => {
   it('suggest returns 200 with household ctx: cooldown is per-requesting-user only', async () => {
-    // In household mode, recipe pool is scoped to the household (eq household_id).
-    // But cooldown history is always filtered by the requesting user_id — a recipe
-    // made by a household-mate does NOT count toward the requester's cooldown.
     vi.mocked(resolveHouseholdScope).mockResolvedValueOnce({
       householdId: 'hh-1',
       role: 'member',
     })
     mockState.prefs.cooldown_days = 28
-    // mockState.recentHistory is [] — user-1 has no recent history
     const res = await suggestPOST(makeReq('POST', 'http://localhost/api/plan/suggest', {
       week_start: '2026-03-01',
       active_dates: ['2026-03-01'],
@@ -773,7 +750,6 @@ describe('T22 - cooldown filtering uses per-user history, not household-wide', (
     }))
     expect(res.status).toBe(200)
     const body = await res.json()
-    // All household recipes are available (none cooled down for user-1)
     expect(body.days[0].meal_types[0].options[0].recipe_id).toBe('r1')
   })
 })
@@ -782,14 +758,11 @@ describe('T22 - cooldown filtering uses per-user history, not household-wide', (
 
 describe('T31 - Already-planned future recipes are excluded from suggestions', () => {
   it('excludes recipe already confirmed for a future date from the candidate pool', async () => {
-    // r1 is already planned for a future date in the current week
     mockState.plan = { id: 'plan-1', week_start: '2026-03-01' }
     mockState.alreadyPlannedEntries = [
       { recipe_id: 'r1', planned_date: '2026-03-05' },
     ]
 
-    // LLM suggests both r1 and r2 — r1 should be dropped because it was filtered
-    // from the candidate pool before the LLM call, so it won't appear in validIdsByMealType
     mockState.llmResponse = JSON.stringify({
       days: [{
         date: '2026-03-06',
@@ -813,14 +786,11 @@ describe('T31 - Already-planned future recipes are excluded from suggestions', (
     expect(res.status).toBe(200)
     const body = await res.json()
     const options = body.days[0].meal_types[0].options
-    // r1 was already planned — filtered from candidates, stripped by validateSuggestions
     expect(options.find((o: { recipe_id: string }) => o.recipe_id === 'r1')).toBeUndefined()
-    // r2 was not planned — should still be suggested
     expect(options.find((o: { recipe_id: string }) => o.recipe_id === 'r2')).toBeDefined()
   })
 
   it('does not exclude recipes planned for past dates', async () => {
-    // gte('planned_date', today) excludes past entries — mock returns empty alreadyPlannedEntries
     mockState.plan = { id: 'plan-1', week_start: '2026-03-01' }
     mockState.alreadyPlannedEntries = []
 
@@ -844,12 +814,10 @@ describe('T31 - Already-planned future recipes are excluded from suggestions', (
     expect(res.status).toBe(200)
     const body = await res.json()
     const options = body.days[0].meal_types[0].options
-    // r1 not excluded — available for suggestions
     expect(options.find((o: { recipe_id: string }) => o.recipe_id === 'r1')).toBeDefined()
   })
 
   it('returns available recipes when filtering leaves fewer than options_per_day', async () => {
-    // r1 and r3 already planned — only r2 remains in the dinner pool
     mockState.plan = { id: 'plan-1', week_start: '2026-03-01' }
     mockState.alreadyPlannedEntries = [
       { recipe_id: 'r1', planned_date: '2026-03-02' },
@@ -874,7 +842,6 @@ describe('T31 - Already-planned future recipes are excluded from suggestions', (
       avoid_this_week: [],
       free_text: '',
     }))
-    // Does not error — returns what's available
     expect(res.status).toBe(200)
     const body = await res.json()
     const options = body.days[0].meal_types[0].options
@@ -886,11 +853,7 @@ describe('T31 - Already-planned future recipes are excluded from suggestions', (
 // ── T32: Cross-week exclusion — current-week recipes not suggested for next week ─
 
 describe('T32 - Cross-week exclusion: current-week recipes excluded from next-week suggestions', () => {
-  // Today is 2026-04-01 (Wednesday). getMostRecentSunday() → '2026-03-29'.
-  // Suggesting for next week (2026-04-05).
-
   it('excludes a recipe already planned in the current week from next-week suggestions', async () => {
-    // r1 is planned this week (plan-this); next week has no plan yet
     mockState.planByWeekStart = {
       '2026-03-29': { id: 'plan-this', week_start: '2026-03-29' },
       '2026-04-05': null,
@@ -899,7 +862,6 @@ describe('T32 - Cross-week exclusion: current-week recipes excluded from next-we
       'plan-this': [{ recipe_id: 'r1' }],
     }
 
-    // LLM tries to suggest r1 for next week
     mockState.llmResponse = JSON.stringify({
       days: [{
         date: '2026-04-07',
@@ -920,13 +882,12 @@ describe('T32 - Cross-week exclusion: current-week recipes excluded from next-we
     expect(res.status).toBe(200)
     const body = await res.json()
     const options = body.days[0].meal_types[0].options
-    // r1 is being made this week — must not appear in next-week suggestions
     expect(options.find((o: { recipe_id: string }) => o.recipe_id === 'r1')).toBeUndefined()
   })
 
   it('does not exclude a recipe when the current week has no active plan', async () => {
     mockState.planByWeekStart = {
-      '2026-03-29': null, // no plan this week
+      '2026-03-29': null,
       '2026-04-05': null,
     }
     mockState.entriesByPlanId = {}
@@ -955,14 +916,11 @@ describe('T32 - Cross-week exclusion: current-week recipes excluded from next-we
   })
 
   it('excludes a recipe planned for a past date earlier this week (regression)', async () => {
-    // r1 was planned for Monday of this week — already past, but still this week's plan.
-    // It should NOT appear in next week's suggestions.
     mockState.planByWeekStart = {
       '2026-03-29': { id: 'plan-this', week_start: '2026-03-29' },
       '2026-04-05': null,
     }
     mockState.entriesByPlanId = {
-      // Simulates an entry with a past planned_date (Monday of this week)
       'plan-this': [{ recipe_id: 'r1' }],
     }
 
@@ -986,7 +944,6 @@ describe('T32 - Cross-week exclusion: current-week recipes excluded from next-we
     expect(res.status).toBe(200)
     const body = await res.json()
     const options = body.days[0].meal_types[0].options
-    // r1 was planned earlier this week — must not reappear next week
     expect(options.find((o: { recipe_id: string }) => o.recipe_id === 'r1')).toBeUndefined()
   })
 })
@@ -994,13 +951,7 @@ describe('T32 - Cross-week exclusion: current-week recipes excluded from next-we
 // ── T33: Duplicate meal_plan records — all plans scanned (regression) ──────────
 
 describe('T33 - Duplicate meal_plan records: recipes in any plan record are excluded (regression)', () => {
-  // Regression for the bug where two meal_plan rows existed for the same week_start.
-  // maybeSingle() only returned one row; recipes under the other plan were never
-  // excluded. The fix: use plain select() and iterate all returned plan rows.
-
   it('excludes a recipe found in the second of two plan records for the same week', async () => {
-    // Two plan records exist for this week: plan-a has r1, plan-b has r2.
-    // Both should be excluded from next-week suggestions.
     mockState.plansByWeekStart = {
       '2026-03-29': [
         { id: 'plan-a', week_start: '2026-03-29' },
@@ -1013,7 +964,6 @@ describe('T33 - Duplicate meal_plan records: recipes in any plan record are excl
       'plan-b': [{ recipe_id: 'r2' }],
     }
 
-    // LLM tries to suggest both r1 and r2 for next week
     mockState.llmResponse = JSON.stringify({
       days: [{
         date: '2026-04-07',
@@ -1036,17 +986,12 @@ describe('T33 - Duplicate meal_plan records: recipes in any plan record are excl
     expect(res.status).toBe(200)
     const body = await res.json()
     const options = body.days[0].meal_types[0].options
-    // r1 was in plan-a → excluded
     expect(options.find((o: { recipe_id: string }) => o.recipe_id === 'r1')).toBeUndefined()
-    // r2 was in plan-b → excluded (the regression: previously only plan-a was scanned)
     expect(options.find((o: { recipe_id: string }) => o.recipe_id === 'r2')).toBeUndefined()
-    // r3 was in neither plan → available
     expect(options.find((o: { recipe_id: string }) => o.recipe_id === 'r3')).toBeDefined()
   })
 
   it('excludes a recipe in a duplicate plan record for the target week itself', async () => {
-    // Two plan records exist for the target week: r1 is in the second one.
-    // Previously maybeSingle() returned only plan-a; r1 under plan-b was not excluded.
     mockState.plansByWeekStart = {
       '2026-03-01': [
         { id: 'plan-a', week_start: '2026-03-01' },
@@ -1055,7 +1000,6 @@ describe('T33 - Duplicate meal_plan records: recipes in any plan record are excl
     }
     mockState.entriesByPlanId = {
       'plan-a': [],
-      // plan-b holds r1 for a future date — should be excluded
       'plan-b': [{ recipe_id: 'r1' }],
     }
 
@@ -1080,9 +1024,7 @@ describe('T33 - Duplicate meal_plan records: recipes in any plan record are excl
     expect(res.status).toBe(200)
     const body = await res.json()
     const options = body.days[0].meal_types[0].options
-    // r1 was in plan-b → excluded even though plan-a was empty
     expect(options.find((o: { recipe_id: string }) => o.recipe_id === 'r1')).toBeUndefined()
-    // r2 in neither plan → available
     expect(options.find((o: { recipe_id: string }) => o.recipe_id === 'r2')).toBeDefined()
   })
 })
@@ -1090,15 +1032,7 @@ describe('T33 - Duplicate meal_plan records: recipes in any plan record are excl
 // ── T34: Intermediate-week cooldown regression ────────────────────────────────
 
 describe('T34 - Intermediate-week cooldown: recipe in a skipped week is excluded from later suggestions', () => {
-  // Regression: the old code only checked week_start and getMostRecentSunday().
-  // A recipe planned for April 8 (week of April 7) was still suggested for
-  // April 19 (week of April 14) even with a 30-day cooldown, because the
-  // intermediate week was never checked.
   it('excludes a recipe planned for an intermediate week from a later week\'s suggestions', async () => {
-    // Mirrors the real bug: r1 was planned for April 8 (week of Apr 5, a Sunday).
-    // It was still appearing in suggestions for the week of April 19 (also a Sunday)
-    // because only the current week and target week were checked — the intermediate
-    // week (April 5) was skipped.
     mockState.plansByWeekStart = {
       '2026-04-05': [{ id: 'plan-inter', week_start: '2026-04-05' }],
     }
@@ -1106,7 +1040,6 @@ describe('T34 - Intermediate-week cooldown: recipe in a skipped week is excluded
       'plan-inter': [{ recipe_id: 'r1' }],
     }
 
-    // LLM tries to suggest r1 for the April 19 week — should be excluded
     mockState.llmResponse = JSON.stringify({
       days: [{
         date: '2026-04-21',
@@ -1128,17 +1061,12 @@ describe('T34 - Intermediate-week cooldown: recipe in a skipped week is excluded
     expect(res.status).toBe(200)
     const body = await res.json()
     const options = body.days[0].meal_types[0].options
-    // r1 is already planned for April 8 (intermediate week) — must be excluded
     expect(options.find((o: { recipe_id: string }) => o.recipe_id === 'r1')).toBeUndefined()
-    // r2 has no future plans — must be available
     expect(options.find((o: { recipe_id: string }) => o.recipe_id === 'r2')).toBeDefined()
   })
 })
 
 // ── Swap-entries route tests ──────────────────────────────────────────────────
-
-const SWAP_ID_A = '11111111-1111-4111-8111-111111111111'
-const SWAP_ID_B = '22222222-2222-4222-8222-222222222222'
 
 function makeSwapEntry(id: string, planned_date: string) {
   return {
@@ -1179,7 +1107,7 @@ describe('SWAP-T02 - 400 on invalid body', () => {
 describe('SWAP-T03 - 404 when entry_id_a not found', () => {
   it('returns 404 when entry_a does not exist', async () => {
     mockState.entryById[SWAP_ID_B] = makeSwapEntry(SWAP_ID_B, '2026-03-03')
-    // entry_id_a not in entryById → null
+    await setupSwapDbMocks()
 
     const res = await swapEntriesPOST(makeReq('POST', 'http://localhost/api/plan/swap', {
       entry_id_a: SWAP_ID_A,
@@ -1194,7 +1122,7 @@ describe('SWAP-T03 - 404 when entry_id_a not found', () => {
 describe('SWAP-T04 - 404 when entry_id_b not found', () => {
   it('returns 404 when entry_b does not exist', async () => {
     mockState.entryById[SWAP_ID_A] = makeSwapEntry(SWAP_ID_A, '2026-03-01')
-    // entry_id_b not in entryById → null
+    await setupSwapDbMocks()
 
     const res = await swapEntriesPOST(makeReq('POST', 'http://localhost/api/plan/swap', {
       entry_id_a: SWAP_ID_A,
@@ -1213,6 +1141,7 @@ describe('SWAP-T05 - 403 when entry_a belongs to different user', () => {
       meal_plans: { user_id: 'other-user', household_id: null },
     }
     mockState.entryById[SWAP_ID_B] = makeSwapEntry(SWAP_ID_B, '2026-03-03')
+    await setupSwapDbMocks()
 
     const res = await swapEntriesPOST(makeReq('POST', 'http://localhost/api/plan/swap', {
       entry_id_a: SWAP_ID_A,
@@ -1238,6 +1167,7 @@ describe('SWAP-T06 - 403 in household mode when entry belongs to different house
       ...makeSwapEntry(SWAP_ID_B, '2026-03-03'),
       meal_plans: { user_id: 'user-1', household_id: 'hh-other' },
     }
+    await setupSwapDbMocks()
 
     const res = await swapEntriesPOST(makeReq('POST', 'http://localhost/api/plan/swap', {
       entry_id_a: SWAP_ID_A,
@@ -1253,6 +1183,7 @@ describe('SWAP-T07 - falls back to direct UPDATEs when RPC unavailable', () => {
   it('returns 200 and swaps dates via UPDATE fallback when RPC errors', async () => {
     mockState.entryById[SWAP_ID_A] = makeSwapEntry(SWAP_ID_A, '2026-03-01')
     mockState.entryById[SWAP_ID_B] = makeSwapEntry(SWAP_ID_B, '2026-03-03')
+    await setupSwapDbMocks()
     mockState.rpcError = { message: 'function swap_meal_plan_entries does not exist' }
 
     const res = await swapEntriesPOST(makeReq('POST', 'http://localhost/api/plan/swap', {
@@ -1261,7 +1192,6 @@ describe('SWAP-T07 - falls back to direct UPDATEs when RPC unavailable', () => {
     }))
     expect(res.status).toBe(200)
     const body = await res.json()
-    // Fallback UPDATEs swapped the dates
     expect(body.entry_a.planned_date).toBe('2026-03-03')
     expect(body.entry_b.planned_date).toBe('2026-03-01')
   })
@@ -1273,6 +1203,7 @@ describe('SWAP-T08 - 200 success returns swapped planned_dates', () => {
   it('returns 200 with entry_a and entry_b having swapped dates', async () => {
     mockState.entryById[SWAP_ID_A] = makeSwapEntry(SWAP_ID_A, '2026-03-01')
     mockState.entryById[SWAP_ID_B] = makeSwapEntry(SWAP_ID_B, '2026-03-03')
+    await setupSwapDbMocks()
 
     const res = await swapEntriesPOST(makeReq('POST', 'http://localhost/api/plan/swap', {
       entry_id_a: SWAP_ID_A,
@@ -1282,7 +1213,6 @@ describe('SWAP-T08 - 200 success returns swapped planned_dates', () => {
     const body = await res.json()
     expect(body.entry_a).toBeDefined()
     expect(body.entry_b).toBeDefined()
-    // After swap: entry_a gets entry_b's old date and vice versa
     expect(body.entry_a.planned_date).toBe('2026-03-03')
     expect(body.entry_b.planned_date).toBe('2026-03-01')
     expect(mockState.rpcCallCount).toBe(1)
@@ -1305,6 +1235,7 @@ describe('SWAP-T20 - 200 for household member swapping entries in their househol
       ...makeSwapEntry(SWAP_ID_B, '2026-03-03'),
       meal_plans: { user_id: 'user-1', household_id: 'hh-1' },
     }
+    await setupSwapDbMocks()
 
     const res = await swapEntriesPOST(makeReq('POST', 'http://localhost/api/plan/swap', {
       entry_id_a: SWAP_ID_A,

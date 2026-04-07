@@ -3,10 +3,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import PreferencesForm from '../PreferencesForm'
 
-// Mock Supabase browser client
-vi.mock('@/lib/supabase/browser', () => ({
-  getAccessToken: async () => 'mock-token',
-}))
 
 // Mock fetch
 const mockFetch = vi.fn()

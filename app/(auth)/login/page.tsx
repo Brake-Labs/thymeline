@@ -1,9 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useSearchParams } from 'next/navigation'
-import { Suspense } from 'react'
-import { getSupabaseClient } from '@/lib/supabase/browser'
+import { useState } from 'react'
+import { authClient } from '@/lib/auth-client'
 
 // Google "G" SVG icon
 function GoogleIcon() {
@@ -30,117 +28,43 @@ function GoogleIcon() {
 }
 
 function LoginForm() {
-  const searchParams = useSearchParams()
-  const [email, setEmail] = useState('')
-  const [state, setState] = useState<'idle' | 'loading-magic' | 'loading-google' | 'sent' | 'error'>('idle')
+  const [state, setState] = useState<'idle' | 'loading' | 'error'>('idle')
   const [errorMsg, setErrorMsg] = useState('')
 
-  useEffect(() => {
-    const invite = searchParams.get('invite')
-    if (invite) {
-      sessionStorage.setItem('thymeline_invite_token', invite)
-    }
-  }, [searchParams])
-
-  async function handleMagicLink(e: React.FormEvent) {
-    e.preventDefault()
-    setState('loading-magic')
-    setErrorMsg('')
-    const supabase = getSupabaseClient()
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
-      },
-    })
-    if (error) {
-      setErrorMsg(error.message)
-      setState('error')
-    } else {
-      setState('sent')
-    }
-  }
-
   async function handleGoogle() {
-    setState('loading-google')
+    setState('loading')
     setErrorMsg('')
-    const supabase = getSupabaseClient()
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
-      },
-    })
-    if (error) {
-      setErrorMsg(error.message)
+    try {
+      await authClient.signIn.social({
+        provider: 'google',
+        callbackURL: '/auth/complete',
+      })
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Sign-in failed')
       setState('error')
     }
   }
-
-  if (state === 'sent') {
-    return (
-      <div className="rounded-lg bg-sage-50 border border-sage-200 px-6 py-5 text-center">
-        <p className="text-sage-700 font-medium">
-          {"Check your email — we sent you a sign-in link."}
-        </p>
-      </div>
-    )
-  }
-
-  const busy = state === 'loading-magic' || state === 'loading-google'
 
   return (
-    <form onSubmit={handleMagicLink} className="space-y-4">
-      <div>
-        <label htmlFor="email" className="block text-sm font-medium text-stone-700 mb-1">
-          Email address
-        </label>
-        <input
-          id="email"
-          type="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@example.com"
-          className="w-full rounded-lg border border-stone-300 px-4 py-2.5 text-stone-900 placeholder-stone-400 focus:border-sage-500 focus:outline-none focus:ring-1 focus:ring-sage-500"
-        />
-      </div>
-
-      <button
-        type="submit"
-        disabled={busy}
-        className="font-display w-full rounded-lg bg-sage-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sage-600 disabled:opacity-60 flex items-center justify-center gap-2"
-      >
-        {state === 'loading-magic' && (
-          <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-        )}
-        Send me a link
-      </button>
-
-      {state === 'error' && (
-        <p className="text-red-600 text-sm">{errorMsg}</p>
-      )}
-
-      <div className="relative flex items-center gap-3">
-        <div className="flex-1 border-t border-stone-200" />
-        <span className="text-xs text-stone-400 uppercase tracking-wide">or</span>
-        <div className="flex-1 border-t border-stone-200" />
-      </div>
-
+    <div className="space-y-4">
       <button
         type="button"
         onClick={handleGoogle}
-        disabled={busy}
+        disabled={state === 'loading'}
         className="w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-sm font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-60 flex items-center justify-center gap-3"
       >
-        {state === 'loading-google' ? (
+        {state === 'loading' ? (
           <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-stone-400 border-t-transparent" />
         ) : (
           <GoogleIcon />
         )}
         Continue with Google
       </button>
-    </form>
+
+      {state === 'error' && (
+        <p className="text-red-600 text-sm">{errorMsg}</p>
+      )}
+    </div>
   )
 }
 
@@ -159,9 +83,7 @@ export default function LoginPage() {
           <p className="text-stone-500 text-sm">Your AI-powered meal planning assistant</p>
         </div>
 
-        <Suspense fallback={<div className="h-40 animate-pulse bg-stone-100 rounded-lg" />}>
-          <LoginForm />
-        </Suspense>
+        <LoginForm />
       </div>
     </div>
   )

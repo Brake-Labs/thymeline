@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { getAccessToken } from '@/lib/supabase/browser'
 
 interface GenerateGroceriesButtonProps {
   /** Preferred: explicit date range */
@@ -21,14 +20,13 @@ export default function GenerateGroceriesButton({ dateFrom, dateTo, weekStart }:
     setLoading(true)
     setError(null)
     try {
-      const token = await getAccessToken()
       const payload = dateFrom && dateTo
         ? { date_from: dateFrom, date_to: dateTo }
         : { week_start: weekStart }
 
       const res = await fetch('/api/groceries/generate', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify(payload),
       })
       if (!res.ok) {

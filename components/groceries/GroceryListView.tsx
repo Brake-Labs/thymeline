@@ -6,7 +6,6 @@ import GroceryItemRow from './GroceryItemRow'
 import GotItSection from './GotItSection'
 import AddItemInput from './AddItemInput'
 import StepperInput from '@/components/preferences/StepperInput'
-import { getAccessToken } from '@/lib/supabase/browser'
 import { effectiveServings, formatWeekLabel, buildPlainTextList } from '@/lib/grocery'
 import { TOAST_DURATION_LONG_MS } from '@/lib/constants'
 
@@ -43,10 +42,9 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
   }) {
     setSaving(true)
     try {
-      const token = await getAccessToken()
       await fetch('/api/groceries', {
         method:  'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ week_start: weekStart, ...payload }),
       })
     } finally {
@@ -169,13 +167,12 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
     setRegenerating(true)
     setConfirmRegenerate(false)
     try {
-      const token = await getAccessToken()
       const body = dateFrom && dateTo
         ? { date_from: dateFrom, date_to: dateTo }
         : { week_start: weekStart }
       const res = await fetch('/api/groceries/generate', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify(body),
       })
       if (res.ok) {

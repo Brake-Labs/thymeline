@@ -20,22 +20,6 @@ vi.mock('next/link', () => ({
   ),
 }))
 
-vi.mock('@/lib/supabase/browser', () => ({
-  getAccessToken: async () => 'test-token',
-  getSupabaseClient: () => ({
-    auth: {
-      getSession: async () => ({ data: { session: { user: { id: 'user-1' } } } }),
-      getUser: async () => ({ data: { user: { id: 'user-1' } } }),
-    },
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          single: async () => ({ data: { avoided_tags: [] }, error: null }),
-        }),
-      }),
-    }),
-  }),
-}))
 
 vi.mock('@/components/recipes/GenerateRecipeModal', () => ({
   default: ({ onClose, initialIngredients }: {
@@ -110,6 +94,10 @@ vi.stubGlobal('fetch', mockFetch)
 
 function setupFetch(recipe: ReturnType<typeof makeRecipe>) {
   mockFetch.mockImplementation(async (url: string) => {
+    if (url.includes('/api/auth/get-session')) {
+      // Always return user-1 as the logged-in user (matches default makeRecipe().user_id)
+      return { status: 200, ok: true, json: async () => ({ user: { id: 'user-1' } }) } as Response
+    }
     if (url.includes('/api/recipes/recipe-')) {
       return { status: 200, ok: true, json: async () => recipe } as Response
     }

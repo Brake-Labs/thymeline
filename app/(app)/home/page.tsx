@@ -1,6 +1,9 @@
 import Link from 'next/link'
 import { Sparkles, Archive, ClipboardList } from 'lucide-react'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getSessionUser } from '@/lib/auth-helpers'
+import { db } from '@/lib/db'
+import { eq, desc, sql } from 'drizzle-orm'
+import { recipes, mealPlans, mealPlanEntries, recipeHistory, groceryLists } from '@/lib/db/schema'
 import { HomeData } from '@/types'
 import { getMostRecentSunday, getTodayISO, isToday } from './utils'
 import GreetingHeading from './GreetingHeading'
@@ -24,81 +27,86 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
 // ── Data fetching ─────────────────────────────────────────────────────────────
 
 async function getHomeData(): Promise<HomeData & { weekStart: string }> {
-  const supabase = createSupabaseServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSessionUser()
 
   const weekStart = getMostRecentSunday()
   if (!user) {
     return { userName: null, recipeCount: 0, groceryListWeekStart: null, currentWeekPlan: null, recentlyMade: [], weekStart }
   }
 
-  const fullName = (user.user_metadata?.full_name as string | undefined) ?? null
+  const fullName = user.name ?? null
   const userName = fullName
     ? (fullName.split(' ')[0] ?? fullName)
     : (user.email?.split('@')[0] ?? null)
 
-  const [planResult, historyResult, recipeCountResult, groceryResult] = await Promise.all([
-    supabase
-      .from('meal_plans')
-      .select('id, week_start')
-      .eq('user_id', user.id)
-      .eq('week_start', weekStart)
-      .single(),
-    supabase
-      .from('recipe_history')
-      .select('recipe_id, made_on, recipes(title, tags)')
-      .eq('user_id', user.id)
-      .order('made_on', { ascending: false })
+  const [planRows, historyRows, countRows, groceryRows] = await Promise.all([
+    db.select({ id: mealPlans.id, weekStart: mealPlans.weekStart })
+      .from(mealPlans)
+      .where(eq(mealPlans.userId, user.id))
+      .limit(1),
+    db.select({
+        recipeId: recipeHistory.recipeId,
+        madeOn: recipeHistory.madeOn,
+        title: recipes.title,
+        tags: recipes.tags,
+      })
+      .from(recipeHistory)
+      .innerJoin(recipes, eq(recipeHistory.recipeId, recipes.id))
+      .where(eq(recipeHistory.userId, user.id))
+      .orderBy(desc(recipeHistory.madeOn))
       .limit(5),
-    supabase
-      .from('recipes')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id),
-    supabase
-      .from('grocery_lists')
-      .select('week_start')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+    db.select({ count: sql<number>`count(*)::int` })
+      .from(recipes)
+      .where(eq(recipes.userId, user.id)),
+    db.select({ weekStart: groceryLists.weekStart })
+      .from(groceryLists)
+      .where(eq(groceryLists.userId, user.id))
+      .orderBy(desc(groceryLists.createdAt))
+      .limit(1),
   ])
 
-  const plan = planResult.data
+  const plan = planRows[0]
   let currentWeekPlan: HomeData['currentWeekPlan'] = null
 
   if (plan) {
-    const { data: entries } = await supabase
-      .from('meal_plan_entries')
-      .select('planned_date, recipe_id, position, confirmed, recipes(title, total_time_minutes)')
-      .eq('meal_plan_id', plan.id)
-      .order('planned_date')
-      .order('position')
+    const entries = await db.select({
+        plannedDate: mealPlanEntries.plannedDate,
+        recipeId: mealPlanEntries.recipeId,
+        position: mealPlanEntries.position,
+        confirmed: mealPlanEntries.confirmed,
+        recipeTitle: recipes.title,
+        totalTimeMinutes: recipes.totalTimeMinutes,
+      })
+      .from(mealPlanEntries)
+      .innerJoin(recipes, eq(mealPlanEntries.recipeId, recipes.id))
+      .where(eq(mealPlanEntries.mealPlanId, plan.id))
+      .orderBy(mealPlanEntries.plannedDate, mealPlanEntries.position)
 
     currentWeekPlan = {
       id:         plan.id,
-      week_start: plan.week_start,
-      entries: (entries ?? []).map((e) => ({
-        planned_date:       e.planned_date,
-        recipe_id:          e.recipe_id,
-        recipe_title:       e.recipes?.title ?? '',
+      week_start: plan.weekStart,
+      entries: entries.map((e) => ({
+        planned_date:       e.plannedDate,
+        recipe_id:          e.recipeId,
+        recipe_title:       e.recipeTitle ?? '',
         position:           e.position,
         confirmed:          e.confirmed,
-        total_time_minutes: e.recipes?.total_time_minutes ?? null,
+        total_time_minutes: e.totalTimeMinutes ?? null,
       })),
     }
   }
 
-  const recentlyMade = (historyResult.data ?? []).map((h) => ({
-    recipe_id:    h.recipe_id,
-    recipe_title: h.recipes?.title ?? '',
-    made_on:      h.made_on,
-    tags:         h.recipes?.tags ?? [],
+  const recentlyMade = historyRows.map((h) => ({
+    recipe_id:    h.recipeId,
+    recipe_title: h.title ?? '',
+    made_on:      h.madeOn,
+    tags:         h.tags ?? [],
   }))
 
   return {
     userName,
-    recipeCount:          recipeCountResult.count ?? 0,
-    groceryListWeekStart: groceryResult.data?.week_start ?? null,
+    recipeCount:          countRows[0]?.count ?? 0,
+    groceryListWeekStart: groceryRows[0]?.weekStart ?? null,
     currentWeekPlan,
     recentlyMade,
     weekStart,

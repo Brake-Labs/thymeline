@@ -9,10 +9,12 @@ import {
   isPantryStaple,
 } from '@/lib/grocery'
 import { resolveRecipeIngredients } from '@/lib/grocery-scrape'
-import { scopeQuery } from '@/lib/household'
+import { db } from '@/lib/db'
+import { eq, and, gte, lte, inArray, asc } from 'drizzle-orm'
+import { mealPlans, mealPlanEntries, recipes, groceryLists, pantryItems } from '@/lib/db/schema'
+import { scopeCondition, scopeInsert } from '@/lib/household'
 import { toDateString } from '@/lib/date-utils'
 import { GroceryItem, GrocerySection, RecipeScale } from '@/types'
-import type { Json } from '@/types/database'
 
 function uuidv4(): string {
   return crypto.randomUUID()
@@ -29,7 +31,7 @@ interface RecipeEntry {
 
 // ── POST /api/groceries/generate ─────────────────────────────────────────────
 
-export const POST = withAuth(async (req, { user, db, ctx }) => {
+export const POST = withAuth(async (req, { user, ctx }) => {
   const { data: body, error: parseError } = await parseBody(req, generateGroceriesSchema)
   if (parseError) return parseError
 
@@ -49,46 +51,59 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
   }
 
   // 1. Get all meal plan IDs for the user/household (ordered so primaryPlanId is deterministic)
-  const plansQ = scopeQuery(db.from('meal_plans').select('id').order('week_start'), user.id, ctx)
-  const { data: plans, error: plansError } = await plansQ
+  const planRows = await db
+    .select({ id: mealPlans.id })
+    .from(mealPlans)
+    .where(scopeCondition(
+      { userId: mealPlans.userId, householdId: mealPlans.householdId },
+      user.id,
+      ctx,
+    ))
+    .orderBy(asc(mealPlans.weekStart))
 
-  if (plansError || !plans || plans.length === 0) {
+  if (planRows.length === 0) {
     return NextResponse.json({ error: 'No meal plans found for this date range' }, { status: 404 })
   }
 
-  const planIds = plans.map((p) => p.id)
+  const planIds = planRows.map((p) => p.id)
 
   // Default plan-level servings; per-recipe override stored in recipe_scales
   const planServings = 4
 
   // 2. Fetch entries within date range
-  const { data: entriesRaw, error: entriesError } = await db
-    .from('meal_plan_entries')
-    .select('recipe_id, planned_date, recipes(id, title, ingredients, url, servings)')
-    .in('meal_plan_id', planIds)
-    .gte('planned_date', date_from)
-    .lte('planned_date', date_to)
-    .order('planned_date')
-
-  if (entriesError) {
-    return NextResponse.json({ error: 'Failed to fetch plan entries' }, { status: 500 })
-  }
+  const entriesRaw = await db
+    .select({
+      recipeId: mealPlanEntries.recipeId,
+      plannedDate: mealPlanEntries.plannedDate,
+      recipeDbId: recipes.id,
+      recipeTitle: recipes.title,
+      recipeIngredients: recipes.ingredients,
+      recipeUrl: recipes.url,
+      recipeServings: recipes.servings,
+    })
+    .from(mealPlanEntries)
+    .innerJoin(recipes, eq(mealPlanEntries.recipeId, recipes.id))
+    .where(and(
+      inArray(mealPlanEntries.mealPlanId, planIds),
+      gte(mealPlanEntries.plannedDate, date_from),
+      lte(mealPlanEntries.plannedDate, date_to),
+    ))
+    .orderBy(asc(mealPlanEntries.plannedDate))
 
   // Deduplicate recipes (a recipe may appear on multiple days)
   const seenRecipeIds = new Set<string>()
-  const recipes: RecipeEntry[] = []
-  for (const entry of (entriesRaw ?? [])) {
-    const r = entry.recipes
-    if (!r) continue
-    if (seenRecipeIds.has(r.id)) continue
-    seenRecipeIds.add(r.id)
-    recipes.push({
-      recipe_id:    r.id,
-      recipe_title: r.title,
-      ingredients:  r.ingredients,
-      url:          r.url,
-      planned_date: entry.planned_date,
-      servings:     r.servings,
+  const recipeEntries: RecipeEntry[] = []
+  for (const entry of entriesRaw) {
+    if (!entry.recipeDbId) continue
+    if (seenRecipeIds.has(entry.recipeDbId)) continue
+    seenRecipeIds.add(entry.recipeDbId)
+    recipeEntries.push({
+      recipe_id:    entry.recipeDbId,
+      recipe_title: entry.recipeTitle,
+      ingredients:  entry.recipeIngredients,
+      url:          entry.recipeUrl,
+      planned_date: entry.plannedDate,
+      servings:     entry.recipeServings,
     })
   }
 
@@ -97,7 +112,7 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
   const skipped_recipes: string[] = []
   const combineInputs: Parameters<typeof combineIngredients>[0] = []
 
-  for (const recipe of recipes) {
+  for (const recipe of recipeEntries) {
     const ingredientsText = await resolveRecipeIngredients(recipe, firecrawlKey)
 
     if (!ingredientsText) {
@@ -189,11 +204,17 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
 
   // 5b. Cross-reference against pantry — flag matching items as is_pantry: true
   try {
-    const pantryQ = scopeQuery(db.from('pantry_items').select('name'), user.id, ctx)
-    const { data: pantryItems } = await pantryQ
+    const pantryRows = await db
+      .select({ name: pantryItems.name })
+      .from(pantryItems)
+      .where(scopeCondition(
+        { userId: pantryItems.userId, householdId: pantryItems.householdId },
+        user.id,
+        ctx,
+      ))
 
-    if (pantryItems?.length) {
-      const pantryNames = pantryItems.map((p) => p.name.toLowerCase().trim())
+    if (pantryRows.length) {
+      const pantryNames = pantryRows.map((p) => p.name.toLowerCase().trim())
       allItems = allItems.map((item) => {
         const gName = item.name.toLowerCase().trim()
         const matched = pantryNames.some(
@@ -205,38 +226,62 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
   } catch { /* non-fatal */ }
 
   // 6. Build recipe_scales (all null → inherit plan default)
-  const recipe_scales: RecipeScale[] = recipes.map((r) => ({
+  const recipe_scales: RecipeScale[] = recipeEntries.map((r) => ({
     recipe_id:    r.recipe_id,
     recipe_title: r.recipe_title,
     servings:     r.servings ?? planServings,
   }))
 
   // 7. Upsert grocery_lists
-  const now = new Date().toISOString()
-  const upsertPayload: Record<string, unknown> = {
-    user_id:       user.id,
-    meal_plan_id:  planIds[0],
-    week_start:    date_from,
-    date_from,
-    date_to,
-    servings:      planServings,
-    recipe_scales: recipe_scales as unknown as Json,
-    items:         allItems as unknown as Json,
-    updated_at:    now,
+  const now = new Date()
+  const upsertPayload = {
+    ...scopeInsert(user.id, ctx),
+    mealPlanId:  planIds[0],
+    weekStart:   date_from,
+    dateFrom:    date_from,
+    dateTo:      date_to,
+    servings:    planServings,
+    recipeScales: recipe_scales,
+    items:       allItems,
+    updatedAt:   now,
   }
-  if (ctx) upsertPayload.household_id = ctx.householdId
-  const onConflict = ctx ? 'household_id,week_start' : 'user_id,week_start'
-  const { data: upserted, error: upsertError } = await db
-    .from('grocery_lists')
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic field selection for household/user scoping
-    .upsert(upsertPayload as any, { onConflict })
-    .select('*')
-    .single()
 
-  if (upsertError || !upserted) {
-    console.error('Upsert error:', upsertError)
+  try {
+    // Check if a row exists for this scope + week_start
+    const existingRows = await db
+      .select({ id: groceryLists.id })
+      .from(groceryLists)
+      .where(and(
+        eq(groceryLists.weekStart, date_from),
+        scopeCondition({ userId: groceryLists.userId, householdId: groceryLists.householdId }, user.id, ctx),
+      ))
+      .limit(1)
+
+    let upserted
+    if (existingRows.length > 0) {
+      // Update existing
+      const [updated] = await db
+        .update(groceryLists)
+        .set(upsertPayload)
+        .where(eq(groceryLists.id, existingRows[0]!.id))
+        .returning()
+      upserted = updated
+    } else {
+      // Insert new
+      const [inserted] = await db
+        .insert(groceryLists)
+        .values(upsertPayload)
+        .returning()
+      upserted = inserted
+    }
+
+    if (!upserted) {
+      return NextResponse.json({ error: 'Failed to save grocery list' }, { status: 500 })
+    }
+
+    return NextResponse.json({ list: upserted, skipped_recipes })
+  } catch (err) {
+    console.error('Upsert error:', err)
     return NextResponse.json({ error: 'Failed to save grocery list' }, { status: 500 })
   }
-
-  return NextResponse.json({ list: upserted, skipped_recipes })
 })

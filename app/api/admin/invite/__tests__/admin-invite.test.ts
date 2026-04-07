@@ -3,7 +3,7 @@ import { NextRequest } from 'next/server'
 
 // ── Mock state ────────────────────────────────────────────────────────────────
 const mockState = {
-  user: null as { id: string } | null,
+  user: null as { id: string; email: string; name: string; image: null } | null,
   insertError: null as { message: string } | null,
 }
 
@@ -12,42 +12,53 @@ const mockConfig = {
   siteUrl: 'https://example.com',
 }
 
-const makeMockFrom = () => ({
-  insert: async () => ({ error: mockState.insertError }),
-})
+// ── Mock chain builder ───────────────────────────────────────────────────────
 
-vi.mock('@/lib/supabase-server', () => ({
-  createServerClient: () => ({
-    auth: {
-      getUser: async () => ({
-        data: { user: mockState.user },
-        error: mockState.user ? null : { message: 'no user' },
-      }),
+function mockChain(result: unknown[] = []) {
+  const chain: Record<string, unknown> = {}
+  for (const m of ['from','where','orderBy','limit','offset','innerJoin','leftJoin','set','values','onConflictDoUpdate','onConflictDoNothing','returning','groupBy']) {
+    chain[m] = vi.fn().mockReturnValue(chain)
+  }
+  chain.then = vi.fn().mockImplementation((resolve: (v: unknown) => void) => Promise.resolve(result).then(resolve))
+  return chain
+}
+
+// ── Module mocks ──────────────────────────────────────────────────────────────
+
+vi.mock('@/lib/db', () => ({
+  db: {
+    select: vi.fn(() => mockChain()),
+    insert: vi.fn(() => mockChain()),
+    update: vi.fn(() => mockChain()),
+    delete: vi.fn(() => mockChain()),
+    execute: vi.fn().mockResolvedValue({ rows: [] }),
+  },
+}))
+
+vi.mock('@/lib/auth-server', () => ({
+  auth: {
+    api: {
+      getSession: vi.fn(async () => mockState.user ? {
+        user: mockState.user,
+        session: { id: 'sess-1', createdAt: new Date(), updatedAt: new Date(), userId: mockState.user!.id, expiresAt: new Date(Date.now() + 86400000), token: 'tok' },
+      } : null),
     },
-    from: makeMockFrom,
-  }),
-  createAdminClient: () => ({ from: makeMockFrom }),
+  },
 }))
 
 vi.mock('@/lib/household', () => ({
-  resolveHouseholdScope: async () => null,
+  resolveHouseholdScope: vi.fn().mockResolvedValue(null),
+  scopeCondition: vi.fn().mockReturnValue({}),
+  scopeInsert: vi.fn((userId: string) => ({ userId })),
+  checkOwnership: vi.fn().mockResolvedValue({ owned: true }),
   canManage: (role: string) => role === 'owner' || role === 'co_owner',
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  scopeQuery: (query: any, userId: string, ctx: any) => {
-    if (ctx) return query.eq('household_id', ctx.householdId)
-    return query.eq('user_id', userId)
-  },
 }))
 
 vi.mock('@/lib/config', () => ({
   config: {
-    supabase: {
-      url: 'http://localhost:54321',
-      anonKey: 'test-anon-key',
-      serviceRoleKey: 'test-service-role-key',
-    },
     get admin() { return { userId: mockConfig.adminUserId } },
     get siteUrl() { return mockConfig.siteUrl },
+    get allowedEmails() { return [] },
   },
 }))
 
@@ -56,12 +67,11 @@ const { POST } = await import('@/app/api/admin/invite/route')
 function makeRequest(): NextRequest {
   return new NextRequest('http://localhost/api/admin/invite', {
     method: 'POST',
-    headers: { Authorization: 'Bearer admin-token' },
   })
 }
 
 beforeEach(() => {
-  mockState.user = { id: 'admin-uuid' }
+  mockState.user = { id: 'admin-uuid', email: 'admin@example.com', name: 'Admin', image: null }
   mockState.insertError = null
   mockConfig.adminUserId = 'admin-uuid'
   mockConfig.siteUrl = 'https://example.com'
@@ -85,7 +95,7 @@ describe('T18 - POST /api/admin/invite returns invite URL for admin', () => {
 // ── T19: POST /api/admin/invite returns 403 for non-admin user ───────────────
 describe('T19 - POST /api/admin/invite returns 403 for non-admin', () => {
   it('returns 403 when user is not the admin', async () => {
-    mockState.user = { id: 'other-user-uuid' }
+    mockState.user = { id: 'other-user-uuid', email: 'other@example.com', name: 'Other', image: null }
     const res = await POST(makeRequest())
     expect(res.status).toBe(403)
   })

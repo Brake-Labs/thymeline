@@ -15,18 +15,18 @@ import {
 } from '../../helpers'
 import type { DaySuggestions, MealType } from '@/types'
 
-export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
+export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
   const { data: body, error: parseError } = await parseBody(req, swapSchema)
   if (parseError) return parseError
 
   const { date, already_selected, prefer_this_week, avoid_this_week, free_text } = body
   const meal_type: MealType = body.meal_type ?? 'dinner'
 
-  const prefs = await fetchUserPreferences(db, user.id, ctx)
+  const prefs = await fetchUserPreferences(user.id, ctx)
   const cooldownDays = prefs?.cooldown_days ?? 28
   const categories = MEAL_TYPE_CATEGORIES[meal_type]
-  const recipes = await fetchCooldownFilteredRecipes(db, user.id, cooldownDays, categories, ctx)
-  const recentHistory = await fetchRecentHistory(db, user.id)
+  const recs = await fetchCooldownFilteredRecipes(user.id, cooldownDays, categories, ctx)
+  const recentHistory = await fetchRecentHistory(user.id)
 
   const today = new Date()
   const season = getSeason(today.getMonth())
@@ -35,11 +35,11 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   const userMessage = buildSwapUserMessage(
     date,
     meal_type,
-    recipes,
+    recs,
     recentHistory,
     already_selected ?? [],
     free_text ?? '',
-    recipes,
+    recs,
   )
 
   try {
@@ -50,7 +50,7 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
       return NextResponse.json({ error: 'Swap failed. Please try again.' }, { status: 500 })
     }
     const days = parsed.days
-    const validIds = new Map<MealType, Set<string>>([[meal_type, new Set(recipes.map((r) => r.id))]])
+    const validIds = new Map<MealType, Set<string>>([[meal_type, new Set(recs.map((r) => r.id))]])
     const validated = validateSuggestions(days, validIds)
     const dayResult = validated.find((d) => d.date === date)
     const options = dayResult?.meal_types?.find((m) => m.meal_type === meal_type)?.options ?? []

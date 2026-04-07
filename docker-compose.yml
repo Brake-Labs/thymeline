@@ -1,13 +1,19 @@
 services:
-  app:
-    build:
-      context: .
-      args:
-        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
-        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: thymeline
+      POSTGRES_USER: thymeline
+      POSTGRES_PASSWORD: thymeline
     ports:
-      - "3000:3000"
-    env_file:
-      - path: .env
-        required: false
-    restart: unless-stopped
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U thymeline -d thymeline']
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:

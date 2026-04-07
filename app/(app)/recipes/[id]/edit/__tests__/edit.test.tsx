@@ -11,9 +11,6 @@ vi.mock('next/link', () => ({
     <a href={href} {...props}>{children}</a>
   ),
 }))
-vi.mock('@/lib/supabase/browser', () => ({
-  getAccessToken: async () => 'mock-token',
-}))
 
 const mockFetch = vi.fn()
 vi.stubGlobal('fetch', mockFetch)

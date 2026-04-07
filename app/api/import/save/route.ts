@@ -3,12 +3,15 @@ import { withAuth } from '@/lib/auth'
 import { parseBody, importSaveSchema } from '@/lib/schemas'
 import { scopeInsert, checkOwnership } from '@/lib/household'
 import { FIRST_CLASS_TAGS } from '@/lib/tags'
+import { db } from '@/lib/db'
+import { eq } from 'drizzle-orm'
+import { recipes, customTags } from '@/lib/db/schema'
 
 function toTitleCase(str: string): string {
   return str.replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
+export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
   const { data: body, error: parseError } = await parseBody(req, importSaveSchema)
   if (parseError) return parseError
 
@@ -52,70 +55,73 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
       if (!normalized) continue
       normalizedCustomTags.push(normalized)
 
-      const tagPayload = scopeInsert(user.id, ctx, {
-        name:    normalized,
-        section: 'cuisine',
-      })
-
-      // Use upsert with ignoreDuplicates to handle ON CONFLICT DO NOTHING
-      await db
-        .from('custom_tags')
-        .upsert(tagPayload, { onConflict: 'user_id,name', ignoreDuplicates: true })
+      try {
+        await db
+          .insert(customTags)
+          .values({
+            name: normalized,
+            section: 'cuisine',
+            ...scopeInsert(user.id, ctx),
+          })
+          .onConflictDoNothing()
+      } catch {
+        // Ignore duplicate tag errors
+      }
     }
 
     const allTags = [...firstClassTags, ...normalizedCustomTags]
 
     const recipePayload = {
-      title:                 recipe.title.trim(),
-      category:              recipe.category ?? 'main_dish',
-      ingredients:           recipe.ingredients,
-      steps:                 recipe.steps,
-      notes:                 recipe.notes,
-      url:                   recipe.url,
-      image_url:             recipe.image_url,
-      prep_time_minutes:     recipe.prep_time_minutes,
-      cook_time_minutes:     recipe.cook_time_minutes,
-      total_time_minutes:    recipe.total_time_minutes,
-      inactive_time_minutes: recipe.inactive_time_minutes,
-      servings:              recipe.servings,
-      tags:                  allTags,
-      source:                recipe.source,
-      is_shared:             false,
-      step_photos:           [],
+      title:              recipe.title.trim(),
+      category:           recipe.category ?? 'main_dish',
+      ingredients:        recipe.ingredients,
+      steps:              recipe.steps,
+      notes:              recipe.notes,
+      url:                recipe.url,
+      imageUrl:           recipe.image_url,
+      prepTimeMinutes:    recipe.prep_time_minutes,
+      cookTimeMinutes:    recipe.cook_time_minutes,
+      totalTimeMinutes:   recipe.total_time_minutes,
+      inactiveTimeMinutes: recipe.inactive_time_minutes,
+      servings:           recipe.servings,
+      tags:               allTags,
+      source:             recipe.source,
+      isShared:           false,
+      stepPhotos:         [],
     }
 
     if (item.duplicate_action === 'replace' && item.existing_id) {
       // Verify ownership before updating
-      const ownership = await checkOwnership(db, 'recipes', item.existing_id, user.id, ctx)
+      const ownership = await checkOwnership('recipes', item.existing_id, user.id, ctx)
       if (!ownership.owned) {
         failed.push({ title: recipe.title, error: 'Cannot replace: recipe not found or not owned' })
         continue
       }
 
-      const { error } = await db
-        .from('recipes')
-        .update(recipePayload)
-        .eq('id', item.existing_id)
-
-      if (error) {
-        console.error('[import/save] Update failed:', error)
+      try {
+        await db
+          .update(recipes)
+          .set(recipePayload)
+          .where(eq(recipes.id, item.existing_id))
+        replaced++
+      } catch (err) {
+        console.error('[import/save] Update failed:', err)
         failed.push({ title: recipe.title, error: 'Failed to replace recipe' })
-        continue
       }
-
-      replaced++
     } else {
       // Insert as new recipe (keep_both or no duplicate action)
-      const insertPayload = scopeInsert(user.id, ctx, recipePayload)
-      const { error } = await db.from('recipes').insert(insertPayload)
-
-      if (error) {
-        console.error('[import/save] Insert failed:', error)
+      try {
+        await db
+          .insert(recipes)
+          .values({
+            ...recipePayload,
+            ...scopeInsert(user.id, ctx),
+          })
+        imported++
+      } catch (err) {
+        console.error('[import/save] Insert failed:', err)
         failed.push({ title: recipe.title, error: 'Failed to import recipe' })
-        continue
       }
-
-      imported++
     }
   }
 

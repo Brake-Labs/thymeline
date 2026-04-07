@@ -15,7 +15,6 @@ vi.useFakeTimers()
 const defaultProps = {
   entryId:  'entry-1',
   recipeId: 'recipe-1',
-  getToken: async () => 'mock-token',
   onDismiss: vi.fn(),
 }
 
@@ -91,14 +90,11 @@ describe('MakeAgainPrompt', () => {
   })
 
   // T24: Prompt appears on Cook Mode final step after log
-  // Note: The cook mode page is an integration test; this unit test verifies that
-  // MakeAgainPrompt renders correctly when mounted with a cook-mode-sourced entry_id.
   it('T24: renders correctly when supplied with a cook-mode entry_id', () => {
     render(
       <MakeAgainPrompt
         entryId="cook-entry-42"
         recipeId="recipe-99"
-        getToken={async () => 'tok'}
         onDismiss={vi.fn()}
       />
     )

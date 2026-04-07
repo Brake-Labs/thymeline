@@ -6,7 +6,6 @@ import SetupStep from '@/components/plan/SetupStep'
 import SuggestionsStep from '@/components/plan/SuggestionsStep'
 import SummaryStep from '@/components/plan/SummaryStep'
 import PostSaveModal from '@/components/plan/PostSaveModal'
-import { getAccessToken } from '@/lib/supabase/browser'
 import type { RecipeSuggestion, DaySelection, DaySuggestions, MealType, SavedPlanEntry, PlanSetup, SelectionsMap } from '@/types'
 import type { MealTypeState } from '@/components/plan/SuggestionDayRow'
 
@@ -56,11 +55,11 @@ function PlanPageInner() {
   useEffect(() => {
     async function loadPref() {
       try {
-        const token = await getAccessToken()
-        const res = await fetch('/api/preferences', { headers: { Authorization: `Bearer ${token}` } })
+        const res = await fetch('/api/preferences')
         if (res.ok) {
           const prefs = await res.json()
-          const pref: number = prefs.week_start_day ?? 0
+          const raw = prefs.week_start_day ?? 'sunday'
+          const pref: number = raw === 'monday' ? 1 : typeof raw === 'number' ? raw : 0
           setWeekStartDay(pref)
           if (pref !== 0) {
             const start = getMostRecentWeekStart(pref)
@@ -99,10 +98,9 @@ function PlanPageInner() {
     setIsGenerating(true)
     setGenerateError(null)
     try {
-      const token = await getAccessToken()
       const res = await fetch('/api/plan/suggest', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           week_start:        setup.weekStart,
           active_dates:      activeDates,
@@ -173,14 +171,13 @@ function PlanPageInner() {
     } : prev)
 
     try {
-      const token = await getAccessToken()
       const alreadySelected = Object.entries(selections)
         .filter(([key, sel]) => !key.startsWith(`${date}:`) && sel !== null && sel !== undefined)
         .map(([, sel]) => ({ date: (sel as DaySelection).date, recipe_id: (sel as DaySelection).recipe_id }))
 
       const res = await fetch('/api/plan/suggest/swap', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           date,
           meal_type:        mealType,
@@ -308,10 +305,9 @@ function PlanPageInner() {
 
   async function handleFreeTextMatch(query: string, date: string, mealType: MealType): Promise<{ matched: boolean }> {
     try {
-      const token = await getAccessToken()
       const res = await fetch('/api/plan/match', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query, date, meal_type: mealType }),
       })
       if (!res.ok) return { matched: false }
@@ -398,10 +394,9 @@ function PlanPageInner() {
           }
         })
 
-      const token = await getAccessToken()
       const res = await fetch('/api/plan', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ week_start: setup.weekStart, entries }),
       })
 
@@ -424,7 +419,7 @@ function PlanPageInner() {
         if (!parent) continue
         await fetch('/api/plan/entries', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             week_start:      setup.weekStart,
             date,
@@ -447,7 +442,7 @@ function PlanPageInner() {
         if (!parent) continue
         await fetch('/api/plan/entries', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             week_start:      setup.weekStart,
             date,

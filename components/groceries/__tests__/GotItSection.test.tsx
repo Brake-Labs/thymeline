@@ -9,9 +9,6 @@ import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/re
 
 afterEach(() => cleanup())
 
-vi.mock('@/lib/supabase/browser', () => ({
-  getAccessToken: async () => 'mock-token',
-}))
 
 const mockFetch = vi.fn()
 vi.stubGlobal('fetch', mockFetch)

@@ -8,9 +8,6 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
 }))
 
-vi.mock('@/lib/supabase/browser', () => ({
-  getAccessToken: async () => 'mock-token',
-}))
 
 const WEEK_START = '2026-03-01'
 const DATE_1 = '2026-03-01'

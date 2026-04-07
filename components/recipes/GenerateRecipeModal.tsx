@@ -9,14 +9,12 @@ import type { GeneratedRecipe } from '@/types'
 interface Props {
   onClose:              () => void
   onSaved:              () => void
-  getToken:             () => Promise<string> | string
   initialIngredients?:  string
 }
 
 export default function GenerateRecipeModal({
   onClose,
   onSaved,
-  getToken,
   initialIngredients,
 }: Props) {
   const [generatedRecipe, setGeneratedRecipe] = useState<GeneratedRecipe | null>(null)
@@ -27,10 +25,9 @@ export default function GenerateRecipeModal({
     setIsSubmitting(true)
     setSaveError(null)
     try {
-      const token = await getToken()
       const res = await fetch('/api/recipes', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: values.title,
           category: values.category || undefined,
@@ -56,7 +53,7 @@ export default function GenerateRecipeModal({
       if (values.lastMade && created.id) {
         await fetch(`/api/recipes/${created.id}/log`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ made_on: values.lastMade }),
         })
       }
@@ -106,7 +103,6 @@ export default function GenerateRecipeModal({
         <div className="overflow-y-auto px-6 py-5 flex-1">
           {!generatedRecipe ? (
             <GenerateRecipeTab
-              getToken={getToken}
               onGenerated={setGeneratedRecipe}
               initialIngredients={initialIngredients}
             />

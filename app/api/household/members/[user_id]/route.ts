@@ -2,10 +2,14 @@ import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { updateMemberRoleSchema, parseBody } from '@/lib/schemas'
 import { canManage } from '@/lib/household'
+import { db } from '@/lib/db'
+import { householdMembers } from '@/lib/db/schema'
+import { eq, and } from 'drizzle-orm'
+import { dbFirst } from '@/lib/db/helpers'
 
 // ── DELETE /api/household/members/[user_id] — remove a member ────────────────
 
-export const DELETE = withAuth(async (req, { user, db, ctx }, params) => {
+export const DELETE = withAuth(async (req, { user, ctx }, params) => {
   if (!ctx) {
     return NextResponse.json({ error: 'Not in a household' }, { status: 404 })
   }
@@ -20,12 +24,15 @@ export const DELETE = withAuth(async (req, { user, db, ctx }, params) => {
   }
 
   // Fetch target member
-  const { data: target } = await db
-    .from('household_members')
-    .select('role')
-    .eq('household_id', ctx.householdId)
-    .eq('user_id', targetUserId)
-    .single()
+  const targetRows = await db
+    .select({ role: householdMembers.role })
+    .from(householdMembers)
+    .where(and(
+      eq(householdMembers.householdId, ctx.householdId),
+      eq(householdMembers.userId, targetUserId),
+    ))
+
+  const target = dbFirst(targetRows)
 
   if (!target) {
     return NextResponse.json({ error: 'Member not found' }, { status: 404 })
@@ -44,22 +51,24 @@ export const DELETE = withAuth(async (req, { user, db, ctx }, params) => {
     )
   }
 
-  const { error: deleteError } = await db
-    .from('household_members')
-    .delete()
-    .eq('household_id', ctx.householdId)
-    .eq('user_id', targetUserId)
+  try {
+    await db
+      .delete(householdMembers)
+      .where(and(
+        eq(householdMembers.householdId, ctx.householdId),
+        eq(householdMembers.userId, targetUserId),
+      ))
 
-  if (deleteError) {
+    return new NextResponse(null, { status: 204 })
+  } catch (err) {
+    console.error('[DELETE /api/household/members] error:', err)
     return NextResponse.json({ error: 'Failed to remove member' }, { status: 500 })
   }
-
-  return new NextResponse(null, { status: 204 })
 })
 
 // ── PATCH /api/household/members/[user_id] — change role (owner only) ─────────
 
-export const PATCH = withAuth(async (req, { db, ctx }, params) => {
+export const PATCH = withAuth(async (req, { ctx }, params) => {
   if (!ctx) {
     return NextResponse.json({ error: 'Not in a household' }, { status: 404 })
   }
@@ -70,15 +79,18 @@ export const PATCH = withAuth(async (req, { db, ctx }, params) => {
   const { data: body, error: parseError } = await parseBody(req, updateMemberRoleSchema)
   if (parseError) return parseError
 
-  const { error: updateError } = await db
-    .from('household_members')
-    .update({ role: body.role })
-    .eq('household_id', ctx.householdId)
-    .eq('user_id', params.user_id!)
+  try {
+    await db
+      .update(householdMembers)
+      .set({ role: body.role })
+      .where(and(
+        eq(householdMembers.householdId, ctx.householdId),
+        eq(householdMembers.userId, params.user_id!),
+      ))
 
-  if (updateError) {
+    return NextResponse.json({ user_id: params.user_id!, role: body.role })
+  } catch (err) {
+    console.error('[PATCH /api/household/members] error:', err)
     return NextResponse.json({ error: 'Failed to update role' }, { status: 500 })
   }
-
-  return NextResponse.json({ user_id: params.user_id!, role: body.role })
 })

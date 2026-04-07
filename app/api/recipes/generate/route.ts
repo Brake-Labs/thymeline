@@ -32,7 +32,7 @@ function parseNonNegativeInt(val: unknown): number | null {
   return val
 }
 
-export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
+export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
   const { data: body, error: parseError } = await parseBody(req, generateRecipeSchema)
   if (parseError) return parseError
 
@@ -40,8 +40,8 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
 
   // Fetch taste profile + current plan in parallel
   const [tasteProfile, currentPlanRecipes] = await Promise.all([
-    deriveTasteProfile(user.id, db, ctx ?? null).catch(() => null),
-    fetchCurrentWeekPlan(user.id, db, ctx ?? null).catch(() => [] as RecipeForOverlap[]),
+    deriveTasteProfile(user.id, null, ctx ?? null).catch(() => null),
+    fetchCurrentWeekPlan(user.id, null, ctx ?? null).catch(() => [] as RecipeForOverlap[]),
   ])
 
   // Parse specific_ingredients

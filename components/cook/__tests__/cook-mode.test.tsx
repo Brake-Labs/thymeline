@@ -19,14 +19,6 @@ vi.mock('next/link', () => ({
     <a href={href} {...props}>{children}</a>,
 }))
 
-// ── Mock auth ────────────────────────────────────────────────────────────────
-
-vi.mock('@/lib/supabase/browser', () => ({
-  getAccessToken: async () => 'test-token',
-  getSupabaseClient: () => ({
-    auth: { getSession: async () => ({ data: { session: { user: { id: 'user-1' } } } }) },
-  }),
-}))
 
 // ── Wake lock mock ────────────────────────────────────────────────────────────
 
@@ -130,7 +122,7 @@ afterEach(() => {
 
 // ── T01, T02: Start Cooking button on detail page ────────────────────────────
 // Source-code checks: rendering RecipeDetailPage in jsdom requires mocking its
-// entire Supabase + auth dependency tree, which is out of scope here.
+// entire auth dependency tree, which is out of scope here.
 // Instead we verify the link and conditional logic exist in the source.
 
 describe('T01/T02 - Start Cooking button on detail page', () => {

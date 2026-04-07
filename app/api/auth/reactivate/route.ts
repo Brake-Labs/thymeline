@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
+import { db } from '@/lib/db'
+import { userPreferences } from '@/lib/db/schema'
+import { eq } from 'drizzle-orm'
 
 /**
  * Restores is_active = true for a user who was previously provisioned.
@@ -13,32 +16,27 @@ import { withAuth } from '@/lib/auth'
  * This handles accounts where both onboarding_completed and is_active were
  * corrupted to false by the old plain-upsert bug in invite/consume.
  */
-export const POST = withAuth(async (req, { user, db }) => {
-  // Check whether a preferences row exists for this user
-  const { error: prefsError } = await db
-    .from('user_preferences')
-    .select('user_id')
-    .eq('user_id', user.id)
-    .single()
+export const POST = withAuth(async (req, { user }) => {
+  try {
+    // Check whether a preferences row exists for this user
+    const prefsRows = await db
+      .select({ userId: userPreferences.userId })
+      .from(userPreferences)
+      .where(eq(userPreferences.userId, user.id))
 
-  // PGRST116 = no row found — user was never provisioned, deny reactivation
-  if (prefsError?.code === 'PGRST116') {
-    return NextResponse.json({ error: 'Not eligible for reactivation' }, { status: 403 })
-  }
-  if (prefsError) {
-    console.error('Reactivation prefs check failed:', prefsError.message, prefsError.code)
+    // No row found — user was never provisioned, deny reactivation
+    if (prefsRows.length === 0) {
+      return NextResponse.json({ error: 'Not eligible for reactivation' }, { status: 403 })
+    }
+
+    await db
+      .update(userPreferences)
+      .set({ isActive: true })
+      .where(eq(userPreferences.userId, user.id))
+
+    return NextResponse.json({ success: true })
+  } catch (err) {
+    console.error('[POST /api/auth/reactivate] error:', err)
     return NextResponse.json({ error: 'Failed to check eligibility' }, { status: 500 })
   }
-
-  const { error } = await db
-    .from('user_preferences')
-    .update({ is_active: true })
-    .eq('user_id', user.id)
-
-  if (error) {
-    console.error('Reactivation update failed:', error.message, error.code)
-    return NextResponse.json({ error: 'Failed to reactivate account' }, { status: 500 })
-  }
-
-  return NextResponse.json({ success: true })
 })

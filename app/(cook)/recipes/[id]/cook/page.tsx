@@ -9,7 +9,6 @@ import IngredientChecklist from '@/components/cook/IngredientChecklist'
 import VoiceControl, { type VoiceCommand } from '@/components/cook/VoiceControl'
 import ActiveTimersBar from '@/components/cook/ActiveTimersBar'
 import { type TimerState, deriveTimerLabel } from '@/components/cook/StepTimer'
-import { getAccessToken } from '@/lib/supabase/browser'
 import { getTodayISO } from '@/lib/date-utils'
 import { TOAST_DURATION_LONG_MS } from '@/lib/constants'
 import { type Recipe } from '@/types'
@@ -60,9 +59,7 @@ export default function CookModePage({ params }: Props) {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch(`/api/recipes/${params.id}`, {
-          headers: { Authorization: `Bearer ${await getAccessToken()}` },
-        })
+        const res = await fetch(`/api/recipes/${params.id}`)
         if (!res.ok) { router.replace(`/recipes/${params.id}`); return }
         let data: RecipeWithHistory = await res.json()
         // Apply AI-modified version if one was snapshotted at mount time
@@ -203,7 +200,6 @@ export default function CookModePage({ params }: Props) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${await getAccessToken()}`,
         },
         body: JSON.stringify({ made_on: today }),
       })
@@ -370,7 +366,6 @@ export default function CookModePage({ params }: Props) {
           <MakeAgainPrompt
             entryId={makeAgainEntryId}
             recipeId={params.id}
-            getToken={getAccessToken}
             onDismiss={() => setMakeAgainEntryId(null)}
           />
         </div>
@@ -451,7 +446,6 @@ export default function CookModePage({ params }: Props) {
         <AddRecipeModal
           onClose={() => setShowSaveAsNew(false)}
           onSaved={() => setShowSaveAsNew(false)}
-          getToken={getAccessToken}
           prefillManual={{
             title:       `${storedModified.title} (modified)`,
             ingredients: storedModified.ingredients,

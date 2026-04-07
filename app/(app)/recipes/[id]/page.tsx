@@ -13,7 +13,6 @@ import AIEditSheet from '@/components/recipes/AIEditSheet'
 import ModifiedRecipeBadge from '@/components/recipes/ModifiedRecipeBadge'
 import AddRecipeModal from '@/components/recipes/AddRecipeModal'
 import GenerateRecipeModal from '@/components/recipes/GenerateRecipeModal'
-import { getAccessToken, getSupabaseClient } from '@/lib/supabase/browser'
 import { getTodayISO } from '@/lib/date-utils'
 import { TOAST_DURATION_MS } from '@/lib/constants'
 import { convertIngredients } from '@/lib/convert-units'
@@ -52,17 +51,20 @@ export default function RecipeDetailPage({ params }: Props) {
 
   useEffect(() => {
     void (async () => {
-      const { data } = await getSupabaseClient().auth.getSession()
-      setCurrentUserId(data.session?.user?.id ?? '')
+      try {
+        const res = await fetch('/api/auth/get-session')
+        if (res.ok) {
+          const data = await res.json()
+          setCurrentUserId(data.user?.id ?? '')
+        }
+      } catch { /* ignore */ }
     })()
   }, [])
 
   useEffect(() => {
     async function fetchRecipe() {
       try {
-        const r = await fetch(`/api/recipes/${params.id}`, {
-          headers: { Authorization: `Bearer ${await getAccessToken()}` },
-        })
+        const r = await fetch(`/api/recipes/${params.id}`)
         if (r.status === 404) { setNotFound(true); setLoading(false); return }
         if (!r.ok) throw new Error('Failed to load recipe')
         const data: RecipeWithHistory = await r.json()
@@ -96,7 +98,6 @@ export default function RecipeDetailPage({ params }: Props) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${await getAccessToken()}`,
         },
         body: JSON.stringify({ made_on: logDate }),
       })
@@ -338,7 +339,6 @@ export default function RecipeDetailPage({ params }: Props) {
               <MakeAgainPrompt
                 entryId={makeAgainEntryId}
                 recipeId={recipe.id}
-                getToken={getAccessToken}
                 onDismiss={() => setMakeAgainEntryId(null)}
               />
             </div>
@@ -424,7 +424,6 @@ export default function RecipeDetailPage({ params }: Props) {
       {showDelete && (
         <DeleteConfirmDialog
           recipeId={recipe.id}
-          getToken={getAccessToken}
           onCancel={() => setShowDelete(false)}
         />
       )}
@@ -464,7 +463,6 @@ export default function RecipeDetailPage({ params }: Props) {
         <GenerateRecipeModal
           onClose={() => setShowRegenerate(false)}
           onSaved={() => setShowRegenerate(false)}
-          getToken={getAccessToken}
           initialIngredients={recipe.ingredients ?? ''}
         />
       )}
@@ -496,7 +494,6 @@ export default function RecipeDetailPage({ params }: Props) {
         <AddRecipeModal
           onClose={() => { setShowAddRecipe(false); setSaveAsNewPrefill(null) }}
           onSaved={() => { setShowAddRecipe(false); setSaveAsNewPrefill(null) }}
-          getToken={getAccessToken}
           initialTab="manual"
           prefillManual={
             saveAsNewPrefill

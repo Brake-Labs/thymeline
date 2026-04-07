@@ -37,16 +37,43 @@ vi.mock('@/lib/taste-profile', () => ({
   deriveTasteProfile: vi.fn().mockImplementation(() => Promise.resolve(tasteProfileOverride)),
 }))
 
-vi.mock('@/lib/supabase-server', () => ({
-  createServerClient: vi.fn(),
-  createAdminClient:  vi.fn(() => makeDb()),
+vi.mock('@/lib/db', () => ({
+  db: {
+    select: vi.fn(),
+    insert: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    execute: vi.fn().mockResolvedValue({ rows: [] }),
+  },
+}))
+
+vi.mock('@/lib/auth-server', () => ({
+  auth: { api: { getSession: vi.fn() } },
+}))
+
+vi.mock('@/lib/db/schema', () => ({
+  recipes: { id: 'id', userId: 'userId', householdId: 'householdId', title: 'title', tags: 'tags', category: 'category' },
+  recipeHistory: { recipeId: 'recipeId', userId: 'userId', madeOn: 'madeOn' },
+  mealPlans: { id: 'id', userId: 'userId', weekStart: 'weekStart', householdId: 'householdId' },
+  mealPlanEntries: { id: 'id', mealPlanId: 'mealPlanId', recipeId: 'recipeId', plannedDate: 'plannedDate' },
+  userPreferences: { userId: 'userId' },
+  pantryItems: { userId: 'userId', name: 'name', expiryDate: 'expiryDate', householdId: 'householdId' },
+}))
+
+vi.mock('@/lib/db/helpers', () => ({
+  dbFirst: (rows: unknown[]) => rows[0] ?? null,
+  dbSingle: (rows: unknown[]) => {
+    if (rows.length === 0) throw new Error('Expected exactly one row, got 0')
+    return rows[0]
+  },
 }))
 
 vi.mock('@/lib/household', () => ({
   resolveHouseholdScope: vi.fn().mockResolvedValue(null),
   canManage: () => true,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  scopeQuery: (query: any, userId: string) => query.eq('user_id', userId),
+  scopeCondition: vi.fn().mockReturnValue({}),
+  scopeInsert: vi.fn((userId: string) => ({ userId })),
+  checkOwnership: vi.fn().mockResolvedValue({ owned: true }),
 }))
 
 vi.mock('@anthropic-ai/sdk', () => ({
@@ -70,93 +97,45 @@ vi.mock('@anthropic-ai/sdk', () => ({
   },
 }))
 
-import { createServerClient } from '@/lib/supabase-server'
-
-function makeDb() {
+// Mock the plan helpers
+vi.mock('@/app/api/plan/helpers', async () => {
+  const actual = await vi.importActual<typeof import('@/app/api/plan/helpers')>('@/app/api/plan/helpers')
   return {
-    auth: {
-      getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null }),
-    },
-    from: vi.fn((table: string) => {
-      if (table === 'recipes') {
-        return {
-          select: () => ({
-            in: (_col: string, cats: string[]) => ({
-              eq: () => ({
-                in: () => ({
-                  then: (resolve: (v: { data: typeof mockRecipes; error: null }) => void) =>
-                    Promise.resolve({ data: mockRecipes.filter((r) => cats.includes(r.category)), error: null }).then(resolve),
-                }),
-                then: (resolve: (v: { data: typeof mockRecipes; error: null }) => void) =>
-                  Promise.resolve({ data: mockRecipes.filter((r) => cats.includes(r.category)), error: null }).then(resolve),
-              }),
-              then: (resolve: (v: { data: typeof mockRecipes; error: null }) => void) =>
-                Promise.resolve({ data: mockRecipes.filter((r) => cats.includes(r.category)), error: null }).then(resolve),
-            }),
-          }),
-        }
-      }
-      if (table === 'recipe_history') {
-        const chain: Record<string, unknown> = {
-          select: () => chain,
-          eq: () => chain,
-          in: () => chain,
-          gte: async () => ({ data: mockRecentHistory, error: null }),
-          order: () => ({ limit: async () => ({ data: [], error: null }) }),
-          then: (resolve: (v: { data: unknown[]; error: null }) => void) =>
-            Promise.resolve({ data: [], error: null }).then(resolve),
-        }
-        return chain
-      }
-      if (table === 'user_preferences') {
-        return {
-          select: () => ({
-            eq: () => ({
-              single: async () => ({
-                data: { user_id: 'user-1', options_per_day: 3, cooldown_days: mockCooldownDays, seasonal_mode: false,
-                  preferred_tags: [], avoided_tags: [], limited_tags: [], seasonal_rules: null,
-                  onboarding_completed: true, is_active: true },
-                error: null,
-              }),
-            }),
-          }),
-        }
-      }
-      if (table === 'meal_plans') {
-        return {
-          select: () => ({
-            eq: () => Object.assign(
-              Promise.resolve({ data: [], error: null }),
-              { eq: () => Object.assign(Promise.resolve({ data: [], error: null }), { maybeSingle: async () => ({ data: null, error: null }) }) },
-            ),
-          }),
-        }
-      }
-      if (table === 'meal_plan_entries') {
-        return {
-          select: () => ({
-            eq: () => ({ gte: async () => ({ data: [], error: null }) }),
-          }),
-        }
-      }
-      if (table === 'pantry_items') {
-        const chain: Record<string, unknown> = {
-          select: () => chain,
-          eq: () => chain,
-          order: () => chain,
-          limit: async () => ({ data: [], error: null }),
-        }
-        return chain
-      }
-      return {}
+    ...actual,
+    fetchRecipesByMealTypes: vi.fn().mockImplementation(async () => {
+      // Filter by cooldown
+      const available = mockCooldownDays > 0 && mockRecentHistory.length > 0
+        ? mockRecipes.filter(r => !mockRecentHistory.some(h => h.recipe_id === r.id))
+        : mockRecipes
+      return { dinner: available.filter(r => r.category === 'main_dish') }
     }),
+    fetchUserPreferences: vi.fn().mockImplementation(async () => ({
+      user_id: 'user-1', options_per_day: 3, cooldown_days: mockCooldownDays, seasonal_mode: false,
+      preferred_tags: [], avoided_tags: [], limited_tags: [], seasonal_rules: null,
+      onboarding_completed: true, is_active: true,
+    })),
+    fetchRecentHistory: vi.fn().mockResolvedValue([]),
+    fetchPantryContext: vi.fn().mockResolvedValue(''),
   }
+})
+
+// Mock db.select to return empty plans (no already-planned exclusion)
+function mockChain(result: unknown[] = []) {
+  const chain: Record<string, unknown> = {}
+  for (const m of ['from', 'where', 'orderBy', 'limit', 'offset', 'innerJoin', 'leftJoin',
+    'set', 'values', 'onConflictDoUpdate', 'onConflictDoNothing', 'returning', 'groupBy']) {
+    chain[m] = vi.fn().mockReturnValue(chain)
+  }
+  chain.then = vi.fn().mockImplementation(
+    (resolve: (v: unknown) => void) => Promise.resolve(result).then(resolve),
+  )
+  return chain
 }
 
 function makeReq(body: unknown): NextRequest {
   return new NextRequest('http://localhost/api/plan/suggest', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer token' },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
 }
@@ -170,7 +149,7 @@ const baseBody = {
   free_text: '',
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.resetModules()
   capturedSystemMessage = ''
   capturedUserMessage = ''
@@ -186,7 +165,18 @@ beforeEach(() => {
     cooking_frequency: 'moderate',
     recent_recipes: [],
   }
-  vi.mocked(createServerClient).mockReturnValue(makeDb() as unknown as ReturnType<typeof createServerClient>)
+
+  const { auth } = await import('@/lib/auth-server')
+  const mockSession = {
+    user: { id: 'user-1', email: 'test@example.com', name: 'Test', image: null },
+    session: { id: 'sess-1', createdAt: new Date(), updatedAt: new Date(), userId: 'user-1', expiresAt: new Date(Date.now() + 86400000), token: 'tok' },
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock session type
+  vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
+
+  const { db } = await import('@/lib/db')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock chain type
+  vi.mocked(db.select).mockReturnValue(mockChain([]) as any)
 })
 
 describe('Plan suggest — taste profile injection', () => {

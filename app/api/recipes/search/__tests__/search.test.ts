@@ -5,11 +5,11 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { tableMockWithChain } from '@/test/helpers'
+import { defaultMockState, defaultGetSession, makeRequest, mockHousehold } from '@/test/helpers'
 
 // ── Shared mock state ──────────────────────────────────────────────────────────
 
-const mockUser = { id: 'user-1' }
+const mockState = defaultMockState()
 
 const sampleRecipes = [
   {
@@ -17,7 +17,7 @@ const sampleRecipes = [
     title: 'Chicken Tikka Masala',
     category: 'main_dish',
     tags: ['Indian', 'Chicken'],
-    total_time_minutes: 60,
+    totalTimeMinutes: 60,
     ingredients: '500g chicken\n2 tbsp tikka paste',
   },
   {
@@ -25,7 +25,7 @@ const sampleRecipes = [
     title: 'Caesar Salad',
     category: 'side_dish',
     tags: ['Quick', 'American'],
-    total_time_minutes: 15,
+    totalTimeMinutes: 15,
     ingredients: 'romaine lettuce\nparmesan\ncroutons',
   },
   {
@@ -33,33 +33,28 @@ const sampleRecipes = [
     title: 'Beef Stew',
     category: 'main_dish',
     tags: ['Comfort', 'Beef'],
-    total_time_minutes: 180,
+    totalTimeMinutes: 180,
     ingredients: 'beef chuck\npotatoes\ncarrots',
   },
 ]
 
-// ── Supabase mock factory ─────────────────────────────────────────────────────
+// ── Mock chain builder ───────────────────────────────────────────────────────
 
-function makeSupabaseMock(opts: {
-  user?: typeof mockUser | null
-  recipes?: typeof sampleRecipes
-  history?: { recipe_id: string; made_on: string }[]
-}) {
-  const { user = mockUser, recipes = sampleRecipes, history = [] } = opts
-
-  return {
-    auth: {
-      getUser: vi.fn().mockResolvedValue({
-        data: { user },
-        error: user ? null : new Error('No user'),
-      }),
-    },
-    from: tableMockWithChain({
-      recipes: { select: { data: recipes } },
-      recipe_history: { select: { data: history } },
-    }),
+function mockChain(result: unknown[] = []) {
+  const chain: Record<string, unknown> = {}
+  const methods = ['from', 'where', 'orderBy', 'limit', 'offset', 'innerJoin', 'leftJoin',
+    'set', 'values', 'onConflictDoUpdate', 'onConflictDoNothing', 'returning', 'groupBy']
+  for (const m of methods) {
+    chain[m] = vi.fn().mockReturnValue(chain)
   }
+  chain.then = vi.fn().mockImplementation(
+    (resolve: (v: unknown) => void) => Promise.resolve(result).then(resolve),
+  )
+  return chain
 }
+
+let selectResults: unknown[][] = [sampleRecipes, []]
+let selectCallIdx = 0
 
 // ── LLM mock ─────────────────────────────────────────────────────────────────
 
@@ -73,63 +68,64 @@ vi.mock('@/lib/llm', async (importOriginal) => {
   }
 })
 
-vi.mock('@/lib/supabase-server', () => ({
-  createServerClient: vi.fn(),
-  createAdminClient:  vi.fn(),
-}))
-
-vi.mock('@/lib/household', () => ({
-  resolveHouseholdScope: async () => null,
-  canManage: (role: string) => role === 'owner' || role === 'co_owner',
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  scopeQuery: (query: any, userId: string, ctx: any) => {
-    if (ctx) return query.eq('household_id', ctx.householdId)
-    return query.eq('user_id', userId)
+vi.mock('@/lib/db', () => ({
+  db: {
+    select: vi.fn(() => {
+      const result = selectResults[selectCallIdx] ?? []
+      selectCallIdx++
+      return mockChain(result)
+    }),
+    insert: vi.fn(() => mockChain([])),
+    update: vi.fn(() => mockChain([])),
+    delete: vi.fn(() => mockChain([])),
+    execute: vi.fn().mockResolvedValue({ rows: [] }),
   },
 }))
 
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
+vi.mock('@/lib/auth-server', () => ({
+  auth: {
+    api: {
+      getSession: vi.fn(),
+    },
+  },
+}))
+
+vi.mock('@/lib/household', () => mockHousehold())
+
 import { callLLM } from '@/lib/llm'
 
-
-function makeReq(body?: unknown, headers: Record<string, string> = {}): Request {
-  return new Request('http://localhost/api/recipes/search', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test', ...headers },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  })
+async function setupAuth() {
+  const { auth } = await import('@/lib/auth-server')
+  vi.mocked(auth.api.getSession).mockImplementation(defaultGetSession(mockState))
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('POST /api/recipes/search', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.resetModules()
+    selectCallIdx = 0
+    selectResults = [sampleRecipes, []]
+    await setupAuth()
   })
 
   it('T18: returns empty results when LLM returns []', async () => {
-    const mock = makeSupabaseMock({})
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
     vi.mocked(callLLM).mockResolvedValueOnce('[]')
 
     const { POST } = await import('../route')
-    const req = makeReq({ query: 'xyzzy nothing matches' })
-    const res = await POST(req as Parameters<typeof POST>[0])
+    const req = makeRequest('POST', 'http://localhost/api/recipes/search', { query: 'xyzzy nothing matches' })
+    const res = await POST(req)
     expect(res.status).toBe(200)
     const json = await res.json()
     expect(json.results).toEqual([])
   })
 
   it('T15: returns relevant results ordered by LLM rank', async () => {
-    const mock = makeSupabaseMock({})
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
     vi.mocked(callLLM).mockResolvedValueOnce('["recipe-1","recipe-3"]')
 
     const { POST } = await import('../route')
-    const req = makeReq({ query: 'chicken or beef' })
-    const res = await POST(req as Parameters<typeof POST>[0])
+    const req = makeRequest('POST', 'http://localhost/api/recipes/search', { query: 'chicken or beef' })
+    const res = await POST(req)
     expect(res.status).toBe(200)
     const json = await res.json()
     expect(json.results).toHaveLength(2)
@@ -138,14 +134,11 @@ describe('POST /api/recipes/search', () => {
   })
 
   it('security: silently drops IDs not in the user recipe list', async () => {
-    const mock = makeSupabaseMock({})
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
     vi.mocked(callLLM).mockResolvedValueOnce('["recipe-1","evil-injected-uuid"]')
 
     const { POST } = await import('../route')
-    const req = makeReq({ query: 'anything' })
-    const res = await POST(req as Parameters<typeof POST>[0])
+    const req = makeRequest('POST', 'http://localhost/api/recipes/search', { query: 'anything' })
+    const res = await POST(req)
     const json = await res.json()
     const ids = json.results.map((r: { recipe_id: string }) => r.recipe_id)
     expect(ids).not.toContain('evil-injected-uuid')
@@ -153,14 +146,10 @@ describe('POST /api/recipes/search', () => {
   })
 
   it('T16: applies filters on top of LLM results', async () => {
-    const mock = makeSupabaseMock({})
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
-    // LLM ranks all three; filters should remove the slow recipes
     vi.mocked(callLLM).mockResolvedValueOnce('["recipe-1","recipe-2","recipe-3"]')
 
     const { POST } = await import('../route')
-    const req = makeReq({
+    const req = makeRequest('POST', 'http://localhost/api/recipes/search', {
       query: 'quick food',
       filters: {
         tags: [],
@@ -171,7 +160,7 @@ describe('POST /api/recipes/search', () => {
         neverMade: false,
       },
     })
-    const res = await POST(req as Parameters<typeof POST>[0])
+    const res = await POST(req)
     const json = await res.json()
     // Only recipe-2 (15 min) passes the 30-min filter
     expect(json.results).toHaveLength(1)
@@ -179,28 +168,20 @@ describe('POST /api/recipes/search', () => {
   })
 
   it('returns empty results for empty query', async () => {
-    const mock = makeSupabaseMock({})
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
-
     const { POST } = await import('../route')
-    const req = makeReq({ query: '   ' })
-    const res = await POST(req as Parameters<typeof POST>[0])
+    const req = makeRequest('POST', 'http://localhost/api/recipes/search', { query: '   ' })
+    const res = await POST(req)
     expect(res.status).toBe(200)
     const json = await res.json()
     expect(json.results).toEqual([])
   })
 
   it('regression: parses LLM response wrapped in markdown fences', async () => {
-    const mock = makeSupabaseMock({})
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
-    // LLM returns JSON wrapped in a ```json fence
     vi.mocked(callLLM).mockResolvedValueOnce('```json\n["recipe-1","recipe-3"]\n```')
 
     const { POST } = await import('../route')
-    const req = makeReq({ query: 'chicken or beef' })
-    const res = await POST(req as Parameters<typeof POST>[0])
+    const req = makeRequest('POST', 'http://localhost/api/recipes/search', { query: 'chicken or beef' })
+    const res = await POST(req)
     expect(res.status).toBe(200)
     const json = await res.json()
     expect(json.results).toHaveLength(2)
@@ -209,14 +190,11 @@ describe('POST /api/recipes/search', () => {
   })
 
   it('regression: parses LLM response with prose before the fence', async () => {
-    const mock = makeSupabaseMock({})
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
     vi.mocked(callLLM).mockResolvedValueOnce('Here are the matching recipes:\n```json\n["recipe-2"]\n```')
 
     const { POST } = await import('../route')
-    const req = makeReq({ query: 'quick salad' })
-    const res = await POST(req as Parameters<typeof POST>[0])
+    const req = makeRequest('POST', 'http://localhost/api/recipes/search', { query: 'quick salad' })
+    const res = await POST(req)
     expect(res.status).toBe(200)
     const json = await res.json()
     expect(json.results).toHaveLength(1)
