@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import WeekPicker from './WeekPicker'
 import DayTogglePicker from './DayTogglePicker'
 import MealTypePicker from './MealTypePicker'
@@ -19,6 +19,14 @@ interface SetupStepProps {
 export default function SetupStep({ setup, weekStartDay = 0, onSetupChange, onGetSuggestions, isGenerating }: SetupStepProps) {
   const [allTags, setAllTags] = useState<string[]>([])
   const [tagsExpanded, setTagsExpanded] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  const adjustHeight = useCallback(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [])
 
   useEffect(() => {
     async function loadTags() {
@@ -77,12 +85,15 @@ export default function SetupStep({ setup, weekStartDay = 0, onSetupChange, onGe
         <p className="text-xs text-stone-400 mb-2">{"e.g. \"Busy week, keep it quick\" or \"Feeling adventurous\""}</p>
         <div className="relative">
           <textarea
+            ref={textareaRef}
             value={setup.freeText}
-            onChange={(e) => onSetupChange({ freeText: e.target.value.slice(0, 300) })}
+            onChange={(e) => {
+              onSetupChange({ freeText: e.target.value.slice(0, 300) })
+              adjustHeight()
+            }}
             maxLength={300}
-            rows={2}
             placeholder="Anything to keep in mind this week?"
-            className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-800 placeholder-stone-300 resize-none focus:outline-none focus:ring-2 focus:ring-sage-500"
+            className="w-full min-h-[3rem] border border-stone-200 rounded-lg px-3 pb-6 py-2 text-sm text-stone-800 placeholder-stone-300 resize-none focus:outline-none focus:ring-2 focus:ring-sage-500 overflow-hidden"
           />
           <span className="absolute bottom-2 right-2 text-xs text-stone-400">
             {setup.freeText.length}/300
