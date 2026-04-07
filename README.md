@@ -14,13 +14,7 @@ AI-powered weekly meal planning app built with Next.js, Better Auth, Drizzle ORM
 ### 1. Start Postgres
 
 ```bash
-docker run -d \
-  --name thymeline-db \
-  -e POSTGRES_DB=thymeline \
-  -e POSTGRES_USER=thymeline \
-  -e POSTGRES_PASSWORD=thymeline \
-  -p 5432:5432 \
-  postgres:16-alpine
+docker compose up -d
 ```
 
 ### 2. Set up Google OAuth

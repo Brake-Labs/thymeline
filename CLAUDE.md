@@ -35,9 +35,7 @@ track what they've cooked.
 ### Quick start
 ```bash
 # 1. Start Postgres
-docker run -d --name thymeline-db \
-  -e POSTGRES_DB=thymeline -e POSTGRES_USER=thymeline -e POSTGRES_PASSWORD=thymeline \
-  -p 5432:5432 postgres:16-alpine
+docker compose up -d
 
 # 2. Configure env
 cp .env.local.example .env.local   # then fill in credentials
