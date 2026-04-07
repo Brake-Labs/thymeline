@@ -17,7 +17,8 @@ export const PATCH = withAuth(async (req: NextRequest, { user, db, ctx }) => {
     .in('id', recipeIds)
 
   if (fetchError) {
-    return NextResponse.json({ error: fetchError.message }, { status: 500 })
+    console.error('Bulk fetch failed:', fetchError.message, fetchError.code)
+    return NextResponse.json({ error: 'Failed to fetch recipes' }, { status: 500 })
   }
 
   const found = recipes ?? []
@@ -53,7 +54,8 @@ export const PATCH = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   const results = await Promise.all(updatePromises)
   const errors = results.filter((r) => r.error)
   if (errors.length > 0) {
-    return NextResponse.json({ error: errors[0]?.error?.message }, { status: 500 })
+    console.error('Bulk update failed:', errors[0]?.error?.message)
+    return NextResponse.json({ error: 'Failed to update recipes' }, { status: 500 })
   }
 
   const updatedRecipes = results.map((r) => r.data)

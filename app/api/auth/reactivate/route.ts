@@ -26,7 +26,8 @@ export const POST = withAuth(async (req, { user, db }) => {
     return NextResponse.json({ error: 'Not eligible for reactivation' }, { status: 403 })
   }
   if (prefsError) {
-    return NextResponse.json({ error: prefsError.message }, { status: 500 })
+    console.error('Reactivation prefs check failed:', prefsError.message, prefsError.code)
+    return NextResponse.json({ error: 'Failed to check eligibility' }, { status: 500 })
   }
 
   const { error } = await db
@@ -35,7 +36,8 @@ export const POST = withAuth(async (req, { user, db }) => {
     .eq('user_id', user.id)
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error('Reactivation update failed:', error.message, error.code)
+    return NextResponse.json({ error: 'Failed to reactivate account' }, { status: 500 })
   }
 
   return NextResponse.json({ success: true })

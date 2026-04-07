@@ -24,7 +24,8 @@ export const PATCH = withAuth(async (req: NextRequest, { user, db, ctx }, params
     .single()
 
   if (updateError) {
-    return NextResponse.json({ error: updateError.message }, { status: 500 })
+    console.error('Share update failed:', updateError.message, updateError.code)
+    return NextResponse.json({ error: 'Failed to update share status' }, { status: 500 })
   }
 
   return NextResponse.json(updated)

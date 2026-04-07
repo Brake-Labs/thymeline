@@ -3,6 +3,7 @@ import { withAuth } from '@/lib/auth'
 import { validateTags } from '@/lib/tags'
 import { createAdminClient } from '@/lib/supabase-server'
 import { updateRecipeSchema, parseBody } from '@/lib/schemas'
+import { checkOwnership } from '@/lib/household'
 
 // Helper: attach last_made + times_made to a recipe row
 async function withHistory(
@@ -24,7 +25,7 @@ async function withHistory(
   return { ...recipe, last_made, times_made: rows.length, dates_made }
 }
 
-export const GET = withAuth(async (req, { db }, params) => {
+export const GET = withAuth(async (req, { user, db, ctx }, params) => {
   const id = params.id!
 
   const { data: recipe, error } = await db
@@ -35,6 +36,15 @@ export const GET = withAuth(async (req, { db }, params) => {
 
   if (error || !recipe) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+
+  // Allow access if: owner/household member, or recipe is shared
+  if (!recipe.is_shared) {
+    const ownership = await checkOwnership(db, 'recipes', id, user.id, ctx)
+    if (!ownership.owned) {
+      const msg = ownership.status === 404 ? 'Not found' : 'Forbidden'
+      return NextResponse.json({ error: msg }, { status: ownership.status })
+    }
   }
 
   return NextResponse.json(await withHistory(db, recipe))
@@ -99,7 +109,8 @@ export const PATCH = withAuth(async (req, { user, db, ctx }, params) => {
     .single()
 
   if (updateError) {
-    return NextResponse.json({ error: updateError.message }, { status: 500 })
+    console.error('Recipe update failed:', updateError.message, updateError.code)
+    return NextResponse.json({ error: 'Failed to update recipe' }, { status: 500 })
   }
 
   return NextResponse.json(updated)
@@ -135,7 +146,8 @@ export const DELETE = withAuth(async (req, { user, db, ctx }, params) => {
     .eq('id', id)
 
   if (deleteError) {
-    return NextResponse.json({ error: deleteError.message }, { status: 500 })
+    console.error('Recipe delete failed:', deleteError.message, deleteError.code)
+    return NextResponse.json({ error: 'Failed to delete recipe' }, { status: 500 })
   }
 
   return new NextResponse(null, { status: 204 })

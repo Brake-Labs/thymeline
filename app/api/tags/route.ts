@@ -21,7 +21,8 @@ export const GET = withAuth(async (req, { user, db, ctx }) => {
   const { data: customData, error: customError } = await customQ
 
   if (customError) {
-    return NextResponse.json({ error: customError.message }, { status: 500 })
+    console.error('Failed to fetch custom tags:', customError.message, customError.code)
+    return NextResponse.json({ error: 'Failed to fetch tags' }, { status: 500 })
   }
 
   // Fetch all recipe tags to build count map
@@ -89,7 +90,8 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
     .single()
 
   if (insertError) {
-    return NextResponse.json({ error: insertError.message }, { status: 500 })
+    console.error('Failed to create tag:', insertError.message, insertError.code)
+    return NextResponse.json({ error: 'Failed to create tag' }, { status: 500 })
   }
 
   return NextResponse.json(created, { status: 201 })
