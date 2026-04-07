@@ -60,7 +60,15 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
   })
 
   if (rpcError) {
-    return NextResponse.json({ error: 'Swap failed' }, { status: 500 })
+    // RPC unavailable (e.g. migration 028 not yet applied) — fall back to two concurrent UPDATEs.
+    // Not atomic, but acceptable for a meal-planning context.
+    const [{ error: errA }, { error: errB }] = await Promise.all([
+      db.from('meal_plan_entries').update({ planned_date: entryB.planned_date }).eq('id', entry_id_a),
+      db.from('meal_plan_entries').update({ planned_date: entryA.planned_date }).eq('id', entry_id_b),
+    ])
+    if (errA ?? errB) {
+      return NextResponse.json({ error: 'Swap failed' }, { status: 500 })
+    }
   }
 
   // Re-fetch both rows to get updated planned_date values
