@@ -8,8 +8,12 @@ import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 // ── Mock next/navigation ──────────────────────────────────────────────────────
 
 const mockReplace = vi.fn()
+// Stable object reference prevents the useEffect([..., router]) in CookModePage
+// from re-running on every render (which would cause an infinite loop when
+// storedModified creates a new merged recipe object on each effect execution).
+const mockRouter = { replace: mockReplace }
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ replace: mockReplace }),
+  useRouter: () => mockRouter,
 }))
 
 // ── Mock next/link ────────────────────────────────────────────────────────────
@@ -840,5 +844,98 @@ describe('T60-T62 - Tab bar: Steps / Ingredients switching', () => {
     })
     expect(screen.getByText('Mix ingredients')).toBeDefined()
     expect(screen.queryByText(/2 cups flour/i)).toBeNull()
+  })
+})
+
+// ── T15/T16: Save as New Recipe (AI-modified cook mode) ──────────────────────
+
+const modifiedRecipePayload = {
+  title: 'Test Recipe',
+  ingredients: 'modified ingredients',
+  steps: 'Mix ingredients\nKnead dough\nBake for 30 minutes',
+  notes: null,
+  servings: 4,
+}
+
+describe('T15 - Save as New button absent when recipe is unmodified', () => {
+  it('does not render "Save as New" button on last step when no sessionStorage entry', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => sampleRecipe, status: 200 })
+    const { default: CookModePage } = await import('@/app/(cook)/recipes/[id]/cook/page')
+    render(<CookModePage params={{ id: 'recipe-1' }} />)
+    await waitFor(() => screen.getByRole('button', { name: /next →/i }))
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /next →/i })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /next →/i })) })
+    expect(screen.queryByRole('button', { name: /save as new/i })).toBeNull()
+  })
+})
+
+describe('T15 - Save as New button appears on last step when recipe is AI-modified', () => {
+  beforeEach(() => {
+    sessionStorage.setItem('ai-modified-recipe-recipe-1', JSON.stringify(modifiedRecipePayload))
+  })
+  afterEach(() => { sessionStorage.clear() })
+
+  it('renders "Save as New" button only on the last step', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => sampleRecipe, status: 200 })
+    const { default: CookModePage } = await import('@/app/(cook)/recipes/[id]/cook/page')
+    render(<CookModePage params={{ id: 'recipe-1' }} />)
+    await waitFor(() => screen.getByRole('button', { name: /next →/i }))
+    // Not on step 1
+    expect(screen.queryByRole('button', { name: /save as new/i })).toBeNull()
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /next →/i })) })
+    // Not on step 2
+    expect(screen.queryByRole('button', { name: /save as new/i })).toBeNull()
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /next →/i })) })
+    // On last step
+    expect(screen.getByRole('button', { name: /save as new/i })).toBeDefined()
+  })
+})
+
+describe('T16 - Save as New POSTs to /api/recipes with (modified) title', () => {
+  beforeEach(() => {
+    sessionStorage.setItem('ai-modified-recipe-recipe-1', JSON.stringify(modifiedRecipePayload))
+  })
+  afterEach(() => { sessionStorage.clear() })
+
+  it('POSTs to /api/recipes with title suffixed "(modified)"', async () => {
+    let capturedBody: Record<string, unknown> | null = null
+    global.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+      if (opts?.method === 'POST' && !(url as string).includes('/log')) {
+        capturedBody = JSON.parse(opts.body as string) as Record<string, unknown>
+        return Promise.resolve({ ok: true, json: async () => ({ id: 'new-id' }), status: 201 })
+      }
+      return Promise.resolve({ ok: true, json: async () => sampleRecipe, status: 200 })
+    })
+
+    const { default: CookModePage } = await import('@/app/(cook)/recipes/[id]/cook/page')
+    render(<CookModePage params={{ id: 'recipe-1' }} />)
+    await waitFor(() => screen.getByRole('button', { name: /next →/i }))
+
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /next →/i })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /next →/i })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /save as new/i })) })
+    await flushEffects()
+
+    expect(capturedBody).not.toBeNull()
+    expect((capturedBody as Record<string, unknown>).title).toBe('Test Recipe (modified)')
+  })
+
+  it('shows "✓ Saved!" after a successful POST', async () => {
+    global.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+      if (opts?.method === 'POST' && !(url as string).includes('/log')) {
+        return Promise.resolve({ ok: true, json: async () => ({ id: 'new-id' }), status: 201 })
+      }
+      return Promise.resolve({ ok: true, json: async () => sampleRecipe, status: 200 })
+    })
+
+    const { default: CookModePage } = await import('@/app/(cook)/recipes/[id]/cook/page')
+    render(<CookModePage params={{ id: 'recipe-1' }} />)
+    await waitFor(() => screen.getByRole('button', { name: /next →/i }))
+
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /next →/i })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /next →/i })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /save as new/i })) })
+
+    await waitFor(() => expect(screen.getByText('✓ Saved!')).toBeDefined())
   })
 })
