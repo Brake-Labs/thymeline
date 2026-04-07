@@ -7,7 +7,7 @@ import GotItSection from './GotItSection'
 import AddItemInput from './AddItemInput'
 import StepperInput from '@/components/preferences/StepperInput'
 import { getAccessToken } from '@/lib/supabase/browser'
-import { effectiveServings, formatWeekLabel, buildICSExport } from '@/lib/grocery'
+import { effectiveServings, formatWeekLabel, buildPlainTextList, buildICSExport } from '@/lib/grocery'
 import { TOAST_DURATION_LONG_MS } from '@/lib/constants'
 
 // Aisle order used for grouping "Need to Buy" items
@@ -193,35 +193,33 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
 
   async function handleShare() {
     const header = `Grocery list — week of ${weekStart}`
+
+    // On iOS, native file share shows Reminders in the share sheet and imports
+    // each VTODO as a separate reminder. On macOS desktop Reminders does not
+    // appear in the share sheet — fall through to clipboard.
     const ics = buildICSExport(items, { onlyUnchecked: true })
     const file = new File([ics], 'grocery-list.ics', { type: 'text/calendar' })
-
-    // Try native file share first — iOS/macOS Safari passes the .ics to Reminders,
-    // which imports each VTODO as a separate reminder.
-    // Plain-text share is NOT used: Reminders always creates a single item from text.
     if (typeof navigator !== 'undefined' && navigator.canShare?.({ files: [file] })) {
       try {
         await navigator.share({ files: [file], title: header })
         return
       } catch (err) {
         if ((err as Error).name === 'AbortError') return
-        // share failed — fall through to download
+        // share failed — fall through to clipboard
       }
     }
 
-    // Fallback: download the .ics file directly.
-    // On macOS, opening it prompts Reminders to import each item separately.
-    // On iOS, the download manager lets the user open it with Reminders.
-    const url = URL.createObjectURL(new Blob([ics], { type: 'text/calendar' }))
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'grocery-list.ics'
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-    setShareToast('Downloaded — open grocery-list.ics to import into Reminders')
-    setTimeout(() => setShareToast(null), TOAST_DURATION_LONG_MS)
+    // Fallback: copy plain text to clipboard
+    const itemList = buildPlainTextList(items, recipeScales, planServings, weekStart, { onlyUnchecked: true })
+    const text = itemList ? `${header}\n\n${itemList}` : header
+    try {
+      await navigator.clipboard.writeText(text)
+      setShareToast('Copied to clipboard!')
+      setTimeout(() => setShareToast(null), TOAST_DURATION_LONG_MS)
+    } catch {
+      setShareToast('Could not copy list')
+      setTimeout(() => setShareToast(null), TOAST_DURATION_LONG_MS)
+    }
   }
 
   // ── Derived state ───────────────────────────────────────────────────────────
