@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, fireEvent, waitFor, act, cleanup } from '@testing-library/react'
 import DayCard from '../DayCard'
 import MealSlot from '../MealSlot'
 import WeekCalendar from '../WeekCalendar'
 import type { PlanEntry } from '@/types'
+import { getMostRecentSunday, addDays } from '@/lib/date-utils'
 
 vi.mock('@/lib/supabase/browser', () => ({
   getAccessToken: async () => 'mock-token',
@@ -444,5 +445,102 @@ describe('T21 - Existing dinner-only plans render correctly in Dinner slot', () 
       />
     )
     expect(screen.getByText('Pasta Primavera')).toBeInTheDocument()
+  })
+})
+
+// ── T-SWAP: Swap meals on WeekCalendar (regression #303) ─────────────────────
+
+describe('WeekCalendar - swap meals (regression #303)', () => {
+  // Use dates within the current week so entries appear in DayCards
+  const weekStart = getMostRecentSunday()
+  const monday = addDays(weekStart, 1)
+  const wednesday = addDays(weekStart, 3)
+
+  const swapEntries = [
+    { id: 'e1', recipe_id: 'r1', recipe_title: 'Pasta',  planned_date: monday,    meal_type: 'dinner', is_side_dish: false, parent_entry_id: null, confirmed: false, position: 1, total_time_minutes: null },
+    { id: 'e2', recipe_id: 'r2', recipe_title: 'Tacos',  planned_date: wednesday, meal_type: 'dinner', is_side_dish: false, parent_entry_id: null, confirmed: false, position: 1, total_time_minutes: null },
+  ]
+
+  beforeEach(() => {
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) })            // prefs
+      .mockResolvedValueOnce({ ok: true, json: async () => ({              // plan
+        plan: { id: 'plan-1', week_start: weekStart, entries: swapEntries },
+      }) })
+      .mockResolvedValue({ ok: true, json: async () => ({                  // swap + any subsequent
+        entry_a: { id: 'e1', planned_date: wednesday, recipe_id: 'r1' },
+        entry_b: { id: 'e2', planned_date: monday,    recipe_id: 'r2' },
+      }) })
+  })
+  afterEach(() => { cleanup(); vi.restoreAllMocks() })
+
+  it('shows Swap meals button when ≥2 entries exist', async () => {
+    render(<WeekCalendar />)
+    await waitFor(() => expect(screen.getByText('Swap meals')).toBeInTheDocument())
+  })
+
+  it('calls POST /api/plan/swap with correct IDs when two meals are tapped', async () => {
+    render(<WeekCalendar />)
+    await waitFor(() => expect(screen.getByText('Swap meals')).toBeInTheDocument())
+
+    // Enter swap mode
+    fireEvent.click(screen.getByText('Swap meals'))
+    expect(screen.getByText('Tap a meal to select it')).toBeInTheDocument()
+
+    // Tap first meal (Pasta)
+    const pasta = screen.getByText('Pasta')
+    fireEvent.click(pasta.closest('div[class*="rounded-r"]')!)
+
+    // Banner should update
+    expect(screen.getByText('Now tap a meal to swap with')).toBeInTheDocument()
+
+    // Tap second meal (Tacos)
+    const tacos = screen.getByText('Tacos')
+    await act(async () => {
+      fireEvent.click(tacos.closest('div[class*="rounded-r"]')!)
+    })
+
+    // Verify swap API was called with the correct entry IDs
+    const fetchMock = global.fetch as ReturnType<typeof vi.fn>
+    const swapCall = fetchMock.mock.calls.find(
+      (args: unknown[]) => typeof args[0] === 'string' && args[0] === '/api/plan/swap'
+    )
+    expect(swapCall).toBeDefined()
+    const body = JSON.parse((swapCall![1] as RequestInit).body as string)
+    expect(body).toEqual({ entry_id_a: 'e1', entry_id_b: 'e2' })
+  })
+
+  it('shows SwapToast after a successful swap', async () => {
+    render(<WeekCalendar />)
+    await waitFor(() => expect(screen.getByText('Swap meals')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByText('Swap meals'))
+    fireEvent.click(screen.getByText('Pasta').closest('div[class*="rounded-r"]')!)
+    await act(async () => {
+      fireEvent.click(screen.getByText('Tacos').closest('div[class*="rounded-r"]')!)
+    })
+
+    await waitFor(() => expect(screen.getByText('Meals swapped ✓')).toBeInTheDocument())
+  })
+
+  it('shows error message and reverts entries on API failure', async () => {
+    // Replace the mock entirely so beforeEach's queued responses don't interfere
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) })            // prefs
+      .mockResolvedValueOnce({ ok: true, json: async () => ({
+        plan: { id: 'plan-1', week_start: weekStart, entries: swapEntries },
+      }) })
+      .mockResolvedValue({ ok: false, status: 500, json: async () => ({ error: 'Swap failed' }) })
+
+    render(<WeekCalendar />)
+    await waitFor(() => expect(screen.getByText('Swap meals')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByText('Swap meals'))
+    fireEvent.click(screen.getByText('Pasta').closest('div[class*="rounded-r"]')!)
+    await act(async () => {
+      fireEvent.click(screen.getByText('Tacos').closest('div[class*="rounded-r"]')!)
+    })
+
+    await waitFor(() => expect(screen.getByText('Swap failed. Please try again.')).toBeInTheDocument())
   })
 })

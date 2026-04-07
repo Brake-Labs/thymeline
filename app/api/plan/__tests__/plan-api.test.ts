@@ -133,6 +133,15 @@ function makeMockFrom(table: string) {
   if (table === 'meal_plan_entries') {
     return {
       delete: () => ({ eq: async () => ({ error: null }) }),
+      update: (patch: Record<string, string>) => ({
+        eq: (col: string, val: string) => {
+          if (col === 'id' && mockState.entryById[val]) {
+            // Replace with a new object so existing references (entryA/entryB) are not mutated
+            mockState.entryById[val] = { ...mockState.entryById[val]!, ...patch }
+          }
+          return Promise.resolve({ error: null })
+        },
+      }),
       insert: () => ({
         select: async () => ({
           data: mockState.entryInsertError ? null : mockState.entries.map((e, i) => ({
@@ -1238,19 +1247,23 @@ describe('SWAP-T06 - 403 in household mode when entry belongs to different house
   })
 })
 
-// ── SWAP-T07: 500 when RPC fails ─────────────────────────────────────────────
+// ── SWAP-T07: fallback to direct UPDATEs when RPC unavailable ────────────────
 
-describe('SWAP-T07 - 500 when RPC swap fails', () => {
-  it('returns 500 when swap_meal_plan_entries RPC returns an error', async () => {
+describe('SWAP-T07 - falls back to direct UPDATEs when RPC unavailable', () => {
+  it('returns 200 and swaps dates via UPDATE fallback when RPC errors', async () => {
     mockState.entryById[SWAP_ID_A] = makeSwapEntry(SWAP_ID_A, '2026-03-01')
     mockState.entryById[SWAP_ID_B] = makeSwapEntry(SWAP_ID_B, '2026-03-03')
-    mockState.rpcError = { message: 'deadlock detected' }
+    mockState.rpcError = { message: 'function swap_meal_plan_entries does not exist' }
 
     const res = await swapEntriesPOST(makeReq('POST', 'http://localhost/api/plan/swap', {
       entry_id_a: SWAP_ID_A,
       entry_id_b: SWAP_ID_B,
     }))
-    expect(res.status).toBe(500)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    // Fallback UPDATEs swapped the dates
+    expect(body.entry_a.planned_date).toBe('2026-03-03')
+    expect(body.entry_b.planned_date).toBe('2026-03-01')
   })
 })
 
