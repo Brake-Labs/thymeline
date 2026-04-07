@@ -1,6 +1,5 @@
 /**
  * Drizzle ORM schema definitions for all application tables.
- * Translated from the existing Supabase/Postgres schema.
  */
 import {
   pgTable,

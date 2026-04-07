@@ -1,8 +1,6 @@
 /**
  * Better Auth browser client.
- *
- * Replaces lib/supabase/browser.ts (getSupabaseClient, getAccessToken).
- * With Better Auth, sessions are cookie-based — no manual token management.
+ * Sessions are cookie-based — no manual token management.
  */
 import { createAuthClient } from 'better-auth/react'
 

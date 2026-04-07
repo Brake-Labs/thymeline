@@ -47,7 +47,7 @@ export const POST = withAuth(async (req: NextRequest, { user, db: _db, ctx }) =>
 
     const [vaultRecipes, tasteProfile, currentPlanRecipes] = await Promise.all([
       vaultPromise,
-      // These functions still use Supabase internally — pass _db for compatibility
+      // These functions accept a db parameter for testability
       deriveTasteProfile(user.id, _db, ctx ?? null).catch(() => null),
       fetchCurrentWeekPlan(user.id, _db, ctx ?? null).catch(() => [] as RecipeForOverlap[]),
     ])

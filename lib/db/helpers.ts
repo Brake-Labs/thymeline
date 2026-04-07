@@ -3,8 +3,8 @@
  */
 
 /**
- * Returns exactly one row or throws. Replaces Supabase `.single()` semantics
- * for ownership checks and required lookups.
+ * Returns exactly one row or throws.
+ * Used for ownership checks and required lookups.
  */
 export function dbSingle<T>(rows: T[]): T {
   if (rows.length === 0) {

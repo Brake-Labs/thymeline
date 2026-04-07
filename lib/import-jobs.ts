@@ -1,5 +1,5 @@
 // Note: in-memory only — jobs are lost on server restart or in multi-instance deployments.
-// If deploying to Vercel (multi-instance/serverless), store jobs in Redis or Supabase instead.
+// If deploying to Vercel (multi-instance/serverless), store jobs in Redis or a persistent store instead.
 //
 // globalThis is used to persist the Map across Next.js hot-module reloads in dev mode,
 // which would otherwise re-initialise the module and lose all in-progress jobs.

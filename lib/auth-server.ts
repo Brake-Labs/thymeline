@@ -1,10 +1,6 @@
 /**
  * Better Auth server configuration.
- *
- * Single source of truth for authentication. Replaces:
- * - lib/supabase-server.ts (createServerClient, createAdminClient)
- * - lib/supabase/server.ts (createSupabaseServerClient)
- * - middleware.ts Supabase SSR cookie dance
+ * Single source of truth for authentication.
  */
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'

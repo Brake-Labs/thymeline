@@ -5,7 +5,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-// ── Supabase mock ──────────────────────────────────────────────────────────────
+// ── Auth mock ─────────────────────────────────────────────────────────────────
 
 const _mockUser = { id: 'user-1' }
 
