@@ -44,10 +44,15 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
   useEffect(() => {
     if (typeof navigator !== 'undefined') {
       const ua = navigator.userAgent
-      setIsMac(/Macintosh/.test(ua))
-      setIsIOS(/iPhone|iPad|iPod/.test(ua))
+      const isMacUA = /Macintosh/.test(ua)
+      // iPadOS 13+ reports a Mac UA but has touch support with multiple points
+      const isIPadOS = isMacUA && navigator.maxTouchPoints > 1
+      setIsMac(isMacUA && !isIPadOS)
+      setIsIOS(/iPhone|iPad|iPod/.test(ua) || isIPadOS)
     }
-    setShortcutInstalled(localStorage.getItem('thymeline-shortcut-installed') === 'true')
+    try {
+      setShortcutInstalled(localStorage.getItem('thymeline-shortcut-installed') === 'true')
+    } catch { /* Safari private browsing / quota exceeded */ }
   }, [])
 
   // ── Persist helpers ─────────────────────────────────────────────────────────
@@ -221,7 +226,10 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
           await navigator.share({ files: [icsFile] })
           return
         }
-      } catch { /* fall through to text share */ }
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return
+        /* fall through to text share */
+      }
     }
 
     // 2. Text share — opens the native share sheet (Notes, Messages, Mail, etc.)
@@ -229,7 +237,10 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
       try {
         await navigator.share({ text })
         return
-      } catch { /* fall through */ }
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return
+        /* fall through */
+      }
     }
 
     // 3. Last resort: clipboard copy
@@ -250,7 +261,7 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
     // actually installed from the browser. If it's not, Shortcuts app shows an
     // error and the user can click "Add to Reminders" again (dialog still accessible
     // via long-press or after clearing localStorage).
-    localStorage.setItem('thymeline-shortcut-installed', 'true')
+    try { localStorage.setItem('thymeline-shortcut-installed', 'true') } catch { /* private browsing */ }
     setShortcutInstalled(true)
     setShowRemindersDialog(false)
     const url = buildShortcutsURL(items, { onlyUnchecked: true })

@@ -4,3 +4,4 @@ else
   echo "⚠ gitleaks not installed — skipping secret scan (install: brew install gitleaks)"
 fi
 npx lint-staged
+npx tsc --noEmit

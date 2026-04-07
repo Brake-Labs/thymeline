@@ -431,19 +431,28 @@ const SHORTCUT_NAME = 'Thymeline Groceries'
  * to an Apple Shortcut. The Shortcut splits by newlines and adds each line
  * as a separate reminder.
  */
+/** Maximum URL length for shortcuts:// scheme (conservative limit for OS URL handlers) */
+const SHORTCUTS_URL_MAX_LENGTH = 2000
+
 export function buildShortcutsURL(
   items: GroceryItem[],
   options?: { onlyUnchecked?: boolean },
 ): string {
   const filtered = filterExportableItems(items, options?.onlyUnchecked)
-  const text = filtered
-    .map((item) => {
-      const amt = item.amount !== null ? `${item.amount} ` : ''
-      const unit = item.unit ? `${item.unit} ` : ''
-      return `${amt}${unit}${item.name}`
-    })
-    .join('\n')
-  return `shortcuts://run-shortcut?name=${encodeURIComponent(SHORTCUT_NAME)}&input=text&text=${encodeURIComponent(text)}`
+  const prefix = `shortcuts://run-shortcut?name=${encodeURIComponent(SHORTCUT_NAME)}&input=text&text=`
+
+  // Build text incrementally to stay within URL length limits
+  const lines: string[] = []
+  for (const item of filtered) {
+    const amt = item.amount !== null ? `${item.amount} ` : ''
+    const unit = item.unit ? `${item.unit} ` : ''
+    const line = `${amt}${unit}${item.name}`
+    const candidate = [...lines, line].join('\n')
+    if ((prefix + encodeURIComponent(candidate)).length > SHORTCUTS_URL_MAX_LENGTH) break
+    lines.push(line)
+  }
+
+  return `${prefix}${encodeURIComponent(lines.join('\n'))}`
 }
 
 // ── Week helpers (re-exported from date-utils) ───────────────────────────────

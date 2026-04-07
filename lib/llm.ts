@@ -97,6 +97,7 @@ export async function callLLM(opts: CallLLMOptions): Promise<string> {
     logger.debug({ model, inputTokens: response.usage?.input_tokens, outputTokens: response.usage?.output_tokens }, 'callLLM ok')
     return text
   } catch (err) {
+    if (err instanceof LLMError) throw err
     const classified = classifyLLMError(err)
     logger.error({ model, code: classified.code, message: classified.message }, 'callLLM failed')
     throw classified
@@ -135,6 +136,7 @@ export async function callLLMMultimodal(opts: CallLLMMultimodalOptions): Promise
     logger.debug({ model, inputTokens: response.usage?.input_tokens, outputTokens: response.usage?.output_tokens }, 'callLLMMultimodal ok')
     return text
   } catch (err) {
+    if (err instanceof LLMError) throw err
     const classified = classifyLLMError(err)
     logger.error({ model, code: classified.code, message: classified.message }, 'callLLMMultimodal failed')
     throw classified

@@ -43,14 +43,14 @@ export function withAuth(
       data: { user },
       error,
     } = await supabase.auth.getUser()
+    const route = req.nextUrl?.pathname ?? new URL(req.url).pathname
     if (error || !user) {
-      const route = new URL(req.url).pathname
       logger.debug({ route, error: error?.message ?? 'no user' }, 'auth failed — 401')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     const db = createAdminClient()
     const ctx = await resolveHouseholdScope(db, user.id)
-    logger.debug({ userId: user.id, household: ctx?.householdId ?? null, route: new URL(req.url).pathname }, 'auth ok')
+    logger.debug({ userId: user.id, household: ctx?.householdId ?? null, route }, 'auth ok')
     return handler(req, { user, db, ctx }, routeContext?.params ?? {})
   }
 }
