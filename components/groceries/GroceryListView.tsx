@@ -7,7 +7,7 @@ import GotItSection from './GotItSection'
 import AddItemInput from './AddItemInput'
 import StepperInput from '@/components/preferences/StepperInput'
 import { getAccessToken } from '@/lib/supabase/browser'
-import { effectiveServings, formatWeekLabel, buildPlainTextList, buildICSExport, buildShortcutsURL } from '@/lib/grocery'
+import { effectiveServings, formatWeekLabel, buildPlainTextList, buildShortcutsURL } from '@/lib/grocery'
 import { TOAST_DURATION_LONG_MS } from '@/lib/constants'
 
 // Aisle order used for grouping "Need to Buy" items
@@ -206,23 +206,7 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
     const itemList = buildPlainTextList(items, { onlyUnchecked: true })
     const text = itemList ? `${header}\n\n${itemList}` : header
 
-    // 1. On iOS, sharing the .ics file makes Reminders appear in the share sheet
-    //    and imports each VTODO as a separate reminder.
-    const ics = buildICSExport(items, { onlyUnchecked: true })
-    const file = new File([ics], 'grocery-list.ics', { type: 'text/calendar' })
-    if (typeof navigator !== 'undefined' && navigator.canShare?.({ files: [file] })) {
-      try {
-        await navigator.share({ files: [file], title: header })
-        setShareToast('Sent to Reminders')
-        setTimeout(() => setShareToast(null), TOAST_DURATION_LONG_MS)
-        return
-      } catch (err) {
-        if ((err as Error).name === 'AbortError') return
-        // file share failed — fall through to text share
-      }
-    }
-
-    // 2. Text share — opens the native share sheet (Notes, Messages, Mail, etc.)
+    // 1. Text share — opens the native share sheet (Notes, Messages, Mail, etc.)
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({ text })
@@ -230,7 +214,7 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
       } catch { /* fall through */ }
     }
 
-    // 3. Last resort: clipboard copy
+    // 2. Last resort: clipboard copy
     try {
       await navigator.clipboard.writeText(text)
       setShareToast('Copied to clipboard!')
