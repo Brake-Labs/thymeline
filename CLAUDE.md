@@ -148,21 +148,29 @@ Optional env vars for the dev user:
 Seed the dev user's DB records: `npx tsx scripts/seed-dev.ts`
 
 ### Playwright Testing
-The Playwright MCP tools can be used to test the running app in a headless browser.
-This is the recommended way to verify pages work end-to-end after code changes.
+Playwright is the recommended way to verify pages work end-to-end after code changes.
+It can be used via Claude Code's Playwright MCP tools or run directly from the terminal.
 
-**Setup (one-time, in sandbox):**
-1. Install Chromium: `npx playwright install chromium --with-deps`
-2. Symlink: `mkdir -p /opt/google/chrome && ln -sf $(find /root/.cache/pw -name chrome -path "*/chromium-*/chrome-linux/*") /opt/google/chrome/chrome`
-3. Start Postgres and push schema
-4. Set `DEV_BYPASS_AUTH=true` in `.env`
-5. Run `npx tsx scripts/seed-dev.ts` to create the dev user
-6. Start dev server: `npm run dev`
+**Setup:**
+1. Install Playwright and Chromium: `npx playwright install chromium --with-deps`
+2. Start Postgres (see Quick Start above) and push schema: `npx drizzle-kit push`
+3. Set `DEV_BYPASS_AUTH=true` in `.env.local` (skips Google OAuth for testing)
+4. Seed the dev user: `npx tsx scripts/seed-dev.ts`
+5. Start the dev server: `npm run dev`
 
-**Usage:**
+**Via Claude Code MCP tools (sandbox):**
 Use `mcp__plugin_playwright_playwright__browser_navigate` to visit pages and
 `mcp__plugin_playwright_playwright__browser_snapshot` to inspect the DOM.
 Check `mcp__plugin_playwright_playwright__browser_console_messages` for errors.
+In sandbox environments you may also need to symlink Chrome:
+`mkdir -p /opt/google/chrome && ln -sf $(find ~/.cache/pw -name chrome -path "*/chromium-*/chrome-linux/*") /opt/google/chrome/chrome`
+
+**Via terminal (local dev):**
+You can also run Playwright directly for quick smoke tests:
+```bash
+npx playwright test          # run all e2e tests (if any exist)
+npx playwright open http://localhost:3000/home  # open a page in headed browser
+```
 
 **Pages to verify after changes:**
 - `/home` — dashboard with week plan, quick actions, recently made

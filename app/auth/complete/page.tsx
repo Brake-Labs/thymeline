@@ -16,6 +16,16 @@ export default function AuthCompletePage() {
         return
       }
 
+      // Check email allowlist via server endpoint
+      const eligRes = await fetch('/api/auth/check-email')
+      if (eligRes.ok) {
+        const eligData = await eligRes.json()
+        if (!eligData.allowed) {
+          router.push('/inactive')
+          return
+        }
+      }
+
       // Check if user already has preferences (cookies sent automatically)
       const prefsRes = await fetch('/api/preferences')
       const prefs = prefsRes.ok ? await prefsRes.json() : null
@@ -27,9 +37,9 @@ export default function AuthCompletePage() {
       }
 
       if (!prefs) {
-        // New user — create default preferences
+        // New user — create default preferences via upsert
         await fetch('/api/preferences', {
-          method: 'POST',
+          method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({}),
         })

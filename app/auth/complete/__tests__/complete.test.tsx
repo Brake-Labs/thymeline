@@ -36,8 +36,14 @@ beforeEach(() => {
 // ── T06: Returning user lands on /home after auth ─────────────────────────────
 describe('T06 - Returning user redirects to /home', () => {
   it('redirects to /home when onboarding_completed=true', async () => {
-    mockGetSession.mockResolvedValue({ data: { user: { id: 'user-1' } } })
+    mockGetSession.mockResolvedValue({ data: { user: { id: 'user-1', email: 'test@test.com' } } })
 
+    // check-email response
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ allowed: true }),
+    })
+    // preferences response
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ onboarding_completed: true, is_active: true }),
@@ -53,8 +59,14 @@ describe('T06 - Returning user redirects to /home', () => {
   })
 
   it('redirects to /home when is_active=true even if onboarding_completed=false', async () => {
-    mockGetSession.mockResolvedValue({ data: { user: { id: 'user-1' } } })
+    mockGetSession.mockResolvedValue({ data: { user: { id: 'user-1', email: 'test@test.com' } } })
 
+    // check-email response
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ allowed: true }),
+    })
+    // preferences response
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ onboarding_completed: false, is_active: true }),
@@ -73,8 +85,14 @@ describe('T06 - Returning user redirects to /home', () => {
 // ── T05: New user lands on /onboarding after auth ────────────────────────────
 describe('T05 - New user redirects to /onboarding', () => {
   it('redirects to /onboarding when preferences exist but onboarding not completed', async () => {
-    mockGetSession.mockResolvedValue({ data: { user: { id: 'user-1' } } })
+    mockGetSession.mockResolvedValue({ data: { user: { id: 'user-1', email: 'test@test.com' } } })
 
+    // check-email response
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ allowed: true }),
+    })
+    // preferences response
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ onboarding_completed: false, is_active: false }),

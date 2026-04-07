@@ -91,7 +91,7 @@ export const recipes = pgTable('recipes', {
 
 export const recipeHistory = pgTable('recipe_history', {
   id: uuid('id').defaultRandom().primaryKey(),
-  recipeId: uuid('recipe_id').notNull().references(() => recipes.id),
+  recipeId: uuid('recipe_id').notNull().references(() => recipes.id, { onDelete: 'cascade' }),
   userId: text('user_id').notNull(),
   madeOn: date('made_on').notNull(),
   makeAgain: boolean('make_again'),
@@ -113,8 +113,8 @@ export const mealPlans = pgTable('meal_plans', {
 
 export const mealPlanEntries = pgTable('meal_plan_entries', {
   id: uuid('id').defaultRandom().primaryKey(),
-  mealPlanId: uuid('meal_plan_id').notNull().references(() => mealPlans.id),
-  recipeId: uuid('recipe_id').notNull().references(() => recipes.id),
+  mealPlanId: uuid('meal_plan_id').notNull().references(() => mealPlans.id, { onDelete: 'cascade' }),
+  recipeId: uuid('recipe_id').notNull().references(() => recipes.id, { onDelete: 'cascade' }),
   plannedDate: date('planned_date').notNull(),
   position: integer('position').notNull(),
   confirmed: boolean('confirmed').notNull().default(false),
@@ -194,7 +194,7 @@ export const households = pgTable('households', {
 })
 
 export const householdMembers = pgTable('household_members', {
-  householdId: uuid('household_id').notNull().references(() => households.id),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
   userId: text('user_id').notNull(),
   role: text('role').notNull(), // owner, co_owner, member
   joinedAt: timestamp('joined_at', { withTimezone: true }).defaultNow().notNull(),
@@ -204,7 +204,7 @@ export const householdMembers = pgTable('household_members', {
 
 export const householdInvites = pgTable('household_invites', {
   id: uuid('id').defaultRandom().primaryKey(),
-  householdId: uuid('household_id').notNull().references(() => households.id),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
   invitedBy: text('invited_by').notNull(),
   token: text('token').notNull(),
   usedBy: text('used_by'),
