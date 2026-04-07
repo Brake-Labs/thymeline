@@ -15,48 +15,75 @@ const MEAL_TYPE_LABELS: Record<MealType, string> = {
 }
 
 interface MealSlotProps {
-  mealType:       MealType
-  date?:          string   // YYYY-MM-DD; when provided enables the "▶ Cook" link
-  entries:        PlanEntry[]
-  onAdd:          (recipeId: string, recipeTitle: string, isSideDish?: boolean, parentEntryId?: string, mealTypeOverride?: MealType) => void
-  onDelete:       (entryId: string) => void
-  onAddSideDish:  (parentEntryId: string) => void
+  mealType:        MealType
+  date?:           string   // YYYY-MM-DD; when provided enables the "▶ Cook" link
+  entries:         PlanEntry[]
+  onAdd:           (recipeId: string, recipeTitle: string, isSideDish?: boolean, parentEntryId?: string, mealTypeOverride?: MealType) => void
+  onDelete:        (entryId: string) => void
+  onAddSideDish:   (parentEntryId: string) => void
+  isSwapMode?:     boolean
+  selectedEntryId?: string | null
+  onMealTap?:      (entryId: string) => void
 }
 
 interface MealItemProps {
-  entry:    PlanEntry
-  indented: boolean
-  onDelete: (id: string) => void
+  entry:           PlanEntry
+  indented:        boolean
+  onDelete:        (id: string) => void
+  isSwapMode?:     boolean
+  isSelected?:     boolean
+  onTap?:          (id: string) => void
 }
 
-function MealItem({ entry, indented, onDelete }: MealItemProps) {
-  return (
-    <div className={`flex items-center justify-between gap-2 py-1 px-2 bg-sage-50 border-l-2 border-l-sage-500 rounded-r group mb-1 ${indented ? 'ml-4' : ''}`}>
-      <Link
-        href={`/recipes/${entry.recipe_id}`}
-        className="flex-1 min-w-0"
-      >
-        <span className="text-xs font-display font-medium text-sage-900 truncate block leading-snug">
-          {entry.recipe_title}
+function MealItem({ entry, indented, onDelete, isSwapMode, isSelected, onTap }: MealItemProps) {
+  const ringClass = isSwapMode
+    ? isSelected
+      ? 'ring-2 ring-sage-500 cursor-pointer'
+      : 'ring-1 ring-stone-300 cursor-pointer'
+    : ''
+
+  const inner = (
+    <>
+      <span className="text-xs font-display font-medium text-sage-900 truncate block leading-snug">
+        {entry.recipe_title}
+      </span>
+      {entry.total_time_minutes != null && (
+        <span className="text-[10px] font-sans text-stone-500 block mt-0.5">
+          · {formatMinutes(entry.total_time_minutes)}
         </span>
-        {entry.total_time_minutes != null && (
-          <span className="text-[10px] font-sans text-stone-500 block mt-0.5">
-            · {formatMinutes(entry.total_time_minutes)}
-          </span>
-        )}
-      </Link>
-      <button
-        onClick={() => onDelete(entry.id)}
-        aria-label={`Remove ${entry.recipe_title}`}
-        className="text-stone-300 hover:text-terra-500 transition-colors opacity-0 group-hover:opacity-100 text-base leading-none flex-shrink-0"
-      >
-        ×
-      </button>
+      )}
+    </>
+  )
+
+  return (
+    <div
+      className={`relative flex items-center justify-between gap-2 py-1 px-2 bg-sage-50 border-l-2 border-l-sage-500 rounded-r group mb-1 ${indented ? 'ml-4' : ''} ${ringClass}`}
+      onClick={isSwapMode && onTap ? () => onTap(entry.id) : undefined}
+    >
+      {isSelected && (
+        <span className="absolute top-0.5 right-0.5 text-[10px] text-sage-600 font-bold leading-none">✓</span>
+      )}
+      {isSwapMode ? (
+        <div className="flex-1 min-w-0">{inner}</div>
+      ) : (
+        <Link href={`/recipes/${entry.recipe_id}`} className="flex-1 min-w-0">
+          {inner}
+        </Link>
+      )}
+      {!isSwapMode && (
+        <button
+          onClick={() => onDelete(entry.id)}
+          aria-label={`Remove ${entry.recipe_title}`}
+          className="text-stone-300 hover:text-terra-500 transition-colors opacity-0 group-hover:opacity-100 text-base leading-none flex-shrink-0"
+        >
+          ×
+        </button>
+      )}
     </div>
   )
 }
 
-export default function MealSlot({ mealType, date, entries, onAdd, onDelete }: MealSlotProps) {
+export default function MealSlot({ mealType, date, entries, onAdd, onDelete, isSwapMode, selectedEntryId, onMealTap }: MealSlotProps) {
   const [vaultOpen, setVaultOpen] = useState(false)
   const [sideDishVaultForParent, setSideDishVaultForParent] = useState<string | null>(null)
   const [dessertVaultForParent, setDessertVaultForParent] = useState<string | null>(null)
@@ -103,7 +130,14 @@ export default function MealSlot({ mealType, date, entries, onAdd, onDelete }: M
         const dessertEntries = entries.filter((e) => e.meal_type === 'dessert' && e.parent_entry_id === entry.id)
         return (
           <div key={entry.id}>
-            <MealItem entry={entry} indented={false} onDelete={onDelete} />
+            <MealItem
+              entry={entry}
+              indented={false}
+              onDelete={onDelete}
+              isSwapMode={isSwapMode && !entry.is_side_dish}
+              isSelected={selectedEntryId === entry.id}
+              onTap={onMealTap}
+            />
 
             {sideDishes.map((sd) => (
               <MealItem key={sd.id} entry={sd} indented onDelete={onDelete} />

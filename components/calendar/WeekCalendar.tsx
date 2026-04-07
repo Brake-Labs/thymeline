@@ -5,6 +5,8 @@ import DayCard from './DayCard'
 import { getAccessToken } from '@/lib/supabase/browser'
 import Link from 'next/link'
 import { ShoppingCart } from 'lucide-react'
+import SwapModeBanner from '@/components/plan/SwapModeBanner'
+import SwapToast from '@/components/plan/SwapToast'
 import { getMostRecentSunday, getMostRecentWeekStart, addWeeks, addDays, getWeekDates, formatWeekRange } from '@/lib/date-utils'
 import type { PlanEntry, MealType } from '@/types'
 
@@ -18,6 +20,9 @@ export default function WeekCalendar() {
     () => new Set(getWeekDates(defaultStart))
   )
   const [loading, setLoading] = useState(false)
+  const [isSwapMode, setIsSwapMode] = useState(false)
+  const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null)
+  const [swapToast, setSwapToast] = useState<{ entryIdA: string; entryIdB: string } | null>(null)
 
   const currentWeekStart = getMostRecentWeekStart(weekStartDay)
   const maxWeekStart = addWeeks(currentWeekStart, 4)
@@ -67,9 +72,17 @@ export default function WeekCalendar() {
     setExpandedDates(new Set(getWeekDates(weekStart)))
   }, [weekStart, fetchPlan])
 
-  const handlePrevWeek = () => setWeekStart((ws) => addWeeks(ws, -1))
+  const handlePrevWeek = () => {
+    setIsSwapMode(false)
+    setSelectedEntryId(null)
+    setWeekStart((ws) => addWeeks(ws, -1))
+  }
   const handleNextWeek = () => {
-    if (!isAtMaxFuture) setWeekStart((ws) => addWeeks(ws, 1))
+    if (!isAtMaxFuture) {
+      setIsSwapMode(false)
+      setSelectedEntryId(null)
+      setWeekStart((ws) => addWeeks(ws, 1))
+    }
   }
 
   const handleToggle = (date: string) => {
@@ -142,6 +155,50 @@ export default function WeekCalendar() {
     } catch { /* ignore */ }
   }
 
+  function handleMealTap(entryId: string) {
+    if (!isSwapMode) return
+    if (selectedEntryId === null) {
+      setSelectedEntryId(entryId)
+    } else if (selectedEntryId === entryId) {
+      setSelectedEntryId(null)
+    } else {
+      void performSwap(selectedEntryId, entryId)
+    }
+  }
+
+  async function performSwap(idA: string, idB: string) {
+    setIsSwapMode(false)
+    setSelectedEntryId(null)
+
+    const prev = [...entries]
+
+    // Optimistic update — swap planned_dates
+    setEntries((curr) => curr.map((e) => {
+      if (e.id === idA) {
+        const other = curr.find((x) => x.id === idB)
+        return other ? { ...e, planned_date: other.planned_date } : e
+      }
+      if (e.id === idB) {
+        const other = curr.find((x) => x.id === idA)
+        return other ? { ...e, planned_date: other.planned_date } : e
+      }
+      return e
+    }))
+
+    try {
+      const token = await getAccessToken()
+      const res = await fetch('/api/plan/swap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ entry_id_a: idA, entry_id_b: idB }),
+      })
+      if (!res.ok) throw new Error('Swap failed')
+      setSwapToast({ entryIdA: idA, entryIdB: idB })
+    } catch {
+      setEntries(prev)
+    }
+  }
+
   const weekDates = getWeekDates(weekStart)
 
   return (
@@ -179,6 +236,28 @@ export default function WeekCalendar() {
         </div>
       </div>
 
+      {/* Swap meals control row */}
+      {entries.filter((e) => !e.is_side_dish).length >= 2 && (
+        <div className="flex justify-end">
+          {!isSwapMode ? (
+            <button
+              onClick={() => setIsSwapMode(true)}
+              className="font-display text-sm font-semibold text-sage-600 hover:text-sage-800 border border-sage-300 rounded-lg px-3 py-1.5 hover:bg-sage-50 transition-colors"
+            >
+              Swap meals
+            </button>
+          ) : (
+            <SwapModeBanner
+              hasSelection={selectedEntryId !== null}
+              onCancel={() => {
+                setIsSwapMode(false)
+                setSelectedEntryId(null)
+              }}
+            />
+          )}
+        </div>
+      )}
+
       {loading && (
         <div className="space-y-2">
           {weekDates.map((d) => (
@@ -196,8 +275,20 @@ export default function WeekCalendar() {
           onToggle={() => handleToggle(date)}
           onAddEntry={handleAddEntry}
           onDeleteEntry={handleDeleteEntry}
+          isSwapMode={isSwapMode}
+          selectedEntryId={selectedEntryId}
+          onMealTap={handleMealTap}
         />
       ))}
+
+      {swapToast && (
+        <SwapToast
+          entryIdA={swapToast.entryIdA}
+          entryIdB={swapToast.entryIdB}
+          onUndo={(idA, idB) => { void performSwap(idA, idB) }}
+          onDismiss={() => setSwapToast(null)}
+        />
+      )}
     </div>
   )
 }

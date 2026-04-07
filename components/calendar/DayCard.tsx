@@ -8,15 +8,18 @@ import type { PlanEntry, MealType } from '@/types'
 const MEAL_TYPE_ORDER: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack']
 
 interface DayCardProps {
-  date:          string
-  entries:       PlanEntry[]
-  isExpanded:    boolean
-  onToggle:      () => void
-  onAddEntry:    (date: string, mealType: MealType, recipeId: string, recipeTitle: string, isSideDish?: boolean, parentEntryId?: string) => void
-  onDeleteEntry: (entryId: string) => void
+  date:            string
+  entries:         PlanEntry[]
+  isExpanded:      boolean
+  onToggle:        () => void
+  onAddEntry:      (date: string, mealType: MealType, recipeId: string, recipeTitle: string, isSideDish?: boolean, parentEntryId?: string) => void
+  onDeleteEntry:   (entryId: string) => void
+  isSwapMode?:     boolean
+  selectedEntryId?: string | null
+  onMealTap?:      (entryId: string) => void
 }
 
-export default function DayCard({ date, entries, isExpanded, onToggle, onAddEntry, onDeleteEntry }: DayCardProps) {
+export default function DayCard({ date, entries, isExpanded, onToggle, onAddEntry, onDeleteEntry, isSwapMode, selectedEntryId, onMealTap }: DayCardProps) {
   const mealCount = entries.filter((e) => !e.is_side_dish).length
   const summaryText = mealCount > 0
     ? `${mealCount} meal${mealCount !== 1 ? 's' : ''} planned`
@@ -78,6 +81,9 @@ export default function DayCard({ date, entries, isExpanded, onToggle, onAddEntr
                 // Handled internally by MealSlot via the side dish vault sheet
                 void parentEntryId
               }}
+              isSwapMode={isSwapMode}
+              selectedEntryId={selectedEntryId}
+              onMealTap={onMealTap}
             />
           ))}
         </div>
