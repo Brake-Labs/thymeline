@@ -52,7 +52,7 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
     }
   }
 
-  // Atomic swap via RPC
+  // Atomic swap via RPC — `any` because swap_meal_plan_entries is not yet in the generated Supabase types (migration 028)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error: rpcError } = await (db as any).rpc('swap_meal_plan_entries', {
     entry_id_a,

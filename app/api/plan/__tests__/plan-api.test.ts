@@ -1275,3 +1275,31 @@ describe('SWAP-T08 - 200 success returns swapped planned_dates', () => {
     expect(mockState.rpcCallCount).toBe(1)
   })
 })
+
+// ── SWAP-T20: 200 when household member swaps entries in their household ──────
+
+describe('SWAP-T20 - 200 for household member swapping entries in their household', () => {
+  it('returns 200 when both entries belong to the requesting household', async () => {
+    vi.mocked(resolveHouseholdScope).mockResolvedValueOnce({
+      householdId: 'hh-1',
+      role: 'member',
+    })
+    mockState.entryById[SWAP_ID_A] = {
+      ...makeSwapEntry(SWAP_ID_A, '2026-03-01'),
+      meal_plans: { user_id: 'user-1', household_id: 'hh-1' },
+    }
+    mockState.entryById[SWAP_ID_B] = {
+      ...makeSwapEntry(SWAP_ID_B, '2026-03-03'),
+      meal_plans: { user_id: 'user-1', household_id: 'hh-1' },
+    }
+
+    const res = await swapEntriesPOST(makeReq('POST', 'http://localhost/api/plan/swap', {
+      entry_id_a: SWAP_ID_A,
+      entry_id_b: SWAP_ID_B,
+    }))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.entry_a.planned_date).toBe('2026-03-03')
+    expect(body.entry_b.planned_date).toBe('2026-03-01')
+  })
+})
