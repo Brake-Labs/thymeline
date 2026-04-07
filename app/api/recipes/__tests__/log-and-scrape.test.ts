@@ -352,6 +352,47 @@ describe('POST /api/recipes/scrape', () => {
     expect(res.status).toBe(400)
   })
 
+  it('rejects localhost URL (SSRF protection)', async () => {
+    const mock = makeSupabaseMock()
+    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(makeAdminMock() as unknown as ReturnType<typeof createAdminClient>)
+
+    const { POST } = await import('@/app/api/recipes/scrape/route')
+    const req = makeReq('http://localhost/api/recipes/scrape', 'POST', {
+      url: 'http://127.0.0.1/admin',
+    })
+    const res = await POST(req as Parameters<typeof POST>[0])
+    expect(res.status).toBe(400)
+    const json = await res.json()
+    expect(json.error).toBe('URL not allowed')
+  })
+
+  it('rejects private IP range (SSRF protection)', async () => {
+    const mock = makeSupabaseMock()
+    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(makeAdminMock() as unknown as ReturnType<typeof createAdminClient>)
+
+    const { POST } = await import('@/app/api/recipes/scrape/route')
+    const req = makeReq('http://localhost/api/recipes/scrape', 'POST', {
+      url: 'http://192.168.1.1/recipe',
+    })
+    const res = await POST(req as Parameters<typeof POST>[0])
+    expect(res.status).toBe(400)
+  })
+
+  it('rejects cloud metadata endpoint (SSRF protection)', async () => {
+    const mock = makeSupabaseMock()
+    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(makeAdminMock() as unknown as ReturnType<typeof createAdminClient>)
+
+    const { POST } = await import('@/app/api/recipes/scrape/route')
+    const req = makeReq('http://localhost/api/recipes/scrape', 'POST', {
+      url: 'http://169.254.169.254/latest/meta-data/',
+    })
+    const res = await POST(req as Parameters<typeof POST>[0])
+    expect(res.status).toBe(400)
+  })
+
   // ── Spec-06 T01: suggestedTags / suggestedNewTags ───────────────────────────
 
   it('T01 (spec-06): returns suggestedTags (canonical casing) and suggestedNewTags ({name,section})', async () => {

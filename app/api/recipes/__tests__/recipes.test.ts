@@ -182,7 +182,7 @@ vi.mock('@/lib/household', () => ({
 }))
 
 import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-import { resolveHouseholdScope } from '@/lib/household'
+import { resolveHouseholdScope, checkOwnership } from '@/lib/household'
 
 // ── Helper to build a minimal NextRequest ─────────────────────────────────────
 
@@ -308,6 +308,24 @@ describe('GET /api/recipes/[id] — T05, T13: detail and shared access', () => {
     expect(res.status).toBe(200)
     const json = await res.json()
     expect(json.is_shared).toBe(true)
+  })
+
+  it('returns 403 for non-shared recipe accessed by non-owner (IDOR fix)', async () => {
+    const privateRecipe = { ...sampleRecipe, is_shared: false }
+    const mock = makeSupabaseMock({
+      user: mockOtherUser,
+      singleResult: privateRecipe,
+      history: [],
+    })
+    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
+    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
+    vi.mocked(checkOwnership).mockResolvedValueOnce({ owned: false, status: 403 })
+
+    const { GET } = await import('../[id]/route')
+    const req = makeReq(`http://localhost/api/recipes/${sampleRecipe.id}`)
+    const res = await GET(req as Parameters<typeof GET>[0], { params: { id: sampleRecipe.id } })
+
+    expect(res.status).toBe(403)
   })
 })
 

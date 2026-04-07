@@ -42,7 +42,8 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   const { data: recipes, error: recipesError } = await recipesQuery
 
   if (recipesError) {
-    return NextResponse.json({ error: recipesError.message }, { status: 500 })
+    console.error('Failed to fetch recipes for search:', recipesError.message, recipesError.code)
+    return NextResponse.json({ error: 'Failed to search recipes' }, { status: 500 })
   }
 
   const allRecipes = recipes ?? []
