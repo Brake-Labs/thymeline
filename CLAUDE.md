@@ -42,8 +42,7 @@ cp .env.local.example .env.local   # then fill in credentials
 
 # 3. Install + push schema + run
 npm install
-npx drizzle-kit push               # creates all tables
-npm run dev
+npm run dev                         # runs migrations automatically, then starts server
 ```
 
 ### Required environment variables
@@ -63,9 +62,12 @@ npm run dev
 ### Database schema changes
 Schema is defined in `lib/db/schema.ts`. After modifying:
 ```bash
-npx drizzle-kit push    # push changes to DB (dev)
-npx drizzle-kit generate # generate migration SQL (production)
+npm run db:generate     # generate a migration file from schema diff
+npm run dev             # migrations run automatically on startup
 ```
+Migrations live in `drizzle/` and are committed to git. They run automatically
+on `npm run dev` and `npm start`. For quick iteration you can also use
+`npm run db:push` which skips migration files and applies schema directly.
 
 ## API Route Patterns
 

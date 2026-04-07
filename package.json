@@ -3,9 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "drizzle-kit migrate && next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "drizzle-kit migrate && next start",
+    "db:migrate": "drizzle-kit migrate",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
     "test": "vitest run",

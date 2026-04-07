@@ -46,22 +46,14 @@ LLM_API_KEY=<your Anthropic API key>
 
 `ALLOWED_EMAILS` is a comma-separated whitelist. Leave empty for open access.
 
-### 4. Install dependencies and push schema
+### 4. Install and run
 
 ```bash
 npm install
-npx drizzle-kit push
-```
-
-`drizzle-kit push` creates all tables in your Postgres database (app tables + Better Auth tables).
-
-### 5. Run
-
-```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). Sign in with Google.
+Migrations run automatically on `npm run dev` (and `npm start`). Open [http://localhost:3000](http://localhost:3000) and sign in with Google.
 
 ### Dev auth bypass (for testing without Google OAuth)
 
@@ -80,9 +72,10 @@ npx tsx scripts/seed-dev.ts
 | `npm run lint` | ESLint |
 | `npm run type-check` | TypeScript check |
 | `npm test` | Run tests (vitest) |
-| `npx drizzle-kit push` | Push schema to database |
-| `npx drizzle-kit studio` | Open Drizzle Studio (DB browser) |
-| `npx drizzle-kit generate` | Generate migration files |
+| `npm run db:generate` | Generate migration from schema changes |
+| `npm run db:migrate` | Run pending migrations |
+| `npm run db:push` | Push schema directly (dev shortcut, skips migrations) |
+| `npm run db:studio` | Open Drizzle Studio (DB browser) |
 | `docker compose up -d` | Start Postgres |
 | `docker compose down` | Stop Postgres (data persists in volume) |
 | `docker compose down -v` | Stop Postgres and delete data |
