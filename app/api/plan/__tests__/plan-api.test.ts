@@ -36,6 +36,10 @@ const mockState = {
   // Simulate DB errors for save tests
   planInsertError: null as { message: string } | null,
   entryInsertError: null as { message: string } | null,
+  // For swap-entries route tests
+  entryById: {} as Record<string, { id: string; planned_date: string; recipe_id: string; meal_plan_id: string; meal_plans: { user_id: string; household_id: string | null } | null } | undefined>,
+  rpcError: null as { message: string } | null,
+  rpcCallCount: 0,
 }
 
 // Shared from() builder used by both createServerClient and createAdminClient
@@ -147,6 +151,14 @@ function makeMockFrom(table: string) {
       }),
       select: () => ({
         eq: (col: string, val: string) => {
+          if (col === 'id') {
+            return {
+              maybeSingle: async () => ({
+                data: mockState.entryById[val] ?? null,
+                error: null,
+              }),
+            }
+          }
           const planId = col === 'meal_plan_id' ? val : undefined
           const resolveEntries = () =>
             planId !== undefined && Object.keys(mockState.entriesByPlanId).length > 0
@@ -192,7 +204,23 @@ vi.mock('@/lib/supabase-server', () => ({
     from: makeMockFrom,
   }),
   // Admin client: same DB mock, no auth — simulates service role behaviour
-  createAdminClient: () => ({ from: makeMockFrom }),
+  createAdminClient: () => ({
+    from: makeMockFrom,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    rpc: async (_fn: string, args: any) => {
+      mockState.rpcCallCount++
+      if (mockState.rpcError) return { error: mockState.rpcError }
+      const { entry_id_a, entry_id_b } = args as { entry_id_a: string; entry_id_b: string }
+      const a = mockState.entryById[entry_id_a]
+      const b = mockState.entryById[entry_id_b]
+      if (a && b) {
+        const tmpDate = a.planned_date
+        a.planned_date = b.planned_date
+        b.planned_date = tmpDate
+      }
+      return { error: null }
+    },
+  }),
 }))
 
 vi.mock('@/lib/household', () => ({
@@ -241,6 +269,7 @@ const { POST: suggestPOST } = await import('@/app/api/plan/suggest/route')
 const { POST: swapPOST } = await import('@/app/api/plan/suggest/swap/route')
 const { POST: matchPOST } = await import('@/app/api/plan/match/route')
 const { POST: planPOST, GET: planGET } = await import('@/app/api/plan/route')
+const { POST: swapEntriesPOST } = await import('@/app/api/plan/swap/route')
 
 function makeReq(method: string, url: string, body?: unknown): NextRequest {
   const opts: ConstructorParameters<typeof NextRequest>[1] = {
@@ -269,6 +298,9 @@ beforeEach(() => {
   mockState.entriesByPlanId = {}
   mockState.planInsertError = null
   mockState.entryInsertError = null
+  mockState.entryById = {}
+  mockState.rpcError = null
+  mockState.rpcCallCount = 0
   mockState.llmResponse = JSON.stringify({
     days: [
       {
@@ -1091,5 +1123,183 @@ describe('T34 - Intermediate-week cooldown: recipe in a skipped week is excluded
     expect(options.find((o: { recipe_id: string }) => o.recipe_id === 'r1')).toBeUndefined()
     // r2 has no future plans — must be available
     expect(options.find((o: { recipe_id: string }) => o.recipe_id === 'r2')).toBeDefined()
+  })
+})
+
+// ── Swap-entries route tests ──────────────────────────────────────────────────
+
+const SWAP_ID_A = '11111111-1111-4111-8111-111111111111'
+const SWAP_ID_B = '22222222-2222-4222-8222-222222222222'
+
+function makeSwapEntry(id: string, planned_date: string) {
+  return {
+    id,
+    planned_date,
+    recipe_id: 'r1',
+    meal_plan_id: 'plan-1',
+    meal_plans: { user_id: 'user-1', household_id: null },
+  }
+}
+
+// ── SWAP-T01: 400 when entry_id_a === entry_id_b ─────────────────────────────
+
+describe('SWAP-T01 - 400 when swapping entry with itself', () => {
+  it('returns 400 when entry_id_a === entry_id_b', async () => {
+    const res = await swapEntriesPOST(makeReq('POST', 'http://localhost/api/plan/swap', {
+      entry_id_a: SWAP_ID_A,
+      entry_id_b: SWAP_ID_A,
+    }))
+    expect(res.status).toBe(400)
+  })
+})
+
+// ── SWAP-T02: 400 on invalid body ────────────────────────────────────────────
+
+describe('SWAP-T02 - 400 on invalid body', () => {
+  it('returns 400 when entry_id_a is not a valid UUID', async () => {
+    const res = await swapEntriesPOST(makeReq('POST', 'http://localhost/api/plan/swap', {
+      entry_id_a: 'not-a-uuid',
+      entry_id_b: SWAP_ID_B,
+    }))
+    expect(res.status).toBe(400)
+  })
+})
+
+// ── SWAP-T03: 404 when entry_a not found ─────────────────────────────────────
+
+describe('SWAP-T03 - 404 when entry_id_a not found', () => {
+  it('returns 404 when entry_a does not exist', async () => {
+    mockState.entryById[SWAP_ID_B] = makeSwapEntry(SWAP_ID_B, '2026-03-03')
+    // entry_id_a not in entryById → null
+
+    const res = await swapEntriesPOST(makeReq('POST', 'http://localhost/api/plan/swap', {
+      entry_id_a: SWAP_ID_A,
+      entry_id_b: SWAP_ID_B,
+    }))
+    expect(res.status).toBe(404)
+  })
+})
+
+// ── SWAP-T04: 404 when entry_b not found ─────────────────────────────────────
+
+describe('SWAP-T04 - 404 when entry_id_b not found', () => {
+  it('returns 404 when entry_b does not exist', async () => {
+    mockState.entryById[SWAP_ID_A] = makeSwapEntry(SWAP_ID_A, '2026-03-01')
+    // entry_id_b not in entryById → null
+
+    const res = await swapEntriesPOST(makeReq('POST', 'http://localhost/api/plan/swap', {
+      entry_id_a: SWAP_ID_A,
+      entry_id_b: SWAP_ID_B,
+    }))
+    expect(res.status).toBe(404)
+  })
+})
+
+// ── SWAP-T05: 403 when entry belongs to different user ───────────────────────
+
+describe('SWAP-T05 - 403 when entry_a belongs to different user', () => {
+  it('returns 403 when entry_a.meal_plans.user_id !== requesting user', async () => {
+    mockState.entryById[SWAP_ID_A] = {
+      ...makeSwapEntry(SWAP_ID_A, '2026-03-01'),
+      meal_plans: { user_id: 'other-user', household_id: null },
+    }
+    mockState.entryById[SWAP_ID_B] = makeSwapEntry(SWAP_ID_B, '2026-03-03')
+
+    const res = await swapEntriesPOST(makeReq('POST', 'http://localhost/api/plan/swap', {
+      entry_id_a: SWAP_ID_A,
+      entry_id_b: SWAP_ID_B,
+    }))
+    expect(res.status).toBe(403)
+  })
+})
+
+// ── SWAP-T06: 403 in household mode when entry belongs to different household ─
+
+describe('SWAP-T06 - 403 in household mode when entry belongs to different household', () => {
+  it('returns 403 when entry household_id does not match ctx.householdId', async () => {
+    vi.mocked(resolveHouseholdScope).mockResolvedValueOnce({
+      householdId: 'hh-1',
+      role: 'member',
+    })
+    mockState.entryById[SWAP_ID_A] = {
+      ...makeSwapEntry(SWAP_ID_A, '2026-03-01'),
+      meal_plans: { user_id: 'user-1', household_id: 'hh-other' },
+    }
+    mockState.entryById[SWAP_ID_B] = {
+      ...makeSwapEntry(SWAP_ID_B, '2026-03-03'),
+      meal_plans: { user_id: 'user-1', household_id: 'hh-other' },
+    }
+
+    const res = await swapEntriesPOST(makeReq('POST', 'http://localhost/api/plan/swap', {
+      entry_id_a: SWAP_ID_A,
+      entry_id_b: SWAP_ID_B,
+    }))
+    expect(res.status).toBe(403)
+  })
+})
+
+// ── SWAP-T07: 500 when RPC fails ─────────────────────────────────────────────
+
+describe('SWAP-T07 - 500 when RPC swap fails', () => {
+  it('returns 500 when swap_meal_plan_entries RPC returns an error', async () => {
+    mockState.entryById[SWAP_ID_A] = makeSwapEntry(SWAP_ID_A, '2026-03-01')
+    mockState.entryById[SWAP_ID_B] = makeSwapEntry(SWAP_ID_B, '2026-03-03')
+    mockState.rpcError = { message: 'deadlock detected' }
+
+    const res = await swapEntriesPOST(makeReq('POST', 'http://localhost/api/plan/swap', {
+      entry_id_a: SWAP_ID_A,
+      entry_id_b: SWAP_ID_B,
+    }))
+    expect(res.status).toBe(500)
+  })
+})
+
+// ── SWAP-T08: 200 success, returns swapped entries ───────────────────────────
+
+describe('SWAP-T08 - 200 success returns swapped planned_dates', () => {
+  it('returns 200 with entry_a and entry_b having swapped dates', async () => {
+    mockState.entryById[SWAP_ID_A] = makeSwapEntry(SWAP_ID_A, '2026-03-01')
+    mockState.entryById[SWAP_ID_B] = makeSwapEntry(SWAP_ID_B, '2026-03-03')
+
+    const res = await swapEntriesPOST(makeReq('POST', 'http://localhost/api/plan/swap', {
+      entry_id_a: SWAP_ID_A,
+      entry_id_b: SWAP_ID_B,
+    }))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.entry_a).toBeDefined()
+    expect(body.entry_b).toBeDefined()
+    // After swap: entry_a gets entry_b's old date and vice versa
+    expect(body.entry_a.planned_date).toBe('2026-03-03')
+    expect(body.entry_b.planned_date).toBe('2026-03-01')
+    expect(mockState.rpcCallCount).toBe(1)
+  })
+})
+
+// ── SWAP-T20: 200 when household member swaps entries in their household ──────
+
+describe('SWAP-T20 - 200 for household member swapping entries in their household', () => {
+  it('returns 200 when both entries belong to the requesting household', async () => {
+    vi.mocked(resolveHouseholdScope).mockResolvedValueOnce({
+      householdId: 'hh-1',
+      role: 'member',
+    })
+    mockState.entryById[SWAP_ID_A] = {
+      ...makeSwapEntry(SWAP_ID_A, '2026-03-01'),
+      meal_plans: { user_id: 'user-1', household_id: 'hh-1' },
+    }
+    mockState.entryById[SWAP_ID_B] = {
+      ...makeSwapEntry(SWAP_ID_B, '2026-03-03'),
+      meal_plans: { user_id: 'user-1', household_id: 'hh-1' },
+    }
+
+    const res = await swapEntriesPOST(makeReq('POST', 'http://localhost/api/plan/swap', {
+      entry_id_a: SWAP_ID_A,
+      entry_id_b: SWAP_ID_B,
+    }))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.entry_a.planned_date).toBe('2026-03-03')
+    expect(body.entry_b.planned_date).toBe('2026-03-01')
   })
 })

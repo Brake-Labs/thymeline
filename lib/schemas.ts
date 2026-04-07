@@ -167,6 +167,11 @@ export const matchSchema = z.object({
   date: dateString.optional(),
 })
 
+export const swapEntriesSchema = z.object({
+  entry_id_a: z.string().uuid(),
+  entry_id_b: z.string().uuid(),
+})
+
 // ─── Preferences ────────────────────────────────────────────────────────────
 
 export const updatePreferencesSchema = z.object({

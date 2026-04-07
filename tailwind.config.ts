@@ -8,6 +8,16 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      keyframes: {
+        shake: {
+          '0%, 100%': { transform: 'translateX(0)' },
+          '33%': { transform: 'translateX(-4px)' },
+          '66%': { transform: 'translateX(4px)' },
+        },
+      },
+      animation: {
+        shake: 'shake 300ms ease-in-out',
+      },
       fontFamily: {
         sans:    ['var(--font-manrope)', 'sans-serif'],
         display: ['var(--font-jakarta)', 'sans-serif'],

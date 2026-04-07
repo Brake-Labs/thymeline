@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getMostRecentSunday, formatDayName as formatDate, formatWeekRange, addWeeks } from '@/lib/date-utils'
+import { getMostRecentSunday, formatWeekRange, addWeeks } from '@/lib/date-utils'
+import WeekCalendarView from '@/components/plan/WeekCalendarView'
 
 interface Props {
   params: { week_start: string }
@@ -77,14 +78,16 @@ export default async function PlanWeekPage({ params }: Props) {
 
   const { data: entries } = await supabase
     .from('meal_plan_entries')
-    .select('planned_date, recipe_id, position, confirmed, recipes(title)')
+    .select('id, planned_date, recipe_id, position, confirmed, meal_type, recipes(title)')
     .eq('meal_plan_id', plan.id)
     .order('planned_date')
     .order('position')
 
   const enriched = (entries ?? []).map((e) => ({
+    id:            e.id,
     planned_date:  e.planned_date,
     recipe_title:  ((e.recipes as unknown) as { title: string } | null)?.title ?? '',
+    meal_type:     e.meal_type ?? 'dinner',
     confirmed:     e.confirmed,
   }))
 
@@ -92,26 +95,7 @@ export default async function PlanWeekPage({ params }: Props) {
     <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
       {weekNav}
 
-      {enriched.length === 0 ? (
-        <p className="text-stone-500">No recipes planned for this week.</p>
-      ) : (
-        <div className="space-y-2">
-          {enriched.map((entry, i) => (
-            <div
-              key={`${entry.planned_date}-${i}`}
-              className="flex items-center justify-between rounded-lg border border-stone-200 px-4 py-3 bg-white"
-            >
-              <div>
-                <p className="text-xs text-stone-500">{formatDate(entry.planned_date)}</p>
-                <p className="text-sm font-medium text-stone-900">{entry.recipe_title}</p>
-              </div>
-              {entry.confirmed && (
-                <span className="text-xs text-sage-500 font-medium">✓ Confirmed</span>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+      <WeekCalendarView entries={enriched} weekStart={week_start} />
 
       <div className="flex flex-col sm:flex-row gap-3 pt-2">
         <Link
