@@ -193,10 +193,11 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
 
   async function handleShare() {
     const header = `Grocery list — week of ${weekStart}`
+    const itemList = buildPlainTextList(items, recipeScales, planServings, weekStart, { onlyUnchecked: true })
+    const text = itemList ? `${header}\n\n${itemList}` : header
 
-    // On iOS, native file share shows Reminders in the share sheet and imports
-    // each VTODO as a separate reminder. On macOS desktop Reminders does not
-    // appear in the share sheet — fall through to clipboard.
+    // 1. On iOS, sharing the .ics file makes Reminders appear in the share sheet
+    //    and imports each VTODO as a separate reminder.
     const ics = buildICSExport(items, { onlyUnchecked: true })
     const file = new File([ics], 'grocery-list.ics', { type: 'text/calendar' })
     if (typeof navigator !== 'undefined' && navigator.canShare?.({ files: [file] })) {
@@ -205,19 +206,25 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
         return
       } catch (err) {
         if ((err as Error).name === 'AbortError') return
-        // share failed — fall through to clipboard
+        // file share failed — fall through to text share
       }
     }
 
-    // Fallback: copy plain text to clipboard
-    const itemList = buildPlainTextList(items, recipeScales, planServings, weekStart, { onlyUnchecked: true })
-    const text = itemList ? `${header}\n\n${itemList}` : header
+    // 2. Text share — opens the native share sheet (Notes, Messages, Mail, etc.)
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({ text })
+        return
+      } catch { /* fall through */ }
+    }
+
+    // 3. Last resort: clipboard copy
     try {
       await navigator.clipboard.writeText(text)
       setShareToast('Copied to clipboard!')
       setTimeout(() => setShareToast(null), TOAST_DURATION_LONG_MS)
     } catch {
-      setShareToast('Could not copy list')
+      setShareToast('Could not share list')
       setTimeout(() => setShareToast(null), TOAST_DURATION_LONG_MS)
     }
   }
