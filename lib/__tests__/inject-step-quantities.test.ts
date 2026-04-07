@@ -233,3 +233,49 @@ describe('T60 - multi-word ingredient matched by last word in step text (regress
     expect(step2.highlights).toHaveLength(0)
   })
 })
+
+// ── T61: Partial quantity in step — highlight it, don't inject full total ──────
+
+describe('T61 - step has partial quantity for ingredient — highlight it in-place (regression for #304)', () => {
+  it('highlights "2 tbsp" in step text when ingredient total is "4 tbsp olive oil"', () => {
+    const result = injectStepQuantities(
+      'Add 2 tbsp olive oil to the pan',
+      '4 tbsp olive oil',
+      4,
+      4,
+    )
+    // Text must not change (no full-total injection)
+    expect(result.text).toBe('Add 2 tbsp olive oil to the pan')
+    // The existing "2 tbsp" must be highlighted
+    expect(result.highlights).toHaveLength(1)
+    const span = result.text.slice(result.highlights[0]!.start, result.highlights[0]!.end)
+    expect(span).toBe('2 tbsp')
+  })
+
+  it('highlights "½ tsp" in step text when ingredient total is "1 tsp salt"', () => {
+    const result = injectStepQuantities(
+      'Season with ½ tsp salt and stir',
+      '1 tsp salt',
+      4,
+      4,
+    )
+    expect(result.text).toBe('Season with ½ tsp salt and stir')
+    expect(result.highlights).toHaveLength(1)
+    const span = result.text.slice(result.highlights[0]!.start, result.highlights[0]!.end)
+    expect(span).toBe('½ tsp')
+  })
+
+  it('highlights partial quantity when ingredient name is matched via last-word fallback', () => {
+    // "oil" matches via last-word of "olive oil"
+    const result = injectStepQuantities(
+      'Heat 1 tbsp oil until shimmering',
+      '3 tbsp olive oil',
+      4,
+      4,
+    )
+    expect(result.text).toBe('Heat 1 tbsp oil until shimmering')
+    expect(result.highlights).toHaveLength(1)
+    const span = result.text.slice(result.highlights[0]!.start, result.highlights[0]!.end)
+    expect(span).toBe('1 tbsp')
+  })
+})
