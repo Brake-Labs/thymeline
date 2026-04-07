@@ -257,7 +257,7 @@ Rules you must follow exactly:
 - Respect weekly tag caps: ${limited}.
   e.g. if "Comfort" cap is 2, the total options across all days with the "Comfort" tag must not exceed 2.
 - Current season is ${season}.${seasonal ? ' ' + seasonal : ''}
-- Variety matters: spread different recipe types across the week.
+- Variety matters: spread different recipe types AND tag groups across the week. No single tag (especially cuisine or cooking-style tags) should appear across more than 2 days worth of options. Avoid clustering similar recipes on the same day.
 
 Return ONLY valid JSON in this exact format, with no prose, no markdown:
 {

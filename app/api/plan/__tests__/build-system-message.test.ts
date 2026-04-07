@@ -341,6 +341,16 @@ describe('buildSystemMessage', () => {
     expect(result).toContain('"meal_types"')
   })
 
+  // ── Variety instruction ─────────────────────────────────────────────────
+
+  it('includes tag-level variety instruction to prevent cuisine clustering', () => {
+    const result = buildSystemMessage(makePrefs(), [], [], 'spring')
+
+    expect(result).toContain('No single tag')
+    expect(result).toContain('more than 2 days')
+    expect(result).toContain('Avoid clustering similar recipes on the same day')
+  })
+
   // ── Season is always stated ─────────────────────────────────────────────
 
   it('states the current season in all cases', () => {
