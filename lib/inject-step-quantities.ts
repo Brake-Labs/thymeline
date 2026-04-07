@@ -15,6 +15,14 @@ function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
+
+// Detects a quantity-like token (number or fraction + optional unit) at the very
+// end of a lookback string — with an optional "of" preposition before the trailing
+// whitespace. Used to recognise when a step already contains a partial amount for
+// an ingredient so we can highlight it in-place rather than injecting the full total.
+// Groups: [1] = the quantity token without trailing whitespace / "of".
+const INLINE_QTY_RE = /((?:\d[\d./]*(?:[\u00bd\u2153\u2154\u00bc\u00be\u2155\u2156\u2157\u2158\u2159\u215a\u215b\u215c\u215d\u215e]|\s*\d+\/\d+)?|[\u00bd\u2153\u2154\u00bc\u00be\u2155\u2156\u2157\u2158\u2159\u215a\u215b\u215c\u215d\u215e])(?:\s+(?:tsp|tbsp|cups?|oz|lbs?|g|kg|ml|l|cloves?|cans?|slices?|pieces?|sprigs?|pinch(?:es)?|handful|bunch(?:es)?|heads?|stalks?|inches?))?)(?:\s+of)?\s+$/i
+
 /**
  * Replaces bare ingredient names in a step with their (scaled) quantity + name,
  * and returns highlight ranges marking the quantity portions.
@@ -104,20 +112,33 @@ export function injectStepQuantities(
     result += stepText.slice(cursor, match.start)
     const key = match.ingredientName.toLowerCase()
     if (match.quantity && !seen.has(key)) {
-      // Don't prepend the quantity if it already appears in the step text immediately
-      // before this ingredient (e.g. step says "Add 2 tbsp olive oil" — injecting
-      // again would produce "Add 2 tbsp 2 tbsp olive oil").
-      // Look back match.quantity.length + 15 chars to accommodate prepositions like
-      // "1 cup of flour" where "of" separates the quantity from the ingredient.
+      // Look back up to 40 chars before the ingredient name to detect whether
+      // the step text already contains a quantity (either exact or partial).
+      // "1 cup of flour" → lookback "1 cup of " includes "1 cup", so no inject.
       const lookback = stepText.slice(
-        Math.max(0, match.start - match.quantity.length - 15),
+        Math.max(0, match.start - 40),
         match.start,
       )
-      if (!lookback.includes(match.quantity)) {
-        const qStart = result.length
-        result += match.quantity
-        highlights.push({ start: qStart, end: result.length })
-        result += ' '
+      if (lookback.includes(match.quantity)) {
+        // Exact total quantity already present — don't inject and don't highlight
+        // (avoids duplication, e.g. "Add 2 tbsp 2 tbsp olive oil").
+      } else {
+        const inlineMatch = INLINE_QTY_RE.exec(lookback)
+        if (inlineMatch) {
+          // A different (partial) quantity is already written in the step text.
+          // Highlight it in-place instead of injecting the full ingredient total.
+          const qtyText = inlineMatch[1]!
+          const trailingLen = inlineMatch[0].length - qtyText.length
+          const qEnd = result.length - trailingLen
+          const qStart = qEnd - qtyText.length
+          if (qStart >= 0) highlights.push({ start: qStart, end: qEnd })
+        } else {
+          // No quantity in the step text — inject the full (scaled) total.
+          const qStart = result.length
+          result += match.quantity
+          highlights.push({ start: qStart, end: result.length })
+          result += ' '
+        }
       }
     }
     seen.add(match.ingredientName.toLowerCase())
