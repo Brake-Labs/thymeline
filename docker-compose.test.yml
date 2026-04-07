@@ -4,15 +4,15 @@ services:
   test-db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: forkcast_test
-      POSTGRES_USER: forkcast
+      POSTGRES_DB: thymeline_test
+      POSTGRES_USER: thymeline
       POSTGRES_PASSWORD: test_password
     ports:
       - '5433:5432'
     tmpfs:
       - /var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U forkcast -d forkcast_test']
+      test: ['CMD-SHELL', 'pg_isready -U thymeline -d thymeline_test']
       interval: 2s
       timeout: 5s
       retries: 10

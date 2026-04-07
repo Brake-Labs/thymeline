@@ -67,7 +67,7 @@ export const GET = withAuth(async (req, { user, ctx }) => {
     return NextResponse.json(result)
   } catch (err) {
     console.error('DB error:', err)
-    return NextResponse.json({ error: 'Database query failed' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch recipes' }, { status: 500 })
   }
 })
 
@@ -106,6 +106,6 @@ export const POST = withAuth(async (req, { user, ctx }) => {
     return NextResponse.json(data, { status: 201 })
   } catch (err) {
     console.error('DB error:', err)
-    return NextResponse.json({ error: 'Database query failed' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to create recipe' }, { status: 500 })
   }
 })

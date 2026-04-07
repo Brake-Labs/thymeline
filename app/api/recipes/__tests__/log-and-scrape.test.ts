@@ -288,6 +288,35 @@ describe('POST /api/recipes/scrape', () => {
     expect(res.status).toBe(400)
   })
 
+  it('rejects localhost URL (SSRF protection)', async () => {
+    const { POST } = await import('@/app/api/recipes/scrape/route')
+    const req = makeRequest('POST', 'http://localhost/api/recipes/scrape', {
+      url: 'http://127.0.0.1/admin',
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(400)
+    const json = await res.json()
+    expect(json.error).toBe('URL not allowed')
+  })
+
+  it('rejects private IP range (SSRF protection)', async () => {
+    const { POST } = await import('@/app/api/recipes/scrape/route')
+    const req = makeRequest('POST', 'http://localhost/api/recipes/scrape', {
+      url: 'http://192.168.1.1/recipe',
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(400)
+  })
+
+  it('rejects cloud metadata endpoint (SSRF protection)', async () => {
+    const { POST } = await import('@/app/api/recipes/scrape/route')
+    const req = makeRequest('POST', 'http://localhost/api/recipes/scrape', {
+      url: 'http://169.254.169.254/latest/meta-data/',
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(400)
+  })
+
   // ── Spec-06 T01: suggestedTags / suggestedNewTags ───────────────────────────
 
   it('T01 (spec-06): returns suggestedTags (canonical casing) and suggestedNewTags ({name,section})', async () => {

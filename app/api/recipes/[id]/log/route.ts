@@ -45,7 +45,7 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }, params) => 
 
     if (!alreadyLogged) {
       console.error('DB error:', err)
-      return NextResponse.json({ error: 'Database query failed' }, { status: 500 })
+      return NextResponse.json({ error: 'Failed to log recipe' }, { status: 500 })
     }
 
     // Find the existing entry
@@ -136,6 +136,6 @@ export const DELETE = withAuth(async (req: NextRequest, { user }, params) => {
     return new NextResponse(null, { status: 204 })
   } catch (err) {
     console.error('DB error:', err)
-    return NextResponse.json({ error: 'Database query failed' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to delete log entry' }, { status: 500 })
   }
 })

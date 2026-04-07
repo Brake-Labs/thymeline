@@ -59,7 +59,7 @@ export const GET = withAuth(async (req, { user, ctx }) => {
     return NextResponse.json({ firstClass, custom, hidden })
   } catch (err) {
     console.error('DB error:', err)
-    return NextResponse.json({ error: 'Database query failed' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch tags' }, { status: 500 })
   }
 })
 
@@ -106,6 +106,6 @@ export const POST = withAuth(async (req, { user, ctx }) => {
     return NextResponse.json(created, { status: 201 })
   } catch (err) {
     console.error('DB error:', err)
-    return NextResponse.json({ error: 'Database query failed' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to create tag' }, { status: 500 })
   }
 })

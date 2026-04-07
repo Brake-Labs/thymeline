@@ -1,4 +1,4 @@
-# Thymeline (forkcast)
+# Thymeline
 
 AI-powered weekly meal planning app built with Next.js, Better Auth, Drizzle ORM, and Postgres.
 
@@ -15,10 +15,10 @@ AI-powered weekly meal planning app built with Next.js, Better Auth, Drizzle ORM
 
 ```bash
 docker run -d \
-  --name forkcast-db \
-  -e POSTGRES_DB=forkcast \
-  -e POSTGRES_USER=forkcast \
-  -e POSTGRES_PASSWORD=forkcast \
+  --name thymeline-db \
+  -e POSTGRES_DB=thymeline \
+  -e POSTGRES_USER=thymeline \
+  -e POSTGRES_PASSWORD=thymeline \
   -p 5432:5432 \
   postgres:16-alpine
 ```
@@ -39,7 +39,7 @@ cp .env.local.example .env.local
 Edit `.env.local`:
 
 ```env
-DATABASE_URL=postgresql://forkcast:forkcast@localhost:5432/forkcast
+DATABASE_URL=postgresql://thymeline:thymeline@localhost:5432/thymeline
 BETTER_AUTH_SECRET=<run: openssl rand -base64 32>
 GOOGLE_CLIENT_ID=<from step 2>
 GOOGLE_CLIENT_SECRET=<from step 2>

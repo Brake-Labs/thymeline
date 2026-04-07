@@ -29,6 +29,6 @@ export const PATCH = withAuth(async (req: NextRequest, { user, ctx }, params) =>
     return NextResponse.json(updated)
   } catch (err) {
     console.error('DB error:', err)
-    return NextResponse.json({ error: 'Database query failed' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to update share status' }, { status: 500 })
   }
 })

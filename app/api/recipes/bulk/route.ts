@@ -59,6 +59,6 @@ export const PATCH = withAuth(async (req: NextRequest, { user, ctx }) => {
     return NextResponse.json(updatedRecipes)
   } catch (err) {
     console.error('DB error:', err)
-    return NextResponse.json({ error: 'Database query failed' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to update recipes' }, { status: 500 })
   }
 })

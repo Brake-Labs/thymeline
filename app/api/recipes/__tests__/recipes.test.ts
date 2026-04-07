@@ -268,6 +268,25 @@ describe('GET /api/recipes/[id] — T05, T13: detail and shared access', () => {
     const json = await res.json()
     expect(json.isShared).toBe(true)
   })
+
+  it('returns 403 for non-shared recipe accessed by non-owner (IDOR fix)', async () => {
+    const otherUser = { id: 'other-user', email: 'other@test.com', name: 'Other', image: null }
+    const { checkOwnership } = await import('@/lib/household')
+    vi.mocked(checkOwnership).mockResolvedValueOnce({ owned: false, status: 403 })
+
+    await setupMocks({
+      user: otherUser,
+      selectResults: [
+        [{ ...sampleRecipe, isShared: false }],  // recipe lookup
+      ],
+    })
+
+    const { GET } = await import('../[id]/route')
+    const req = makeRequest('GET', `http://localhost/api/recipes/${sampleRecipe.id}`)
+    const res = await GET(req, { params: { id: sampleRecipe.id } })
+
+    expect(res.status).toBe(403)
+  })
 })
 
 describe('PATCH /api/recipes/[id] — T08, T11: edit and ownership', () => {

@@ -37,6 +37,6 @@ export const POST = withAuth(async (req, { user }) => {
     return NextResponse.json({ success: true })
   } catch (err) {
     console.error('[POST /api/auth/reactivate] error:', err)
-    return NextResponse.json({ error: err instanceof Error ? err.message : 'Unknown error' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to check eligibility' }, { status: 500 })
   }
 })

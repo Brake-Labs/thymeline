@@ -6,6 +6,7 @@ import { db } from '@/lib/db'
 import { eq } from 'drizzle-orm'
 import { recipes, recipeHistory } from '@/lib/db/schema'
 import { dbFirst } from '@/lib/db/helpers'
+import { checkOwnership } from '@/lib/household'
 
 // Helper: attach last_made + times_made to a recipe row
 async function withHistory(recipe: Record<string, unknown>) {
@@ -23,7 +24,7 @@ async function withHistory(recipe: Record<string, unknown>) {
   return { ...recipe, last_made, times_made: history.length, dates_made }
 }
 
-export const GET = withAuth(async (req, { }, params) => {
+export const GET = withAuth(async (req, { user, ctx }, params) => {
   const id = params.id!
 
   try {
@@ -32,6 +33,15 @@ export const GET = withAuth(async (req, { }, params) => {
 
     if (!recipe) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
+
+    // Allow access if: owner/household member, or recipe is shared
+    if (!recipe.isShared) {
+      const ownership = await checkOwnership('recipes', id, user.id, ctx)
+      if (!ownership.owned) {
+        const msg = ownership.status === 404 ? 'Not found' : 'Forbidden'
+        return NextResponse.json({ error: msg }, { status: ownership.status })
+      }
     }
 
     return NextResponse.json(await withHistory(recipe as Record<string, unknown>))
@@ -103,7 +113,7 @@ export const PATCH = withAuth(async (req, { user, ctx }, params) => {
     return NextResponse.json(updated)
   } catch (err) {
     console.error('DB error:', err)
-    return NextResponse.json({ error: 'Database query failed' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to update recipe' }, { status: 500 })
   }
 })
 
@@ -138,6 +148,6 @@ export const DELETE = withAuth(async (req, { user, ctx }, params) => {
     return new NextResponse(null, { status: 204 })
   } catch (err) {
     console.error('DB error:', err)
-    return NextResponse.json({ error: 'Database query failed' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to delete recipe' }, { status: 500 })
   }
 })

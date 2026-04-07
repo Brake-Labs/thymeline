@@ -106,7 +106,7 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
         replaced++
       } catch (err) {
         console.error('[import/save] Update failed:', err)
-        failed.push({ title: recipe.title, error: err instanceof Error ? err.message : 'Update failed' })
+        failed.push({ title: recipe.title, error: 'Failed to replace recipe' })
       }
     } else {
       // Insert as new recipe (keep_both or no duplicate action)
@@ -120,7 +120,7 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
         imported++
       } catch (err) {
         console.error('[import/save] Insert failed:', err)
-        failed.push({ title: recipe.title, error: err instanceof Error ? err.message : 'Insert failed' })
+        failed.push({ title: recipe.title, error: 'Failed to import recipe' })
       }
     }
   }

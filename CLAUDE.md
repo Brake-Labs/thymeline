@@ -35,8 +35,8 @@ track what they've cooked.
 ### Quick start
 ```bash
 # 1. Start Postgres
-docker run -d --name forkcast-db \
-  -e POSTGRES_DB=forkcast -e POSTGRES_USER=forkcast -e POSTGRES_PASSWORD=forkcast \
+docker run -d --name thymeline-db \
+  -e POSTGRES_DB=thymeline -e POSTGRES_USER=thymeline -e POSTGRES_PASSWORD=thymeline \
   -p 5432:5432 postgres:16-alpine
 
 # 2. Configure env
