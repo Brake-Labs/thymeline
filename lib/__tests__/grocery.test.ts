@@ -13,6 +13,7 @@ import {
   scaleItem,
   effectiveServings,
   buildPlainTextList,
+  buildICSExport,
   getCurrentWeekSunday,
   formatWeekLabel,
 } from '../grocery'
@@ -473,5 +474,66 @@ describe('formatWeekLabel', () => {
   it('returns a human-readable range', () => {
     const label = formatWeekLabel('2026-03-15')
     expect(label).toMatch(/Mar/)
+  })
+})
+
+// ── buildICSExport (issue #297) ───────────────────────────────────────────────
+
+function makeItem(overrides: Partial<GroceryItem>): GroceryItem {
+  return {
+    id: 'test-id', name: 'item', amount: null, unit: null,
+    section: 'Other', is_pantry: false, checked: false, bought: false,
+    recipes: [],
+    ...overrides,
+  }
+}
+
+describe('buildICSExport', () => {
+  it('produces a valid VCALENDAR wrapper', () => {
+    const ics = buildICSExport([])
+    expect(ics).toContain('BEGIN:VCALENDAR')
+    expect(ics).toContain('END:VCALENDAR')
+    expect(ics).toContain('VERSION:2.0')
+  })
+
+  it('creates one VTODO per item', () => {
+    const items = [
+      makeItem({ name: 'chicken', amount: 1, unit: 'lb' }),
+      makeItem({ name: 'olive oil', amount: 2, unit: 'tbsp' }),
+    ]
+    const ics = buildICSExport(items)
+    const vtodoCount = (ics.match(/BEGIN:VTODO/g) ?? []).length
+    expect(vtodoCount).toBe(2)
+    expect(ics).toContain('SUMMARY:1 lb chicken')
+    expect(ics).toContain('SUMMARY:2 tbsp olive oil')
+  })
+
+  it('uses CRLF line endings (RFC 5545)', () => {
+    const ics = buildICSExport([makeItem({ name: 'eggs' })])
+    expect(ics).toContain('\r\n')
+    // No bare LF without preceding CR
+    expect(ics.replace(/\r\n/g, '')).not.toContain('\n')
+  })
+
+  it('excludes non-pantry checked/bought items with onlyUnchecked', () => {
+    const items = [
+      makeItem({ name: 'milk' }),                          // include — unchecked need-to-buy
+      makeItem({ name: 'butter', checked: true }),         // exclude — already have it
+      makeItem({ name: 'eggs', bought: true }),            // exclude — got it
+      makeItem({ name: 'salt', is_pantry: true, checked: true }),  // include — pantry checked = add to cart
+      makeItem({ name: 'pepper', is_pantry: true, checked: false }), // exclude — pantry unchecked
+    ]
+    const ics = buildICSExport(items, { onlyUnchecked: true })
+    expect(ics).toContain('SUMMARY:milk')
+    expect(ics).not.toContain('SUMMARY:butter')
+    expect(ics).not.toContain('SUMMARY:eggs')
+    expect(ics).toContain('SUMMARY:salt')
+    expect(ics).not.toContain('SUMMARY:pepper')
+  })
+
+  it('escapes special characters in item names', () => {
+    const items = [makeItem({ name: 'flour, all-purpose; sifted\\fine' })]
+    const ics = buildICSExport(items)
+    expect(ics).toContain('SUMMARY:flour\\, all-purpose\\; sifted\\\\fine')
   })
 })
