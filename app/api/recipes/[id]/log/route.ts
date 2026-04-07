@@ -37,7 +37,8 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }, params)
     (insertError.code === '23505' || insertError.message.includes('recipe_history_unique_day'))
 
   if (insertError && !alreadyLogged) {
-    return NextResponse.json({ error: insertError.message }, { status: 500 })
+    console.error('Failed to log recipe:', insertError.message, insertError.code)
+    return NextResponse.json({ error: 'Failed to log recipe' }, { status: 500 })
   }
 
   let entryId: string | null = inserted?.id ?? null
@@ -121,7 +122,8 @@ export const DELETE = withAuth(async (req: NextRequest, { user, db }, params) =>
     .eq('made_on', body.made_on)
 
   if (deleteError) {
-    return NextResponse.json({ error: deleteError.message }, { status: 500 })
+    console.error('Failed to delete recipe log:', deleteError.message, deleteError.code)
+    return NextResponse.json({ error: 'Failed to delete log entry' }, { status: 500 })
   }
 
   return new NextResponse(null, { status: 204 })

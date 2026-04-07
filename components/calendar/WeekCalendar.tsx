@@ -23,6 +23,7 @@ export default function WeekCalendar() {
   const [isSwapMode, setIsSwapMode] = useState(false)
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null)
   const [swapToast, setSwapToast] = useState<{ entryIdA: string; entryIdB: string } | null>(null)
+  const [swapError, setSwapError] = useState<string | null>(null)
 
   const currentWeekStart = getMostRecentWeekStart(weekStartDay)
   const maxWeekStart = addWeeks(currentWeekStart, 4)
@@ -169,6 +170,7 @@ export default function WeekCalendar() {
   async function performSwap(idA: string, idB: string) {
     setIsSwapMode(false)
     setSelectedEntryId(null)
+    setSwapError(null)
 
     const prev = [...entries]
 
@@ -196,6 +198,7 @@ export default function WeekCalendar() {
       setSwapToast({ entryIdA: idA, entryIdB: idB })
     } catch {
       setEntries(prev)
+      setSwapError('Swap failed. Please try again.')
     }
   }
 
@@ -256,6 +259,10 @@ export default function WeekCalendar() {
             />
           )}
         </div>
+      )}
+
+      {swapError && (
+        <p className="text-sm text-red-600">{swapError}</p>
       )}
 
       {loading && (

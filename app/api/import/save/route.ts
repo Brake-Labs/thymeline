@@ -99,7 +99,7 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
 
       if (error) {
         console.error('[import/save] Update failed:', error)
-        failed.push({ title: recipe.title, error: error.message })
+        failed.push({ title: recipe.title, error: 'Failed to replace recipe' })
         continue
       }
 
@@ -111,7 +111,7 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
 
       if (error) {
         console.error('[import/save] Insert failed:', error)
-        failed.push({ title: recipe.title, error: error.message })
+        failed.push({ title: recipe.title, error: 'Failed to import recipe' })
         continue
       }
 

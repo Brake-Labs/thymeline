@@ -1,1 +1,6 @@
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks protect --staged
+else
+  echo "⚠ gitleaks not installed — skipping secret scan (install: brew install gitleaks)"
+fi
 npx lint-staged

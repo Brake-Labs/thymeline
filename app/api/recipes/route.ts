@@ -21,7 +21,7 @@ export const GET = withAuth(async (req, { user, db, ctx }) => {
   const { data: recipes, error } = await query
   if (error) {
     logger.error({ error: error.message, code: error.code, userId: user.id }, 'failed to fetch recipes')
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch recipes' }, { status: 500 })
   }
 
   // Attach last_made and times_made for each recipe
@@ -114,7 +114,7 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
 
   if (error) {
     logger.error({ error: error.message, code: error.code, title: body.title }, 'failed to insert recipe')
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to create recipe' }, { status: 500 })
   }
 
   return NextResponse.json(data, { status: 201 })

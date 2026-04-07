@@ -458,6 +458,9 @@ export default function CookModePage({ params }: Props) {
             steps:       storedModified.steps,
             notes:       storedModified.notes ?? undefined,
             servings:    storedModified.servings !== null ? String(storedModified.servings) : '',
+            prep_time_minutes:  String(storedModified.prep_time_minutes ?? recipe.prep_time_minutes ?? ''),
+            cook_time_minutes:  String(storedModified.cook_time_minutes ?? recipe.cook_time_minutes ?? ''),
+            total_time_minutes: String(storedModified.total_time_minutes ?? recipe.total_time_minutes ?? ''),
           }}
         />
       )}
