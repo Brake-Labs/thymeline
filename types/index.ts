@@ -323,11 +323,14 @@ export interface ParsedRecipe {
 }
 
 export interface ModifiedRecipe {
-  title:       string
-  ingredients: string
-  steps:       string
-  notes:       string | null
-  servings:    number | null
+  title:                string
+  ingredients:          string
+  steps:                string
+  notes:                string | null
+  servings:             number | null
+  prep_time_minutes?:   number | null
+  cook_time_minutes?:   number | null
+  total_time_minutes?:  number | null
 }
 
 export interface AIEditMessage {
