@@ -7,8 +7,10 @@ import GotItSection from './GotItSection'
 import AddItemInput from './AddItemInput'
 import StepperInput from '@/components/preferences/StepperInput'
 import { getAccessToken } from '@/lib/supabase/browser'
-import { effectiveServings, formatWeekLabel, buildPlainTextList, buildShortcutsURL } from '@/lib/grocery'
+import { effectiveServings, formatWeekLabel, buildPlainTextList, buildICSExport, buildShortcutsURL } from '@/lib/grocery'
 import { TOAST_DURATION_LONG_MS } from '@/lib/constants'
+
+const SHORTCUTS_INSTALL_URL = 'https://www.icloud.com/shortcuts/a15dc8284acb4ecf912e934afc8c238c'
 
 // Aisle order used for grouping "Need to Buy" items
 const SECTION_ORDER: GrocerySection[] = [
@@ -37,9 +39,13 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
   const [shortcutInstalled, setShortcutInstalled] = useState(false)
   const weekStart = initialList.week_start
 
+  const [isIOS, setIsIOS] = useState(false)
+
   useEffect(() => {
     if (typeof navigator !== 'undefined') {
-      setIsMac(/Macintosh/.test(navigator.userAgent))
+      const ua = navigator.userAgent
+      setIsMac(/Macintosh/.test(ua))
+      setIsIOS(/iPhone|iPad|iPod/.test(ua))
     }
     setShortcutInstalled(localStorage.getItem('thymeline-shortcut-installed') === 'true')
   }, [])
@@ -206,7 +212,19 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
     const itemList = buildPlainTextList(items, { onlyUnchecked: true })
     const text = itemList ? `${header}\n\n${itemList}` : header
 
-    // 1. Text share — opens the native share sheet (Notes, Messages, Mail, etc.)
+    // 1. iOS: share as .ics file so Reminders imports each item as a VTODO
+    if (isIOS && typeof navigator !== 'undefined' && navigator.share && navigator.canShare) {
+      try {
+        const icsContent = buildICSExport(items, { onlyUnchecked: true })
+        const icsFile = new File([icsContent], 'groceries.ics', { type: 'text/calendar' })
+        if (navigator.canShare({ files: [icsFile] })) {
+          await navigator.share({ files: [icsFile] })
+          return
+        }
+      } catch { /* fall through to text share */ }
+    }
+
+    // 2. Text share — opens the native share sheet (Notes, Messages, Mail, etc.)
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({ text })
@@ -214,7 +232,7 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
       } catch { /* fall through */ }
     }
 
-    // 2. Last resort: clipboard copy
+    // 3. Last resort: clipboard copy
     try {
       await navigator.clipboard.writeText(text)
       setShareToast('Copied to clipboard!')
@@ -481,7 +499,7 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
             <ol className="text-sm text-stone-600 list-decimal list-inside space-y-1">
               <li>
                 <a
-                  href="https://www.icloud.com/shortcuts/a15dc8284acb4ecf912e934afc8c238c"
+                  href={SHORTCUTS_INSTALL_URL}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-sage-600 hover:text-sage-800 underline"

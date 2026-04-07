@@ -1,3 +1,4 @@
+import 'server-only'
 import pino from 'pino'
 
 // Note: pino's `transport` option spawns a worker thread which breaks under
