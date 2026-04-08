@@ -7,6 +7,7 @@ import {
   combineIngredients,
   assignSection,
   isPantryStaple,
+  isWaterIngredient,
 } from '@/lib/grocery'
 import { resolveRecipeIngredients } from '@/lib/grocery-scrape'
 import { scopeQuery } from '@/lib/household'
@@ -110,6 +111,8 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
     const lines = ingredientsText.split('\n').map((l) => l.trim()).filter(Boolean)
     for (const line of lines) {
       const parsed = parseIngredientLine(line)
+      // Water (with any temperature modifier) is never a grocery item
+      if (isWaterIngredient(parsed.name)) continue
       combineInputs.push({
         parsed,
         recipeTitle: recipe.recipe_title,

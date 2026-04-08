@@ -9,6 +9,7 @@ import {
   normalizeIngredientName,
   assignSection,
   isPantryStaple,
+  isWaterIngredient,
   combineIngredients,
   scaleItem,
   effectiveServings,
@@ -169,6 +170,63 @@ describe('T08 - combineIngredients sums same-unit duplicates', () => {
   })
 })
 
+// ── regression #274: ingredient deduplication ────────────────────────────────
+
+describe('regression #274 - ingredient deduplication', () => {
+  it('normalizeIngredientName strips leading "fresh" so "fresh cilantro" deduplicates with "cilantro"', () => {
+    expect(normalizeIngredientName('fresh cilantro')).toBe('cilantro')
+    expect(normalizeIngredientName('cilantro')).toBe('cilantro')
+  })
+
+  it('normalizeIngredientName removes commas so "boneless, skinless" matches "boneless skinless"', () => {
+    expect(normalizeIngredientName('boneless, skinless chicken breast'))
+      .toBe(normalizeIngredientName('boneless skinless chicken breast'))
+  })
+
+  it('parseIngredientLine strips post-comma prep instruction from rawName', () => {
+    const result = parseIngredientLine('1 lb boneless skinless chicken breast, cut into pieces')
+    expect(result.rawName).toBe('boneless skinless chicken breast')
+    expect(result.rawName).not.toContain('cut')
+  })
+
+  it('parseIngredientLine strips multiple trailing prep segments', () => {
+    const result = parseIngredientLine('2 cloves garlic, peeled, minced')
+    expect(result.rawName).toBe('garlic')
+  })
+
+  it('combines "1 bunch fresh cilantro" and "1 bunch cilantro" into one item', () => {
+    const inputs = [
+      { parsed: parseIngredientLine('1 bunch fresh cilantro'), recipeTitle: 'A', scaleFactor: 1 },
+      { parsed: parseIngredientLine('1 bunch cilantro'), recipeTitle: 'B', scaleFactor: 1 },
+    ]
+    const { resolved, ambiguous } = combineIngredients(inputs)
+    expect(ambiguous).toHaveLength(0)
+    const cilantro = resolved.find((i) => i.name.toLowerCase().includes('cilantro'))!
+    expect(cilantro).toBeDefined()
+    expect(cilantro.recipes).toContain('A')
+    expect(cilantro.recipes).toContain('B')
+    // Display name should be the simpler form (no "fresh" prefix)
+    expect(cilantro.name).toBe('cilantro')
+  })
+
+  it('combines chicken breast with prep detail and without into one item', () => {
+    const inputs = [
+      { parsed: parseIngredientLine('2 lb boneless, skinless chicken breast, cut into pieces'), recipeTitle: 'A', scaleFactor: 1 },
+      { parsed: parseIngredientLine('1 lb boneless skinless chicken breast'), recipeTitle: 'B', scaleFactor: 1 },
+    ]
+    const { resolved, ambiguous } = combineIngredients(inputs)
+    expect(ambiguous).toHaveLength(0)
+    const chicken = resolved.find((i) => i.name.toLowerCase().includes('chicken'))!
+    expect(chicken).toBeDefined()
+    expect(chicken.recipes).toContain('A')
+    expect(chicken.recipes).toContain('B')
+    expect(chicken.amount).toBe(3)
+    // Display name should not include the prep instruction
+    expect(chicken.name).not.toContain('cut')
+    expect(chicken.name).not.toContain('pieces')
+  })
+})
+
 // ── T10: Scaling ──────────────────────────────────────────────────────────────
 
 describe('T10 - Scale factor doubles amounts at 4 people (base 2)', () => {
@@ -303,6 +361,244 @@ describe('buildPlainTextList', () => {
     const text = buildPlainTextList(mixedItems, scales, 2, '2026-03-15')
     expect(text).toContain('pasta')
     expect(text).toContain('olive oil')
+  })
+})
+
+
+// ── T12: Pantry export semantics ──────────────────────────────────────────────────
+
+describe('T12 - Pantry item export semantics', () => {
+  const pantryScales: RecipeScale[] = [{ recipe_id: 'r1', recipe_title: 'Soup', servings: 4 }]
+
+  it('pantry item with checked=true is included in onlyUnchecked export', () => {
+    const items: GroceryItem[] = [
+      { id: 'i1', name: 'olive oil', amount: 2, unit: 'tbsp', section: 'Pantry', is_pantry: true, checked: true, bought: false, recipes: ['Soup'] },
+    ]
+    const text = buildPlainTextList(items, pantryScales, 2, '2026-03-15', { onlyUnchecked: true })
+    expect(text).toContain('olive oil')
+  })
+
+  it('pantry item with checked=false is excluded from onlyUnchecked export', () => {
+    const items: GroceryItem[] = [
+      { id: 'i1', name: 'olive oil', amount: 2, unit: 'tbsp', section: 'Pantry', is_pantry: true, checked: false, bought: false, recipes: ['Soup'] },
+    ]
+    const text = buildPlainTextList(items, pantryScales, 2, '2026-03-15', { onlyUnchecked: true })
+    expect(text).not.toContain('olive oil')
+  })
+
+  it('non-pantry item with bought=true is excluded from onlyUnchecked export', () => {
+    const items: GroceryItem[] = [
+      { id: 'i1', name: 'pasta', amount: 200, unit: 'g', section: 'Pantry', is_pantry: false, checked: false, bought: true, recipes: ['Soup'] },
+    ]
+    const text = buildPlainTextList(items, pantryScales, 2, '2026-03-15', { onlyUnchecked: true })
+    expect(text).not.toContain('pasta')
+  })
+
+  it('non-pantry item with bought=false is included in onlyUnchecked export', () => {
+    const items: GroceryItem[] = [
+      { id: 'i1', name: 'pasta', amount: 200, unit: 'g', section: 'Pantry', is_pantry: false, checked: false, bought: false, recipes: ['Soup'] },
+    ]
+    const text = buildPlainTextList(items, pantryScales, 2, '2026-03-15', { onlyUnchecked: true })
+    expect(text).toContain('pasta')
+  })
+
+  it('non-pantry item with checked=true is excluded from onlyUnchecked export (#276)', () => {
+    // checked=true on a non-pantry item means "I already have this" — should not be exported
+    const items: GroceryItem[] = [
+      { id: 'i1', name: 'pasta', amount: 200, unit: 'g', section: 'Pantry', is_pantry: false, checked: true, bought: false, recipes: ['Soup'] },
+    ]
+    const text = buildPlainTextList(items, pantryScales, 2, '2026-03-15', { onlyUnchecked: true })
+    expect(text).not.toContain('pasta')
+  })
+})
+
+// ── T13: Combined pantry + non-pantry export (#287) ───────────────────────────
+
+describe('T13 - Combined export: unchecked Need-to-Buy + checked Pantry (#287)', () => {
+  const scales: RecipeScale[] = [{ recipe_id: 'r1', recipe_title: 'Soup', servings: 4 }]
+
+  it('exports unchecked Need-to-Buy and checked Pantry items; excludes all others', () => {
+    const items: GroceryItem[] = [
+      // Need to Buy — unchecked: should be included
+      { id: 'i1', name: 'chicken', amount: 1, unit: 'lb', section: 'Proteins', is_pantry: false, checked: false, bought: false, recipes: ['Soup'] },
+      // Need to Buy — checked ("I already have this"): should be excluded
+      { id: 'i2', name: 'carrots', amount: 3, unit: null, section: 'Produce', is_pantry: false, checked: true, bought: false, recipes: ['Soup'] },
+      // Need to Buy — bought ("Got It"): should be excluded
+      { id: 'i3', name: 'celery', amount: 2, unit: null, section: 'Produce', is_pantry: false, checked: false, bought: true, recipes: ['Soup'] },
+      // Pantry — checked ("need to buy"): should be included
+      { id: 'i4', name: 'olive oil', amount: 2, unit: 'tbsp', section: 'Pantry', is_pantry: true, checked: true, bought: false, recipes: ['Soup'] },
+      // Pantry — unchecked ("have it in pantry"): should be excluded
+      { id: 'i5', name: 'salt', amount: null, unit: null, section: 'Pantry', is_pantry: true, checked: false, bought: false, recipes: ['Soup'] },
+    ]
+    const text = buildPlainTextList(items, scales, 4, '2026-03-30', { onlyUnchecked: true })
+    const lines = text.split('\n')
+    expect(lines).toHaveLength(2)
+    expect(text).toContain('chicken')   // unchecked Need to Buy ✓
+    expect(text).toContain('olive oil') // checked Pantry ✓
+    expect(text).not.toContain('carrots')  // checked Need to Buy ✗
+    expect(text).not.toContain('celery')   // bought ✗
+    expect(text).not.toContain('salt')     // unchecked Pantry ✗
+  })
+
+  it('export lines are one item per line with no headers or bullets', () => {
+    const items: GroceryItem[] = [
+      { id: 'i1', name: 'chicken', amount: 1, unit: 'lb', section: 'Proteins', is_pantry: false, checked: false, bought: false, recipes: ['Soup'] },
+      { id: 'i4', name: 'olive oil', amount: 2, unit: 'tbsp', section: 'Pantry', is_pantry: true, checked: true, bought: false, recipes: ['Soup'] },
+    ]
+    const text = buildPlainTextList(items, scales, 4, '2026-03-30', { onlyUnchecked: true })
+    const lines = text.split('\n')
+    expect(lines).toHaveLength(2)
+    expect(lines[0]).toBe('1 lb chicken')
+    expect(lines[1]).toBe('2 tbsp olive oil')
+    expect(text).not.toMatch(/^[•\-–🛒]/m)
+  })
+})
+
+// ── regression #327: grocery list organization ───────────────────────────────
+
+describe('regression #327 - bratwurst and sausage variants → Proteins', () => {
+  it('assigns Proteins to bratwurst', () => {
+    expect(assignSection('bratwurst')).toBe('Proteins')
+  })
+
+  it('assigns Proteins to bratwurst links', () => {
+    expect(assignSection('bratwurst links')).toBe('Proteins')
+  })
+
+  it('assigns Proteins to kielbasa', () => {
+    expect(assignSection('kielbasa')).toBe('Proteins')
+  })
+
+  it('assigns Proteins to pepperoni', () => {
+    expect(assignSection('pepperoni')).toBe('Proteins')
+  })
+
+  it('assigns Proteins to salami', () => {
+    expect(assignSection('salami')).toBe('Proteins')
+  })
+
+  it('assigns Proteins to prosciutto', () => {
+    expect(assignSection('prosciutto')).toBe('Proteins')
+  })
+
+  it('assigns Proteins to chorizo', () => {
+    expect(assignSection('chorizo')).toBe('Proteins')
+  })
+
+  it('assigns Proteins to hot dog', () => {
+    expect(assignSection('hot dog')).toBe('Proteins')
+  })
+})
+
+describe('regression #327 - specific cheese names → Dairy & Eggs', () => {
+  it('assigns Dairy & Eggs to cheddar', () => {
+    expect(assignSection('cheddar')).toBe('Dairy & Eggs')
+  })
+
+  it('assigns Dairy & Eggs to cheddar cheese', () => {
+    expect(assignSection('cheddar cheese')).toBe('Dairy & Eggs')
+  })
+
+  it('assigns Dairy & Eggs to feta', () => {
+    expect(assignSection('feta')).toBe('Dairy & Eggs')
+  })
+
+  it('assigns Dairy & Eggs to gruyere', () => {
+    expect(assignSection('gruyere')).toBe('Dairy & Eggs')
+  })
+
+  it('assigns Dairy & Eggs to gouda', () => {
+    expect(assignSection('gouda')).toBe('Dairy & Eggs')
+  })
+
+  it('assigns Dairy & Eggs to brie', () => {
+    expect(assignSection('brie')).toBe('Dairy & Eggs')
+  })
+
+  it('assigns Dairy & Eggs to provolone', () => {
+    expect(assignSection('provolone')).toBe('Dairy & Eggs')
+  })
+})
+
+describe('regression #327 - water exclusion', () => {
+  it('isWaterIngredient returns true for "water"', () => {
+    expect(isWaterIngredient('water')).toBe(true)
+  })
+
+  it('isWaterIngredient returns true for "hot water"', () => {
+    expect(isWaterIngredient('hot water')).toBe(true)
+  })
+
+  it('isWaterIngredient returns true for "cold water"', () => {
+    expect(isWaterIngredient('cold water')).toBe(true)
+  })
+
+  it('isWaterIngredient returns true for "warm water"', () => {
+    expect(isWaterIngredient('warm water')).toBe(true)
+  })
+
+  it('isWaterIngredient returns true for "ice water"', () => {
+    expect(isWaterIngredient('ice water')).toBe(true)
+  })
+
+  it('isWaterIngredient returns true for "sparkling water"', () => {
+    expect(isWaterIngredient('sparkling water')).toBe(true)
+  })
+
+  it('isWaterIngredient returns false for "watermelon"', () => {
+    expect(isWaterIngredient('watermelon')).toBe(false)
+  })
+
+  it('isWaterIngredient returns false for "water chestnut"', () => {
+    expect(isWaterIngredient('water chestnut')).toBe(false)
+  })
+
+  it('isWaterIngredient returns false for "sparkling water with lemon"', () => {
+    expect(isWaterIngredient('sparkling water with lemon')).toBe(false)
+  })
+})
+
+describe('regression #327 - prep adjective stripping for combining', () => {
+  it('normalizeIngredientName strips "grated" so "grated parmesan" → "parmesan"', () => {
+    expect(normalizeIngredientName('grated parmesan')).toBe('parmesan')
+  })
+
+  it('normalizeIngredientName strips "shredded" so "shredded mozzarella" → "mozzarella"', () => {
+    expect(normalizeIngredientName('shredded mozzarella')).toBe('mozzarella')
+  })
+
+  it('normalizeIngredientName strips "crumbled" so "crumbled feta" → "feta"', () => {
+    expect(normalizeIngredientName('crumbled feta')).toBe('feta')
+  })
+
+  it('normalizeIngredientName strips "parmesan cheese" → "parmesan" via cheese strip', () => {
+    expect(normalizeIngredientName('parmesan cheese')).toBe('parmesan')
+  })
+
+  it('normalizeIngredientName strips "cheddar cheese" → "cheddar"', () => {
+    expect(normalizeIngredientName('cheddar cheese')).toBe('cheddar')
+  })
+
+  it('combines "grated parmesan" and "parmesan cheese" into one grocery item', () => {
+    const inputs = [
+      { parsed: parseIngredientLine('1/4 cup grated parmesan'), recipeTitle: 'Pasta', scaleFactor: 1 },
+      { parsed: parseIngredientLine('1/2 cup parmesan cheese'), recipeTitle: 'Soup', scaleFactor: 1 },
+    ]
+    const { resolved, ambiguous } = combineIngredients(inputs)
+    expect(ambiguous).toHaveLength(0)
+    const parmesan = resolved.find((i) => i.name.toLowerCase().includes('parmesan'))!
+    expect(parmesan).toBeDefined()
+    expect(parmesan.recipes).toContain('Pasta')
+    expect(parmesan.recipes).toContain('Soup')
+    expect(parmesan.amount).toBeCloseTo(0.75)
+  })
+
+  it('does not incorrectly strip "cream cheese" to just "cream"', () => {
+    expect(normalizeIngredientName('cream cheese')).toBe('cream cheese')
+  })
+
+  it('does not incorrectly strip "cottage cheese" to just "cottage"', () => {
+    expect(normalizeIngredientName('cottage cheese')).toBe('cottage cheese')
   })
 })
 
