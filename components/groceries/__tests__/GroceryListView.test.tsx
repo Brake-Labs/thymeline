@@ -247,7 +247,8 @@ describe('T22 - Share invokes Web Share API with correct format', () => {
     vi.stubGlobal('navigator', { ...navigator, share: shareMock })
 
     render(<GroceryListView initialList={sampleList} />)
-    fireEvent.click(screen.getByText('Share'))
+    fireEvent.click(screen.getByLabelText('Export options'))
+    fireEvent.click(screen.getByText('Share list'))
 
     await waitFor(() => {
       expect(shareMock).toHaveBeenCalled()
@@ -266,7 +267,8 @@ describe('T22 - Share invokes Web Share API with correct format', () => {
     vi.stubGlobal('navigator', { ...navigator, share: shareMock })
 
     render(<GroceryListView initialList={sampleList} />)
-    fireEvent.click(screen.getByText('Share'))
+    fireEvent.click(screen.getByLabelText('Export options'))
+    fireEvent.click(screen.getByText('Share list'))
 
     await waitFor(() => {
       expect(shareMock).toHaveBeenCalled()
@@ -292,7 +294,8 @@ describe('T22 - Share invokes Web Share API with correct format', () => {
     }
 
     render(<GroceryListView initialList={listWithBought} />)
-    fireEvent.click(screen.getByText('Share'))
+    fireEvent.click(screen.getByLabelText('Export options'))
+    fireEvent.click(screen.getByText('Share list'))
 
     await waitFor(() => {
       expect(shareMock).toHaveBeenCalled()
@@ -336,7 +339,8 @@ describe('T23 - Share falls back to clipboard when Web Share unavailable', () =>
     })
 
     render(<GroceryListView initialList={sampleList} />)
-    fireEvent.click(screen.getByText('Share'))
+    fireEvent.click(screen.getByLabelText('Export options'))
+    fireEvent.click(screen.getByText('Share list'))
 
     await waitFor(() => {
       expect(writeTextMock).toHaveBeenCalled()
@@ -348,17 +352,19 @@ describe('T23 - Share falls back to clipboard when Web Share unavailable', () =>
 // ── Add to Reminders button (macOS only) ────────────────────────────────────
 
 describe('Add to Reminders button', () => {
-  it('renders on macOS user agents', async () => {
+  it('renders on macOS user agents inside export menu', async () => {
     vi.stubGlobal('navigator', { ...navigator, userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)' })
     render(<GroceryListView initialList={sampleList} />)
     await waitFor(() => {
+      fireEvent.click(screen.getByLabelText('Export options'))
       expect(screen.getByText('Add to Reminders')).toBeInTheDocument()
     })
   })
 
-  it('does not render on non-Apple user agents', () => {
+  it('does not render on non-Apple user agents', async () => {
     vi.stubGlobal('navigator', { ...navigator, userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' })
     render(<GroceryListView initialList={sampleList} />)
+    fireEvent.click(screen.getByLabelText('Export options'))
     expect(screen.queryByText('Add to Reminders')).not.toBeInTheDocument()
   })
 
@@ -366,7 +372,10 @@ describe('Add to Reminders button', () => {
     vi.stubGlobal('navigator', { ...navigator, userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)' })
     localStorage.removeItem('thymeline-shortcut-installed')
     render(<GroceryListView initialList={sampleList} />)
-    await waitFor(() => expect(screen.getByText('Add to Reminders')).toBeInTheDocument())
+    await waitFor(() => {
+      fireEvent.click(screen.getByLabelText('Export options'))
+      expect(screen.getByText('Add to Reminders')).toBeInTheDocument()
+    })
     fireEvent.click(screen.getByText('Add to Reminders'))
     await waitFor(() => {
       expect(screen.getByText('Set up Reminders')).toBeInTheDocument()
@@ -378,7 +387,10 @@ describe('Add to Reminders button', () => {
     vi.stubGlobal('navigator', { ...navigator, userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)' })
     localStorage.removeItem('thymeline-shortcut-installed')
     render(<GroceryListView initialList={sampleList} />)
-    await waitFor(() => expect(screen.getByText('Add to Reminders')).toBeInTheDocument())
+    await waitFor(() => {
+      fireEvent.click(screen.getByLabelText('Export options'))
+      expect(screen.getByText('Add to Reminders')).toBeInTheDocument()
+    })
     fireEvent.click(screen.getByText('Add to Reminders'))
     await waitFor(() => expect(screen.getByText('Set up Reminders')).toBeInTheDocument())
     fireEvent.click(screen.getByText('Cancel'))
