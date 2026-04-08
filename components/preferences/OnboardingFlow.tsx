@@ -31,7 +31,7 @@ export default function OnboardingFlow({ allTags }: OnboardingFlowProps) {
   })
   const [saving, setSaving] = useState(false)
 
-  const totalSteps = 4
+  const totalSteps = 3
 
   const preferredSet = new Set(values.preferredTags)
   const limitedSet = new Set(values.limitedTags.map((lt) => lt.tag))
@@ -106,7 +106,7 @@ export default function OnboardingFlow({ allTags }: OnboardingFlowProps) {
               disabled={saving}
               className="text-sm text-stone-400 hover:text-stone-600 underline"
             >
-              Skip for now
+              Skip preferences
             </button>
           </div>
           <div className="flex gap-1.5">
@@ -125,34 +125,39 @@ export default function OnboardingFlow({ allTags }: OnboardingFlowProps) {
         <div className="space-y-4">
           {step === 1 && (
             <>
-              <h2 className="font-display text-xl font-semibold text-stone-900">How many meal options do you want each day?</h2>
-              <p className="text-sm text-stone-500">{"We'll show you this many recipe choices for each day you're planning."}</p>
-              <div className="py-2">
-                <StepperInput
-                  value={values.optionsPerDay}
-                  min={1}
-                  max={5}
-                  onChange={(v) => setValues((prev) => ({ ...prev, optionsPerDay: v }))}
-                  label="Options per day"
-                />
+              <div>
+                <h2 className="font-display text-xl font-semibold text-stone-900">Set your planning defaults</h2>
+                <p className="text-sm text-stone-500 mt-1">You can change these any time in Preferences.</p>
+              </div>
+              <div className="py-2 space-y-6">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-stone-700">How many meal options per day?</p>
+                  <p className="text-xs text-stone-400">{"We'll show you this many recipe choices for each day you're planning."}</p>
+                  <div className="pt-1">
+                    <StepperInput
+                      value={values.optionsPerDay}
+                      min={1}
+                      max={5}
+                      onChange={(v) => setValues((prev) => ({ ...prev, optionsPerDay: v }))}
+                      label="Options per day"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-stone-700">How soon can a recipe repeat?</p>
+                  <p className="text-xs text-stone-400">{"We won't suggest a recipe you've made more recently than this."}</p>
+                  <div className="pt-1">
+                    <CooldownSlider
+                      value={values.cooldownDays}
+                      onChange={(v) => setValues((prev) => ({ ...prev, cooldownDays: v }))}
+                    />
+                  </div>
+                </div>
               </div>
             </>
           )}
 
           {step === 2 && (
-            <>
-              <h2 className="font-display text-xl font-semibold text-stone-900">How soon can a recipe repeat?</h2>
-              <p className="text-sm text-stone-500">{"We won't suggest a recipe you've made more recently than this."}</p>
-              <div className="py-2">
-                <CooldownSlider
-                  value={values.cooldownDays}
-                  onChange={(v) => setValues((prev) => ({ ...prev, cooldownDays: v }))}
-                />
-              </div>
-            </>
-          )}
-
-          {step === 3 && (
             <>
               <h2 className="font-display text-xl font-semibold text-stone-900">What kinds of meals do you prefer?</h2>
               <p className="text-sm text-stone-500">{"We'll prioritize these when suggesting meals."}</p>
@@ -167,13 +172,13 @@ export default function OnboardingFlow({ allTags }: OnboardingFlowProps) {
             </>
           )}
 
-          {step === 4 && (
+          {step === 3 && (
             <>
               <h2 className="font-display text-xl font-semibold text-stone-900">Any tags to limit or avoid?</h2>
               <div className="space-y-6">
                 <div className="space-y-2">
                   <h3 className="font-display font-medium text-stone-800">Limit</h3>
-                  <p className="text-sm text-stone-500">These can appear in your plan, but only up to a set number per week.</p>
+                  <p className="text-sm text-stone-500">Select a tag, then set how many times per week it can appear in your plan.</p>
                   <TagBucketPicker
                     bucket="limited"
                     selected={values.limitedTags.map((lt) => lt.tag)}
@@ -224,7 +229,7 @@ export default function OnboardingFlow({ allTags }: OnboardingFlowProps) {
               type="button"
               onClick={handleDone}
               disabled={saving}
-              className="px-6 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-60"
+              className="px-6 py-2 bg-sage-500 text-white text-sm font-medium rounded-lg hover:bg-sage-600 disabled:opacity-60"
             >
               Done
             </button>

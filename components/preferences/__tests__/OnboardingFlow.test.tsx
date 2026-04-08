@@ -26,8 +26,8 @@ beforeEach(() => {
 describe('OnboardingFlow - step navigation', () => {
   it('starts on step 1 and shows step 1 content', () => {
     render(<OnboardingFlow allTags={['Healthy', 'Quick']} />)
-    expect(screen.getByText(/step 1 of 4/i)).toBeInTheDocument()
-    expect(screen.getByText(/how many meal options/i)).toBeInTheDocument()
+    expect(screen.getByText(/step 1 of 3/i)).toBeInTheDocument()
+    expect(screen.getByText(/set your planning defaults/i)).toBeInTheDocument()
   })
 
   it('T08 - Back button navigates to previous step without saving', async () => {
@@ -35,11 +35,11 @@ describe('OnboardingFlow - step navigation', () => {
 
     // Go to step 2
     fireEvent.click(screen.getByText('Next'))
-    expect(screen.getByText(/step 2 of 4/i)).toBeInTheDocument()
+    expect(screen.getByText(/step 2 of 3/i)).toBeInTheDocument()
 
     // Go back to step 1
     fireEvent.click(screen.getByText('Back'))
-    expect(screen.getByText(/step 1 of 4/i)).toBeInTheDocument()
+    expect(screen.getByText(/step 1 of 3/i)).toBeInTheDocument()
 
     // No API call should have been made
     expect(mockFetch).not.toHaveBeenCalled()
@@ -50,10 +50,8 @@ describe('OnboardingFlow - step navigation', () => {
     expect(screen.queryByText('Back')).not.toBeInTheDocument()
   })
 
-  it('shows Next on steps 1-3, Done on step 4', async () => {
+  it('shows Next on steps 1-2, Done on step 3', async () => {
     render(<OnboardingFlow allTags={[]} />)
-    expect(screen.getByText('Next')).toBeInTheDocument()
-    fireEvent.click(screen.getByText('Next'))
     expect(screen.getByText('Next')).toBeInTheDocument()
     fireEvent.click(screen.getByText('Next'))
     expect(screen.getByText('Next')).toBeInTheDocument()
@@ -63,11 +61,11 @@ describe('OnboardingFlow - step navigation', () => {
   })
 })
 
-describe('T06 - Skip for now saves only onboardingCompleted', () => {
+describe('T06 - Skip preferences saves only onboardingCompleted', () => {
   it('calls PATCH with only onboardingCompleted: true and redirects', async () => {
     render(<OnboardingFlow allTags={['Healthy']} />)
 
-    fireEvent.click(screen.getByText('Skip for now'))
+    fireEvent.click(screen.getByText('Skip preferences'))
 
     await waitFor(() => expect(mockFetch).toHaveBeenCalled())
 
@@ -91,13 +89,10 @@ describe('T07 - Done saves all collected values', () => {
     fireEvent.click(screen.getByLabelText('Increase'))
     fireEvent.click(screen.getByText('Next'))
 
-    // Step 2: navigate through
+    // Step 2: navigate through preferred tags
     fireEvent.click(screen.getByText('Next'))
 
-    // Step 3: navigate through
-    fireEvent.click(screen.getByText('Next'))
-
-    // Step 4: click Done
+    // Step 3: click Done
     fireEvent.click(screen.getByText('Done'))
 
     await waitFor(() => expect(mockFetch).toHaveBeenCalled())
@@ -127,7 +122,7 @@ describe('T08 - collected values persist across Back navigation', () => {
 
     // Go to step 2
     fireEvent.click(screen.getByText('Next'))
-    expect(screen.getByText(/step 2 of 4/i)).toBeInTheDocument()
+    expect(screen.getByText(/step 2 of 3/i)).toBeInTheDocument()
 
     // Go back to step 1
     fireEvent.click(screen.getByText('Back'))
@@ -139,15 +134,14 @@ describe('T10/T11 - tag bucket exclusivity in onboarding', () => {
   it('T10 - preferred tags are not available for limited or avoided', () => {
     render(<OnboardingFlow allTags={['Healthy', 'Quick', 'Spicy']} />)
 
-    // Go to step 3
-    fireEvent.click(screen.getByText('Next'))
+    // Go to step 2 (preferred tags)
     fireEvent.click(screen.getByText('Next'))
 
     // Select Healthy in preferred
     const healthyBtn = screen.getByText('Healthy')
     fireEvent.click(healthyBtn)
 
-    // Go to step 4
+    // Go to step 3 (limit/avoid)
     fireEvent.click(screen.getByText('Next'))
 
     // Healthy should not appear in limited or avoided pickers
