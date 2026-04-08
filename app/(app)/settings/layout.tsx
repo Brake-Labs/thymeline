@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useEffect, useState } from 'react'
 
 const SETTINGS_NAV = [
   { href: '/settings/preferences', label: 'Preferences' },
@@ -10,6 +11,14 @@ const SETTINGS_NAV = [
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const [email, setEmail] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch('/api/auth/session')
+      .then((r) => r.json())
+      .then((data) => setEmail(data.user?.email ?? null))
+      .catch(() => {})
+  }, [])
 
   return (
     <div className="flex min-h-screen">
@@ -27,8 +36,22 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
             {item.label}
           </Link>
         ))}
+
+        {email && (
+          <div className="mt-auto pb-6 px-3">
+            <p className="text-xs text-stone-400">Signed in as</p>
+            <p className="text-xs text-stone-600 truncate" title={email}>{email}</p>
+          </div>
+        )}
       </aside>
-      <div className="flex-1">{children}</div>
+      <div className="flex-1">
+        {email && (
+          <div className="md:hidden px-4 pt-4 pb-2">
+            <p className="text-xs text-stone-400">Signed in as <span className="text-stone-600">{email}</span></p>
+          </div>
+        )}
+        {children}
+      </div>
     </div>
   )
 }
