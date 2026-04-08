@@ -94,9 +94,12 @@ const SECTION_KEYWORDS: { section: GrocerySection; keywords: string[] }[] = [
     keywords: [
       'almond flour', 'baking powder', 'baking soda', 'bay leaf', 'black pepper',
       'bouillon', 'bread crumb', 'brown sugar', 'cardamom', 'cayenne', 'cinnamon',
+      // Note: 'clove' is the spice (ground cloves); listed before Produce so it wins
+      // for "ground cloves" / "clove" (the spice), but "garlic cloves" will also
+      // match here via substring — that's a known limitation of keyword matching.
       'clove', 'cocoa', 'cooking spray', 'cornstarch', 'cumin', 'curry', 'flour',
-      'honey', 'hot sauce', 'lard', 'maple syrup', 'molasses', 'mustard',
-      'noodle', 'nutmeg', 'oat', 'oil', 'olive oil', 'oregano', 'paprika',
+      'garlic powder', 'honey', 'hot sauce', 'lard', 'maple syrup', 'molasses', 'mustard',
+      'noodle', 'nutmeg', 'oat', 'oil', 'olive oil', 'onion powder', 'oregano', 'paprika',
       'pasta', 'pepper flake', 'rice', 'salt', 'sesame oil', 'soy sauce',
       'spice', 'sugar', 'tahini', 'turmeric', 'vanilla', 'vinegar', 'worcestershire',
     ],
@@ -119,11 +122,13 @@ const SECTION_KEYWORDS: { section: GrocerySection; keywords: string[] }[] = [
 
 // ── Pantry staple detection ───────────────────────────────────────────────────
 
+// Fresh produce (garlic, onion, peppers) intentionally excluded — they belong in
+// Need to Buy, not Pantry. Powder/flake forms are kept since those are dry pantry goods.
 const PANTRY_KEYWORDS = new Set([
-  'black pepper', 'butter', 'cayenne', 'cinnamon', 'cumin', 'flour', 'garlic',
-  'honey', 'nutmeg', 'oil', 'olive oil', 'onion', 'oregano', 'paprika',
-  'pepper', 'salt', 'sesame oil', 'soy sauce', 'sugar', 'turmeric', 'vanilla',
-  'vinegar',
+  'black pepper', 'butter', 'cayenne', 'cinnamon', 'cumin', 'flour',
+  'garlic powder', 'honey', 'nutmeg', 'oil', 'olive oil', 'onion powder',
+  'oregano', 'paprika', 'pepper flake', 'salt', 'sesame oil', 'soy sauce',
+  'sugar', 'turmeric', 'vanilla', 'vinegar',
 ])
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -137,8 +142,9 @@ function singularize(word: string): string {
 }
 
 // Prep-only adjectives whose presence/absence shouldn't prevent two entries from
-// combining ("fresh cilantro" and "cilantro", "grated parmesan" and "parmesan").
-const PREP_ADJECTIVE_RE = /^(fresh|raw|grated|shredded|crumbled)\s+/
+// combining ("fresh cilantro" and "cilantro", "grated parmesan" and "parmesan",
+// "boneless skinless chicken breast" and "chicken breast").
+const PREP_ADJECTIVE_RE = /^(fresh|raw|grated|shredded|crumbled|boneless|skinless|extra|virgin|large|medium|small|mini|whole|lean)\s+/
 
 // Named cheeses where the trailing " cheese" word is redundant and can be stripped
 // so "parmesan cheese" and "grated parmesan" both normalize to "parmesan".
@@ -158,6 +164,12 @@ export function normalizeIngredientName(name: string): string {
     n = n.replace(PREP_ADJECTIVE_RE, '')
   }
   n = singularize(n).replace(/\s+/g, ' ')
+  // Strip color/variety modifiers from onions and bell peppers so variants
+  // deduplicate: "yellow onion" → "onion", "red bell pepper" → "bell pepper".
+  n = n.replace(/\b(?:yellow|white|sweet|purple|red|vidalia|spanish)\s+onion\b/, 'onion')
+  n = n.replace(/\b(?:red|green|yellow|orange|purple)\s+bell\s+pepper\b/, 'bell pepper')
+  // Normalize tortilla varieties so "flour tortilla" and "corn tortilla" merge.
+  n = n.replace(/\b(?:flour|corn|wheat|whole[\s-]wheat|spinach)\s+tortilla\b/, 'tortilla')
   // Strip redundant trailing " cheese" from specific named cheeses:
   // "parmesan cheese" → "parmesan" so it deduplicates with "grated parmesan"
   const cheeseMatch = n.match(CHEESE_STRIP_RE)
@@ -288,7 +300,7 @@ export function parseIngredientLine(line: string): ParsedIngredient {
   // "minced", "diced", etc. These don't belong on a grocery list.
   // Work backwards through comma-separated segments, removing each one that
   // looks like a prep/cooking instruction rather than part of the item name.
-  const PREP_SEGMENT_RE = /^\s*(?:about|approximately|finely|roughly|thinly|coarsely|lightly|freshly|cut|chop(?:ped)?|diced?|minced?|sliced?|grated?|shredded?|peeled?|pitted?|halved?|quartered?|trimmed?|rinsed?|drained?|thawed?|softened?|melted?|toasted?|roasted?|julienned?|chilled?|cooled?|for\b|to taste|plus more|optional|as needed|if needed|at room temperature|room temperature)\b/i
+  const PREP_SEGMENT_RE = /^\s*(?:about|approximately|finely|roughly|thinly|coarsely|lightly|freshly|cut|chop(?:ped)?|diced?|minced?|sliced?|grated?|shredded?|peeled?|pitted?|halved?|quartered?|trimmed?|rinsed?|drained?|thawed?|softened?|melted?|toasted?|roasted?|julienned?|chilled?|cooled?|divided|for\b|to taste|plus more|optional|as needed|if needed|at room temperature|room temperature)\b/i
   const parts = rawName.split(',')
   while (parts.length > 1 && PREP_SEGMENT_RE.test(parts[parts.length - 1]!)) {
     parts.pop()
@@ -388,7 +400,8 @@ export function combineIngredients(inputs: CombineInput[]): {
         amount:    total !== null ? Math.round(total * 100) / 100 : null,
         unit,
         section:   first.section,
-        isPantry: first.isPantry,
+        // Only mark as pantry if ALL occurrences agree — prefer Need to Buy if any disagrees.
+        isPantry: group.every((i) => i.parsed.isPantry),
         checked:   false,
         recipes:   recipeNames,
       })
@@ -438,6 +451,10 @@ export function deduplicateItems(items: GroceryItem[]): GroceryItem[] {
     const units = new Set(group.map((i) => i.unit))
     const nonNullUnits = Array.from(units).filter((u): u is string => u !== null)
 
+    // Only mark as pantry if ALL items in the group agree — prevents a single
+    // LLM-resolved isPantry:true from pulling a Need-to-Buy item into Pantry.
+    const mergedIsPantry = group.every((i) => i.isPantry)
+
     if (nonNullUnits.length <= 1) {
       // All null or one common unit → sum amounts
       const unit = nonNullUnits[0] ?? null
@@ -453,6 +470,7 @@ export function deduplicateItems(items: GroceryItem[]): GroceryItem[] {
         ...base,
         unit,
         amount: total !== null ? Math.round(total * 100) / 100 : null,
+        isPantry: mergedIsPantry,
         recipes: allRecipes,
       })
     } else {
@@ -463,7 +481,7 @@ export function deduplicateItems(items: GroceryItem[]): GroceryItem[] {
         if (best.amount === null) return item
         return item.amount > best.amount ? item : best
       }, group[0]!)
-      result.push({ ...base, recipes: allRecipes })
+      result.push({ ...base, isPantry: mergedIsPantry, recipes: allRecipes })
     }
   }
 

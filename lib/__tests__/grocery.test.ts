@@ -134,8 +134,28 @@ describe('isPantryStaple', () => {
     expect(isPantryStaple('salt')).toBe(true)
   })
 
-  it('marks garlic as pantry staple', () => {
-    expect(isPantryStaple('garlic')).toBe(true)
+  it('does not mark fresh garlic as pantry staple (fresh produce)', () => {
+    expect(isPantryStaple('garlic')).toBe(false)
+  })
+
+  it('does not mark onion as pantry staple (fresh produce)', () => {
+    expect(isPantryStaple('onion')).toBe(false)
+  })
+
+  it('does not mark bell pepper as pantry staple (fresh produce)', () => {
+    expect(isPantryStaple('bell pepper')).toBe(false)
+  })
+
+  it('marks garlic powder as pantry staple', () => {
+    expect(isPantryStaple('garlic powder')).toBe(true)
+  })
+
+  it('marks onion powder as pantry staple', () => {
+    expect(isPantryStaple('onion powder')).toBe(true)
+  })
+
+  it('marks red pepper flakes as pantry staple', () => {
+    expect(isPantryStaple('red pepper flakes')).toBe(true)
   })
 
   it('does not mark chicken as pantry staple', () => {
@@ -872,6 +892,199 @@ describe('regression #327 - prep adjective stripping for combining', () => {
 
   it('does not incorrectly strip "cottage cheese" to just "cottage"', () => {
     expect(normalizeIngredientName('cottage cheese')).toBe('cottage cheese')
+  })
+})
+
+// ── regression #358c: comprehensive dedup and section fixes ──────────────────
+
+describe('regression #358c - color/variety normalization for dedup', () => {
+  it('normalizes "yellow onion" → "onion"', () => {
+    expect(normalizeIngredientName('yellow onion')).toBe('onion')
+  })
+
+  it('normalizes "white onion" → "onion"', () => {
+    expect(normalizeIngredientName('white onion')).toBe('onion')
+  })
+
+  it('normalizes "sweet onion" → "onion"', () => {
+    expect(normalizeIngredientName('sweet onion')).toBe('onion')
+  })
+
+  it('normalizes "red bell pepper" → "bell pepper"', () => {
+    expect(normalizeIngredientName('red bell pepper')).toBe('bell pepper')
+  })
+
+  it('normalizes "green bell pepper" → "bell pepper"', () => {
+    expect(normalizeIngredientName('green bell pepper')).toBe('bell pepper')
+  })
+
+  it('normalizes "yellow bell peppers" → "bell pepper"', () => {
+    expect(normalizeIngredientName('yellow bell peppers')).toBe('bell pepper')
+  })
+
+  it('normalizes "flour tortilla" → "tortilla"', () => {
+    expect(normalizeIngredientName('flour tortilla')).toBe('tortilla')
+  })
+
+  it('normalizes "corn tortillas" → "tortilla"', () => {
+    expect(normalizeIngredientName('corn tortillas')).toBe('tortilla')
+  })
+
+  it('normalizes "wheat tortilla" → "tortilla"', () => {
+    expect(normalizeIngredientName('wheat tortilla')).toBe('tortilla')
+  })
+
+  it('normalizes "boneless skinless chicken breast" → "chicken breast"', () => {
+    expect(normalizeIngredientName('boneless skinless chicken breast')).toBe('chicken breast')
+  })
+
+  it('normalizes "boneless, skinless chicken breast" → "chicken breast"', () => {
+    expect(normalizeIngredientName('boneless, skinless chicken breast')).toBe('chicken breast')
+  })
+
+  it('normalizes "extra virgin olive oil" → "olive oil"', () => {
+    expect(normalizeIngredientName('extra virgin olive oil')).toBe('olive oil')
+  })
+
+  it('combines "yellow onion" and "white onion" into one item', () => {
+    const inputs = [
+      { parsed: parseIngredientLine('2 yellow onions'), recipeTitle: 'Taco', scaleFactor: 1 },
+      { parsed: parseIngredientLine('1 white onion'), recipeTitle: 'Soup', scaleFactor: 1 },
+    ]
+    const { resolved, ambiguous } = combineIngredients(inputs)
+    expect(ambiguous).toHaveLength(0)
+    const onion = resolved.find((i) => i.name.toLowerCase().includes('onion'))!
+    expect(onion).toBeDefined()
+    expect(onion.recipes).toContain('Taco')
+    expect(onion.recipes).toContain('Soup')
+  })
+
+  it('combines "red bell pepper" and "green bell pepper" into one item', () => {
+    const inputs = [
+      { parsed: parseIngredientLine('2 red bell peppers'), recipeTitle: 'Fajita', scaleFactor: 1 },
+      { parsed: parseIngredientLine('1 green bell pepper'), recipeTitle: 'Stir Fry', scaleFactor: 1 },
+    ]
+    const { resolved, ambiguous } = combineIngredients(inputs)
+    expect(ambiguous).toHaveLength(0)
+    const pepper = resolved.find((i) => i.name.toLowerCase().includes('bell pepper'))!
+    expect(pepper).toBeDefined()
+    expect(pepper.recipes).toContain('Fajita')
+    expect(pepper.recipes).toContain('Stir Fry')
+  })
+
+  it('combines "flour tortillas" and "corn tortilla" into one item', () => {
+    const inputs = [
+      { parsed: parseIngredientLine('8 flour tortillas'), recipeTitle: 'Tacos', scaleFactor: 1 },
+      { parsed: parseIngredientLine('4 corn tortillas'), recipeTitle: 'Enchilada', scaleFactor: 1 },
+    ]
+    const { resolved, ambiguous } = combineIngredients(inputs)
+    expect(ambiguous).toHaveLength(0)
+    const tortilla = resolved.find((i) => i.name.toLowerCase().includes('tortilla'))!
+    expect(tortilla).toBeDefined()
+    expect(tortilla.recipes).toContain('Tacos')
+    expect(tortilla.recipes).toContain('Enchilada')
+  })
+
+  it('combines "2 lb boneless skinless chicken breast" and "1 lb chicken breast"', () => {
+    const inputs = [
+      { parsed: parseIngredientLine('2 lb boneless skinless chicken breast'), recipeTitle: 'A', scaleFactor: 1 },
+      { parsed: parseIngredientLine('1 lb chicken breast'), recipeTitle: 'B', scaleFactor: 1 },
+    ]
+    const { resolved, ambiguous } = combineIngredients(inputs)
+    expect(ambiguous).toHaveLength(0)
+    const chicken = resolved.find((i) => i.name.toLowerCase().includes('chicken'))!
+    expect(chicken).toBeDefined()
+    expect(chicken.amount).toBe(3)
+    expect(chicken.unit).toBe('lb')
+    expect(chicken.recipes).toContain('A')
+    expect(chicken.recipes).toContain('B')
+  })
+})
+
+describe('regression #358c - "divided" stripped from ingredient names', () => {
+  it('parseIngredientLine strips "divided" from "olive oil, divided"', () => {
+    const result = parseIngredientLine('2 tbsp olive oil, divided')
+    expect(result.rawName).toBe('olive oil')
+    expect(result.name).toBe('olive oil')
+  })
+
+  it('parseIngredientLine strips "divided" from "chicken broth, divided"', () => {
+    const result = parseIngredientLine('1 cup chicken broth, divided')
+    expect(result.rawName).toBe('chicken broth')
+  })
+
+  it('two "olive oil, divided" entries from different recipes merge into one', () => {
+    const inputs = [
+      { parsed: parseIngredientLine('2 tbsp olive oil, divided'), recipeTitle: 'A', scaleFactor: 1 },
+      { parsed: parseIngredientLine('1 tbsp olive oil'), recipeTitle: 'B', scaleFactor: 1 },
+    ]
+    const { resolved, ambiguous } = combineIngredients(inputs)
+    expect(ambiguous).toHaveLength(0)
+    expect(resolved).toHaveLength(1)
+    expect(resolved[0]!.amount).toBe(3)
+  })
+})
+
+describe('regression #358c - section assignment for fresh produce', () => {
+  it('assigns Produce to onion', () => {
+    expect(assignSection('onion')).toBe('Produce')
+  })
+
+  it('assigns Produce to yellow onion', () => {
+    expect(assignSection('yellow onion')).toBe('Produce')
+  })
+
+  it('assigns Produce to bell pepper', () => {
+    expect(assignSection('bell pepper')).toBe('Produce')
+  })
+
+  it('assigns Produce to red bell pepper', () => {
+    expect(assignSection('red bell pepper')).toBe('Produce')
+  })
+
+  it('assigns Produce to garlic', () => {
+    expect(assignSection('garlic')).toBe('Produce')
+  })
+
+  it('assigns Pantry to garlic powder', () => {
+    expect(assignSection('garlic powder')).toBe('Pantry')
+  })
+
+  it('assigns Pantry to onion powder', () => {
+    expect(assignSection('onion powder')).toBe('Pantry')
+  })
+
+  it('assigns Bakery to tortilla', () => {
+    expect(assignSection('tortilla')).toBe('Bakery')
+  })
+
+  it('assigns Bakery to flour tortilla', () => {
+    expect(assignSection('flour tortilla')).toBe('Bakery')
+  })
+})
+
+describe('regression #358c - isPantry conflict resolution in deduplicateItems', () => {
+  it('item with isPantry:true and isPantry:false → merged result is isPantry:false', () => {
+    const items: GroceryItem[] = [
+      { id: 'a', name: 'tortilla', amount: 8, unit: null, section: 'Bakery', isPantry: false, checked: false, recipes: ['Tacos'] },
+      { id: 'b', name: 'tortilla', amount: 4, unit: null, section: 'Bakery', isPantry: true,  checked: false, recipes: ['Enchilada'] },
+    ]
+    const result = deduplicateItems(items)
+    expect(result).toHaveLength(1)
+    expect(result[0]!.isPantry).toBe(false)
+    expect(result[0]!.recipes).toContain('Tacos')
+    expect(result[0]!.recipes).toContain('Enchilada')
+  })
+
+  it('two items both isPantry:true → merged result is isPantry:true', () => {
+    const items: GroceryItem[] = [
+      { id: 'a', name: 'olive oil', amount: 2, unit: 'tbsp', section: 'Pantry', isPantry: true, checked: false, recipes: ['A'] },
+      { id: 'b', name: 'olive oil', amount: 1, unit: 'tbsp', section: 'Pantry', isPantry: true, checked: false, recipes: ['B'] },
+    ]
+    const result = deduplicateItems(items)
+    expect(result).toHaveLength(1)
+    expect(result[0]!.isPantry).toBe(true)
+    expect(result[0]!.amount).toBe(3)
   })
 })
 
