@@ -17,9 +17,10 @@ interface DayCardProps {
   isSwapMode?:     boolean
   selectedEntryId?: string | null
   onMealTap?:      (entryId: string) => void
+  weekStart?:      string
 }
 
-export default function DayCard({ date, entries, isExpanded, onToggle, onAddEntry, onDeleteEntry, isSwapMode, selectedEntryId, onMealTap }: DayCardProps) {
+export default function DayCard({ date, entries, isExpanded, onToggle, onAddEntry, onDeleteEntry, isSwapMode, selectedEntryId, onMealTap, weekStart }: DayCardProps) {
   const mealCount = entries.filter((e) => !e.is_side_dish).length
   const summaryText = mealCount > 0
     ? `${mealCount} meal${mealCount !== 1 ? 's' : ''} planned`
@@ -59,7 +60,7 @@ export default function DayCard({ date, entries, isExpanded, onToggle, onAddEntr
           {entries.length === 0 && (
             <p className="font-sans text-sm text-stone-400 mb-3">
               Nothing planned —{' '}
-              <Link href="/plan" className="text-sage-500 hover:underline">
+              <Link href={weekStart ? `/plan?week_start=${weekStart}` : '/plan'} className="text-sage-500 hover:underline">
                 Help Me Plan
               </Link>
             </p>
