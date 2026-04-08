@@ -5,8 +5,8 @@ import { db } from '@/lib/db'
 import { invites } from '@/lib/db/schema'
 
 export const POST = withAuth(async (req, { user }) => {
-  const adminId = config.admin.userId
-  if (!adminId || user.id !== adminId) {
+  const admins = config.adminEmails
+  if (admins.length === 0 || !admins.includes(user.email.toLowerCase())) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
