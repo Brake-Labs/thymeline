@@ -4,6 +4,218 @@ function uuidv4(): string {
   return crypto.randomUUID()
 }
 
+// ── Ingredient synonyms ──────────────────────────────────────────────────────
+// Maps alternate names to a canonical form. Applied during normalizeIngredientName()
+// AFTER prep-adjective stripping and singularization so the lookup sees clean names.
+//
+// Explicitly NOT synonyms (per product-owner guidance):
+//   scallion ≠ green onion, cilantro ≠ coriander, chicken breast ≠ chicken thigh,
+//   Italian sausage ≠ sausage, flour tortilla ≠ corn tortilla,
+//   toasted sesame oil ≠ sesame oil, whole milk ≠ milk ≠ 2% milk
+const INGREDIENT_SYNONYMS: Record<string, string> = {
+  'heavy whipping cream': 'heavy cream',
+  'whipping cream':       'heavy cream',
+  'sweet pepper':         'bell pepper',
+  'capsicum':             'bell pepper',
+  'plum tomato':          'roma tomato',
+  'garbanzo':             'chickpea',
+  'garbanzo bean':        'chickpea',
+  'corn starch':          'cornstarch',
+  'confectioners sugar':  'powdered sugar',
+  'icing sugar':          'powdered sugar',
+  'unsweetened chocolate': 'baking chocolate',
+  'cream of coconut':     'coconut cream',
+  'rocket':               'arugula',
+  'aubergine':            'eggplant',
+  'courgette':            'zucchini',
+  'sugar snap pea':       'snap pea',
+  'chinese pea pod':      'snow pea',
+  'pak choi':             'bok choy',
+  'pak choy':             'bok choy',
+  'chili pepper':         'chile pepper',
+  'chilli pepper':        'chile pepper',
+  'serrano pepper':       'serrano',
+  'serrano chile':        'serrano',
+  'habanero pepper':      'habanero',
+  'poblano pepper':       'poblano',
+  'anaheim pepper':       'anaheim',
+  'crushed red pepper':   'red pepper flake',
+  'red chili flake':      'red pepper flake',
+  'coriander seed':       'coriander',
+  'italian parsley':      'flat-leaf parsley',
+  'mayonnaise':           'mayo',
+  'catsup':               'ketchup',
+  'semi-sweet chocolate': 'semisweet chocolate',
+  'bittersweet chocolate': 'dark chocolate',
+  'stock':                'broth',
+  'chicken stock':        'chicken broth',
+  'beef stock':           'beef broth',
+  'vegetable stock':      'vegetable broth',
+  'greek-style yogurt':   'greek yogurt',
+  'rolled oat':           'oat',
+  'old-fashioned oat':    'oat',
+  'breadcrumb':           'bread crumb',
+}
+
+// ── Unit conversion ──────────────────────────────────────────────────────────
+// Converts between common kitchen units so that "2 cups cheese" + "8 oz cheese"
+// can be summed deterministically without an LLM call.
+// All factors convert FROM the key unit TO oz (weight) or TO a base volume unit.
+
+// Volume conversions — everything normalized to tsp as the base unit
+const VOLUME_TO_TSP: Record<string, number> = {
+  tsp:  1,
+  tbsp: 3,
+  cup:  48,
+  cups: 48,
+  oz:   6,      // fluid oz ≈ 6 tsp (volume context)
+  ml:   0.2029, // 1 ml ≈ 0.2029 tsp
+  l:    202.9,  // 1 L ≈ 202.9 tsp
+}
+
+// Weight conversions — everything normalized to oz as the base unit
+const WEIGHT_TO_OZ: Record<string, number> = {
+  oz:  1,
+  lb:  16,
+  lbs: 16,
+  g:   0.03527,
+  kg:  35.274,
+}
+
+/** Check if a unit is a volume unit. */
+function isVolumeUnit(unit: string): boolean {
+  return unit in VOLUME_TO_TSP
+}
+
+/** Check if a unit is a weight unit. */
+function isWeightUnit(unit: string): boolean {
+  return unit in WEIGHT_TO_OZ
+}
+
+/**
+ * Try to convert an amount from one unit to another.
+ * Returns the converted amount or null if units are incompatible.
+ * Only converts within the same measurement system (volume↔volume or weight↔weight).
+ */
+export function convertUnit(amount: number, fromUnit: string, toUnit: string): number | null {
+  // Same unit — no conversion needed
+  if (fromUnit === toUnit) return amount
+
+  // Volume → volume
+  if (isVolumeUnit(fromUnit) && isVolumeUnit(toUnit)) {
+    const inTsp = amount * VOLUME_TO_TSP[fromUnit]!
+    return inTsp / VOLUME_TO_TSP[toUnit]!
+  }
+
+  // Weight → weight
+  if (isWeightUnit(fromUnit) && isWeightUnit(toUnit)) {
+    const inOz = amount * WEIGHT_TO_OZ[fromUnit]!
+    return inOz / WEIGHT_TO_OZ[toUnit]!
+  }
+
+  // Incompatible (volume vs weight, or unknown unit) — cannot convert
+  return null
+}
+
+/**
+ * Pick the most human-friendly unit from a set of compatible units.
+ * Prefers larger units to avoid "96 tsp" when "2 cups" reads better.
+ */
+function pickPreferredUnit(units: string[]): string {
+  const VOLUME_PREF = ['cups', 'cup', 'tbsp', 'tsp', 'oz', 'l', 'ml']
+  const WEIGHT_PREF = ['lb', 'lbs', 'oz', 'kg', 'g']
+  for (const u of VOLUME_PREF) {
+    if (units.includes(u)) return u
+  }
+  for (const u of WEIGHT_PREF) {
+    if (units.includes(u)) return u
+  }
+  return units[0]!
+}
+
+// ── Purchase-unit rounding ───────────────────────────────────────────────────
+// Round final amounts to natural purchase increments so the list reads like a
+// human shopping list ("2 cans" not "1.67 cans", "1 head garlic" not "6 cloves").
+
+interface PurchaseRule {
+  match: (name: string, unit: string | null) => boolean
+  round: (amount: number, unit: string | null) => { amount: number; unit: string | null }
+}
+
+const PURCHASE_RULES: PurchaseRule[] = [
+  // Cans → round up to whole cans
+  {
+    match: (_name, unit) => unit === 'can' || unit === 'cans',
+    round: (amount, _unit) => ({ amount: Math.ceil(amount), unit: amount > 1 ? 'cans' : 'can' }),
+  },
+  // Butter: 8 tbsp = 1 stick. If ≥ 4 sticks, show in lbs (4 sticks = 1 lb).
+  {
+    match: (name, _unit) => /\bbutter\b/.test(name.toLowerCase()),
+    round: (amount, unit) => {
+      if (unit === 'tbsp') {
+        const sticks = amount / 8
+        if (sticks >= 4) return { amount: Math.ceil(sticks / 4), unit: 'lb' }
+        return { amount: Math.ceil(sticks), unit: sticks > 1 ? 'sticks' : 'stick' }
+      }
+      return { amount: Math.ceil(amount * 10) / 10, unit }
+    },
+  },
+  // Garlic cloves → round up; 1 head ≈ 10 cloves
+  {
+    match: (name, unit) => /\bgarlic\b/.test(name.toLowerCase()) && (unit === 'clove' || unit === 'cloves'),
+    round: (amount, _unit) => {
+      if (amount <= 10) return { amount: 1, unit: 'head' }
+      return { amount: Math.ceil(amount / 10), unit: 'heads' }
+    },
+  },
+  // Generic: round fractional items up when unit is a count (pieces, slices, etc.)
+  {
+    match: (_name, unit) => ['piece', 'pieces', 'slice', 'slices', 'bunch', 'head', 'heads', 'sprig', 'sprigs', 'stalk', 'stalks'].includes(unit ?? ''),
+    round: (amount, unit) => ({ amount: Math.ceil(amount), unit }),
+  },
+]
+
+/**
+ * Apply purchase-unit rounding to a list of grocery items.
+ * Mutates nothing — returns a new array.
+ */
+export function roundToPurchaseUnits(items: GroceryItem[]): GroceryItem[] {
+  return items.map((item) => {
+    if (item.amount === null) return item
+    for (const rule of PURCHASE_RULES) {
+      if (rule.match(item.name, item.unit)) {
+        const { amount, unit } = rule.round(item.amount, item.unit)
+        return { ...item, amount: Math.round(amount * 100) / 100, unit }
+      }
+    }
+    return item
+  })
+}
+
+// ── Pantry staple quantity suppression ────────────────────────────────────────
+
+// Universal staples where quantity is meaningless on a shopping list.
+// "Salt" doesn't need "2.5 tsp" — you either have it or you don't.
+const SUPPRESS_QUANTITY_STAPLES = new Set([
+  'salt', 'black pepper', 'pepper', 'olive oil', 'oil', 'cooking spray',
+  'garlic powder', 'onion powder', 'oregano', 'paprika', 'cumin',
+  'cinnamon', 'nutmeg', 'cayenne', 'turmeric', 'bay leaf',
+])
+
+/**
+ * Suppress amounts for universal pantry staples where quantity is noise.
+ * Returns a new array — does not mutate.
+ */
+export function suppressStapleQuantities(items: GroceryItem[]): GroceryItem[] {
+  return items.map((item) => {
+    const normalized = normalizeIngredientName(item.name)
+    if (SUPPRESS_QUANTITY_STAPLES.has(normalized)) {
+      return { ...item, amount: null, unit: null }
+    }
+    return item
+  })
+}
+
 // ── Known units ───────────────────────────────────────────────────────────────
 
 // Maps full-form and plural unit spellings to their canonical abbreviation.
@@ -37,7 +249,7 @@ const KNOWN_UNITS = new Set([
 const CANNED_INDICATOR_RE = /\b(can|cans|canned|jar|jars|jarred|tin|tins|tinned)\b/
 
 const SECTION_KEYWORDS: { section: GrocerySection; keywords: string[] }[] = [
-  // Priority order: Frozen → Canned & Jarred → Proteins → Dairy & Eggs → Bakery → Pantry → Produce
+  // Priority order: Frozen → Canned & Jarred → Beverages → Deli → Pantry (butters) → Proteins → Dairy & Eggs → Bakery → Pantry → Produce
   // Frozen and Canned must come before Produce to avoid mis-classifying frozen/canned items.
   {
     section: 'Frozen',
@@ -58,6 +270,29 @@ const SECTION_KEYWORDS: { section: GrocerySection; keywords: string[] }[] = [
       'coconut milk', 'tomato paste', 'tomato sauce', 'jarred sauce',
       'roasted pepper', 'sun-dried tomato',
       'broth', 'stock', 'salsa', 'pickle', 'pumpkin puree', 'olives',
+    ],
+  },
+  {
+    section: 'Beverages',
+    keywords: [
+      'beer', 'club soda', 'coconut water', 'coffee', 'juice', 'kombucha',
+      'lemonade', 'seltzer', 'soda', 'sparkling water', 'tea', 'tonic', 'wine',
+    ],
+  },
+  {
+    // Deli must come before Proteins so "rotisserie chicken" → Deli, not Proteins.
+    section: 'Deli',
+    keywords: [
+      'deli meat', 'deli turkey', 'deli ham', 'hummus',
+      'prepared salad', 'rotisserie chicken', 'rotisserie',
+    ],
+  },
+  {
+    // Pantry-specific multi-word items that would otherwise match Dairy or Produce.
+    // Must come before Proteins and Dairy so "peanut butter" → Pantry, not Dairy.
+    section: 'Pantry',
+    keywords: [
+      'almond butter', 'nut butter', 'peanut butter',
     ],
   },
   {
@@ -93,15 +328,21 @@ const SECTION_KEYWORDS: { section: GrocerySection; keywords: string[] }[] = [
     section: 'Pantry',
     keywords: [
       'almond flour', 'baking powder', 'baking soda', 'bay leaf', 'black pepper',
-      'bouillon', 'bread crumb', 'brown sugar', 'cardamom', 'cayenne', 'cinnamon',
+      'bouillon', 'bread crumb', 'brown sugar', 'cardamom', 'cayenne', 'cereal',
+      'cinnamon',
       // Note: 'clove' is the spice (ground cloves); listed before Produce so it wins
       // for "ground cloves" / "clove" (the spice), but "garlic cloves" will also
       // match here via substring — that's a known limitation of keyword matching.
-      'clove', 'cocoa', 'cooking spray', 'cornstarch', 'cumin', 'curry', 'flour',
-      'garlic powder', 'honey', 'hot sauce', 'lard', 'maple syrup', 'molasses', 'mustard',
-      'noodle', 'nutmeg', 'oat', 'oil', 'olive oil', 'onion powder', 'oregano', 'paprika',
-      'pasta', 'pepper flake', 'rice', 'salt', 'sesame oil', 'soy sauce',
-      'spice', 'sugar', 'tahini', 'turmeric', 'vanilla', 'vinegar', 'worcestershire',
+      'clove', 'cocoa', 'coconut oil', 'cooking spray', 'cornstarch', 'cumin',
+      'curry', 'dark chocolate', 'dried fruit', 'flour',
+      'garlic powder', 'granola', 'honey', 'hot sauce', 'jam', 'jelly',
+      'ketchup', 'lard', 'maple syrup', 'mayo', 'molasses', 'mustard',
+      'noodle', 'nutmeg', 'oat', 'oil', 'olive oil',
+      'onion powder', 'oregano', 'pancake mix', 'paprika',
+      'pasta', 'pepper flake', 'powdered sugar', 'rice',
+      'salt', 'semisweet chocolate', 'sesame oil', 'soy sauce',
+      'spice', 'sugar', 'syrup', 'tahini', 'turmeric', 'vanilla',
+      'vinegar', 'worcestershire',
     ],
   },
   {
@@ -191,6 +432,8 @@ export function normalizeIngredientName(name: string): string {
   // "parmesan cheese" → "parmesan" so it deduplicates with "grated parmesan"
   const cheeseMatch = n.match(CHEESE_STRIP_RE)
   if (cheeseMatch) n = cheeseMatch[1]!
+  // Apply synonym map — must come last so all other normalization has run first
+  if (n in INGREDIENT_SYNONYMS) n = INGREDIENT_SYNONYMS[n]!
   return n
 }
 
@@ -425,9 +668,45 @@ export function combineIngredients(inputs: CombineInput[]): {
       continue
     }
 
-    // Conflicting units (multiple specific units) → ambiguous, send to LLM
-    for (const inp of group) {
-      ambiguous.push(inp)
+    // Conflicting units — try unit conversion before falling back to LLM
+    const nonNullUnitsList = Array.from(nonNullUnits)
+    const targetUnit = pickPreferredUnit(nonNullUnitsList)
+    let conversionWorked = true
+    let convertedTotal: number | null = null
+    const convertedRecipeNames: string[] = []
+
+    for (const { parsed, recipeTitle, scaleFactor } of group) {
+      if (!convertedRecipeNames.includes(recipeTitle)) convertedRecipeNames.push(recipeTitle)
+      if (parsed.amount === null || parsed.unit === null) continue
+      const converted = convertUnit(parsed.amount * scaleFactor, parsed.unit, targetUnit)
+      if (converted === null) {
+        conversionWorked = false
+        break
+      }
+      convertedTotal = (convertedTotal ?? 0) + converted
+    }
+
+    if (conversionWorked) {
+      const first = group[0]!.parsed
+      const displayName = group.reduce((best, inp) => {
+        const n = inp.parsed.rawName || inp.parsed.name
+        return n.length < best.length ? n : best
+      }, first.rawName || first.name)
+      resolved.push({
+        id:        uuidv4(),
+        name:      displayName,
+        amount:    convertedTotal !== null ? Math.round(convertedTotal * 100) / 100 : null,
+        unit:      targetUnit,
+        section:   first.section,
+        isPantry: group.every((i) => i.parsed.isPantry),
+        checked:   false,
+        recipes:   convertedRecipeNames,
+      })
+    } else {
+      // Truly incompatible (e.g. volume vs weight) → ambiguous, send to LLM
+      for (const inp of group) {
+        ambiguous.push(inp)
+      }
     }
   }
 

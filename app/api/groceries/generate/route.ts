@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
-import { callLLM, LLM_MODEL_FAST } from '@/lib/llm'
+import { callLLM, LLM_MODEL_CAPABLE } from '@/lib/llm'
 import { generateGroceriesSchema, parseBody } from '@/lib/schemas'
 import { logger } from '@/lib/logger'
 import {
@@ -10,6 +10,8 @@ import {
   assignSection,
   isPantryStaple,
   isWaterIngredient,
+  roundToPurchaseUnits,
+  suppressStapleQuantities,
 } from '@/lib/grocery'
 import { resolveRecipeIngredients } from '@/lib/grocery-scrape'
 import { db } from '@/lib/db'
@@ -160,14 +162,14 @@ export const POST = withAuth(async (req, { user, ctx }) => {
       const systemPrompt = `You are a grocery list assistant. Resolve ambiguous ingredient items.
 Return ONLY valid JSON — an array of resolved GroceryItem objects.
 Normalize names, reconcile units where possible, assign a section from:
-Produce, Proteins, Dairy & Eggs, Pantry, Canned & Jarred, Bakery, Frozen, Other.
+Produce, Proteins, Dairy & Eggs, Deli, Pantry, Canned & Jarred, Bakery, Beverages, Frozen, Other.
 Mark isPantry: true for common staples (salt, pepper, olive oil, garlic,
 onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
 
       const userPrompt = `Resolve these ambiguous grocery items:\n${JSON.stringify(ambiguousPayload, null, 2)}\n\nReturn a JSON array with objects: { name, amount, unit, section, isPantry, recipes }`
 
       const rawText = await callLLM({
-        model: LLM_MODEL_FAST,
+        model: LLM_MODEL_CAPABLE,
         maxTokens: 2048,
         system: systemPrompt,
         user: userPrompt,
@@ -215,6 +217,10 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
   // when some occurrences of an ingredient merged in the rule pass (same unit)
   // and another occurrence came back from the LLM as a separate entry.
   let allItems: GroceryItem[] = deduplicateItems([...resolved, ...llmResolved])
+
+  // Post-processing: round to natural purchase units, suppress pantry staple quantities
+  allItems = roundToPurchaseUnits(allItems)
+  allItems = suppressStapleQuantities(allItems)
 
   // 5b. Cross-reference against pantry — flag matching items as isPantry: true
   try {

@@ -13,8 +13,8 @@ const SHORTCUTS_INSTALL_URL = 'https://www.icloud.com/shortcuts/a15dc8284acb4ecf
 
 // Aisle order used for grouping "Need to Buy" items
 const SECTION_ORDER: GrocerySection[] = [
-  'Produce', 'Proteins', 'Dairy & Eggs', 'Pantry',
-  'Canned & Jarred', 'Bakery', 'Frozen', 'Other',
+  'Produce', 'Proteins', 'Dairy & Eggs', 'Deli', 'Pantry',
+  'Canned & Jarred', 'Bakery', 'Beverages', 'Frozen', 'Other',
 ]
 
 interface GroceryListViewProps {
