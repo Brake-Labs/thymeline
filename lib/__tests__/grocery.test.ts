@@ -9,6 +9,7 @@ import {
   normalizeIngredientName,
   assignSection,
   isPantryStaple,
+  isWaterIngredient,
   combineIngredients,
   scaleItem,
   effectiveServings,
@@ -450,6 +451,154 @@ describe('T13 - Combined export: unchecked Need-to-Buy + checked Pantry (#287)',
     expect(lines[0]).toBe('1 lb chicken')
     expect(lines[1]).toBe('2 tbsp olive oil')
     expect(text).not.toMatch(/^[•\-–🛒]/m)
+  })
+})
+
+// ── regression #327: grocery list organization ───────────────────────────────
+
+describe('regression #327 - bratwurst and sausage variants → Proteins', () => {
+  it('assigns Proteins to bratwurst', () => {
+    expect(assignSection('bratwurst')).toBe('Proteins')
+  })
+
+  it('assigns Proteins to bratwurst links', () => {
+    expect(assignSection('bratwurst links')).toBe('Proteins')
+  })
+
+  it('assigns Proteins to kielbasa', () => {
+    expect(assignSection('kielbasa')).toBe('Proteins')
+  })
+
+  it('assigns Proteins to pepperoni', () => {
+    expect(assignSection('pepperoni')).toBe('Proteins')
+  })
+
+  it('assigns Proteins to salami', () => {
+    expect(assignSection('salami')).toBe('Proteins')
+  })
+
+  it('assigns Proteins to prosciutto', () => {
+    expect(assignSection('prosciutto')).toBe('Proteins')
+  })
+
+  it('assigns Proteins to chorizo', () => {
+    expect(assignSection('chorizo')).toBe('Proteins')
+  })
+
+  it('assigns Proteins to hot dog', () => {
+    expect(assignSection('hot dog')).toBe('Proteins')
+  })
+})
+
+describe('regression #327 - specific cheese names → Dairy & Eggs', () => {
+  it('assigns Dairy & Eggs to cheddar', () => {
+    expect(assignSection('cheddar')).toBe('Dairy & Eggs')
+  })
+
+  it('assigns Dairy & Eggs to cheddar cheese', () => {
+    expect(assignSection('cheddar cheese')).toBe('Dairy & Eggs')
+  })
+
+  it('assigns Dairy & Eggs to feta', () => {
+    expect(assignSection('feta')).toBe('Dairy & Eggs')
+  })
+
+  it('assigns Dairy & Eggs to gruyere', () => {
+    expect(assignSection('gruyere')).toBe('Dairy & Eggs')
+  })
+
+  it('assigns Dairy & Eggs to gouda', () => {
+    expect(assignSection('gouda')).toBe('Dairy & Eggs')
+  })
+
+  it('assigns Dairy & Eggs to brie', () => {
+    expect(assignSection('brie')).toBe('Dairy & Eggs')
+  })
+
+  it('assigns Dairy & Eggs to provolone', () => {
+    expect(assignSection('provolone')).toBe('Dairy & Eggs')
+  })
+})
+
+describe('regression #327 - water exclusion', () => {
+  it('isWaterIngredient returns true for "water"', () => {
+    expect(isWaterIngredient('water')).toBe(true)
+  })
+
+  it('isWaterIngredient returns true for "hot water"', () => {
+    expect(isWaterIngredient('hot water')).toBe(true)
+  })
+
+  it('isWaterIngredient returns true for "cold water"', () => {
+    expect(isWaterIngredient('cold water')).toBe(true)
+  })
+
+  it('isWaterIngredient returns true for "warm water"', () => {
+    expect(isWaterIngredient('warm water')).toBe(true)
+  })
+
+  it('isWaterIngredient returns true for "ice water"', () => {
+    expect(isWaterIngredient('ice water')).toBe(true)
+  })
+
+  it('isWaterIngredient returns true for "sparkling water"', () => {
+    expect(isWaterIngredient('sparkling water')).toBe(true)
+  })
+
+  it('isWaterIngredient returns false for "watermelon"', () => {
+    expect(isWaterIngredient('watermelon')).toBe(false)
+  })
+
+  it('isWaterIngredient returns false for "water chestnut"', () => {
+    expect(isWaterIngredient('water chestnut')).toBe(false)
+  })
+
+  it('isWaterIngredient returns false for "sparkling water with lemon"', () => {
+    expect(isWaterIngredient('sparkling water with lemon')).toBe(false)
+  })
+})
+
+describe('regression #327 - prep adjective stripping for combining', () => {
+  it('normalizeIngredientName strips "grated" so "grated parmesan" → "parmesan"', () => {
+    expect(normalizeIngredientName('grated parmesan')).toBe('parmesan')
+  })
+
+  it('normalizeIngredientName strips "shredded" so "shredded mozzarella" → "mozzarella"', () => {
+    expect(normalizeIngredientName('shredded mozzarella')).toBe('mozzarella')
+  })
+
+  it('normalizeIngredientName strips "crumbled" so "crumbled feta" → "feta"', () => {
+    expect(normalizeIngredientName('crumbled feta')).toBe('feta')
+  })
+
+  it('normalizeIngredientName strips "parmesan cheese" → "parmesan" via cheese strip', () => {
+    expect(normalizeIngredientName('parmesan cheese')).toBe('parmesan')
+  })
+
+  it('normalizeIngredientName strips "cheddar cheese" → "cheddar"', () => {
+    expect(normalizeIngredientName('cheddar cheese')).toBe('cheddar')
+  })
+
+  it('combines "grated parmesan" and "parmesan cheese" into one grocery item', () => {
+    const inputs = [
+      { parsed: parseIngredientLine('1/4 cup grated parmesan'), recipeTitle: 'Pasta', scaleFactor: 1 },
+      { parsed: parseIngredientLine('1/2 cup parmesan cheese'), recipeTitle: 'Soup', scaleFactor: 1 },
+    ]
+    const { resolved, ambiguous } = combineIngredients(inputs)
+    expect(ambiguous).toHaveLength(0)
+    const parmesan = resolved.find((i) => i.name.toLowerCase().includes('parmesan'))!
+    expect(parmesan).toBeDefined()
+    expect(parmesan.recipes).toContain('Pasta')
+    expect(parmesan.recipes).toContain('Soup')
+    expect(parmesan.amount).toBeCloseTo(0.75)
+  })
+
+  it('does not incorrectly strip "cream cheese" to just "cream"', () => {
+    expect(normalizeIngredientName('cream cheese')).toBe('cream cheese')
+  })
+
+  it('does not incorrectly strip "cottage cheese" to just "cottage"', () => {
+    expect(normalizeIngredientName('cottage cheese')).toBe('cottage cheese')
   })
 })
 
