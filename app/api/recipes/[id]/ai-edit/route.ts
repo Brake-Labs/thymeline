@@ -19,9 +19,9 @@ Rules:
 - Return the COMPLETE modified recipe, not just the changed parts`
 
   const tasteLines: string[] = []
-  if (profile?.meal_context) tasteLines.push(`Household context: ${profile.meal_context}`)
-  if (profile?.top_tags?.length) tasteLines.push(`Favourite styles: ${profile.top_tags.slice(0, 5).join(', ')}`)
-  if (profile?.avoided_tags?.length) tasteLines.push(`Avoid: ${profile.avoided_tags.join(', ')}`)
+  if (profile?.mealContext) tasteLines.push(`Household context: ${profile.mealContext}`)
+  if (profile?.topTags?.length) tasteLines.push(`Favourite styles: ${profile.topTags.slice(0, 5).join(', ')}`)
+  if (profile?.avoidedTags?.length) tasteLines.push(`Avoid: ${profile.avoidedTags.join(', ')}`)
 
   const tasteSection = tasteLines.length > 0
     ? `\n\nHousehold taste profile:\n${tasteLines.join('\n')}`
@@ -51,56 +51,56 @@ type AIEditResponsePayload = {
   servings:    number | null
 }
 
-export const POST = withAuth(async (req, { user, db, ctx }, params) => {
+export const POST = withAuth(async (req, { user, ctx }, params) => {
   const { data: body, error } = await parseBody(req, aiEditSchema)
   if (error) return error
 
-  const ownership = await checkOwnership(db, 'recipes', params.id!, user.id, ctx)
+  const ownership = await checkOwnership('recipes', params.id!, user.id, ctx)
   if (!ownership.owned) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const tasteProfile = await deriveTasteProfile(user.id, db, ctx ?? null).catch(() => null)
+  const tasteProfile = await deriveTasteProfile(user.id, null, ctx ?? null).catch(() => null)
 
-  const { message, current_recipe, conversation_history } = body
+  const { message, currentRecipe, conversationHistory } = body
 
   // Build the messages array for the LLM call
   const messages: MessageParam[] = []
 
-  if (conversation_history.length === 0) {
+  if (conversationHistory.length === 0) {
     // First turn: inject full recipe + user message
     const userContent = `Here is the recipe I'm cooking tonight:
 
-Title: ${current_recipe.title}
-Servings: ${current_recipe.servings ?? 'not specified'}
+Title: ${currentRecipe.title}
+Servings: ${currentRecipe.servings ?? 'not specified'}
 
 Ingredients:
-${current_recipe.ingredients}
+${currentRecipe.ingredients}
 
 Steps:
-${current_recipe.steps}
+${currentRecipe.steps}
 
-Notes: ${current_recipe.notes ?? 'none'}
+Notes: ${currentRecipe.notes ?? 'none'}
 
 My request: ${message}`
 
     messages.push({ role: 'user', content: userContent })
   } else {
     // Subsequent turns: include prior conversation history, then new user message
-    for (const turn of conversation_history) {
+    for (const turn of conversationHistory) {
       messages.push({ role: turn.role, content: turn.content })
     }
 
     const userContent = `Current recipe state:
 
-Title: ${current_recipe.title}
-Servings: ${current_recipe.servings ?? 'not specified'}
+Title: ${currentRecipe.title}
+Servings: ${currentRecipe.servings ?? 'not specified'}
 
 Ingredients:
-${current_recipe.ingredients}
+${currentRecipe.ingredients}
 
 Steps:
-${current_recipe.steps}
+${currentRecipe.steps}
 
 My new request: ${message}`
 

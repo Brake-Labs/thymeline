@@ -18,12 +18,17 @@ vi.mock('next/link', () => ({
   ),
 }))
 
-// Mock Supabase browser client
-const mockSignOut = vi.fn().mockResolvedValue({})
-vi.mock('@/lib/supabase/browser', () => ({
-  getSupabaseClient: () => ({
-    auth: { signOut: mockSignOut },
-  }),
+// Mock auth client
+const { mockSignOut } = vi.hoisted(() => ({
+  mockSignOut: vi.fn().mockResolvedValue({}),
+}))
+vi.mock('@/lib/auth-client', () => ({
+  authClient: {
+    signIn: { social: vi.fn() },
+    signOut: mockSignOut,
+    useSession: vi.fn().mockReturnValue({ data: { user: { id: 'user-1' } }, isPending: false }),
+    getSession: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } } }),
+  },
 }))
 
 // ── T22: Nav renders active state correctly for current route ─────────────────
@@ -57,7 +62,7 @@ describe('T22 - AppNav active state', () => {
 
 // ── T12: Sign out clears session and redirects to /login ──────────────────────
 describe('T12 - Sign out', () => {
-  it('calls supabase.auth.signOut and redirects to /login', async () => {
+  it('calls authClient.signOut and redirects to /login', async () => {
     mockPathname.mockReturnValue('/home')
     render(<AppNav />)
     const signOutButtons = screen.getAllByRole('button', { name: /sign out/i })

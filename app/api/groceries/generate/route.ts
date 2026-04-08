@@ -8,106 +8,121 @@ import {
   combineIngredients,
   assignSection,
   isPantryStaple,
+  isWaterIngredient,
 } from '@/lib/grocery'
 import { resolveRecipeIngredients } from '@/lib/grocery-scrape'
-import { scopeQuery } from '@/lib/household'
+import { db } from '@/lib/db'
+import { eq, and, gte, lte, inArray, asc } from 'drizzle-orm'
+import { mealPlans, mealPlanEntries, recipes, groceryLists, pantryItems } from '@/lib/db/schema'
+import { scopeCondition, scopeInsert } from '@/lib/household'
 import { toDateString } from '@/lib/date-utils'
 import { GroceryItem, GrocerySection, RecipeScale } from '@/types'
-import type { Json } from '@/types/database'
 
 function uuidv4(): string {
   return crypto.randomUUID()
 }
 
 interface RecipeEntry {
-  recipe_id:    string
-  recipe_title: string
+  recipeId:    string
+  recipeTitle: string
   ingredients:  string | null
   url:          string | null
-  planned_date: string
+  plannedDate: string
   servings:     number | null
 }
 
 // ── POST /api/groceries/generate ─────────────────────────────────────────────
 
-export const POST = withAuth(async (req, { user, db, ctx }) => {
+export const POST = withAuth(async (req, { user, ctx }) => {
   const { data: body, error: parseError } = await parseBody(req, generateGroceriesSchema)
   if (parseError) return parseError
 
-  // Resolve date range — accept date_from/date_to directly, or derive from week_start
-  let date_from: string
-  let date_to: string
-  if (body.week_start) {
-    date_from = body.week_start
-    const d = new Date(body.week_start + 'T12:00:00Z')
+  // Resolve date range — accept dateFrom/dateTo directly, or derive from weekStart
+  let dateFrom: string
+  let dateTo: string
+  if (body.weekStart) {
+    dateFrom = body.weekStart
+    const d = new Date(body.weekStart + 'T12:00:00Z')
     d.setDate(d.getDate() + 6)
-    date_to = toDateString(d)
-  } else if (body.date_from && body.date_to) {
-    date_from = body.date_from
-    date_to   = body.date_to
+    dateTo = toDateString(d)
+  } else if (body.dateFrom && body.dateTo) {
+    dateFrom = body.dateFrom
+    dateTo   = body.dateTo
   } else {
-    return NextResponse.json({ error: 'date_from and date_to are required' }, { status: 400 })
+    return NextResponse.json({ error: 'dateFrom and dateTo are required' }, { status: 400 })
   }
 
   // 1. Get all meal plan IDs for the user/household (ordered so primaryPlanId is deterministic)
-  const plansQ = scopeQuery(db.from('meal_plans').select('id').order('week_start'), user.id, ctx)
-  const { data: plans, error: plansError } = await plansQ
+  const planRows = await db
+    .select({ id: mealPlans.id })
+    .from(mealPlans)
+    .where(scopeCondition(
+      { userId: mealPlans.userId, householdId: mealPlans.householdId },
+      user.id,
+      ctx,
+    ))
+    .orderBy(asc(mealPlans.weekStart))
 
-  if (plansError || !plans || plans.length === 0) {
-    logger.warn({ userId: user.id, date_from, date_to, error: plansError?.message }, 'no meal plans found for grocery generation')
+  if (planRows.length === 0) {
+    logger.warn({ userId: user.id, dateFrom, dateTo }, 'no meal plans found for grocery generation')
     return NextResponse.json({ error: 'No meal plans found for this date range' }, { status: 404 })
   }
 
-  const planIds = plans.map((p) => p.id)
+  const planIds = planRows.map((p) => p.id)
 
-  // Default plan-level servings; per-recipe override stored in recipe_scales
+  // Default plan-level servings; per-recipe override stored in recipeScales
   const planServings = 4
 
   // 2. Fetch entries within date range
-  const { data: entriesRaw, error: entriesError } = await db
-    .from('meal_plan_entries')
-    .select('recipe_id, planned_date, recipes(id, title, ingredients, url, servings)')
-    .in('meal_plan_id', planIds)
-    .gte('planned_date', date_from)
-    .lte('planned_date', date_to)
-    .order('planned_date')
-
-  if (entriesError) {
-    logger.error({ error: entriesError.message, planIds, date_from, date_to }, 'failed to fetch plan entries')
-    return NextResponse.json({ error: 'Failed to fetch plan entries' }, { status: 500 })
-  }
+  const entriesRaw = await db
+    .select({
+      recipeId: mealPlanEntries.recipeId,
+      plannedDate: mealPlanEntries.plannedDate,
+      recipeDbId: recipes.id,
+      recipeTitle: recipes.title,
+      recipeIngredients: recipes.ingredients,
+      recipeUrl: recipes.url,
+      recipeServings: recipes.servings,
+    })
+    .from(mealPlanEntries)
+    .innerJoin(recipes, eq(mealPlanEntries.recipeId, recipes.id))
+    .where(and(
+      inArray(mealPlanEntries.mealPlanId, planIds),
+      gte(mealPlanEntries.plannedDate, dateFrom),
+      lte(mealPlanEntries.plannedDate, dateTo),
+    ))
+    .orderBy(asc(mealPlanEntries.plannedDate))
 
   // Deduplicate recipes (a recipe may appear on multiple days)
   const seenRecipeIds = new Set<string>()
-  const recipes: RecipeEntry[] = []
-  for (const entry of (entriesRaw ?? [])) {
-    const r = entry.recipes
-    if (!r) continue
-    if (seenRecipeIds.has(r.id)) continue
-    seenRecipeIds.add(r.id)
-    recipes.push({
-      recipe_id:    r.id,
-      recipe_title: r.title,
-      ingredients:  r.ingredients,
-      url:          r.url,
-      planned_date: entry.planned_date,
-      servings:     r.servings,
+  const recipeEntries: RecipeEntry[] = []
+  for (const entry of entriesRaw) {
+    if (!entry.recipeDbId) continue
+    if (seenRecipeIds.has(entry.recipeDbId)) continue
+    seenRecipeIds.add(entry.recipeDbId)
+    recipeEntries.push({
+      recipeId:    entry.recipeDbId,
+      recipeTitle: entry.recipeTitle,
+      ingredients:  entry.recipeIngredients,
+      url:          entry.recipeUrl,
+      plannedDate: entry.plannedDate,
+      servings:     entry.recipeServings,
     })
   }
 
-  logger.debug({ recipeCount: recipes.length, date_from, date_to }, 'grocery generation: entries fetched')
+  logger.debug({ recipeCount: recipeEntries.length, dateFrom, dateTo }, 'grocery generation: entries fetched')
 
   // 3. Resolve ingredients per recipe (vault first, then scrape, else skip)
   const firecrawlKey = process.env.FIRECRAWL_API_KEY
-  const skipped_recipes: string[] = []
+  const skippedRecipes: string[] = []
   const combineInputs: Parameters<typeof combineIngredients>[0] = []
 
-  for (const recipe of recipes) {
+  for (const recipe of recipeEntries) {
     const ingredientsText = await resolveRecipeIngredients(recipe, firecrawlKey)
 
     if (!ingredientsText) {
-      logger.debug({ recipeTitle: recipe.recipe_title, recipeId: recipe.recipe_id }, 'recipe skipped — no ingredients resolved')
-      skipped_recipes.push(recipe.recipe_title)
+      logger.debug({ recipeTitle: recipe.recipeTitle, recipeId: recipe.recipeId }, 'recipe skipped — no ingredients resolved')
+      skippedRecipes.push(recipe.recipeTitle)
       continue
     }
 
@@ -116,9 +131,11 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
     const lines = ingredientsText.split('\n').map((l) => l.trim()).filter(Boolean)
     for (const line of lines) {
       const parsed = parseIngredientLine(line)
+      // Water (with any temperature modifier) is never a grocery item
+      if (isWaterIngredient(parsed.name)) continue
       combineInputs.push({
         parsed,
-        recipeTitle: recipe.recipe_title,
+        recipeTitle: recipe.recipeTitle,
         scaleFactor: sf,
       })
     }
@@ -143,10 +160,10 @@ export const POST = withAuth(async (req, { user, db, ctx }) => {
 Return ONLY valid JSON — an array of resolved GroceryItem objects.
 Normalize names, reconcile units where possible, assign a section from:
 Produce, Proteins, Dairy & Eggs, Pantry, Canned & Jarred, Bakery, Frozen, Other.
-Mark is_pantry: true for common staples (salt, pepper, olive oil, garlic,
+Mark isPantry: true for common staples (salt, pepper, olive oil, garlic,
 onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
 
-      const userPrompt = `Resolve these ambiguous grocery items:\n${JSON.stringify(ambiguousPayload, null, 2)}\n\nReturn a JSON array with objects: { name, amount, unit, section, is_pantry, recipes }`
+      const userPrompt = `Resolve these ambiguous grocery items:\n${JSON.stringify(ambiguousPayload, null, 2)}\n\nReturn a JSON array with objects: { name, amount, unit, section, isPantry, recipes }`
 
       const rawText = await callLLM({
         model: LLM_MODEL_FAST,
@@ -167,7 +184,7 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
           amount:    typeof i.amount === 'number' ? i.amount : null,
           unit:      typeof i.unit === 'string' ? i.unit : null,
           section:   ['Produce','Proteins','Dairy & Eggs','Pantry','Canned & Jarred','Bakery','Frozen','Other'].includes(section) ? section : 'Other',
-          is_pantry: typeof i.is_pantry === 'boolean' ? i.is_pantry : isPantryStaple(typeof i.name === 'string' ? i.name : ''),
+          isPantry: typeof i.isPantry === 'boolean' ? i.isPantry : isPantryStaple(typeof i.name === 'string' ? i.name : ''),
           checked:   false,
           recipes:   Array.isArray(i.recipes) ? i.recipes.filter((r): r is string => typeof r === 'string') : [],
         })
@@ -183,7 +200,7 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
           amount:    scaled,
           unit:      parsed.unit,
           section:   assignSection(parsed.name),
-          is_pantry: isPantryStaple(parsed.name),
+          isPantry: isPantryStaple(parsed.name),
           checked:   false,
           recipes:   [recipeTitle],
         })
@@ -193,59 +210,89 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
 
   let allItems: GroceryItem[] = [...resolved, ...llmResolved]
 
-  // 5b. Cross-reference against pantry — flag matching items as is_pantry: true
+  // 5b. Cross-reference against pantry — flag matching items as isPantry: true
   try {
-    const pantryQ = scopeQuery(db.from('pantry_items').select('name'), user.id, ctx)
-    const { data: pantryItems } = await pantryQ
+    const pantryRows = await db
+      .select({ name: pantryItems.name })
+      .from(pantryItems)
+      .where(scopeCondition(
+        { userId: pantryItems.userId, householdId: pantryItems.householdId },
+        user.id,
+        ctx,
+      ))
 
-    if (pantryItems?.length) {
-      const pantryNames = pantryItems.map((p) => p.name.toLowerCase().trim())
+    if (pantryRows.length) {
+      const pantryNames = pantryRows.map((p) => p.name.toLowerCase().trim())
       allItems = allItems.map((item) => {
         const gName = item.name.toLowerCase().trim()
         const matched = pantryNames.some(
           (pName) => pName.includes(gName) || gName.includes(pName),
         )
-        return matched ? { ...item, is_pantry: true } : item
+        return matched ? { ...item, isPantry: true } : item
       })
     }
   } catch (err) {
     logger.debug({ error: err instanceof Error ? err.message : String(err) }, 'pantry cross-reference failed (non-fatal)')
   }
 
-  // 6. Build recipe_scales (all null → inherit plan default)
-  const recipe_scales: RecipeScale[] = recipes.map((r) => ({
-    recipe_id:    r.recipe_id,
-    recipe_title: r.recipe_title,
+  // 6. Build recipeScales (all null → inherit plan default)
+  const recipeScales: RecipeScale[] = recipeEntries.map((r) => ({
+    recipeId:    r.recipeId,
+    recipeTitle: r.recipeTitle,
     servings:     r.servings ?? planServings,
   }))
 
   // 7. Upsert grocery_lists
-  const now = new Date().toISOString()
-  const upsertPayload: Record<string, unknown> = {
-    user_id:       user.id,
-    meal_plan_id:  planIds[0],
-    week_start:    date_from,
-    date_from,
-    date_to,
-    servings:      planServings,
-    recipe_scales: recipe_scales as unknown as Json,
-    items:         allItems as unknown as Json,
-    updated_at:    now,
+  const now = new Date()
+  const upsertPayload = {
+    ...scopeInsert(user.id, ctx),
+    mealPlanId:  planIds[0],
+    weekStart:   dateFrom,
+    dateFrom:    dateFrom,
+    dateTo:      dateTo,
+    servings:    planServings,
+    recipeScales: recipeScales,
+    items:       allItems,
+    updatedAt:   now,
   }
-  if (ctx) upsertPayload.household_id = ctx.householdId
-  const onConflict = ctx ? 'household_id,week_start' : 'user_id,week_start'
-  const { data: upserted, error: upsertError } = await db
-    .from('grocery_lists')
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic field selection for household/user scoping
-    .upsert(upsertPayload as any, { onConflict })
-    .select('*')
-    .single()
 
-  if (upsertError || !upserted) {
-    logger.error({ error: upsertError?.message, code: upsertError?.code, date_from, userId: user.id }, 'failed to upsert grocery list')
+  try {
+    // Check if a row exists for this scope + weekStart
+    const existingRows = await db
+      .select({ id: groceryLists.id })
+      .from(groceryLists)
+      .where(and(
+        eq(groceryLists.weekStart, dateFrom),
+        scopeCondition({ userId: groceryLists.userId, householdId: groceryLists.householdId }, user.id, ctx),
+      ))
+      .limit(1)
+
+    let upserted
+    if (existingRows.length > 0) {
+      // Update existing
+      const [updated] = await db
+        .update(groceryLists)
+        .set(upsertPayload)
+        .where(eq(groceryLists.id, existingRows[0]!.id))
+        .returning()
+      upserted = updated
+    } else {
+      // Insert new
+      const [inserted] = await db
+        .insert(groceryLists)
+        .values(upsertPayload)
+        .returning()
+      upserted = inserted
+    }
+
+    if (!upserted) {
+      return NextResponse.json({ error: 'Failed to save grocery list' }, { status: 500 })
+    }
+
+    logger.info({ listId: upserted.id, itemCount: allItems.length, recipeCount: recipeEntries.length, skipped: skippedRecipes.length }, 'grocery list generated')
+    return NextResponse.json({ list: upserted, skippedRecipes })
+  } catch (err) {
+    logger.error({ error: err instanceof Error ? err.message : String(err), dateFrom, userId: user.id }, 'failed to upsert grocery list')
     return NextResponse.json({ error: 'Failed to save grocery list' }, { status: 500 })
   }
-
-  logger.info({ listId: upserted.id, itemCount: allItems.length, recipeCount: recipes.length, skipped: skipped_recipes.length }, 'grocery list generated')
-  return NextResponse.json({ list: upserted, skipped_recipes })
 })

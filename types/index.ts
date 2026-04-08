@@ -18,19 +18,19 @@ export interface LimitedTag {
 
 export interface UserPreferences {
   id: string
-  user_id: string
-  options_per_day: number
-  cooldown_days: number
-  seasonal_mode: boolean
-  preferred_tags: string[]
-  avoided_tags: string[]
-  limited_tags: LimitedTag[]
-  seasonal_rules: Record<string, { favor?: string[]; cap?: Record<string, number>; exclude?: string[] }> | null
-  onboarding_completed: boolean
-  is_active: boolean
-  meal_context: string | null
-  hidden_tags: string[]
-  created_at: string
+  userId: string
+  optionsPerDay: number
+  cooldownDays: number
+  seasonalMode: boolean
+  preferredTags: string[]
+  avoidedTags: string[]
+  limitedTags: LimitedTag[]
+  seasonalRules: Record<string, { favor?: string[]; cap?: Record<string, number>; exclude?: string[] }> | null
+  onboardingCompleted: boolean
+  isActive: boolean
+  mealContext: string | null
+  hiddenTags: string[]
+  createdAt: string
 }
 
 export interface HomeData {
@@ -39,58 +39,58 @@ export interface HomeData {
   groceryListWeekStart:  string | null
   currentWeekPlan: {
     id:         string
-    week_start: string
+    weekStart: string
     entries: {
-      planned_date:       string
-      recipe_id:          string
-      recipe_title:       string
+      plannedDate:       string
+      recipeId:          string
+      recipeTitle:       string
       position:           number
       confirmed:          boolean
-      total_time_minutes: number | null
+      totalTimeMinutes: number | null
     }[]
   } | null
   recentlyMade: {
-    recipe_id:    string
-    recipe_title: string
-    made_on:      string
+    recipeId:    string
+    recipeTitle: string
+    madeOn:      string
     tags:         string[]
   }[]
 }
 
 export interface Recipe {
   id: string
-  user_id: string
+  userId: string
   title: string
   url: string | null
   category: RecipeCategory
   tags: string[]
   notes: string | null
-  is_shared: boolean
+  isShared: boolean
   ingredients: string | null
   steps: string | null
-  image_url: string | null
-  created_at: string
-  dates_made?: string[]  // sorted descending; returned by GET /api/recipes/[id]
-  prep_time_minutes:     number | null
-  cook_time_minutes:     number | null
-  total_time_minutes:    number | null
-  inactive_time_minutes: number | null
+  imageUrl: string | null
+  createdAt: string
+  datesMade?: string[]  // sorted descending; returned by GET /api/recipes/[id]
+  prepTimeMinutes:     number | null
+  cookTimeMinutes:     number | null
+  totalTimeMinutes:    number | null
+  inactiveTimeMinutes: number | null
   servings:              number | null
   source: 'scraped' | 'manual' | 'generated'
-  step_photos: { stepIndex: number; imageUrl: string }[]
+  stepPhotos: { stepIndex: number; imageUrl: string }[]
 }
 
 export interface RecipeListItem {
   id: string
-  user_id: string
+  userId: string
   title: string
   category: RecipeCategory
   tags: string[]
-  is_shared: boolean
-  last_made: string | null  // "YYYY-MM-DD"
-  times_made: number
-  created_at: string
-  total_time_minutes: number | null
+  isShared: boolean
+  lastMade: string | null  // "YYYY-MM-DD"
+  timesMade: number
+  createdAt: string
+  totalTimeMinutes: number | null
 }
 
 export interface RecipeFilters {
@@ -105,73 +105,73 @@ export interface RecipeFilters {
 export type CookingFrequency = 'light' | 'moderate' | 'frequent'
 
 export interface TasteProfile {
-  loved_recipe_ids:    string[]
-  disliked_recipe_ids: string[]
-  top_tags:            string[]
-  avoided_tags:        string[]
-  preferred_tags:      string[]
-  meal_context:        string | null
-  cooking_frequency:   CookingFrequency
-  recent_recipes:      { recipe_id: string; title: string; made_on: string }[]
+  lovedRecipeIds:    string[]
+  dislikedRecipeIds: string[]
+  topTags:            string[]
+  avoidedTags:        string[]
+  preferredTags:      string[]
+  mealContext:        string | null
+  cookingFrequency:   CookingFrequency
+  recentRecipes:      { recipeId: string; title: string; madeOn: string }[]
 }
 
 export interface WasteMatch {
   ingredient:    string
-  waste_risk:    'high' | 'medium'
-  shared_with:   string[]
-  has_next_week: boolean
+  wasteRisk:    'high' | 'medium'
+  sharedWith:   string[]
+  hasNextWeek: boolean
 }
 
 export interface RecipeSuggestion {
-  recipe_id:         string
-  recipe_title:      string
+  recipeId:         string
+  recipeTitle:      string
   reason?:           string
-  waste_matches?:    WasteMatch[]
-  waste_badge_text?: string
+  wasteMatches?:    WasteMatch[]
+  wasteBadgeText?: string
 }
 
 export interface MealTypeSuggestions {
-  meal_type: MealType
+  mealType: MealType
   options:   RecipeSuggestion[]
 }
 
 export interface DaySuggestions {
   date:       string
-  meal_types: MealTypeSuggestions[]
+  mealTypes: MealTypeSuggestions[]
 }
 
 export interface DaySelection {
   date:         string
-  meal_type:    MealType
-  recipe_id:    string
-  recipe_title: string
-  from_vault:   boolean
+  mealType:    MealType
+  recipeId:    string
+  recipeTitle: string
+  fromVault:   boolean
 }
 
 export interface SavedPlanEntry {
   id:              string
-  meal_plan_id:    string
-  recipe_id:       string
-  recipe_title?:   string
-  planned_date:    string
+  mealPlanId:    string
+  recipeId:       string
+  recipeTitle?:   string
+  plannedDate:    string
   position:        number
   confirmed:       boolean
-  meal_type:       MealType
-  is_side_dish:    boolean
-  parent_entry_id: string | null
+  mealType:       MealType
+  isSideDish:    boolean
+  parentEntryId: string | null
 }
 
 export interface PlanEntry {
   id:                  string
-  recipe_id:           string
-  recipe_title:        string
-  planned_date:        string
-  meal_type:           MealType
-  is_side_dish:        boolean
-  parent_entry_id:     string | null
+  recipeId:           string
+  recipeTitle:        string
+  plannedDate:        string
+  mealType:           MealType
+  isSideDish:        boolean
+  parentEntryId:     string | null
   confirmed:           boolean
   position:            number
-  total_time_minutes?: number | null
+  totalTimeMinutes?: number | null
 }
 
 // ── Plan wizard types ─────────────────────────────────────────────────────────
@@ -203,30 +203,30 @@ export interface GroceryItem {
   amount:    number | null
   unit:      string | null
   section:   GrocerySection
-  is_pantry: boolean
+  isPantry: boolean
   checked:   boolean
   bought?:   boolean   // true = item is in the "Got it" section
   recipes:   string[]
 }
 
 export interface RecipeScale {
-  recipe_id:    string
-  recipe_title: string
+  recipeId:    string
+  recipeTitle: string
   servings:     number | null  // null = use plan-level default
 }
 
 export interface GroceryList {
   id:            string
-  user_id:       string
-  meal_plan_id:  string
-  week_start:    string
-  date_from?:    string | null
-  date_to?:      string | null
+  userId:       string
+  mealPlanId:  string
+  weekStart:    string
+  dateFrom?:    string | null
+  dateTo?:      string | null
   servings:      number
-  recipe_scales: RecipeScale[]
+  recipeScales: RecipeScale[]
   items:         GroceryItem[]
-  created_at:    string
-  updated_at:    string
+  createdAt:    string
+  updatedAt:    string
 }
 
 
@@ -237,13 +237,13 @@ export interface GeneratedRecipe {
   tags:                  string[]
   category:              RecipeCategory
   servings:              number | null
-  prep_time_minutes:     number | null
-  cook_time_minutes:     number | null
-  total_time_minutes:    number | null
-  inactive_time_minutes: number | null
+  prepTimeMinutes:     number | null
+  cookTimeMinutes:     number | null
+  totalTimeMinutes:    number | null
+  inactiveTimeMinutes: number | null
   notes:                 string | null
-  waste_matches?:        Pick<WasteMatch, 'ingredient' | 'waste_risk'>[]
-  waste_badge_text?:     string
+  wasteMatches?:        Pick<WasteMatch, 'ingredient' | 'wasteRisk'>[]
+  wasteBadgeText?:     string
 }
 
 export type HouseholdRole = 'owner' | 'co_owner' | 'member'
@@ -251,17 +251,17 @@ export type HouseholdRole = 'owner' | 'co_owner' | 'member'
 export interface Household {
   id:         string
   name:       string
-  owner_id:   string
-  created_at: string
+  ownerId:   string
+  createdAt: string
 }
 
 export interface HouseholdMember {
-  household_id:  string
-  user_id:       string
+  householdId:  string
+  userId:       string
   role:          HouseholdRole
-  joined_at:     string
+  joinedAt:     string
   email?:        string
-  display_name?: string
+  displayName?: string
 }
 
 export interface HouseholdContext {
@@ -274,15 +274,15 @@ export interface HouseholdContext {
 export interface DiscoveryResult {
   title:          string
   url:            string
-  site_name:      string
+  siteName:      string
   description:    string | null
-  suggested_tags: string[]
-  vault_match?: {
-    similar_recipe_title: string
+  suggestedTags: string[]
+  vaultMatch?: {
+    similarRecipeTitle: string
     similarity: 'exact' | 'similar'
   }
-  waste_matches?:    Pick<WasteMatch, 'ingredient' | 'waste_risk'>[]
-  waste_badge_text?: string
+  wasteMatches?:    Pick<WasteMatch, 'ingredient' | 'wasteRisk'>[]
+  wasteBadgeText?: string
 }
 
 /** Scraped recipe data — returned by POST /api/recipes/scrape and used in the discover flow */
@@ -312,11 +312,11 @@ export interface ParsedRecipe {
   steps:                 string | null
   notes:                 string | null
   url:                   string | null
-  image_url:             string | null
-  prep_time_minutes:     number | null
-  cook_time_minutes:     number | null
-  total_time_minutes:    number | null
-  inactive_time_minutes: number | null
+  imageUrl:             string | null
+  prepTimeMinutes:     number | null
+  cookTimeMinutes:     number | null
+  totalTimeMinutes:    number | null
+  inactiveTimeMinutes: number | null
   servings:              number | null
   tags:                  string[]
   source:                'scraped' | 'manual'
@@ -328,9 +328,9 @@ export interface ModifiedRecipe {
   steps:                string
   notes:                string | null
   servings:             number | null
-  prep_time_minutes?:   number | null
-  cook_time_minutes?:   number | null
-  total_time_minutes?:  number | null
+  prepTimeMinutes?:   number | null
+  cookTimeMinutes?:   number | null
+  totalTimeMinutes?:  number | null
 }
 
 export interface AIEditMessage {
@@ -345,11 +345,17 @@ export interface ImportResult {
   status:           'ready' | 'partial' | 'failed' | 'pending'
   recipe?:          ParsedRecipe
   error?:           string
-  source_url?:      string   // for URL imports
-  source_label:     string   // e.g. "budgetbytes.com" or "Paprika"
+  sourceUrl?:      string   // for URL imports
+  sourceLabel:     string   // e.g. "budgetbytes.com" or "Paprika"
   duplicate?: {
-    recipe_id:    string
-    recipe_title: string
+    recipeId:    string
+    recipeTitle: string
   }
-  duplicate_action?: 'skip' | 'keep_both' | 'replace'
+  duplicateAction?: 'skip' | 'keep_both' | 'replace'
+}
+
+export interface GenerateRefinementMessage {
+  role:     'user' | 'assistant'
+  content:  string
+  changes?: string[]   // populated on assistant turns; bullet list of what changed
 }

@@ -3,10 +3,38 @@
  * Covers spec test cases: T10, T11, T12, T13, T14, T15, T16, T22
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+// ── Mock the db module ─────────────────────────────────────────────────────────
+
+function mockChain(result: unknown[] = []) {
+  const chain: Record<string, unknown> = {}
+  for (const m of ['from', 'where', 'orderBy', 'limit', 'offset', 'innerJoin', 'leftJoin',
+    'set', 'values', 'onConflictDoUpdate', 'onConflictDoNothing', 'returning', 'groupBy']) {
+    chain[m] = vi.fn().mockReturnValue(chain)
+  }
+  chain.then = vi.fn().mockImplementation(
+    (resolve: (v: unknown) => void) => Promise.resolve(result).then(resolve),
+  )
+  return chain
+}
+
+const { mockDb } = vi.hoisted(() => {
+  const mockDb = {
+    select: vi.fn(),
+    insert: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    execute: vi.fn().mockResolvedValue({ rows: [] }),
+  }
+  return { mockDb }
+})
+
+vi.mock('@/lib/db', () => ({
+  db: mockDb,
+}))
+
 import { deriveTasteProfile, IMPLICIT_LOVE_THRESHOLD } from '@/lib/taste-profile'
-import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database } from '@/types/database'
 
 // Helper: YYYY-MM-DD for N days ago
 function daysAgo(n: number): string {
@@ -15,219 +43,245 @@ function daysAgo(n: number): string {
   return d.toISOString().slice(0, 10)
 }
 
-// Build a minimal Supabase mock that returns data from a fixture table.
-// Tracks filter state so eq/gte/limit work correctly.
-function makeDb(tables: Record<string, unknown[]>): SupabaseClient<Database> {
-  function makeQueryChain(allRows: unknown[]) {
-    let filtered = allRows
-    let limitN: number | null = null
+/**
+ * Sets up mock db.select to return data for the deriveTasteProfile query sequence.
+ * Solo user (ctx=null) query order:
+ *   1. userPreferences
+ *   2. recipeHistory (explicitLoved: makeAgain=true)
+ *   3. recipeHistory (recentHistoryRows: 6 months)
+ *   4. recipeHistory (disliked: makeAgain=false)
+ *   5. recipeHistory + recipes join (tagHistory)
+ *   6. recipeHistory (recent30)
+ *   7. recipeHistory + recipes join (recent, with orderBy + limit)
+ *
+ * Household (ctx set) adds one query at the start:
+ *   0. householdMembers
+ */
+function setupMockQueries(opts: {
+  prefs?: unknown[]
+  explicitLoved?: unknown[]
+  recentHistory?: unknown[]
+  disliked?: unknown[]
+  tagHistory?: unknown[]
+  recent30?: unknown[]
+  recentRecipes?: unknown[]
+  householdMembers?: unknown[]
+}) {
+  const queries: unknown[][] = []
 
-    function resolveRows() {
-      return limitN !== null ? filtered.slice(0, limitN) : filtered
-    }
-
-    const chain: Record<string, unknown> = {
-      select: () => chain,
-      in:     () => chain,
-      order:  () => chain,
-      eq: (_col: string, val: unknown) => {
-        filtered = filtered.filter((r) => {
-          const row = r as Record<string, unknown>
-          // Treat missing column as null (not as "pass through")
-          const rowVal = _col in row ? row[_col] : null
-          return rowVal === val
-        })
-        return chain
-      },
-      gte: (_col: string, val: string) => {
-        filtered = filtered.filter((r) => {
-          const row = r as Record<string, unknown>
-          const rowVal = _col in row ? String(row[_col]) : null
-          if (rowVal === null) return false
-          return rowVal >= val
-        })
-        return chain
-      },
-      limit: (n: number) => {
-        limitN = n
-        return Promise.resolve({ data: resolveRows(), error: null })
-      },
-      maybeSingle: () => Promise.resolve({ data: filtered[0] ?? null, error: null }),
-      single:     () => Promise.resolve({
-        data: filtered[0] ?? null,
-        error: filtered[0] ? null : { message: 'not found' },
-      }),
-      then: (resolveFn: (v: { data: unknown[]; error: null }) => void) =>
-        Promise.resolve({ data: resolveRows(), error: null }).then(resolveFn),
-    }
-    return chain
+  // If household members are provided, that query comes first
+  if (opts.householdMembers) {
+    queries.push(opts.householdMembers)
   }
 
-  return {
-    from: (table: string) => makeQueryChain(tables[table] ?? []),
-  } as unknown as SupabaseClient<Database>
+  queries.push(
+    opts.prefs ?? [],                // userPreferences
+    opts.explicitLoved ?? [],        // explicitLoved
+    opts.recentHistory ?? [],        // recentHistoryRows
+    opts.disliked ?? [],             // disliked
+    opts.tagHistory ?? [],           // tagHistory
+    opts.recent30 ?? [],             // recent30
+    opts.recentRecipes ?? [],        // recentRecipes
+  )
+
+  let callIdx = 0
+  mockDb.select.mockImplementation(() => {
+    const result = queries[callIdx] ?? []
+    callIdx++
+    return mockChain(result)
+  })
 }
 
-// ── T10: loved_recipe_ids includes make_again=true entries ────────────────────
+beforeEach(() => {
+  vi.clearAllMocks()
+})
+
+// ── T10: lovedRecipeIds includes makeAgain=true entries ──────────────────
 
 describe('deriveTasteProfile', () => {
-  it('T10: loved_recipe_ids includes make_again=true entries', async () => {
-    const db = makeDb({
-      user_preferences: [{ avoided_tags: [], preferred_tags: [], meal_context: null }],
-      recipe_history: [
-        { recipe_id: 'r1', made_on: daysAgo(10), make_again: true },
-        { recipe_id: 'r2', made_on: daysAgo(10), make_again: false },
-        { recipe_id: 'r1', recipes: { tags: [] } },
-      ],
+  it('T10: lovedRecipeIds includes makeAgain=true entries', async () => {
+    setupMockQueries({
+      prefs: [{ avoidedTags: [], preferredTags: [], mealContext: null }],
+      explicitLoved: [{ recipeId: 'r1' }],
+      recentHistory: [],
+      disliked: [{ recipeId: 'r2' }],
     })
-    const profile = await deriveTasteProfile('user-1', db, null)
-    expect(profile.loved_recipe_ids).toContain('r1')
-    expect(profile.disliked_recipe_ids).toContain('r2')
+
+    const profile = await deriveTasteProfile('user-1', null, null)
+    expect(profile.lovedRecipeIds).toContain('r1')
+    expect(profile.dislikedRecipeIds).toContain('r2')
   })
 
-  // ── T11: implicit love via 3+ cooks in 6 months ───────────────────────────
+  // ── T11: implicit love via 3+ cooks in 6 months ──────────────────────────
 
-  it('T11: loved_recipe_ids includes recipes made 3+ times in 6 months', async () => {
+  it('T11: lovedRecipeIds includes recipes made 3+ times in 6 months', async () => {
     const threshold = IMPLICIT_LOVE_THRESHOLD // 3
-    const db = makeDb({
-      user_preferences: [{ avoided_tags: [], preferred_tags: [], meal_context: null }],
-      recipe_history: [
-        // r1: cooked exactly threshold times → should be implicitly loved
-        ...Array.from({ length: threshold }, (_, i) => ({ recipe_id: 'r1', made_on: daysAgo(5 + i), make_again: null })),
-        // r2: cooked threshold-1 times → should NOT be implicitly loved
-        ...Array.from({ length: threshold - 1 }, (_, i) => ({ recipe_id: 'r2', made_on: daysAgo(5 + i), make_again: null })),
-        // dummy for tags join
-        { recipe_id: 'r1', recipes: { tags: [] } },
-        { recipe_id: 'r2', recipes: { tags: [] } },
+    setupMockQueries({
+      prefs: [{ avoidedTags: [], preferredTags: [], mealContext: null }],
+      explicitLoved: [],
+      recentHistory: [
+        // r1: cooked exactly threshold times
+        ...Array.from({ length: threshold }, (_, i) => ({
+          recipeId: 'r1', madeOn: daysAgo(5 + i),
+        })),
+        // r2: cooked threshold-1 times
+        ...Array.from({ length: threshold - 1 }, (_, i) => ({
+          recipeId: 'r2', madeOn: daysAgo(5 + i),
+        })),
       ],
+      disliked: [],
     })
-    const profile = await deriveTasteProfile('user-1', db, null)
-    expect(profile.loved_recipe_ids).toContain('r1')
-    expect(profile.loved_recipe_ids).not.toContain('r2')
+
+    const profile = await deriveTasteProfile('user-1', null, null)
+    expect(profile.lovedRecipeIds).toContain('r1')
+    expect(profile.lovedRecipeIds).not.toContain('r2')
   })
 
-  // ── T12: disliked_recipe_ids includes make_again=false entries ────────────
+  // ── T12: dislikedRecipeIds includes makeAgain=false entries ────────────
 
-  it('T12: disliked_recipe_ids includes make_again=false entries', async () => {
-    const db = makeDb({
-      user_preferences: [{ avoided_tags: [], preferred_tags: [], meal_context: null }],
-      recipe_history: [
-        { recipe_id: 'r3', made_on: daysAgo(20), make_again: false },
-        { recipe_id: 'r3', recipes: { tags: [] } },
-      ],
+  it('T12: dislikedRecipeIds includes makeAgain=false entries', async () => {
+    setupMockQueries({
+      prefs: [{ avoidedTags: [], preferredTags: [], mealContext: null }],
+      explicitLoved: [],
+      recentHistory: [],
+      disliked: [{ recipeId: 'r3' }],
     })
-    const profile = await deriveTasteProfile('user-1', db, null)
-    expect(profile.disliked_recipe_ids).toContain('r3')
+
+    const profile = await deriveTasteProfile('user-1', null, null)
+    expect(profile.dislikedRecipeIds).toContain('r3')
   })
 
-  // ── T13: top_tags weighted correctly (last 30d = 3×) ─────────────────────
+  // ── T13: topTags weighted correctly (last 30d = 3x) ─────────────────────
 
-  it('T13: top_tags — last-30d entries get 3× weight vs older entries', async () => {
-    const db = makeDb({
-      user_preferences: [{ avoided_tags: [], preferred_tags: [], meal_context: null }],
-      recipe_history: [
-        // tagA: one old entry (1×)
-        { recipe_id: 'r1', made_on: daysAgo(120), make_again: null, recipes: { tags: ['tagA'] } },
-        // tagB: one recent entry (3×)
-        { recipe_id: 'r2', made_on: daysAgo(10), make_again: null, recipes: { tags: ['tagB'] } },
+  it('T13: topTags -- last-30d entries get 3x weight vs older entries', async () => {
+    setupMockQueries({
+      prefs: [{ avoidedTags: [], preferredTags: [], mealContext: null }],
+      explicitLoved: [],
+      recentHistory: [],
+      disliked: [],
+      tagHistory: [
+        // tagA: one old entry (1x weight)
+        { madeOn: daysAgo(120), tags: ['tagA'] },
+        // tagB: one recent entry (3x weight)
+        { madeOn: daysAgo(10), tags: ['tagB'] },
       ],
     })
-    const profile = await deriveTasteProfile('user-1', db, null)
-    const tagBIdx = profile.top_tags.indexOf('tagB')
-    const tagAIdx = profile.top_tags.indexOf('tagA')
-    // tagB should rank higher than tagA because 3× > 1×
+
+    const profile = await deriveTasteProfile('user-1', null, null)
+    const tagBIdx = profile.topTags.indexOf('tagB')
+    const tagAIdx = profile.topTags.indexOf('tagA')
+    // tagB should rank higher than tagA because 3x > 1x
     expect(tagBIdx).toBeGreaterThanOrEqual(0)
     expect(tagAIdx).toBeGreaterThanOrEqual(0)
     expect(tagBIdx).toBeLessThan(tagAIdx)
   })
 
-  // ── T14: cooking_frequency buckets ────────────────────────────────────────
+  // ── T14: cookingFrequency buckets ────────────────────────────────────────
 
-  it('T14: cooking_frequency = light for 0–2 distinct recipes in last 30d', async () => {
-    const db = makeDb({
-      user_preferences: [{ avoided_tags: [], preferred_tags: [], meal_context: null }],
-      recipe_history: [
-        { recipe_id: 'r1', made_on: daysAgo(5), make_again: null, recipes: { tags: [] } },
+  it('T14: cookingFrequency = light for 0-2 distinct recipes in last 30d', async () => {
+    setupMockQueries({
+      prefs: [{ avoidedTags: [], preferredTags: [], mealContext: null }],
+      explicitLoved: [],
+      recentHistory: [],
+      disliked: [],
+      tagHistory: [],
+      recent30: [{ recipeId: 'r1' }],
+    })
+
+    const profile = await deriveTasteProfile('user-1', null, null)
+    expect(profile.cookingFrequency).toBe('light')
+  })
+
+  it('T14: cookingFrequency = moderate for 3-6 distinct recipes in last 30d', async () => {
+    setupMockQueries({
+      prefs: [{ avoidedTags: [], preferredTags: [], mealContext: null }],
+      explicitLoved: [],
+      recentHistory: [],
+      disliked: [],
+      tagHistory: [],
+      recent30: [
+        { recipeId: 'r1' },
+        { recipeId: 'r2' },
+        { recipeId: 'r3' },
+        { recipeId: 'r4' },
       ],
     })
-    const profile = await deriveTasteProfile('user-1', db, null)
-    expect(profile.cooking_frequency).toBe('light')
+
+    const profile = await deriveTasteProfile('user-1', null, null)
+    expect(profile.cookingFrequency).toBe('moderate')
   })
 
-  it('T14: cooking_frequency = moderate for 3–6 distinct recipes in last 30d', async () => {
-    const db = makeDb({
-      user_preferences: [{ avoided_tags: [], preferred_tags: [], meal_context: null }],
-      recipe_history: [
-        { recipe_id: 'r1', made_on: daysAgo(2), make_again: null, recipes: { tags: [] } },
-        { recipe_id: 'r2', made_on: daysAgo(3), make_again: null, recipes: { tags: [] } },
-        { recipe_id: 'r3', made_on: daysAgo(4), make_again: null, recipes: { tags: [] } },
-        { recipe_id: 'r4', made_on: daysAgo(5), make_again: null, recipes: { tags: [] } },
-      ],
+  it('T14: cookingFrequency = frequent for 7+ distinct recipes in last 30d', async () => {
+    setupMockQueries({
+      prefs: [{ avoidedTags: [], preferredTags: [], mealContext: null }],
+      explicitLoved: [],
+      recentHistory: [],
+      disliked: [],
+      tagHistory: [],
+      recent30: Array.from({ length: 8 }, (_, i) => ({ recipeId: `r${i}` })),
     })
-    const profile = await deriveTasteProfile('user-1', db, null)
-    expect(profile.cooking_frequency).toBe('moderate')
+
+    const profile = await deriveTasteProfile('user-1', null, null)
+    expect(profile.cookingFrequency).toBe('frequent')
   })
 
-  it('T14: cooking_frequency = frequent for 7+ distinct recipes in last 30d', async () => {
-    const db = makeDb({
-      user_preferences: [{ avoided_tags: [], preferred_tags: [], meal_context: null }],
-      recipe_history: Array.from({ length: 8 }, (_, i) => ({
-        recipe_id: `r${i}`,
-        made_on: daysAgo(i + 1),
-        make_again: null,
-        recipes: { tags: [] },
+  // ── T15: recentRecipes ───────────────────────────────────────────────────
+
+  it('T15: recentRecipes returns up to 10 entries', async () => {
+    setupMockQueries({
+      prefs: [{ avoidedTags: [], preferredTags: [], mealContext: null }],
+      explicitLoved: [],
+      recentHistory: [],
+      disliked: [],
+      tagHistory: [],
+      recent30: [],
+      recentRecipes: Array.from({ length: 10 }, (_, i) => ({
+        recipeId: `r${i}`,
+        madeOn: daysAgo(i + 1),
+        title: `Recipe ${i}`,
       })),
     })
-    const profile = await deriveTasteProfile('user-1', db, null)
-    expect(profile.cooking_frequency).toBe('frequent')
-  })
 
-  // ── T15: recent_recipes ───────────────────────────────────────────────────
-
-  it('T15: recent_recipes returns up to 10 entries', async () => {
-    const db = makeDb({
-      user_preferences: [{ avoided_tags: [], preferred_tags: [], meal_context: null }],
-      recipe_history: Array.from({ length: 12 }, (_, i) => ({
-        recipe_id: `r${i}`,
-        made_on: daysAgo(i + 1),
-        make_again: null,
-        recipes: { tags: [], title: `Recipe ${i}` },
-      })),
-    })
-    const profile = await deriveTasteProfile('user-1', db, null)
-    expect(profile.recent_recipes.length).toBeLessThanOrEqual(10)
+    const profile = await deriveTasteProfile('user-1', null, null)
+    expect(profile.recentRecipes.length).toBeLessThanOrEqual(10)
   })
 
   // ── T16: empty history ────────────────────────────────────────────────────
 
   it('T16: empty history returns empty arrays and no error', async () => {
-    const db = makeDb({
-      user_preferences: [],
-      recipe_history: [],
+    setupMockQueries({
+      prefs: [],
+      explicitLoved: [],
+      recentHistory: [],
+      disliked: [],
+      tagHistory: [],
+      recent30: [],
+      recentRecipes: [],
     })
-    const profile = await deriveTasteProfile('user-1', db, null)
-    expect(profile.loved_recipe_ids).toEqual([])
-    expect(profile.disliked_recipe_ids).toEqual([])
-    expect(profile.top_tags).toEqual([])
-    expect(profile.recent_recipes).toEqual([])
-    expect(profile.cooking_frequency).toBe('light')
+
+    const profile = await deriveTasteProfile('user-1', null, null)
+    expect(profile.lovedRecipeIds).toEqual([])
+    expect(profile.dislikedRecipeIds).toEqual([])
+    expect(profile.topTags).toEqual([])
+    expect(profile.recentRecipes).toEqual([])
+    expect(profile.cookingFrequency).toBe('light')
   })
 
-  // ── T22: household — aggregate history from all member user IDs ───────────
+  // ── T22: household — aggregate history from all member user IDs ──────────
 
   it('T22: household mode aggregates history from all member user IDs', async () => {
-    // With ctx, deriveTasteProfile should query household_members first,
-    // then use all member IDs for history queries.
-    // We verify by checking that a make_again=true entry from another member is included.
-    const db = makeDb({
-      household_members: [{ user_id: 'user-1' }, { user_id: 'user-2' }],
-      user_preferences: [{ avoided_tags: [], preferred_tags: [], meal_context: null }],
-      recipe_history: [
-        { recipe_id: 'r99', made_on: daysAgo(10), make_again: true },
-        { recipe_id: 'r99', recipes: { tags: [] } },
-      ],
+    setupMockQueries({
+      householdMembers: [{ userId: 'user-1' }, { userId: 'user-2' }],
+      prefs: [{ avoidedTags: [], preferredTags: [], mealContext: null }],
+      explicitLoved: [{ recipeId: 'r99' }],
+      recentHistory: [],
+      disliked: [],
+      tagHistory: [],
+      recent30: [],
+      recentRecipes: [],
     })
-    const profile = await deriveTasteProfile('user-1', db, { householdId: 'hh-1', role: 'owner' })
-    expect(profile.loved_recipe_ids).toContain('r99')
+
+    const profile = await deriveTasteProfile('user-1', null, { householdId: 'hh-1', role: 'owner' })
+    expect(profile.lovedRecipeIds).toContain('r99')
   })
 })

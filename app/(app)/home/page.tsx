@@ -1,8 +1,11 @@
 import Link from 'next/link'
 import { Sparkles, Archive, ClipboardList } from 'lucide-react'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getSessionUser } from '@/lib/auth-helpers'
+import { db } from '@/lib/db'
+import { and, eq, desc, sql } from 'drizzle-orm'
+import { recipes, mealPlans, mealPlanEntries, recipeHistory, groceryLists, userPreferences } from '@/lib/db/schema'
 import { HomeData } from '@/types'
-import { getMostRecentSunday, getTodayISO, isToday } from './utils'
+import { getMostRecentWeekStart, dayNameToNumber, getTodayISO, isToday, buildEntriesByDay } from './utils'
 import GreetingHeading from './GreetingHeading'
 
 import { getDayAbbrev, getDayNum, formatShortDate, formatWeekRange, getWeekDates } from '@/lib/date-utils'
@@ -24,81 +27,94 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
 // ── Data fetching ─────────────────────────────────────────────────────────────
 
 async function getHomeData(): Promise<HomeData & { weekStart: string }> {
-  const supabase = createSupabaseServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSessionUser()
 
-  const weekStart = getMostRecentSunday()
   if (!user) {
+    const weekStart = getMostRecentWeekStart(0)
     return { userName: null, recipeCount: 0, groceryListWeekStart: null, currentWeekPlan: null, recentlyMade: [], weekStart }
   }
 
-  const fullName = (user.user_metadata?.full_name as string | undefined) ?? null
+  const fullName = user.name ?? null
   const userName = fullName
     ? (fullName.split(' ')[0] ?? fullName)
     : (user.email?.split('@')[0] ?? null)
 
-  const [planResult, historyResult, recipeCountResult, groceryResult] = await Promise.all([
-    supabase
-      .from('meal_plans')
-      .select('id, week_start')
-      .eq('user_id', user.id)
-      .eq('week_start', weekStart)
-      .single(),
-    supabase
-      .from('recipe_history')
-      .select('recipe_id, made_on, recipes(title, tags)')
-      .eq('user_id', user.id)
-      .order('made_on', { ascending: false })
+  // Fetch preference first to determine the user's week start day
+  const prefRows = await db.select({ weekStartDay: userPreferences.weekStartDay })
+    .from(userPreferences)
+    .where(eq(userPreferences.userId, user.id))
+    .limit(1)
+
+  const weekStart = getMostRecentWeekStart(dayNameToNumber(prefRows[0]?.weekStartDay ?? 'sunday'))
+
+  const [planRows, historyRows, countRows, groceryRows] = await Promise.all([
+    db.select({ id: mealPlans.id, weekStart: mealPlans.weekStart })
+      .from(mealPlans)
+      .where(and(eq(mealPlans.userId, user.id), eq(mealPlans.weekStart, weekStart)))
+      .limit(1),
+    db.select({
+        recipeId: recipeHistory.recipeId,
+        madeOn: recipeHistory.madeOn,
+        title: recipes.title,
+        tags: recipes.tags,
+      })
+      .from(recipeHistory)
+      .innerJoin(recipes, eq(recipeHistory.recipeId, recipes.id))
+      .where(eq(recipeHistory.userId, user.id))
+      .orderBy(desc(recipeHistory.madeOn))
       .limit(5),
-    supabase
-      .from('recipes')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id),
-    supabase
-      .from('grocery_lists')
-      .select('week_start')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+    db.select({ count: sql<number>`count(*)::int` })
+      .from(recipes)
+      .where(eq(recipes.userId, user.id)),
+    db.select({ weekStart: groceryLists.weekStart })
+      .from(groceryLists)
+      .where(eq(groceryLists.userId, user.id))
+      .orderBy(desc(groceryLists.createdAt))
+      .limit(1),
   ])
 
-  const plan = planResult.data
+  const plan = planRows[0]
   let currentWeekPlan: HomeData['currentWeekPlan'] = null
 
   if (plan) {
-    const { data: entries } = await supabase
-      .from('meal_plan_entries')
-      .select('planned_date, recipe_id, position, confirmed, recipes(title, total_time_minutes)')
-      .eq('meal_plan_id', plan.id)
-      .order('planned_date')
-      .order('position')
+    const entries = await db.select({
+        plannedDate: mealPlanEntries.plannedDate,
+        recipeId: mealPlanEntries.recipeId,
+        position: mealPlanEntries.position,
+        confirmed: mealPlanEntries.confirmed,
+        recipeTitle: recipes.title,
+        totalTimeMinutes: recipes.totalTimeMinutes,
+      })
+      .from(mealPlanEntries)
+      .innerJoin(recipes, eq(mealPlanEntries.recipeId, recipes.id))
+      .where(eq(mealPlanEntries.mealPlanId, plan.id))
+      .orderBy(mealPlanEntries.plannedDate, mealPlanEntries.position)
 
     currentWeekPlan = {
       id:         plan.id,
-      week_start: plan.week_start,
-      entries: (entries ?? []).map((e) => ({
-        planned_date:       e.planned_date,
-        recipe_id:          e.recipe_id,
-        recipe_title:       e.recipes?.title ?? '',
+      weekStart: plan.weekStart,
+      entries: entries.map((e) => ({
+        plannedDate:       e.plannedDate,
+        recipeId:          e.recipeId,
+        recipeTitle:       e.recipeTitle ?? '',
         position:           e.position,
         confirmed:          e.confirmed,
-        total_time_minutes: e.recipes?.total_time_minutes ?? null,
+        totalTimeMinutes: e.totalTimeMinutes ?? null,
       })),
     }
   }
 
-  const recentlyMade = (historyResult.data ?? []).map((h) => ({
-    recipe_id:    h.recipe_id,
-    recipe_title: h.recipes?.title ?? '',
-    made_on:      h.made_on,
-    tags:         h.recipes?.tags ?? [],
+  const recentlyMade = historyRows.map((h) => ({
+    recipeId:    h.recipeId,
+    recipeTitle: h.title ?? '',
+    madeOn:      h.madeOn,
+    tags:         h.tags ?? [],
   }))
 
   return {
     userName,
-    recipeCount:          recipeCountResult.count ?? 0,
-    groceryListWeekStart: groceryResult.data?.week_start ?? null,
+    recipeCount:          countRows[0]?.count ?? 0,
+    groceryListWeekStart: groceryRows[0]?.weekStart ?? null,
     currentWeekPlan,
     recentlyMade,
     weekStart,
@@ -114,23 +130,7 @@ export default async function HomePage() {
   const today    = getTodayISO()
   const weekDays = getWeekDates(weekStart)
 
-  const entriesByDay = new Map<
-    string,
-    { recipe_id: string; recipe_title: string; total_time_minutes: number | null }[]
-  >()
-  if (currentWeekPlan) {
-    for (const entry of currentWeekPlan.entries) {
-      const list = entriesByDay.get(entry.planned_date) ?? []
-      if (!list.find((e) => e.recipe_id === entry.recipe_id)) {
-        list.push({
-          recipe_id:          entry.recipe_id,
-          recipe_title:       entry.recipe_title,
-          total_time_minutes: entry.total_time_minutes,
-        })
-      }
-      entriesByDay.set(entry.planned_date, list)
-    }
-  }
+  const entriesByDay = buildEntriesByDay(currentWeekPlan?.entries ?? [])
 
   const daysPlanned = entriesByDay.size
 
@@ -201,18 +201,18 @@ export default async function HomePage() {
                         <div className="space-y-1">
                           {entries.map((e) => (
                             <div
-                              key={e.recipe_id}
+                              key={e.recipeId}
                               className="rounded bg-sage-50 px-1.5 py-1"
                             >
                               <Link
-                                href={`/recipes/${e.recipe_id}`}
+                                href={`/recipes/${e.recipeId}`}
                                 className="text-[11px] font-medium text-stone-800 hover:text-sage-600 leading-snug block"
                               >
-                                {e.recipe_title}
+                                {e.recipeTitle}
                               </Link>
-                              {e.total_time_minutes != null && (
+                              {e.totalTimeMinutes != null && (
                                 <p className="text-[10px] text-stone-400 mt-0.5">
-                                  {formatMinutes(e.total_time_minutes)}
+                                  {formatMinutes(e.totalTimeMinutes)}
                                 </p>
                               )}
                             </div>
@@ -220,7 +220,7 @@ export default async function HomePage() {
                           <Link
                             href={
                               entries.length === 1
-                                ? `/recipes/${entries[0]!.recipe_id}/cook`
+                                ? `/recipes/${entries[0]!.recipeId}/cook`
                                 : `/meal/${day}`
                             }
                             className="inline-block mt-1.5 text-[10px] font-medium text-sage-600 bg-sage-50 border border-sage-200 hover:bg-sage-100 px-2 py-0.5 rounded transition-colors"
@@ -243,7 +243,7 @@ export default async function HomePage() {
             >
               <span className="text-sm text-stone-500">{daysPlanned} of 7 days planned</span>
               <Link
-                href={`/calendar?week_start=${weekStart}`}
+                href={`/calendar?weekStart=${weekStart}`}
                 className="border border-stone-300 rounded-full px-4 py-1.5 text-sm text-stone-700 hover:bg-stone-100 transition-colors"
               >
                 View full plan &#8594;
@@ -277,15 +277,15 @@ export default async function HomePage() {
             <div className="bg-white rounded-xl border border-stone-200 overflow-hidden divide-y divide-stone-100">
               {recentlyMade.map((item) => (
                 <Link
-                  key={`${item.recipe_id}-${item.made_on}`}
-                  href={`/recipes/${item.recipe_id}`}
+                  key={`${item.recipeId}-${item.madeOn}`}
+                  href={`/recipes/${item.recipeId}`}
                   className="flex items-center justify-between px-4 py-4 hover:bg-stone-50 transition-colors"
                 >
                   <span className="text-sm font-medium text-stone-900 flex-1 min-w-0 mr-4 truncate">
-                    {item.recipe_title}
+                    {item.recipeTitle}
                   </span>
                   <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                    <span className="text-xs text-stone-500">{formatShortDate(item.made_on)}</span>
+                    <span className="text-xs text-stone-500">{formatShortDate(item.madeOn)}</span>
                     {item.tags.length > 0 && (
                       <div className="flex gap-1 flex-wrap justify-end">
                         {item.tags.slice(0, 2).map((tag) => (

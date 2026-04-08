@@ -279,3 +279,121 @@ describe('T61 - step has partial quantity for ingredient — highlight it in-pla
     expect(span).toBe('1 tbsp')
   })
 })
+
+// ── T62: Full unit names in step text are recognised ─────────────────────────
+
+describe('T62 - full unit names (teaspoon, tablespoon, etc.) detected as inline quantities (regression for #312)', () => {
+  it('highlights "2 teaspoons" when ingredient total is "3 1/2 tsp salt"', () => {
+    const result = injectStepQuantities(
+      'Add 2 teaspoons salt and stir',
+      '3 1/2 tsp salt',
+      4,
+      4,
+    )
+    expect(result.text).toBe('Add 2 teaspoons salt and stir')
+    expect(result.highlights).toHaveLength(1)
+    const span = result.text.slice(result.highlights[0]!.start, result.highlights[0]!.end)
+    expect(span).toBe('2 teaspoons')
+  })
+
+  it('highlights "2 teaspoons of" — preposition variant', () => {
+    const result = injectStepQuantities(
+      'Add 2 teaspoons of salt',
+      '3 1/2 tsp salt',
+      4,
+      4,
+    )
+    expect(result.text).toBe('Add 2 teaspoons of salt')
+    expect(result.highlights).toHaveLength(1)
+    const span = result.text.slice(result.highlights[0]!.start, result.highlights[0]!.end)
+    expect(span).toBe('2 teaspoons')
+  })
+
+  it('highlights "1 tablespoon" when ingredient total is "3 tbsp olive oil"', () => {
+    const result = injectStepQuantities(
+      'Heat 1 tablespoon olive oil',
+      '3 tbsp olive oil',
+      4,
+      4,
+    )
+    expect(result.text).toBe('Heat 1 tablespoon olive oil')
+    expect(result.highlights).toHaveLength(1)
+    const span = result.text.slice(result.highlights[0]!.start, result.highlights[0]!.end)
+    expect(span).toBe('1 tablespoon')
+  })
+})
+
+// ── T63: Inline qty highlighted in subsequent steps after ingredient is "seen" ─
+
+describe('T63 - inline qty highlighted in subsequent steps even after cross-step dedup (regression for #312)', () => {
+  it('highlights partial qty in step 2 even though ingredient was shown in step 1', () => {
+    const ingredients = '3 1/2 tsp salt'
+    const seen = new Set<string>()
+
+    // Step 1: no inline qty → inject total
+    const step1 = injectStepQuantities('Season the water with salt', ingredients, 4, 4, seen)
+    expect(step1.text).toBe('Season the water with 3 1/2 tsp salt')
+    expect(step1.highlights).toHaveLength(1)
+
+    // Step 2: step text has its own qty → highlight it even though salt is already seen
+    const step2 = injectStepQuantities('Add 2 teaspoons salt to the sauce', ingredients, 4, 4, seen)
+    expect(step2.text).toBe('Add 2 teaspoons salt to the sauce')
+    expect(step2.highlights).toHaveLength(1)
+    const span = step2.text.slice(step2.highlights[0]!.start, step2.highlights[0]!.end)
+    expect(span).toBe('2 teaspoons')
+  })
+})
+
+// ── T66: Last-word fallback does not shadow explicit full-name mention ─────────
+
+describe('T66 - last-word fallback does not shadow explicit full-name match (regression for #319)', () => {
+  it('attaches 1/4 cup to "soy sauce" even when "sauce" appears earlier in the step', () => {
+    const result = injectStepQuantities(
+      'Stir in the sauce until combined, then add soy sauce.',
+      '1/4 cup soy sauce',
+      4,
+      4,
+    )
+    expect(result.text).toBe('Stir in the sauce until combined, then add 1/4 cup soy sauce.')
+    expect(result.highlights).toHaveLength(1)
+    const span = result.text.slice(result.highlights[0]!.start, result.highlights[0]!.end)
+    expect(span).toBe('1/4 cup')
+  })
+
+  it('does not annotate bare "oil" when "olive oil" appears in the same step', () => {
+    const result = injectStepQuantities(
+      'Heat oil then drizzle olive oil over the top.',
+      '2 tbsp olive oil',
+      4,
+      4,
+    )
+    expect(result.text).toBe('Heat oil then drizzle 2 tbsp olive oil over the top.')
+    expect(result.highlights).toHaveLength(1)
+  })
+})
+
+// ── T67: Ambiguous last-word fallback suppressed ───────────────────────────────
+
+describe('T67 - ambiguous last-word fallback suppressed (regression for #319)', () => {
+  it('does not annotate bare "sauce" when both soy sauce and fish sauce are ingredients', () => {
+    const result = injectStepQuantities(
+      'Add the sauce to the pan.',
+      '1/4 cup soy sauce\n2 tbsp fish sauce',
+      4,
+      4,
+    )
+    expect(result.text).toBe('Add the sauce to the pan.')
+    expect(result.highlights).toHaveLength(0)
+  })
+
+  it('still annotates each sauce by full name when both appear in the step', () => {
+    const result = injectStepQuantities(
+      'Mix soy sauce with fish sauce.',
+      '1/4 cup soy sauce\n2 tbsp fish sauce',
+      4,
+      4,
+    )
+    expect(result.text).toBe('Mix 1/4 cup soy sauce with 2 tbsp fish sauce.')
+    expect(result.highlights).toHaveLength(2)
+  })
+})

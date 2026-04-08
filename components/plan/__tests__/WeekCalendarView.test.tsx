@@ -3,9 +3,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 import WeekCalendarView, { type WeekCalendarViewEntry } from '../WeekCalendarView'
 
-vi.mock('@/lib/supabase/browser', () => ({
-  getAccessToken: async () => 'mock-token',
-}))
 
 // ── Fetch mock ────────────────────────────────────────────────────────────────
 
@@ -16,8 +13,8 @@ beforeEach(() => {
   mockFetch.mockResolvedValue({
     ok: true,
     json: async () => ({
-      entry_a: { id: 'e1', planned_date: '2026-03-03', recipe_id: 'r1' },
-      entry_b: { id: 'e2', planned_date: '2026-03-01', recipe_id: 'r2' },
+      entry_a: { id: 'e1', plannedDate: '2026-03-03', recipeId: 'r1' },
+      entry_b: { id: 'e2', plannedDate: '2026-03-01', recipeId: 'r2' },
     }),
   })
 })
@@ -31,8 +28,8 @@ afterEach(() => {
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 
 const ENTRIES: WeekCalendarViewEntry[] = [
-  { id: 'e1', planned_date: '2026-03-01', recipe_title: 'Pasta',  meal_type: 'dinner', confirmed: false },
-  { id: 'e2', planned_date: '2026-03-03', recipe_title: 'Tacos',  meal_type: 'dinner', confirmed: false },
+  { id: 'e1', plannedDate: '2026-03-01', recipeTitle: 'Pasta',  mealType: 'dinner', confirmed: false },
+  { id: 'e2', plannedDate: '2026-03-03', recipeTitle: 'Tacos',  mealType: 'dinner', confirmed: false },
 ]
 
 function renderView(entries = ENTRIES) {
@@ -147,8 +144,7 @@ describe('T08 - Tapping second card calls POST /api/plan/swap', () => {
 
     expect(mockFetch).toHaveBeenCalledWith('/api/plan/swap', expect.objectContaining({
       method: 'POST',
-      headers: expect.objectContaining({ Authorization: 'Bearer mock-token' }),
-      body: JSON.stringify({ entry_id_a: 'e1', entry_id_b: 'e2' }),
+      body: JSON.stringify({ entryIdA: 'e1', entryIdB: 'e2' }),
     }))
   })
 })
@@ -218,7 +214,7 @@ describe('T15 - Toast Undo calls POST /api/plan/swap with same IDs', () => {
     })
     expect(mockFetch).toHaveBeenNthCalledWith(2, '/api/plan/swap', expect.objectContaining({
       method: 'POST',
-      body: JSON.stringify({ entry_id_a: 'e1', entry_id_b: 'e2' }),
+      body: JSON.stringify({ entryIdA: 'e1', entryIdB: 'e2' }),
     }))
   })
 })
@@ -292,13 +288,13 @@ describe('T18 - No selection or API call when no meal card is tapped', () => {
   })
 })
 
-// ── T19: meal_type not modified by swap ──────────────────────────────────────
+// ── T19: mealType not modified by swap ──────────────────────────────────────
 
-describe('T19 - meal_type is not modified by a swap', () => {
-  it('preserves each entry\'s meal_type after a swap', async () => {
+describe('T19 - mealType is not modified by a swap', () => {
+  it('preserves each entry\'s mealType after a swap', async () => {
     const entries: WeekCalendarViewEntry[] = [
-      { id: 'e1', planned_date: '2026-03-01', recipe_title: 'Pasta', meal_type: 'dinner',  confirmed: false },
-      { id: 'e2', planned_date: '2026-03-03', recipe_title: 'Tacos', meal_type: 'breakfast', confirmed: false },
+      { id: 'e1', plannedDate: '2026-03-01', recipeTitle: 'Pasta', mealType: 'dinner',  confirmed: false },
+      { id: 'e2', plannedDate: '2026-03-03', recipeTitle: 'Tacos', mealType: 'breakfast', confirmed: false },
     ]
     render(<WeekCalendarView entries={entries} weekStart="2026-03-01" />)
     fireEvent.click(screen.getByText('Swap meals'))
@@ -310,7 +306,7 @@ describe('T19 - meal_type is not modified by a swap', () => {
     await act(async () => { fireEvent.click(tacosCard) })
 
     await waitFor(() => {
-      // Both meal titles still present — swap only moved planned_date, not meal_type
+      // Both meal titles still present — swap only moved plannedDate, not mealType
       expect(screen.getByText('Pasta')).toBeInTheDocument()
       expect(screen.getByText('Tacos')).toBeInTheDocument()
     })

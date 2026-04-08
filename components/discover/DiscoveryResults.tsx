@@ -12,7 +12,6 @@ interface DiscoveryResultsProps {
   siteFilter:         string
   onDismiss:          (url: string) => void
   onClearSiteFilter:  () => void
-  getToken:           () => Promise<string>
   onSaved:            () => void
   onEditBeforeSaving: (scrapeResult: ScrapeResult) => void
 }
@@ -42,7 +41,6 @@ export default function DiscoveryResults({
   siteFilter,
   onDismiss,
   onClearSiteFilter,
-  getToken,
   onEditBeforeSaving,
 }: DiscoveryResultsProps) {
   const [previewingResult, setPreviewingResult] = useState<DiscoveryResult | null>(null)
@@ -125,7 +123,6 @@ export default function DiscoveryResults({
       {previewingResult && (
         <PreviewSheet
           result={previewingResult}
-          getToken={getToken}
           onClose={() => setPreviewingResult(null)}
           onSaved={(url) => {
             setSavedUrls((prev) => new Set([...prev, url]))

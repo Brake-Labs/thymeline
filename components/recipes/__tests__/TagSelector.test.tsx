@@ -3,9 +3,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import TagSelector from '../TagSelector'
 
-vi.mock('@/lib/supabase/browser', () => ({
-  getAccessToken: async () => 'mock-token',
-}))
 
 // Default: GET /api/tags returns empty custom array; POST creates successfully
 const mockFetch = vi.fn()

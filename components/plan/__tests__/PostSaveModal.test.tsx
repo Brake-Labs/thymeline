@@ -32,10 +32,10 @@ describe('T31 - PostSaveModal renders when open', () => {
 // ── T32: Make my grocery list ─────────────────────────────────────────────────
 
 describe('T32 - Make my grocery list navigates correctly', () => {
-  it('navigates to /groceries with date_from and date_to matching the plan week', () => {
+  it('navigates to /groceries with dateFrom and dateTo matching the plan week', () => {
     render(<PostSaveModal weekStart="2026-03-01" isOpen={true} />)
     fireEvent.click(screen.getByText('Make my grocery list'))
-    expect(mockPush).toHaveBeenCalledWith('/groceries?date_from=2026-03-01&date_to=2026-03-07')
+    expect(mockPush).toHaveBeenCalledWith('/groceries?dateFrom=2026-03-01&dateTo=2026-03-07')
   })
 })
 

@@ -11,16 +11,13 @@ vi.mock('next/link', () => ({
     <a href={href} {...props}>{children}</a>
   ),
 }))
-vi.mock('@/lib/supabase/browser', () => ({
-  getAccessToken: async () => 'mock-token',
-}))
 
 const mockFetch = vi.fn()
 vi.stubGlobal('fetch', mockFetch)
 
 const MOCK_RECIPE = {
   id: 'recipe-1',
-  user_id: 'user-1',
+  userId: 'user-1',
   title: 'Chicken Soup',
   category: 'main_dish' as const,
   tags: ['Chicken', 'Soup'],
@@ -28,9 +25,9 @@ const MOCK_RECIPE = {
   notes: null,
   ingredients: '1 whole chicken\n2 carrots',
   steps: 'Boil the chicken.\nAdd carrots.',
-  image_url: null,
-  is_shared: false,
-  created_at: '2025-01-01T00:00:00Z',
+  imageUrl: null,
+  isShared: false,
+  createdAt: '2025-01-01T00:00:00Z',
 }
 
 function makeTagsResponse() {

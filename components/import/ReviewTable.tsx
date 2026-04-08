@@ -74,7 +74,7 @@ export default function ReviewTable({ results, onChange, onSave, isSaving }: Pro
   }
 
   function updateDuplicateAction(id: string, action: 'skip' | 'keep_both' | 'replace') {
-    const updated = results.map((r) => r.id === id ? { ...r, duplicate_action: action } : r)
+    const updated = results.map((r) => r.id === id ? { ...r, duplicateAction: action } : r)
     onChange(updated)
     if (action === 'skip') {
       setChecked((prev) => { const next = new Set(prev); next.delete(id); return next })
@@ -151,7 +151,7 @@ export default function ReviewTable({ results, onChange, onSave, isSaving }: Pro
                         </button>
                         {r.duplicate && (
                           <p className="text-xs text-stone-400 mt-0.5">
-                            Similar to: {r.duplicate.recipe_title}
+                            Similar to: {r.duplicate.recipeTitle}
                           </p>
                         )}
                         {r.duplicate && (
@@ -164,7 +164,7 @@ export default function ReviewTable({ results, onChange, onSave, isSaving }: Pro
                     )}
                   </td>
                   <td className="px-3 py-2 text-stone-500 text-xs">
-                    {r.source_label}
+                    {r.sourceLabel}
                   </td>
                   <td className="px-3 py-2">
                     <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium ${badge.className}`}>

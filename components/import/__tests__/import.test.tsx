@@ -159,28 +159,28 @@ describe('ReviewTable', () => {
     {
       id:           'r1',
       status:       'ready' as const,
-      recipe:       { title: 'Chicken Soup', category: null, ingredients: 'chicken', steps: 'boil', notes: null, url: null, image_url: null, prep_time_minutes: null, cook_time_minutes: null, total_time_minutes: null, inactive_time_minutes: null, servings: null, tags: [], source: 'manual' as const },
-      source_label: 'manual',
+      recipe:       { title: 'Chicken Soup', category: null, ingredients: 'chicken', steps: 'boil', notes: null, url: null, imageUrl: null, prepTimeMinutes: null, cookTimeMinutes: null, totalTimeMinutes: null, inactiveTimeMinutes: null, servings: null, tags: [], source: 'manual' as const },
+      sourceLabel: 'manual',
     },
     {
       id:           'r2',
       status:       'partial' as const,
-      recipe:       { title: 'Pasta', category: null, ingredients: 'pasta', steps: null, notes: null, url: null, image_url: null, prep_time_minutes: null, cook_time_minutes: null, total_time_minutes: null, inactive_time_minutes: null, servings: null, tags: [], source: 'manual' as const },
-      source_label: 'manual',
+      recipe:       { title: 'Pasta', category: null, ingredients: 'pasta', steps: null, notes: null, url: null, imageUrl: null, prepTimeMinutes: null, cookTimeMinutes: null, totalTimeMinutes: null, inactiveTimeMinutes: null, servings: null, tags: [], source: 'manual' as const },
+      sourceLabel: 'manual',
     },
     {
       id:           'r3',
       status:       'failed' as const,
       error:        'Missing title',
       recipe:       undefined,
-      source_label: 'manual',
+      sourceLabel: 'manual',
     },
     {
       id:           'r4',
       status:       'ready' as const,
-      recipe:       { title: 'Dupe Recipe', category: null, ingredients: 'x', steps: 'y', notes: null, url: 'https://x.com', image_url: null, prep_time_minutes: null, cook_time_minutes: null, total_time_minutes: null, inactive_time_minutes: null, servings: null, tags: [], source: 'scraped' as const },
-      source_label: 'x.com',
-      duplicate:    { recipe_id: 'existing-1', recipe_title: 'Existing Recipe' },
+      recipe:       { title: 'Dupe Recipe', category: null, ingredients: 'x', steps: 'y', notes: null, url: 'https://x.com', imageUrl: null, prepTimeMinutes: null, cookTimeMinutes: null, totalTimeMinutes: null, inactiveTimeMinutes: null, servings: null, tags: [], source: 'scraped' as const },
+      sourceLabel: 'x.com',
+      duplicate:    { recipeId: 'existing-1', recipeTitle: 'Existing Recipe' },
     },
   ]
 
@@ -348,8 +348,8 @@ describe('DuplicateActions', () => {
     const result = {
       id:           'dup-1',
       status:       'ready' as const,
-      source_label: 'example.com',
-      duplicate:    { recipe_id: 'existing-1', recipe_title: 'Old Recipe' },
+      sourceLabel: 'example.com',
+      duplicate:    { recipeId: 'existing-1', recipeTitle: 'Old Recipe' },
     }
 
     render(<DuplicateActions result={result} onChange={vi.fn()} />)
@@ -363,9 +363,9 @@ describe('DuplicateActions', () => {
     const result = {
       id:              'dup-1',
       status:          'ready' as const,
-      source_label:    'example.com',
-      duplicate:       { recipe_id: 'existing-1', recipe_title: 'Old Recipe' },
-      duplicate_action: 'replace' as const,
+      sourceLabel:    'example.com',
+      duplicate:       { recipeId: 'existing-1', recipeTitle: 'Old Recipe' },
+      duplicateAction: 'replace' as const,
     }
 
     render(<DuplicateActions result={result} onChange={vi.fn()} />)
@@ -378,8 +378,8 @@ describe('DuplicateActions', () => {
     const result = {
       id:           'dup-1',
       status:       'ready' as const,
-      source_label: 'example.com',
-      duplicate:    { recipe_id: 'existing-1', recipe_title: 'Old Recipe' },
+      sourceLabel: 'example.com',
+      duplicate:    { recipeId: 'existing-1', recipeTitle: 'Old Recipe' },
     }
 
     render(<DuplicateActions result={result} onChange={onChange} />)
@@ -388,13 +388,9 @@ describe('DuplicateActions', () => {
   })
 })
 
-// ── Regression: hotfix/import-urls-auth — fetch calls include Authorization header ──
+// ── Regression: hotfix/import-urls-auth — fetch calls are issued (auth is cookie-based now) ──
 
-vi.mock('@/lib/supabase/browser', () => ({
-  getAccessToken: vi.fn().mockResolvedValue('test-token'),
-}))
-
-describe('ImportWizard auth headers (regression: hotfix/import-urls-auth)', () => {
+describe('ImportWizard fetch calls (regression: hotfix/import-urls-auth)', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok:   true,
@@ -402,7 +398,7 @@ describe('ImportWizard auth headers (regression: hotfix/import-urls-auth)', () =
     }))
   })
 
-  it('POST /api/import/urls fetch includes Authorization header', async () => {
+  it('POST /api/import/urls fetch is issued on Start Import', async () => {
     const { default: ImportWizard } = await import('../ImportWizard')
 
     const { unmount } = render(<ImportWizard />)
@@ -416,14 +412,14 @@ describe('ImportWizard auth headers (regression: hotfix/import-urls-auth)', () =
     expect(vi.mocked(fetch)).toHaveBeenCalledWith(
       '/api/import/urls',
       expect.objectContaining({
-        headers: expect.objectContaining({ Authorization: 'Bearer test-token' }),
+        method: 'POST',
       }),
     )
     unmount()
   })
 })
 
-describe('ImportProgress auth headers (regression: hotfix/import-urls-auth)', () => {
+describe('ImportProgress fetch calls (regression: hotfix/import-urls-auth)', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok:   true,
@@ -431,7 +427,7 @@ describe('ImportProgress auth headers (regression: hotfix/import-urls-auth)', ()
     }))
   })
 
-  it('polling GET /api/import/:job_id includes Authorization header', async () => {
+  it('polling GET /api/import/:job_id is issued', async () => {
     const { default: ImportProgress } = await import('../ImportProgress')
 
     await act(async () => {
@@ -440,9 +436,6 @@ describe('ImportProgress auth headers (regression: hotfix/import-urls-auth)', ()
 
     expect(vi.mocked(fetch)).toHaveBeenCalledWith(
       '/api/import/job-abc',
-      expect.objectContaining({
-        headers: expect.objectContaining({ Authorization: 'Bearer test-token' }),
-      }),
     )
   })
 })

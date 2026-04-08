@@ -2,17 +2,16 @@
 
 import { useEffect, useState } from 'react'
 import PreferencesForm from '@/components/preferences/PreferencesForm'
-import { getAccessToken } from '@/lib/supabase/browser'
 
 type TagsResponse = {
-  firstClass: { name: string; recipe_count: number }[]
-  custom:     { name: string; section: string; recipe_count: number }[]
+  firstClass: { name: string; recipeCount: number }[]
+  custom:     { name: string; section: string; recipeCount: number }[]
   hidden:     { name: string }[]
 }
 
 export default function PreferencesPageContent() {
-  const [firstClassTags, setFirstClassTags] = useState<{ name: string; recipe_count: number }[]>([])
-  const [customTags, setCustomTags]         = useState<{ name: string; section: string; recipe_count: number }[]>([])
+  const [firstClassTags, setFirstClassTags] = useState<{ name: string; recipeCount: number }[]>([])
+  const [customTags, setCustomTags]         = useState<{ name: string; section: string; recipeCount: number }[]>([])
   const [hiddenTags, setHiddenTags]         = useState<{ name: string }[]>([])
   const [tagError, setTagError]             = useState<string | null>(null)
   // null = loading, 'member' = read-only, anything else = can manage
@@ -22,8 +21,7 @@ export default function PreferencesPageContent() {
   useEffect(() => {
     async function fetchTags() {
       try {
-        const token = await getAccessToken()
-        const r = await fetch('/api/tags', { headers: { Authorization: `Bearer ${token}` } })
+        const r = await fetch('/api/tags')
         const data: TagsResponse = await r.json()
         setFirstClassTags(data.firstClass ?? [])
         setCustomTags(data.custom ?? [])
@@ -37,8 +35,7 @@ export default function PreferencesPageContent() {
 
     async function fetchRole() {
       try {
-        const token = await getAccessToken()
-        const r = await fetch('/api/household', { headers: { Authorization: `Bearer ${token}` } })
+        const r = await fetch('/api/household')
         if (r.ok) {
           const data = await r.json() as { myRole?: string }
           setHouseholdRole(data.myRole ?? null)

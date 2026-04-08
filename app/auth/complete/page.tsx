@@ -2,76 +2,54 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { getSupabaseClient, getAccessToken } from '@/lib/supabase/browser'
+import { authClient } from '@/lib/auth-client'
 
 export default function AuthCompletePage() {
   const router = useRouter()
 
   useEffect(() => {
     async function handleAuthComplete() {
-      const supabase = getSupabaseClient()
-      const { data: { user } } = await supabase.auth.getUser()
+      const session = await authClient.getSession()
 
-      if (!user) {
+      if (!session?.data?.user) {
         router.push('/login')
         return
       }
 
-      const token = await getAccessToken()
-
-      // Fetch preferences to check onboarding status
-      const prefsRes = await fetch('/api/preferences', {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      let prefs = prefsRes.ok ? await prefsRes.json() : null
-      if (!prefs) {
-        await new Promise(r => setTimeout(r, 500))
-        const retry = await fetch('/api/preferences', {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        prefs = retry.ok ? await retry.json() : null
-      }
-
-      // Preferences fetch errored — unknown state, do not attempt invite consume
-      if (!prefs) {
-        router.push('/login')
+      // Check email allowlist via server endpoint — deny on error or rejection
+      try {
+        const eligRes = await fetch('/api/auth/check-email')
+        if (!eligRes.ok || !(await eligRes.json()).allowed) {
+          router.push('/inactive')
+          return
+        }
+      } catch {
+        // Network error — deny access (fail closed)
+        router.push('/inactive')
         return
       }
 
-      // Provisioned user: onboarding_completed=true (normal returning user) OR
-      // is_active=true (doubly-corrupted user whose row was repaired by migration 007
-      // but whose onboarding_completed was also reset by the pre-hotfix-11 bug).
-      // Both signals mean the user has a user_preferences row and was legitimately
-      // provisioned — skip consume (which would call setInactive and undo the repair).
-      if (prefs.onboarding_completed === true || prefs.is_active === true) {
-        // Stamp user_metadata so the layout never needs to hit the DB for this
-        await supabase.auth.updateUser({ data: { is_active: true } })
+      // Check if user already has preferences (cookies sent automatically)
+      const prefsRes = await fetch('/api/preferences')
+      const prefs = prefsRes.ok ? await prefsRes.json() : null
+
+      if (prefs && (prefs.onboardingCompleted === true || prefs.isActive === true)) {
+        // Returning user with completed setup
         router.push('/home')
         return
       }
 
-      // New user (no preferences row → DEFAULT_PREFS with is_active=false) —
-      // check and consume invite token
-      const inviteToken = sessionStorage.getItem('thymeline_invite_token') ?? null
-
-      const consumeRes = await fetch('/api/invite/consume', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ token: inviteToken }),
-      })
-      const consumeData = consumeRes.ok ? await consumeRes.json() : { success: false }
-
-      if (consumeData.success) {
-        // Stamp user_metadata before sending to onboarding
-        await supabase.auth.updateUser({ data: { is_active: true } })
-        sessionStorage.removeItem('thymeline_invite_token')
-        router.push('/onboarding')
-      } else {
-        router.push('/inactive')
+      if (!prefs) {
+        // New user — create default preferences via upsert
+        await fetch('/api/preferences', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        })
       }
+
+      // Send to onboarding
+      router.push('/onboarding')
     }
 
     handleAuthComplete()

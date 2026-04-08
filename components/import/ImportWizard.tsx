@@ -3,7 +3,6 @@
 import { useState, useCallback } from 'react'
 import type { ImportResult } from '@/types'
 import type { ImportFormat } from '@/lib/import/detect-format'
-import { getAccessToken } from '@/lib/supabase/browser'
 import ImportSourceTabs from './ImportSourceTabs'
 import ImportProgress from './ImportProgress'
 import NotionMappingEditor from './NotionMappingEditor'
@@ -46,8 +45,8 @@ const INITIAL_STATE: WizardState = {
 function resultToSavePayload(r: ImportResult) {
   return {
     data:             r.recipe!,
-    duplicate_action: r.duplicate_action,
-    existing_id:      r.duplicate_action === 'replace' ? r.duplicate?.recipe_id : undefined,
+    duplicateAction: r.duplicateAction,
+    existingId:      r.duplicateAction === 'replace' ? r.duplicate?.recipeId : undefined,
   }
 }
 
@@ -61,10 +60,9 @@ export default function ImportWizard() {
   async function handleUrlsSubmit(urls: string[]) {
     setError(null)
     try {
-      const token = await getAccessToken()
       const res = await fetch('/api/import/urls', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ urls }),
       })
       const data = await res.json() as { job_id?: string; total?: number; error?: string }
@@ -90,10 +88,8 @@ export default function ImportWizard() {
       form.append('file', file)
       if (format) form.append('format', format)
 
-      const token = await getAccessToken()
       const res = await fetch('/api/import/file', {
         method:  'POST',
-        headers: { Authorization: `Bearer ${token}` },
         body:    form,
       })
       const data = await res.json() as {
@@ -126,8 +122,8 @@ export default function ImportWizard() {
       const results: ImportResult[] = (data.results ?? []).map((r, _i) => ({
         ...r,
         id:           r.id ?? crypto.randomUUID(),
-        source_label: r.source_label ?? (file.name ?? 'File'),
-        duplicate_action: r.duplicate ? 'keep_both' : undefined,
+        sourceLabel: r.sourceLabel ?? (file.name ?? 'File'),
+        duplicateAction: r.duplicate ? 'keep_both' : undefined,
       }))
 
       setState((prev) => ({
@@ -156,11 +152,10 @@ export default function ImportWizard() {
     if (!rawCsv) return
 
     try {
-      const token = await getAccessToken()
       const res = await fetch('/api/import/confirm-notion-mapping', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body:    JSON.stringify({ file_content: rawCsv, mapping }),
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ fileContent: rawCsv, mapping }),
       })
       const data = await res.json() as {
         results: ImportResult[]
@@ -171,8 +166,8 @@ export default function ImportWizard() {
       const results: ImportResult[] = (data.results ?? []).map((r) => ({
         ...r,
         id:           r.id ?? crypto.randomUUID(),
-        source_label: r.source_label ?? 'Notion',
-        duplicate_action: r.duplicate ? 'keep_both' : undefined,
+        sourceLabel: r.sourceLabel ?? 'Notion',
+        duplicateAction: r.duplicate ? 'keep_both' : undefined,
       }))
 
       setState((prev) => ({ ...prev, step: 'review', results }))
@@ -190,10 +185,9 @@ export default function ImportWizard() {
     const recipesToSave = selected.filter((r) => r.recipe && r.status !== 'failed')
 
     try {
-      const token = await getAccessToken()
       const res = await fetch('/api/import/save', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ recipes: recipesToSave.map(resultToSavePayload) }),
       })
       const data = await res.json() as {

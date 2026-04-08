@@ -1,7 +1,6 @@
 'use client'
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
-import { getAccessToken } from '@/lib/supabase/browser'
 import type { Household, HouseholdMember, HouseholdContext } from '@/types'
 
 interface HouseholdState {
@@ -28,11 +27,7 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
 
   const refresh = useCallback(async () => {
     try {
-      const token = await getAccessToken().catch(() => '')
-      if (!token) { setLoading(false); return }
-      const res = await fetch('/api/household', {
-        headers: { Authorization: `Bearer ${token}` },
-      }).catch(() => null)
+      const res = await fetch('/api/household').catch(() => null)
       if (!res || !res.ok) {
         setHousehold(null)
         setMembers([])

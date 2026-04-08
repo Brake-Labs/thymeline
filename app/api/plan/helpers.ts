@@ -1,7 +1,10 @@
-import { type SupabaseClient } from '@supabase/supabase-js'
-import type { Database } from '@/types/database'
+import { db } from '@/lib/db'
+import { eq, and, inArray, gte, desc, asc } from 'drizzle-orm'
+import { recipes, recipeHistory, mealPlans, userPreferences, pantryItems } from '@/lib/db/schema'
+import { dbFirst } from '@/lib/db/helpers'
+import { scopeCondition, scopeInsert } from '@/lib/household'
 import { callLLM } from '@/lib/llm'
-import { scopeQuery } from '@/lib/household'
+import { toDateString } from '@/lib/date-utils'
 import type { UserPreferences, LimitedTag, MealType, DaySuggestions, HouseholdContext, TasteProfile } from '@/types'
 
 export const MEAL_TYPE_CATEGORIES: Record<MealType, string[]> = {
@@ -15,36 +18,38 @@ export const MEAL_TYPE_CATEGORIES: Record<MealType, string[]> = {
 // ── Week helpers ───────────────────────────────────────────────────────────────
 
 export { getMostRecentSunday, isSunday } from '@/lib/date-utils'
-import { toDateString } from '@/lib/date-utils'
 
 // ── Meal plan helpers ─────────────────────────────────────────────────────────
 
 /**
  * Find an existing meal plan for the given week, or create a new one.
- * Returns the plan ID, or null if creation failed.
+ * Returns the plan ID, or an error string if creation failed.
  */
 export async function getOrCreateMealPlan(
-  db: SupabaseClient<Database>,
   userId: string,
   weekStart: string,
   ctx?: HouseholdContext | null,
 ): Promise<{ planId: string } | { error: string }> {
-  const q = scopeQuery(db.from('meal_plans').select('id').eq('week_start', weekStart), userId, ctx ?? null)
-  const { data: existing } = await q.maybeSingle()
+  try {
+    const existing = await db
+      .select({ id: mealPlans.id })
+      .from(mealPlans)
+      .where(and(
+        eq(mealPlans.weekStart, weekStart),
+        scopeCondition({ userId: mealPlans.userId, householdId: mealPlans.householdId }, userId, ctx ?? null),
+      ))
+      .limit(1)
 
-  if (existing?.id) return { planId: existing.id }
+    const row = dbFirst(existing)
+    if (row?.id) return { planId: row.id }
 
-  const insertPayload = ctx
-    ? { household_id: ctx.householdId, user_id: userId, week_start: weekStart }
-    : { user_id: userId, week_start: weekStart }
-  const { data: created, error } = await db
-    .from('meal_plans')
-    .insert(insertPayload)
-    .select('id')
-    .single()
-
-  if (error || !created) return { error: error?.message ?? 'unknown' }
-  return { planId: created.id }
+    const insertPayload = { ...scopeInsert(userId, ctx ?? null), weekStart }
+    const [created] = await db.insert(mealPlans).values(insertPayload).returning({ id: mealPlans.id })
+    if (!created) return { error: 'unknown' }
+    return { planId: created.id }
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'unknown' }
+  }
 }
 
 // ── Season helpers ─────────────────────────────────────────────────────────────
@@ -65,18 +70,12 @@ export interface RecipeForLLM {
 }
 
 export async function fetchCooldownFilteredRecipes(
-  supabase: SupabaseClient<Database>,
   userId: string,
   cooldownDays: number,
   categories?: string[],
   ctx?: HouseholdContext | null,
 ): Promise<RecipeForLLM[]> {
   const cats = categories ?? ['main_dish']
-  // Fetch recipes scoped by household or user
-  const recipesQ = scopeQuery(supabase
-    .from('recipes')
-    .select('id, title, tags')
-    .in('category', cats), userId, ctx ?? null)
 
   const today = new Date()
   const cutoff = new Date(today)
@@ -84,24 +83,29 @@ export async function fetchCooldownFilteredRecipes(
   const cutoffStr = toDateString(cutoff)
 
   // Parallelize recipe fetch and history fetch — they are independent
-  const [{ data: recipes }, { data: history }] = await Promise.all([
-    recipesQ,
-    supabase
-      .from('recipe_history')
-      .select('recipe_id, made_on')
-      .eq('user_id', userId)
-      .gte('made_on', cutoffStr),
+  const [recipeRows, historyRows] = await Promise.all([
+    db.select({ id: recipes.id, title: recipes.title, tags: recipes.tags })
+      .from(recipes)
+      .where(and(
+        inArray(recipes.category, cats),
+        scopeCondition({ userId: recipes.userId, householdId: recipes.householdId }, userId, ctx ?? null),
+      )),
+    db.select({ recipeId: recipeHistory.recipeId })
+      .from(recipeHistory)
+      .where(and(
+        eq(recipeHistory.userId, userId),
+        gte(recipeHistory.madeOn, cutoffStr),
+      )),
   ])
 
-  if (!recipes || recipes.length === 0) return []
+  if (recipeRows.length === 0) return []
 
-  const recentlyMadeIds = new Set((history ?? []).map((h) => h.recipe_id))
+  const recentlyMadeIds = new Set(historyRows.map((h) => h.recipeId))
 
-  return (recipes ?? []).filter((r) => !recentlyMadeIds.has(r.id))
+  return recipeRows.filter((r) => !recentlyMadeIds.has(r.id))
 }
 
 export async function fetchRecipesByMealTypes(
-  supabase: SupabaseClient<Database>,
   userId: string,
   cooldownDays: number,
   mealTypes: MealType[],
@@ -114,79 +118,105 @@ export async function fetchRecipesByMealTypes(
   const cutoffStr = toDateString(cutoff)
 
   // Fetch history ONCE (shared across all meal types) in parallel with all recipe queries
-  const historyPromise = supabase
-    .from('recipe_history')
-    .select('recipe_id, made_on')
-    .eq('user_id', userId)
-    .gte('made_on', cutoffStr)
+  const historyPromise = db
+    .select({ recipeId: recipeHistory.recipeId })
+    .from(recipeHistory)
+    .where(and(
+      eq(recipeHistory.userId, userId),
+      gte(recipeHistory.madeOn, cutoffStr),
+    ))
 
   const recipePromises = mealTypes.map((mt) => {
     const cats = MEAL_TYPE_CATEGORIES[mt]
-    return scopeQuery(supabase
-      .from('recipes')
-      .select('id, title, tags')
-      .in('category', cats), userId, ctx ?? null)
+    return db
+      .select({ id: recipes.id, title: recipes.title, tags: recipes.tags })
+      .from(recipes)
+      .where(and(
+        inArray(recipes.category, cats),
+        scopeCondition({ userId: recipes.userId, householdId: recipes.householdId }, userId, ctx ?? null),
+      ))
   })
 
   // Fire all queries in parallel: one history + N recipe queries
-  const [{ data: history }, ...recipeResults] = await Promise.all([
+  const [historyRows, ...recipeResults] = await Promise.all([
     historyPromise,
     ...recipePromises,
   ])
 
-  const recentlyMadeIds = new Set((history ?? []).map((h) => h.recipe_id))
+  const recentlyMadeIds = new Set(historyRows.map((h) => h.recipeId))
 
   const result = {} as Record<MealType, RecipeForLLM[]>
   mealTypes.forEach((mt, i) => {
-    const recipes = recipeResults[i]?.data ?? []
-    result[mt] = recipes.filter((r) => !recentlyMadeIds.has(r.id))
+    const rows = recipeResults[i] ?? []
+    result[mt] = rows.filter((r) => !recentlyMadeIds.has(r.id))
   })
   return result
 }
 
 export async function fetchRecentHistory(
-  supabase: SupabaseClient<Database>,
   userId: string,
-): Promise<{ title: string; made_on: string }[]> {
-  const { data } = await supabase
-    .from('recipe_history')
-    .select('made_on, recipes(title)')
-    .eq('user_id', userId)
-    .order('made_on', { ascending: false })
+): Promise<{ title: string; madeOn: string }[]> {
+  const rows = await db
+    .select({
+      madeOn: recipeHistory.madeOn,
+      title: recipes.title,
+    })
+    .from(recipeHistory)
+    .innerJoin(recipes, eq(recipeHistory.recipeId, recipes.id))
+    .where(eq(recipeHistory.userId, userId))
+    .orderBy(desc(recipeHistory.madeOn))
     .limit(10)
 
-  return (data ?? []).map((h) => ({
-    title: h.recipes?.title ?? '',
-    made_on: h.made_on,
+  return rows.map((h) => ({
+    title: h.title ?? '',
+    madeOn: h.madeOn,
   }))
 }
 
 export async function fetchUserPreferences(
-  supabase: SupabaseClient<Database>,
   userId: string,
   ctx?: HouseholdContext | null,
 ): Promise<UserPreferences | null> {
-  const q = scopeQuery(supabase.from('user_preferences').select('*'), userId, ctx ?? null)
-  const { data } = await q.single()
+  const rows = await db
+    .select()
+    .from(userPreferences)
+    .where(scopeCondition(
+      { userId: userPreferences.userId, householdId: userPreferences.householdId },
+      userId,
+      ctx ?? null,
+    ))
+    .limit(1)
+
+  const data = dbFirst(rows)
   if (!data) return null
+
   return {
-    ...data,
-    limited_tags: data.limited_tags as unknown as LimitedTag[],
-    seasonal_rules: data.seasonal_rules as UserPreferences['seasonal_rules'],
-    meal_context: (data as { meal_context?: string | null }).meal_context ?? null,
-    hidden_tags: (data.hidden_tags as string[] | null) ?? [],
+    id: data.id,
+    userId: data.userId,
+    optionsPerDay: data.optionsPerDay,
+    cooldownDays: data.cooldownDays,
+    seasonalMode: data.seasonalMode,
+    preferredTags: data.preferredTags,
+    avoidedTags: data.avoidedTags,
+    limitedTags: data.limitedTags as unknown as LimitedTag[],
+    seasonalRules: data.seasonalRules as UserPreferences['seasonalRules'],
+    onboardingCompleted: data.onboardingCompleted,
+    isActive: data.isActive,
+    mealContext: data.mealContext ?? null,
+    hiddenTags: data.hiddenTags ?? [],
+    createdAt: data.createdAt.toISOString(),
   } satisfies UserPreferences
 }
 
 // ── Prompt construction ─────────────────────────────────────────────────────────
 
 function buildAvoidedTags(prefs: UserPreferences | null, sessionAvoid: string[]): string {
-  const combined = Array.from(new Set([...(prefs?.avoided_tags ?? []), ...sessionAvoid]))
+  const combined = Array.from(new Set([...(prefs?.avoidedTags ?? []), ...sessionAvoid]))
   return combined.length ? combined.join(', ') : 'none'
 }
 
 function buildPreferredTags(prefs: UserPreferences | null, sessionPrefer: string[]): string {
-  const combined = Array.from(new Set([...(prefs?.preferred_tags ?? []), ...sessionPrefer]))
+  const combined = Array.from(new Set([...(prefs?.preferredTags ?? []), ...sessionPrefer]))
   return combined.length ? combined.join(', ') : 'none'
 }
 
@@ -199,8 +229,8 @@ function buildSeasonalInstructions(
   prefs: UserPreferences | null,
   season: 'spring' | 'summer' | 'autumn' | 'winter',
 ): string {
-  if (!prefs?.seasonal_mode) return ''
-  const rules = (prefs.seasonal_rules as Record<string, { favor?: string[]; cap?: Record<string, number>; exclude?: string[] }> | null)?.[season]
+  if (!prefs?.seasonalMode) return ''
+  const rules = (prefs.seasonalRules as Record<string, { favor?: string[]; cap?: Record<string, number>; exclude?: string[] }> | null)?.[season]
   if (!rules) return ''
   const parts: string[] = []
   if (rules.favor?.length) parts.push(`Favor ${rules.favor.join(', ')} recipes.`)
@@ -213,17 +243,17 @@ function buildSeasonalInstructions(
 
 function buildTasteProfileSection(profile: TasteProfile): string {
   const parts: string[] = []
-  if (profile.loved_recipe_ids.length) {
-    parts.push(`Loved recipes (boost these in suggestions): ${profile.loved_recipe_ids.join(', ')}`)
+  if (profile.lovedRecipeIds.length) {
+    parts.push(`Loved recipes (boost these in suggestions): ${profile.lovedRecipeIds.join(', ')}`)
   }
-  if (profile.disliked_recipe_ids.length) {
-    parts.push(`Disliked recipes (avoid these): ${profile.disliked_recipe_ids.join(', ')}`)
+  if (profile.dislikedRecipeIds.length) {
+    parts.push(`Disliked recipes (avoid these): ${profile.dislikedRecipeIds.join(', ')}`)
   }
-  if (profile.top_tags.length) {
-    parts.push(`User's top flavor tags: ${profile.top_tags.join(', ')}`)
+  if (profile.topTags.length) {
+    parts.push(`User's top flavor tags: ${profile.topTags.join(', ')}`)
   }
-  if (parts.length > 0 && profile.cooking_frequency !== 'moderate') {
-    parts.push(`Cooking frequency: ${profile.cooking_frequency}`)
+  if (parts.length > 0 && profile.cookingFrequency !== 'moderate') {
+    parts.push(`Cooking frequency: ${profile.cookingFrequency}`)
   }
   return parts.length ? `\n\nTaste profile:\n${parts.join('\n')}` : ''
 }
@@ -235,21 +265,21 @@ export function buildSystemMessage(
   season: 'spring' | 'summer' | 'autumn' | 'winter',
   profile?: TasteProfile,
 ): string {
-  const optionsPerDay = prefs?.options_per_day ?? 3
+  const optionsPerDay = prefs?.optionsPerDay ?? 3
   const avoided = buildAvoidedTags(prefs, sessionAvoid)
   const preferred = buildPreferredTags(prefs, sessionPrefer)
-  const limited = buildLimitedTagsSummary(prefs?.limited_tags ?? [])
+  const limited = buildLimitedTagsSummary(prefs?.limitedTags ?? [])
   const seasonal = buildSeasonalInstructions(prefs, season)
 
-  const mealContextLine = prefs?.meal_context
-    ? `\nHousehold context: ${prefs.meal_context}`
+  const mealContextLine = prefs?.mealContext
+    ? `\nHousehold context: ${prefs.mealContext}`
     : ''
 
   const base = `You are a meal planning assistant. You will be given a list of recipes and user preferences, and you must suggest meals for specific days of the week.${mealContextLine}
 
 Rules you must follow exactly:
 - Only suggest recipes from the provided recipe list. Never invent recipes.
-- Only use recipe_ids from the provided list. Never guess or modify ids.
+- Only use recipeIds from the provided list. Never guess or modify ids.
 - Return exactly ${optionsPerDay} options per day.
 - Never suggest the same recipe for more than one day.
 - Never suggest recipes with avoided tags: ${avoided}.
@@ -264,13 +294,13 @@ Return ONLY valid JSON in this exact format, with no prose, no markdown:
   "days": [
     {
       "date": "YYYY-MM-DD",
-      "meal_types": [
+      "mealTypes": [
         {
-          "meal_type": "dinner",
+          "mealType": "dinner",
           "options": [
             {
-              "recipe_id": "uuid",
-              "recipe_title": "Recipe Name",
+              "recipeId": "uuid",
+              "recipeTitle": "Recipe Name",
               "reason": "One-line reason, e.g. Quick weeknight option"
             }
           ]
@@ -283,23 +313,25 @@ Return ONLY valid JSON in this exact format, with no prose, no markdown:
 }
 
 export async function fetchPantryContext(
-  supabase: SupabaseClient<Database>,
   userId: string,
   ctx?: HouseholdContext | null,
 ): Promise<string> {
   try {
-    const q = scopeQuery(supabase
-      .from('pantry_items')
-      .select('name, expiry_date'), userId, ctx ?? null)
-    const { data: items } = await q
-      .order('expiry_date', { ascending: true, nullsFirst: false })
-      .order('name', { ascending: true })
+    const items = await db
+      .select({ name: pantryItems.name, expiryDate: pantryItems.expiryDate })
+      .from(pantryItems)
+      .where(scopeCondition(
+        { userId: pantryItems.userId, householdId: pantryItems.householdId },
+        userId,
+        ctx ?? null,
+      ))
+      .orderBy(asc(pantryItems.expiryDate), asc(pantryItems.name))
       .limit(30)
 
-    if (!items?.length) return ''
+    if (!items.length) return ''
 
     const lines = items.map((item) => {
-      const expiry = item.expiry_date ? ` (expires ${item.expiry_date})` : ''
+      const expiry = item.expiryDate ? ` (expires ${item.expiryDate})` : ''
       return `- ${item.name}${expiry}`
     })
 
@@ -321,7 +353,7 @@ function shuffleArray<T>(arr: T[]): T[] {
 export function buildFullWeekUserMessage(
   activeDates: string[],
   recipesByMealType: Record<MealType, RecipeForLLM[]>,
-  recentHistory: { title: string; made_on: string }[],
+  recentHistory: { title: string; madeOn: string }[],
   freeText: string,
   activeMealTypes: MealType[],
   pantryContext: string = '',
@@ -332,7 +364,7 @@ export function buildFullWeekUserMessage(
     const loved = all.filter((r) => lovedIds?.has(r.id))
     const others = shuffleArray(all.filter((r) => !lovedIds?.has(r.id)))
     const list = [...loved, ...others].map((r) => ({
-      recipe_id: r.id,
+      recipeId: r.id,
       title: lovedIds?.has(r.id) ? `${r.title} [LOVED]` : r.title,
       tags: r.tags,
     }))
@@ -359,18 +391,18 @@ export function buildSwapUserMessage(
   date: string,
   mealType: MealType,
   recipes: RecipeForLLM[],
-  recentHistory: { title: string; made_on: string }[],
-  alreadySelected: { date: string; recipe_id: string }[],
+  recentHistory: { title: string; madeOn: string }[],
+  alreadySelected: { date: string; recipeId: string }[],
   freeText: string,
   allRecipes: RecipeForLLM[],
   pantryContext: string = '',
 ): string {
   const selectedTitles = alreadySelected
-    .map((s) => allRecipes.find((r) => r.id === s.recipe_id)?.title ?? s.recipe_id)
+    .map((s) => allRecipes.find((r) => r.id === s.recipeId)?.title ?? s.recipeId)
     .filter(Boolean)
     .join(', ')
 
-  const recipesForPrompt = recipes.map((r) => ({ recipe_id: r.id, title: r.title, tags: r.tags }))
+  const recipesForPrompt = recipes.map((r) => ({ recipeId: r.id, title: r.title, tags: r.tags }))
   return `Plan meals for these dates: ${date}
 Meal type: ${mealType}
 
@@ -399,11 +431,11 @@ export function validateSuggestions(
 ): DaySuggestions[] {
   return days.map((day) => ({
     date: day.date,
-    meal_types: (day.meal_types ?? []).map((mts) => ({
-      meal_type: mts.meal_type,
+    mealTypes: (day.mealTypes ?? []).map((mts) => ({
+      mealType: mts.mealType,
       options: mts.options.filter((opt) => {
-        const ids = validIdsByMealType.get(mts.meal_type)
-        return ids ? ids.has(opt.recipe_id) : false
+        const ids = validIdsByMealType.get(mts.mealType)
+        return ids ? ids.has(opt.recipeId) : false
       }),
     })),
   }))

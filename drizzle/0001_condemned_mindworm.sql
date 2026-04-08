@@ -1,0 +1,1 @@
+ALTER TABLE "household_invites" ADD CONSTRAINT "household_invites_token_unique" UNIQUE("token");

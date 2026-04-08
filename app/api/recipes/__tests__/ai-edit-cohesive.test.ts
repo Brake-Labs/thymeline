@@ -4,23 +4,46 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { defaultMockState, defaultGetSession, makeRequest, mockHousehold } from '@/test/helpers'
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
-vi.mock('@/lib/supabase-server', () => ({
-  createServerClient: vi.fn(),
-  createAdminClient:  vi.fn(),
+const mockState = defaultMockState()
+
+function mockChain(result: unknown[] = []) {
+  const chain: Record<string, unknown> = {}
+  const methods = ['from', 'where', 'orderBy', 'limit', 'offset', 'innerJoin', 'leftJoin',
+    'set', 'values', 'onConflictDoUpdate', 'onConflictDoNothing', 'returning', 'groupBy']
+  for (const m of methods) {
+    chain[m] = vi.fn().mockReturnValue(chain)
+  }
+  chain.then = vi.fn().mockImplementation(
+    (resolve: (v: unknown) => void) => Promise.resolve(result).then(resolve),
+  )
+  return chain
+}
+
+vi.mock('@/lib/db', () => ({
+  db: {
+    select: vi.fn(() => mockChain([])),
+    insert: vi.fn(() => mockChain([])),
+    update: vi.fn(() => mockChain([])),
+    delete: vi.fn(() => mockChain([])),
+    execute: vi.fn().mockResolvedValue({ rows: [] }),
+  },
+}))
+
+vi.mock('@/lib/auth-server', () => ({
+  auth: {
+    api: {
+      getSession: vi.fn(),
+    },
+  },
 }))
 
 vi.mock('@/lib/household', () => ({
-  resolveHouseholdScope: vi.fn().mockResolvedValue(null),
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ...mockHousehold(),
   checkOwnership: vi.fn().mockResolvedValue({ owned: true, status: 200 }),
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  scopeQuery: (query: any, userId: string, ctx: any) => {
-    if (ctx) return query.eq('household_id', ctx.householdId)
-    return query.eq('user_id', userId)
-  },
 }))
 
 const mockCallLLMMultimodal = vi.fn()
@@ -35,37 +58,25 @@ vi.mock('@/lib/taste-profile', () => ({
   deriveTasteProfile: vi.fn(),
 }))
 
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
 import { deriveTasteProfile } from '@/lib/taste-profile'
-import { NextRequest } from 'next/server'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function makeSupabaseMock() {
-  return {
-    auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null }) },
-    from: vi.fn(() => ({})),
-  }
-}
-
-function makeReq(body: unknown): NextRequest {
-  return new NextRequest('http://localhost/api/recipes/r1/ai-edit', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer token' },
-    body: JSON.stringify(body),
-  })
+async function setupAuth() {
+  const { auth } = await import('@/lib/auth-server')
+  vi.mocked(auth.api.getSession).mockImplementation(defaultGetSession(mockState))
 }
 
 const validBody = {
   message: 'Make it spicier',
-  current_recipe: {
+  currentRecipe: {
     title:       'Chicken Stir Fry',
     ingredients: '500g chicken\n2 tbsp soy sauce',
     steps:       '1. Cook chicken\n2. Add sauce',
     notes:       null,
     servings:    4,
   },
-  conversation_history: [],
+  conversationHistory: [],
 }
 
 const sampleEditResponse = JSON.stringify({
@@ -79,45 +90,40 @@ const sampleEditResponse = JSON.stringify({
 })
 
 const defaultProfile = {
-  loved_recipe_ids:    [],
-  disliked_recipe_ids: [],
-  top_tags:            ['Quick', 'Asian'],
-  avoided_tags:        [],
-  preferred_tags:      ['Quick'],
-  meal_context:        'Family with young kids',
-  cooking_frequency:   'moderate' as const,
-  recent_recipes:      [],
+  lovedRecipeIds:    [],
+  dislikedRecipeIds: [],
+  topTags:            ['Quick', 'Asian'],
+  avoidedTags:        [],
+  preferredTags:      ['Quick'],
+  mealContext:        'Family with young kids',
+  cookingFrequency:   'moderate' as const,
+  recentRecipes:      [],
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('POST /api/recipes/[id]/ai-edit — spec-22 taste profile (T14–T17)', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.resetModules()
     mockCallLLMMultimodal.mockClear()
     vi.mocked(deriveTasteProfile).mockResolvedValue(defaultProfile)
+    await setupAuth()
   })
 
   it('T14: calls deriveTasteProfile in the ai-edit route', async () => {
-    const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
     mockCallLLMMultimodal.mockResolvedValue(sampleEditResponse)
 
     const { POST } = await import('@/app/api/recipes/[id]/ai-edit/route')
-    await POST(makeReq(validBody), { params: { id: 'r1' } })
+    await POST(makeRequest('POST', 'http://localhost/api/recipes/r1/ai-edit', validBody), { params: { id: 'r1' } })
 
-    expect(deriveTasteProfile).toHaveBeenCalledWith('user-1', expect.anything(), null)
+    expect(deriveTasteProfile).toHaveBeenCalledWith('user-1', null, null)
   })
 
-  it('T15: system prompt includes meal_context and top_tags when profile is non-empty', async () => {
-    const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
+  it('T15: system prompt includes mealContext and topTags when profile is non-empty', async () => {
     mockCallLLMMultimodal.mockResolvedValue(sampleEditResponse)
 
     const { POST } = await import('@/app/api/recipes/[id]/ai-edit/route')
-    await POST(makeReq(validBody), { params: { id: 'r1' } })
+    await POST(makeRequest('POST', 'http://localhost/api/recipes/r1/ai-edit', validBody), { params: { id: 'r1' } })
 
     const callArgs = mockCallLLMMultimodal.mock.calls[0]![0]
     expect(callArgs.system).toContain('Family with young kids')
@@ -125,21 +131,17 @@ describe('POST /api/recipes/[id]/ai-edit — spec-22 taste profile (T14–T17)',
     expect(callArgs.system).toContain('Asian')
   })
 
-  it('T16: system prompt does not include loved_recipe_ids or disliked_recipe_ids', async () => {
-    const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
-
+  it('T16: system prompt does not include lovedRecipeIds or dislikedRecipeIds', async () => {
     vi.mocked(deriveTasteProfile).mockResolvedValue({
       ...defaultProfile,
-      loved_recipe_ids:    ['recipe-abc'],
-      disliked_recipe_ids: ['recipe-xyz'],
+      lovedRecipeIds:    ['recipe-abc'],
+      dislikedRecipeIds: ['recipe-xyz'],
     })
 
     mockCallLLMMultimodal.mockResolvedValue(sampleEditResponse)
 
     const { POST } = await import('@/app/api/recipes/[id]/ai-edit/route')
-    await POST(makeReq(validBody), { params: { id: 'r1' } })
+    await POST(makeRequest('POST', 'http://localhost/api/recipes/r1/ai-edit', validBody), { params: { id: 'r1' } })
 
     const callArgs = mockCallLLMMultimodal.mock.calls[0]![0]
     expect(callArgs.system).not.toContain('recipe-abc')
@@ -149,38 +151,30 @@ describe('POST /api/recipes/[id]/ai-edit — spec-22 taste profile (T14–T17)',
   })
 
   it('T17: no waste badge is added to the ai-edit response', async () => {
-    const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
     mockCallLLMMultimodal.mockResolvedValue(sampleEditResponse)
 
     const { POST } = await import('@/app/api/recipes/[id]/ai-edit/route')
-    const res = await POST(makeReq(validBody), { params: { id: 'r1' } })
+    const res = await POST(makeRequest('POST', 'http://localhost/api/recipes/r1/ai-edit', validBody), { params: { id: 'r1' } })
     const body = await res.json()
 
-    expect(body.waste_badge_text).toBeUndefined()
-    expect(body.waste_matches).toBeUndefined()
+    expect(body.wasteBadgeText).toBeUndefined()
+    expect(body.wasteMatches).toBeUndefined()
   })
 
   it('T18: empty taste profile — route succeeds without errors', async () => {
-    const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
-
     vi.mocked(deriveTasteProfile).mockResolvedValue({
       ...defaultProfile,
-      top_tags:    [],
-      meal_context: null,
+      topTags:    [],
+      mealContext: null,
     })
 
     mockCallLLMMultimodal.mockResolvedValue(sampleEditResponse)
 
     const { POST } = await import('@/app/api/recipes/[id]/ai-edit/route')
-    const res = await POST(makeReq(validBody), { params: { id: 'r1' } })
+    const res = await POST(makeRequest('POST', 'http://localhost/api/recipes/r1/ai-edit', validBody), { params: { id: 'r1' } })
 
     expect(res.status).toBe(200)
     const callArgs = mockCallLLMMultimodal.mock.calls[0]![0]
-    // System prompt should not contain HOUSEHOLD CONTEXT when profile is empty
     expect(callArgs.system).not.toContain('HOUSEHOLD CONTEXT')
   })
 })

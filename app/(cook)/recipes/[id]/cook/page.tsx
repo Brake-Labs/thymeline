@@ -9,14 +9,13 @@ import IngredientChecklist from '@/components/cook/IngredientChecklist'
 import VoiceControl, { type VoiceCommand } from '@/components/cook/VoiceControl'
 import ActiveTimersBar from '@/components/cook/ActiveTimersBar'
 import { type TimerState, deriveTimerLabel } from '@/components/cook/StepTimer'
-import { getAccessToken } from '@/lib/supabase/browser'
 import { getTodayISO } from '@/lib/date-utils'
 import { TOAST_DURATION_LONG_MS } from '@/lib/constants'
 import { type Recipe } from '@/types'
 import MakeAgainPrompt from '@/components/recipes/MakeAgainPrompt'
 import AddRecipeModal from '@/components/recipes/AddRecipeModal'
 
-type RecipeWithHistory = Recipe & { last_made: string | null; times_made: number }
+type RecipeWithHistory = Recipe & { lastMade: string | null; timesMade: number }
 
 interface Props {
   params: { id: string }
@@ -48,7 +47,7 @@ export default function CookModePage({ params }: Props) {
   const [activeTab, setActiveTab] = useState<'steps' | 'ingredients'>('steps')
   const [checked, setChecked] = useState<Set<number>>(new Set())
   const [timers, setTimers] = useState<Map<number, TimerState>>(new Map())
-  const [logStatus, setLogStatus] = useState<'idle' | 'loading' | 'success' | 'already_logged'>('idle')
+  const [logStatus, setLogStatus] = useState<'idle' | 'loading' | 'success' | 'alreadyLogged'>('idle')
   const [makeAgainEntryId, setMakeAgainEntryId] = useState<string | null>(null)
   const [wakeLockActive, setWakeLockActive] = useState(false)
   const [unitSystem, setUnitSystem] = useState<'imperial' | 'metric'>('imperial')
@@ -60,9 +59,7 @@ export default function CookModePage({ params }: Props) {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch(`/api/recipes/${params.id}`, {
-          headers: { Authorization: `Bearer ${await getAccessToken()}` },
-        })
+        const res = await fetch(`/api/recipes/${params.id}`)
         if (!res.ok) { router.replace(`/recipes/${params.id}`); return }
         let data: RecipeWithHistory = await res.json()
         // Apply AI-modified version if one was snapshotted at mount time
@@ -203,14 +200,13 @@ export default function CookModePage({ params }: Props) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${await getAccessToken()}`,
         },
-        body: JSON.stringify({ made_on: today }),
+        body: JSON.stringify({ madeOn: today }),
       })
       if (res.ok) {
-        const data: { made_on: string; already_logged: boolean; entry_id: string | null } = await res.json()
-        setLogStatus(data.already_logged ? 'already_logged' : 'success')
-        if (!data.already_logged && data.entry_id) setMakeAgainEntryId(data.entry_id)
+        const data: { madeOn: string; alreadyLogged: boolean; entryId: string | null } = await res.json()
+        setLogStatus(data.alreadyLogged ? 'alreadyLogged' : 'success')
+        if (!data.alreadyLogged && data.entryId) setMakeAgainEntryId(data.entryId)
         setTimeout(() => setLogStatus('idle'), TOAST_DURATION_LONG_MS)
       } else {
         setLogStatus('idle')
@@ -323,7 +319,7 @@ export default function CookModePage({ params }: Props) {
       {activeTab === 'steps' ? (
         <StepView
           steps={steps}
-          stepPhotos={recipe.step_photos ?? []}
+          stepPhotos={recipe.stepPhotos ?? []}
           currentStep={currentStep}
           onCurrentStepChange={setCurrentStep}
           view={view}
@@ -370,7 +366,6 @@ export default function CookModePage({ params }: Props) {
           <MakeAgainPrompt
             entryId={makeAgainEntryId}
             recipeId={params.id}
-            getToken={getAccessToken}
             onDismiss={() => setMakeAgainEntryId(null)}
           />
         </div>
@@ -410,7 +405,7 @@ export default function CookModePage({ params }: Props) {
                   disabled={logStatus === 'loading'}
                   className="font-medium text-sm bg-white text-stone-800 rounded-xl py-2 px-4 min-h-[44px] disabled:opacity-50"
                 >
-                  {logStatus === 'success' ? '✓ Logged!' : logStatus === 'already_logged' ? 'Already logged today' : 'Log Made Today'}
+                  {logStatus === 'success' ? '✓ Logged!' : logStatus === 'alreadyLogged' ? 'Already logged today' : 'Log Made Today'}
                 </button>
               </div>
             ) : (
@@ -441,7 +436,7 @@ export default function CookModePage({ params }: Props) {
               disabled={logStatus === 'loading'}
               className="w-full font-medium text-sm bg-white text-stone-800 rounded-xl py-3 disabled:opacity-50"
             >
-              {logStatus === 'success' ? '✓ Logged!' : logStatus === 'already_logged' ? 'Already logged today' : 'Log Made Today'}
+              {logStatus === 'success' ? '✓ Logged!' : logStatus === 'alreadyLogged' ? 'Already logged today' : 'Log Made Today'}
             </button>
           </div>
         )}
@@ -451,16 +446,15 @@ export default function CookModePage({ params }: Props) {
         <AddRecipeModal
           onClose={() => setShowSaveAsNew(false)}
           onSaved={() => setShowSaveAsNew(false)}
-          getToken={getAccessToken}
           prefillManual={{
             title:       `${storedModified.title} (modified)`,
             ingredients: storedModified.ingredients,
             steps:       storedModified.steps,
             notes:       storedModified.notes ?? undefined,
             servings:    storedModified.servings !== null ? String(storedModified.servings) : '',
-            prep_time_minutes:  String(storedModified.prep_time_minutes ?? recipe.prep_time_minutes ?? ''),
-            cook_time_minutes:  String(storedModified.cook_time_minutes ?? recipe.cook_time_minutes ?? ''),
-            total_time_minutes: String(storedModified.total_time_minutes ?? recipe.total_time_minutes ?? ''),
+            prepTimeMinutes:  String(storedModified.prepTimeMinutes ?? recipe.prepTimeMinutes ?? ''),
+            cookTimeMinutes:  String(storedModified.cookTimeMinutes ?? recipe.cookTimeMinutes ?? ''),
+            totalTimeMinutes: String(storedModified.totalTimeMinutes ?? recipe.totalTimeMinutes ?? ''),
           }}
         />
       )}

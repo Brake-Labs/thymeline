@@ -2,13 +2,12 @@
 
 import { useState } from 'react'
 import MakeAgainPrompt from '@/components/recipes/MakeAgainPrompt'
-import { getAccessToken } from '@/lib/supabase/browser'
 import { TOAST_DURATION_MS } from '@/lib/constants'
 
 interface PlanEntry {
-  planned_date:  string
-  recipe_id:     string
-  recipe_title:  string
+  plannedDate:  string
+  recipeId:     string
+  recipeTitle:  string
   confirmed:     boolean
   dateLabel:     string
 }
@@ -18,38 +17,37 @@ interface Props {
 }
 
 interface EntryState {
-  status: 'idle' | 'loading' | 'success' | 'already_logged'
+  status: 'idle' | 'loading' | 'success' | 'alreadyLogged'
   makeAgainEntryId: string | null
 }
 
 export default function PlanEntriesList({ entries }: Props) {
   const [entryStates, setEntryStates] = useState<Record<string, EntryState>>(() =>
-    Object.fromEntries(entries.map((e) => [`${e.planned_date}-${e.recipe_id}`, { status: 'idle', makeAgainEntryId: null }]))
+    Object.fromEntries(entries.map((e) => [`${e.plannedDate}-${e.recipeId}`, { status: 'idle', makeAgainEntryId: null }]))
   )
 
   function getKey(entry: PlanEntry) {
-    return `${entry.planned_date}-${entry.recipe_id}`
+    return `${entry.plannedDate}-${entry.recipeId}`
   }
 
   async function handleLog(entry: PlanEntry) {
     const key = getKey(entry)
     setEntryStates((prev) => ({ ...prev, [key]: { ...prev[key]!, status: 'loading', makeAgainEntryId: null } }))
     try {
-      const res = await fetch(`/api/recipes/${entry.recipe_id}/log`, {
+      const res = await fetch(`/api/recipes/${entry.recipeId}/log`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${await getAccessToken()}`,
         },
-        body: JSON.stringify({ made_on: entry.planned_date }),
+        body: JSON.stringify({ madeOn: entry.plannedDate }),
       })
       if (res.ok) {
-        const data: { made_on: string; already_logged: boolean; entry_id: string | null } = await res.json()
+        const data: { madeOn: string; alreadyLogged: boolean; entryId: string | null } = await res.json()
         setEntryStates((prev) => ({
           ...prev,
           [key]: {
-            status: data.already_logged ? 'already_logged' : 'success',
-            makeAgainEntryId: !data.already_logged ? (data.entry_id ?? null) : null,
+            status: data.alreadyLogged ? 'alreadyLogged' : 'success',
+            makeAgainEntryId: !data.alreadyLogged ? (data.entryId ?? null) : null,
           },
         }))
         setTimeout(() => {
@@ -76,7 +74,7 @@ export default function PlanEntriesList({ entries }: Props) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-stone-500">{entry.dateLabel}</p>
-                <p className="text-sm font-medium text-stone-900">{entry.recipe_title}</p>
+                <p className="text-sm font-medium text-stone-900">{entry.recipeTitle}</p>
               </div>
               <div className="flex items-center gap-2">
                 {entry.confirmed && (
@@ -88,7 +86,7 @@ export default function PlanEntriesList({ entries }: Props) {
                   className="text-xs px-3 py-1.5 rounded-full border border-stone-200 text-stone-600 bg-white hover:bg-stone-50 disabled:opacity-50"
                 >
                   {state.status === 'success' ? '✓ Logged!'
-                    : state.status === 'already_logged' ? 'Already logged'
+                    : state.status === 'alreadyLogged' ? 'Already logged'
                     : 'Log made'}
                 </button>
               </div>
@@ -96,8 +94,7 @@ export default function PlanEntriesList({ entries }: Props) {
             {state.makeAgainEntryId && (
               <MakeAgainPrompt
                 entryId={state.makeAgainEntryId}
-                recipeId={entry.recipe_id}
-                getToken={getAccessToken}
+                recipeId={entry.recipeId}
                 onDismiss={() =>
                   setEntryStates((prev) => ({ ...prev, [key]: { ...prev[key]!, makeAgainEntryId: null } }))
                 }

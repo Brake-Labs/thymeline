@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react'
 import type { Recipe, ModifiedRecipe, AIEditMessage } from '@/types'
-import { getAccessToken } from '@/lib/supabase/browser'
 
 interface AIEditSheetProps {
   recipe:         Recipe
@@ -68,17 +67,15 @@ export default function AIEditSheet({
     const historyForApi = updatedHistory.map(({ role, content }) => ({ role, content }))
 
     try {
-      const token = await getAccessToken()
       const res = await fetch(`/api/recipes/${recipe.id}/ai-edit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           message: trimmed,
-          current_recipe: currentRecipe,
-          conversation_history: historyForApi,
+          currentRecipe: currentRecipe,
+          conversationHistory: historyForApi,
         }),
       })
 

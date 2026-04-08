@@ -4,17 +4,14 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import SuggestionDayRow, { type MealTypeState } from '../SuggestionDayRow'
 import type { RecipeSuggestion, DaySelection, MealType } from '@/types'
 
-vi.mock('@/lib/supabase/browser', () => ({
-  getAccessToken: async () => 'mock-token',
-}))
 
 const DATE = '2026-03-02'
 const OTHER_DATE = '2026-03-03'
-const RECIPE_A: RecipeSuggestion = { recipe_id: 'r1', recipe_title: 'Pasta', reason: 'Quick weeknight' }
-const RECIPE_B: RecipeSuggestion = { recipe_id: 'r2', recipe_title: 'Tacos' }
+const RECIPE_A: RecipeSuggestion = { recipeId: 'r1', recipeTitle: 'Pasta', reason: 'Quick weeknight' }
+const RECIPE_B: RecipeSuggestion = { recipeId: 'r2', recipeTitle: 'Tacos' }
 
 const DEFAULT_MEAL_TYPES: MealTypeState[] = [
-  { meal_type: 'dinner', options: [RECIPE_A, RECIPE_B], isSwapping: false },
+  { mealType: 'dinner', options: [RECIPE_A, RECIPE_B], isSwapping: false },
 ]
 
 function makeSelections(overrides: Record<string, DaySelection | null> = {}): Record<string, DaySelection | null> {
@@ -54,7 +51,7 @@ describe('T16 - Selection highlights chosen option', () => {
   })
 
   it('shows checkmark for selected recipe; unselected option retains Select button', () => {
-    const sel: DaySelection = { date: DATE, meal_type: 'dinner', recipe_id: 'r1', recipe_title: 'Pasta', from_vault: false }
+    const sel: DaySelection = { date: DATE, mealType: 'dinner', recipeId: 'r1', recipeTitle: 'Pasta', fromVault: false }
     render(<SuggestionDayRow {...makeRow({ selections: { [`${DATE}:dinner`]: sel } })} />)
     // r1 is selected → only 1 Select button remains (for r2)
     expect(screen.getAllByText('Select')).toHaveLength(1)
@@ -136,8 +133,8 @@ describe('Reason field display', () => {
 // ── From vault label ──────────────────────────────────────────────────────────
 
 describe('From vault label', () => {
-  it('shows "From vault" when selection has from_vault=true', () => {
-    const sel: DaySelection = { date: DATE, meal_type: 'dinner', recipe_id: 'r1', recipe_title: 'Pasta', from_vault: true }
+  it('shows "From vault" when selection has fromVault=true', () => {
+    const sel: DaySelection = { date: DATE, mealType: 'dinner', recipeId: 'r1', recipeTitle: 'Pasta', fromVault: true }
     render(<SuggestionDayRow {...makeRow({ selections: { [`${DATE}:dinner`]: sel } })} />)
     expect(screen.getByText('From vault')).toBeInTheDocument()
   })
@@ -148,10 +145,10 @@ describe('From vault label', () => {
 describe('Vault selection absent from options — selected-recipe row (regression)', () => {
   const VAULT_SEL: DaySelection = {
     date: DATE,
-    meal_type: 'dinner',
-    recipe_id: 'r-vault',
-    recipe_title: 'My Vault Recipe',
-    from_vault: true,
+    mealType: 'dinner',
+    recipeId: 'r-vault',
+    recipeTitle: 'My Vault Recipe',
+    fromVault: true,
   }
   const key = `${DATE}:dinner`
 
@@ -163,7 +160,7 @@ describe('Vault selection absent from options — selected-recipe row (regressio
 
   it('does NOT render the "From your vault" row when the selection IS one of the options', () => {
     // r1 (Pasta) is in options — should use the inline selected style, not the vault row
-    const inOptionsSel: DaySelection = { date: DATE, meal_type: 'dinner', recipe_id: 'r1', recipe_title: 'Pasta', from_vault: true }
+    const inOptionsSel: DaySelection = { date: DATE, mealType: 'dinner', recipeId: 'r1', recipeTitle: 'Pasta', fromVault: true }
     render(<SuggestionDayRow {...makeRow({ selections: { [key]: inOptionsSel } })} />)
     expect(screen.queryByText('From your vault')).not.toBeInTheDocument()
   })
@@ -175,7 +172,7 @@ describe('Vault selection absent from options — selected-recipe row (regressio
     expect(onSelect).toHaveBeenCalledWith(
       DATE,
       'dinner',
-      expect.objectContaining({ recipe_id: 'r-vault', recipe_title: 'My Vault Recipe' }),
+      expect.objectContaining({ recipeId: 'r-vault', recipeTitle: 'My Vault Recipe' }),
     )
   })
 })
@@ -184,7 +181,7 @@ describe('Vault selection absent from options — selected-recipe row (regressio
 
 describe('Dessert add-on renders exactly once (regression)', () => {
   it('shows exactly one "Add dessert" button when a dinner selection exists', () => {
-    const sel: DaySelection = { date: DATE, meal_type: 'dinner', recipe_id: 'r1', recipe_title: 'Pasta', from_vault: false }
+    const sel: DaySelection = { date: DATE, mealType: 'dinner', recipeId: 'r1', recipeTitle: 'Pasta', fromVault: false }
     render(<SuggestionDayRow {...makeRow({ selections: { [`${DATE}:dinner`]: sel } })} />)
     expect(screen.getAllByText('Add dessert')).toHaveLength(1)
   })
@@ -199,7 +196,7 @@ describe('Dessert add-on renders exactly once (regression)', () => {
 
 describe('Side dish add-on', () => {
   it('shows "Add side dish" above "Add dessert" when a dinner selection exists', () => {
-    const sel: DaySelection = { date: DATE, meal_type: 'dinner', recipe_id: 'r1', recipe_title: 'Pasta', from_vault: false }
+    const sel: DaySelection = { date: DATE, mealType: 'dinner', recipeId: 'r1', recipeTitle: 'Pasta', fromVault: false }
     render(<SuggestionDayRow {...makeRow({ selections: { [`${DATE}:dinner`]: sel } })} />)
     expect(screen.getByText('Add side dish')).toBeInTheDocument()
     // Side dish must appear before dessert in the DOM

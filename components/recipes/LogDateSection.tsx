@@ -7,11 +7,10 @@ import { TOAST_DURATION_MS } from '@/lib/constants'
 
 interface LogDateSectionProps {
   recipeId: string
-  getToken: () => Promise<string> | string
   onLogged?: (date: string) => void
 }
 
-type Status = 'idle' | 'loading' | 'success' | 'already_logged' | 'picking'
+type Status = 'idle' | 'loading' | 'success' | 'alreadyLogged' | 'picking'
 
 function getToday(): string {
   return getTodayISO()
@@ -27,7 +26,6 @@ const btnSecondary = `${btnBase} border border-stone-200 text-[#3D3028] bg-trans
 
 export default function LogDateSection({
   recipeId,
-  getToken,
   onLogged,
 }: LogDateSectionProps) {
   const [status, setStatus] = useState<Status>('idle')
@@ -40,14 +38,13 @@ export default function LogDateSection({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${await getToken()}`,
         },
-        body: JSON.stringify({ made_on: dateStr }),
+        body: JSON.stringify({ madeOn: dateStr }),
       })
       if (res.ok) {
-        const data: { made_on: string; already_logged: boolean } = await res.json()
-        setStatus(data.already_logged ? 'already_logged' : 'success')
-        if (!data.already_logged) onLogged?.(data.made_on)
+        const data: { madeOn: string; alreadyLogged: boolean } = await res.json()
+        setStatus(data.alreadyLogged ? 'alreadyLogged' : 'success')
+        if (!data.alreadyLogged) onLogged?.(data.madeOn)
         setTimeout(() => setStatus('idle'), TOAST_DURATION_MS)
       } else {
         setStatus('idle')
@@ -61,7 +58,7 @@ export default function LogDateSection({
     return <p className="text-sm text-sage-600 font-medium">✓ Logged!</p>
   }
 
-  if (status === 'already_logged') {
+  if (status === 'alreadyLogged') {
     return <p className="text-sm text-stone-500 font-medium">Already logged for that day</p>
   }
 

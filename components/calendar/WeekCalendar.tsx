@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import DayCard from './DayCard'
-import { getAccessToken } from '@/lib/supabase/browser'
 import Link from 'next/link'
 import { ShoppingCart } from 'lucide-react'
 import SwapModeBanner from '@/components/plan/SwapModeBanner'
@@ -29,15 +28,15 @@ export default function WeekCalendar() {
   const maxWeekStart = addWeeks(currentWeekStart, 4)
   const isAtMaxFuture = weekStart >= maxWeekStart
 
-  // Load week_start_day preference once on mount
+  // Load weekStartDay preference once on mount
   useEffect(() => {
     async function loadPref() {
       try {
-        const token = await getAccessToken()
-        const res = await fetch('/api/preferences', { headers: { Authorization: `Bearer ${token}` } })
+        const res = await fetch('/api/preferences')
         if (res.ok) {
           const prefs = await res.json()
-          const pref: number = prefs.week_start_day ?? 0
+          const raw = prefs.weekStartDay ?? 'sunday'
+          const pref: number = raw === 'monday' ? 1 : typeof raw === 'number' ? raw : 0
           if (pref !== 0) {
             setWeekStartDay(pref)
             const start = getMostRecentWeekStart(pref)
@@ -53,10 +52,7 @@ export default function WeekCalendar() {
   const fetchPlan = useCallback(async (ws: string) => {
     setLoading(true)
     try {
-      const token = await getAccessToken()
-      const res = await fetch(`/api/plan?week_start=${ws}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      const res = await fetch(`/api/plan?weekStart=${ws}`)
       if (res.ok) {
         const data = await res.json()
         setEntries((data.plan?.entries ?? []) as PlanEntry[])
@@ -105,17 +101,15 @@ export default function WeekCalendar() {
     // Optimistically: if adding a main dish to an occupied slot, remove old main + its side dishes
     if (!isSideDish) {
       const existingMain = entries.find(
-        (e) => e.planned_date === date && e.meal_type === mealType && !e.is_side_dish
+        (e) => e.plannedDate === date && e.mealType === mealType && !e.isSideDish
       )
       if (existingMain) {
         // Remove existing main and its side dishes first
-        const toDelete = [existingMain.id, ...entries.filter((e) => e.parent_entry_id === existingMain.id).map((e) => e.id)]
+        const toDelete = [existingMain.id, ...entries.filter((e) => e.parentEntryId === existingMain.id).map((e) => e.id)]
         for (const id of toDelete) {
           try {
-            const token = await getAccessToken()
             await fetch(`/api/plan/entries/${id}`, {
               method: 'DELETE',
-              headers: { Authorization: `Bearer ${token}` },
             })
           } catch { /* ignore */ }
         }
@@ -124,17 +118,16 @@ export default function WeekCalendar() {
     }
 
     try {
-      const token = await getAccessToken()
       const res = await fetch('/api/plan/entries', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          week_start:      weekStart,
+          weekStart:      weekStart,
           date,
-          recipe_id:       recipeId,
-          meal_type:       mealType,
-          is_side_dish:    isSideDish,
-          parent_entry_id: parentEntryId,
+          recipeId:       recipeId,
+          mealType:       mealType,
+          isSideDish:    isSideDish,
+          parentEntryId: parentEntryId,
         }),
       })
       if (res.ok) {
@@ -146,12 +139,10 @@ export default function WeekCalendar() {
 
   const handleDeleteEntry = async (entryId: string) => {
     // Optimistically remove from UI (cascade children too)
-    setEntries((prev) => prev.filter((e) => e.id !== entryId && e.parent_entry_id !== entryId))
+    setEntries((prev) => prev.filter((e) => e.id !== entryId && e.parentEntryId !== entryId))
     try {
-      const token = await getAccessToken()
       await fetch(`/api/plan/entries/${entryId}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
       })
     } catch { /* ignore */ }
   }
@@ -174,25 +165,22 @@ export default function WeekCalendar() {
 
     const prev = [...entries]
 
-    // Optimistic update — swap planned_dates
-    setEntries((curr) => curr.map((e) => {
-      if (e.id === idA) {
-        const other = curr.find((x) => x.id === idB)
-        return other ? { ...e, planned_date: other.planned_date } : e
-      }
-      if (e.id === idB) {
-        const other = curr.find((x) => x.id === idA)
-        return other ? { ...e, planned_date: other.planned_date } : e
-      }
-      return e
-    }))
+    // Optimistic update — swap planned_dates for both main entries and their side dishes
+    setEntries((curr) => {
+      const dateA = curr.find((x) => x.id === idA)?.plannedDate
+      const dateB = curr.find((x) => x.id === idB)?.plannedDate
+      return curr.map((e) => {
+        if (e.id === idA || e.parentEntryId === idA) return dateB ? { ...e, plannedDate: dateB } : e
+        if (e.id === idB || e.parentEntryId === idB) return dateA ? { ...e, plannedDate: dateA } : e
+        return e
+      })
+    })
 
     try {
-      const token = await getAccessToken()
       const res = await fetch('/api/plan/swap', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ entry_id_a: idA, entry_id_b: idB }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entryIdA: idA, entryIdB: idB }),
       })
       if (!res.ok) throw new Error('Swap failed')
       setSwapToast({ entryIdA: idA, entryIdB: idB })
@@ -221,7 +209,7 @@ export default function WeekCalendar() {
         <div className="flex items-center gap-2">
           {entries.length > 0 && (
             <Link
-              href={`/groceries?date_from=${weekStart}&date_to=${addDays(weekStart, 6)}`}
+              href={`/groceries?dateFrom=${weekStart}&dateTo=${addDays(weekStart, 6)}`}
               className="flex items-center gap-1.5 text-sm font-medium text-[#8CB89A] hover:text-sage-100 transition-colors"
             >
               <ShoppingCart size={14} />
@@ -240,7 +228,7 @@ export default function WeekCalendar() {
       </div>
 
       {/* Swap meals control row */}
-      {entries.filter((e) => !e.is_side_dish).length >= 2 && (
+      {entries.filter((e) => !e.isSideDish).length >= 2 && (
         <div className="flex justify-end">
           {!isSwapMode ? (
             <button
@@ -277,7 +265,7 @@ export default function WeekCalendar() {
         <DayCard
           key={date}
           date={date}
-          entries={entries.filter((e) => e.planned_date === date)}
+          entries={entries.filter((e) => e.plannedDate === date)}
           isExpanded={expandedDates.has(date)}
           onToggle={() => handleToggle(date)}
           onAddEntry={handleAddEntry}
@@ -285,6 +273,7 @@ export default function WeekCalendar() {
           isSwapMode={isSwapMode}
           selectedEntryId={selectedEntryId}
           onMealTap={handleMealTap}
+          weekStart={weekStart}
         />
       ))}
 

@@ -4,7 +4,7 @@ import SuggestionMealSlotRow from './SuggestionMealSlotRow'
 import type { RecipeSuggestion, DaySelection, MealType } from '@/types'
 
 export interface MealTypeState {
-  meal_type:  MealType
+  mealType:  MealType
   options:    RecipeSuggestion[]
   isSwapping: boolean
 }
@@ -19,11 +19,11 @@ interface SuggestionDayRowProps {
   onSkip:             (date: string, mealType: MealType) => void
   onSwap:             (date: string, mealType: MealType) => void
   onAssignToDay:      (recipe: RecipeSuggestion, sourceDate: string, targetDate: string, mealType: MealType) => void
-  onVaultPick:        (date: string, mealType: MealType, recipe: { recipe_id: string; recipe_title: string }) => void
+  onVaultPick:        (date: string, mealType: MealType, recipe: { recipeId: string; recipeTitle: string }) => void
   onFreeTextMatch:    (query: string, date: string, mealType: MealType) => Promise<{ matched: boolean }>
-  onSideDishPick?:    (date: string, mealType: MealType, recipe: { recipe_id: string; recipe_title: string }) => void
+  onSideDishPick?:    (date: string, mealType: MealType, recipe: { recipeId: string; recipeTitle: string }) => void
   onSideDishRemove?:  (date: string, mealType: MealType) => void
-  onDessertPick?:     (date: string, mealType: MealType, recipe: { recipe_id: string; recipe_title: string }) => void
+  onDessertPick?:     (date: string, mealType: MealType, recipe: { recipeId: string; recipeTitle: string }) => void
   onDessertRemove?:   (date: string, mealType: MealType) => void
 }
 
@@ -50,7 +50,7 @@ export default function SuggestionDayRow({
       {/* One slot per active meal type, ordered breakfast → lunch → dinner → snacks */}
       <div className="px-4 py-3 space-y-2">
         {[...activeMealTypes].sort((a, b) => (MEAL_TYPE_ORDER[a] ?? 99) - (MEAL_TYPE_ORDER[b] ?? 99)).map((mt) => {
-          const slotState = mealTypeSuggestions.find((s) => s.meal_type === mt)
+          const slotState = mealTypeSuggestions.find((s) => s.mealType === mt)
           const compositeKey = `${date}:${mt}`
           return (
             <SuggestionMealSlotRow

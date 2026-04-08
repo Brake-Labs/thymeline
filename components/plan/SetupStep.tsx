@@ -5,7 +5,6 @@ import WeekPicker from './WeekPicker'
 import DayTogglePicker from './DayTogglePicker'
 import MealTypePicker from './MealTypePicker'
 import TagBucketPicker from '@/components/preferences/TagBucketPicker'
-import { getAccessToken } from '@/lib/supabase/browser'
 import type { PlanSetup } from '@/types'
 
 interface SetupStepProps {
@@ -30,8 +29,7 @@ export default function SetupStep({ setup, weekStartDay = 0, onSetupChange, onGe
 
   useEffect(() => {
     async function loadTags() {
-      const token = await getAccessToken()
-      const res = await fetch('/api/tags', { headers: { Authorization: `Bearer ${token}` } })
+      const res = await fetch('/api/tags')
       if (res.ok) {
         const data = await res.json()
         setAllTags([

@@ -48,17 +48,22 @@ const SECTION_KEYWORDS: { section: GrocerySection; keywords: string[] }[] = [
   {
     section: 'Proteins',
     keywords: [
-      'bacon', 'beef', 'chicken', 'clam', 'cod', 'crab', 'duck', 'egg', 'fish',
-      'halibut', 'lamb', 'lobster', 'pork', 'salmon', 'sausage', 'scallop',
-      'seitan', 'shrimp', 'steak', 'tempeh', 'tilapia', 'tofu', 'tuna', 'turkey',
+      'bacon', 'beef', 'bratwurst', 'chicken', 'chorizo', 'clam', 'cod', 'crab',
+      'duck', 'egg', 'fish', 'frankfurter', 'halibut', 'hot dog', 'kielbasa',
+      'lamb', 'lobster', 'lunchmeat', 'pepperoni', 'pork', 'prosciutto',
+      'salmon', 'salami', 'sausage', 'scallop', 'seitan', 'shrimp', 'steak',
+      'tempeh', 'tilapia', 'tofu', 'tuna', 'turkey', 'venison',
     ],
   },
   {
     section: 'Dairy & Eggs',
     keywords: [
-      'butter', 'cheese', 'cottage cheese', 'cream', 'cream cheese', 'egg',
-      'half and half', 'heavy cream', 'milk', 'mozzarella', 'parmesan',
-      'ricotta', 'sour cream', 'whipping cream', 'yogurt',
+      'asiago', 'brie', 'butter', 'camembert', 'cheddar', 'cheese', 'colby',
+      'cottage cheese', 'cream', 'cream cheese', 'egg', 'emmental', 'feta',
+      'fontina', 'gorgonzola', 'gouda', 'gruyere', 'half and half',
+      'havarti', 'heavy cream', 'manchego', 'milk', 'mozzarella', 'parmesan',
+      'pecorino', 'provolone', 'ricotta', 'romano', 'sour cream',
+      'whipping cream', 'yogurt',
     ],
   },
   {
@@ -117,17 +122,32 @@ function singularize(word: string): string {
 }
 
 // Prep-only adjectives whose presence/absence shouldn't prevent two entries from
-// combining ("fresh cilantro" and "cilantro" are the same grocery item).
-const PREP_ADJECTIVE_RE = /^(fresh|raw)\s+/
+// combining ("fresh cilantro" and "cilantro", "grated parmesan" and "parmesan").
+const PREP_ADJECTIVE_RE = /^(fresh|raw|grated|shredded|crumbled)\s+/
+
+// Named cheeses where the trailing " cheese" word is redundant and can be stripped
+// so "parmesan cheese" and "grated parmesan" both normalize to "parmesan".
+// Excludes ambiguous cases: "blue cheese", "swiss cheese", "american cheese",
+// "cream cheese", "cottage cheese" — where the qualifier changes meaning.
+const CHEESE_STRIP_RE = /^(parmesan|mozzarella|cheddar|feta|brie|gouda|gruyere|gruy[eè]re|provolone|colby|asiago|manchego|gorgonzola|camembert|romano|pecorino|fontina|havarti|emmental|emmentaler)\s+cheese$/
 
 /** Normalize ingredient name for deduplication. */
 export function normalizeIngredientName(name: string): string {
   let n = name.trim().toLowerCase()
   // Remove commas so "boneless, skinless chicken breast" matches "boneless skinless chicken breast"
   n = n.replace(/,/g, '')
-  // Strip leading prep-only adjectives ("fresh cilantro" → "cilantro")
-  n = n.replace(PREP_ADJECTIVE_RE, '')
-  return singularize(n).replace(/\s+/g, ' ')
+  // Strip leading prep-only adjectives iteratively ("freshly grated parmesan" → "parmesan")
+  let prev = ''
+  while (prev !== n) {
+    prev = n
+    n = n.replace(PREP_ADJECTIVE_RE, '')
+  }
+  n = singularize(n).replace(/\s+/g, ' ')
+  // Strip redundant trailing " cheese" from specific named cheeses:
+  // "parmesan cheese" → "parmesan" so it deduplicates with "grated parmesan"
+  const cheeseMatch = n.match(CHEESE_STRIP_RE)
+  if (cheeseMatch) n = cheeseMatch[1]!
+  return n
 }
 
 /** Assign a GrocerySection from the ingredient name. */
@@ -147,6 +167,16 @@ export function assignSection(name: string): GrocerySection {
 export function isPantryStaple(name: string): boolean {
   const lc = name.toLowerCase()
   return Array.from(PANTRY_KEYWORDS).some((kw) => lc.includes(kw))
+}
+
+// Water-only ingredients should never appear on a grocery list.
+// Matches "water", "hot water", "cold water", "warm water", "ice water",
+// "tap water", "sparkling water", "filtered water", "boiling water", etc.
+const WATER_ONLY_RE = /^(?:(?:hot|cold|warm|ice|iced|tap|sparkling|filtered|boiling|lukewarm|room[\s-]temperature)\s+)?water$/
+
+/** Whether an ingredient is just water (with optional temperature modifier) — omit from grocery lists. */
+export function isWaterIngredient(name: string): boolean {
+  return WATER_ONLY_RE.test(name.trim().toLowerCase())
 }
 
 // ── Amount parsing ────────────────────────────────────────────────────────────
@@ -193,7 +223,7 @@ export interface ParsedIngredient {
   amount:    number | null
   unit:      string | null
   section:   GrocerySection
-  is_pantry: boolean
+  isPantry: boolean
 }
 
 /**
@@ -239,9 +269,9 @@ export function parseIngredientLine(line: string): ParsedIngredient {
 
   const name = normalizeIngredientName(rawName)
   const section = assignSection(name)
-  const is_pantry = isPantryStaple(name)
+  const isPantry = isPantryStaple(name)
 
-  return { raw: line, name, rawName, amount, unit, section, is_pantry }
+  return { raw: line, name, rawName, amount, unit, section, isPantry }
 }
 
 // ── Combine items ─────────────────────────────────────────────────────────────
@@ -283,7 +313,7 @@ export function combineIngredients(inputs: CombineInput[]): {
         amount:    scaled !== null ? Math.round(scaled * 100) / 100 : null,
         unit:      parsed.unit,
         section:   parsed.section,
-        is_pantry: parsed.is_pantry,
+        isPantry: parsed.isPantry,
         checked:   false,
         recipes:   [recipeTitle],
       })
@@ -318,7 +348,7 @@ export function combineIngredients(inputs: CombineInput[]): {
           amount:    total !== null ? Math.round(total * 100) / 100 : null,
           unit,
           section:   first.section,
-          is_pantry: first.is_pantry,
+          isPantry: first.isPantry,
           checked:   false,
           recipes:   recipeNames,
         })
@@ -352,7 +382,7 @@ export function effectiveServings(
   recipeScales: RecipeScale[],
   planServings: number,
 ): number {
-  const scale = recipeScales.find((s) => s.recipe_id === recipeId)
+  const scale = recipeScales.find((s) => s.recipeId === recipeId)
   return scale?.servings ?? planServings
 }
 
@@ -363,7 +393,7 @@ function filterExportableItems(items: GroceryItem[], onlyUnchecked?: boolean): G
   if (!onlyUnchecked) return items
   // Pantry semantics: checked=true means "add to cart" (include).
   // Non-pantry: checked=true means "I already have this" (exclude); bought=true means "Got it" (exclude).
-  return items.filter((i) => i.is_pantry ? i.checked : !i.checked && !i.bought)
+  return items.filter((i) => i.isPantry ? i.checked : !i.checked && !i.bought)
 }
 
 /**

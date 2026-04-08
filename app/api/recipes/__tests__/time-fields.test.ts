@@ -4,101 +4,76 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { defaultMockState, defaultGetSession, makeRequest, mockHousehold } from '@/test/helpers'
 
-const mockUser = { id: 'user-1' }
+const mockState = defaultMockState()
 
 const sampleRecipe = {
   id: 'recipe-1',
-  user_id: 'user-1',
+  userId: 'user-1',
+  householdId: null,
   title: 'Braised Short Ribs',
   category: 'main_dish',
   tags: [],
-  is_shared: false,
+  isShared: false,
   ingredients: '2 lbs short ribs',
   steps: 'Brown the ribs\nBraise for 3 hours',
   notes: null,
   url: null,
-  image_url: null,
-  created_at: '2026-01-01T00:00:00Z',
-  prep_time_minutes: 20,
-  cook_time_minutes: 180,
-  total_time_minutes: 200,
-  inactive_time_minutes: null,
+  imageUrl: null,
+  createdAt: '2026-01-01T00:00:00Z',
+  prepTimeMinutes: 20,
+  cookTimeMinutes: 180,
+  totalTimeMinutes: 200,
+  inactiveTimeMinutes: null,
+  source: 'manual',
+  servings: null,
 }
 
-function makeSupabaseMock(opts: {
-  insertResult?: unknown
-  updateResult?: unknown
-  singleResult?: unknown
-  singleError?: { message: string } | null
-  customTags?: { name: string }[]
-  historyResult?: { made_on: string }[]
-} = {}) {
-  const {
-    insertResult = sampleRecipe,
-    updateResult = sampleRecipe,
-    singleResult = sampleRecipe,
-    singleError = null,
-    customTags = [],
-    historyResult = [],
-  } = opts
+// ── Mock chain builder ───────────────────────────────────────────────────────
 
-  const insertChain = {
-    select: vi.fn().mockReturnThis(),
-    single: vi.fn().mockResolvedValue({ data: insertResult, error: null }),
+function mockChain(result: unknown[] = []) {
+  const chain: Record<string, unknown> = {}
+  const methods = ['from', 'where', 'orderBy', 'limit', 'offset', 'innerJoin', 'leftJoin',
+    'set', 'values', 'onConflictDoUpdate', 'onConflictDoNothing', 'returning', 'groupBy']
+  for (const m of methods) {
+    chain[m] = vi.fn().mockReturnValue(chain)
   }
+  chain.then = vi.fn().mockImplementation(
+    (resolve: (v: unknown) => void) => Promise.resolve(result).then(resolve),
+  )
+  return chain
+}
 
-  const updateChain = {
-    select: vi.fn().mockReturnThis(),
-    eq: vi.fn().mockReturnThis(),
-    single: vi.fn().mockResolvedValue({ data: updateResult, error: null }),
-  }
+let selectResults: unknown[][] = [[]]
+let selectCallIdx = 0
 
-  const selectChain = {
-    eq: vi.fn().mockReturnThis(),
-    single: vi.fn().mockResolvedValue({ data: singleResult, error: singleError }),
-  }
-
-  return {
-    auth: {
-      getUser: vi.fn().mockResolvedValue({ data: { user: mockUser }, error: null }),
-    },
-    from: vi.fn((table: string) => {
-      if (table === 'custom_tags') {
-        return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockResolvedValue({ data: customTags, error: null }),
-          }),
-        }
-      }
-      if (table === 'recipe_history') {
-        return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockResolvedValue({ data: historyResult, error: null }),
-          }),
-        }
-      }
-      return {
-        insert: vi.fn().mockReturnValue(insertChain),
-        update: vi.fn().mockReturnValue(updateChain),
-        select: vi.fn().mockReturnValue(selectChain),
-        eq: vi.fn().mockReturnThis(),
-      }
+vi.mock('@/lib/db', () => ({
+  db: {
+    select: vi.fn(() => {
+      const result = selectResults[selectCallIdx] ?? []
+      selectCallIdx++
+      return mockChain(result)
     }),
-  }
-}
-
-vi.mock('@/lib/supabase-server', () => ({
-  createServerClient: vi.fn(),
-  createAdminClient:  vi.fn(),
+    insert: vi.fn(() => mockChain([sampleRecipe])),
+    update: vi.fn(() => mockChain([sampleRecipe])),
+    delete: vi.fn(() => mockChain([])),
+    execute: vi.fn().mockResolvedValue({ rows: [] }),
+  },
 }))
 
-vi.mock('@/lib/household', () => ({
-  resolveHouseholdScope: async () => null,
-  canManage: (role: string) => role === 'owner' || role === 'co_owner',
-  scopeQuery: (query: unknown) => query,
-  scopeInsert: (_userId: string, _ctx: unknown, payload: unknown) => ({ user_id: 'user-1', ...(payload as object) }),
-  checkOwnership: vi.fn().mockResolvedValue({ owned: true }),
+vi.mock('@/lib/auth-server', () => ({
+  auth: {
+    api: {
+      getSession: vi.fn(),
+    },
+  },
+}))
+
+vi.mock('@/lib/household', () => mockHousehold())
+
+vi.mock('@/lib/tags-server', () => ({
+  validateTags: vi.fn().mockResolvedValue({ valid: true }),
 }))
 
 vi.mock('firecrawl', () => ({
@@ -114,131 +89,140 @@ vi.mock('@/lib/llm', () => ({
   LLM_MODEL_FAST: 'claude-haiku-4-5-20251001',
 }))
 
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
 import { callLLM } from '@/lib/llm'
 
-function makeReq(url: string, method = 'POST', body?: unknown): Request {
-  return new Request(url, {
-    method,
-    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test' },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  })
+async function setupAuth() {
+  const { auth } = await import('@/lib/auth-server')
+  vi.mocked(auth.api.getSession).mockImplementation(defaultGetSession(mockState))
+}
+
+async function setupInsertResult(result: unknown) {
+  const { db } = await import('@/lib/db')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock chain type
+  vi.mocked(db.insert).mockReturnValue(mockChain([result]) as any)
+}
+
+async function setupUpdateResult(result: unknown) {
+  const { db } = await import('@/lib/db')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock chain type
+  vi.mocked(db.update).mockReturnValue(mockChain([result]) as any)
 }
 
 // ── POST /api/recipes time fields ─────────────────────────────────────────────
 
 describe('POST /api/recipes — time fields', () => {
-  beforeEach(() => { vi.resetModules() })
+  beforeEach(async () => {
+    vi.resetModules()
+    selectCallIdx = 0
+    selectResults = [[]]
+    await setupAuth()
+  })
 
   it('saves time fields on create', async () => {
-    const mock = makeSupabaseMock({ insertResult: sampleRecipe })
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
+    await setupInsertResult(sampleRecipe)
 
     const { POST } = await import('@/app/api/recipes/route')
-    const req = makeReq('http://localhost/api/recipes', 'POST', {
+    const req = makeRequest('POST', 'http://localhost/api/recipes', {
       title: 'Braised Short Ribs',
       category: 'main_dish',
-      prep_time_minutes: 20,
-      cook_time_minutes: 180,
-      total_time_minutes: 200,
-      inactive_time_minutes: null,
+      prepTimeMinutes: 20,
+      cookTimeMinutes: 180,
+      totalTimeMinutes: 200,
+      inactiveTimeMinutes: null,
     })
-    const res = await POST(req as Parameters<typeof POST>[0])
+    const res = await POST(req)
 
     expect(res.status).toBe(201)
     const json = await res.json()
-    expect(json.prep_time_minutes).toBe(20)
-    expect(json.cook_time_minutes).toBe(180)
-    expect(json.total_time_minutes).toBe(200)
-    expect(json.inactive_time_minutes).toBeNull()
+    expect(json.prepTimeMinutes).toBe(20)
+    expect(json.cookTimeMinutes).toBe(180)
+    expect(json.totalTimeMinutes).toBe(200)
+    expect(json.inactiveTimeMinutes).toBeNull()
   })
 
   it('saves null time fields when omitted', async () => {
     const noTimeRecipe = {
       ...sampleRecipe,
-      prep_time_minutes: null,
-      cook_time_minutes: null,
-      total_time_minutes: null,
-      inactive_time_minutes: null,
+      prepTimeMinutes: null,
+      cookTimeMinutes: null,
+      totalTimeMinutes: null,
+      inactiveTimeMinutes: null,
     }
-    const mock = makeSupabaseMock({ insertResult: noTimeRecipe })
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
+    await setupInsertResult(noTimeRecipe)
 
     const { POST } = await import('@/app/api/recipes/route')
-    const req = makeReq('http://localhost/api/recipes', 'POST', {
+    const req = makeRequest('POST', 'http://localhost/api/recipes', {
       title: 'Simple Recipe',
       category: 'main_dish',
     })
-    const res = await POST(req as Parameters<typeof POST>[0])
+    const res = await POST(req)
 
     expect(res.status).toBe(201)
     const json = await res.json()
-    expect(json.prep_time_minutes).toBeNull()
-    expect(json.cook_time_minutes).toBeNull()
+    expect(json.prepTimeMinutes).toBeNull()
+    expect(json.cookTimeMinutes).toBeNull()
   })
 })
 
 // ── PATCH /api/recipes/[id] time fields ───────────────────────────────────────
 
 describe('PATCH /api/recipes/[id] — time fields', () => {
-  beforeEach(() => { vi.resetModules() })
+  beforeEach(async () => {
+    vi.resetModules()
+    selectCallIdx = 0
+    await setupAuth()
+  })
 
   it('updates time fields on patch', async () => {
-    const updatedRecipe = { ...sampleRecipe, prep_time_minutes: 30, cook_time_minutes: 60, total_time_minutes: 90 }
-    const mock = makeSupabaseMock({
-      singleResult: { user_id: 'user-1' },  // ownership check
-      updateResult: updatedRecipe,
-    })
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
+    const updatedRecipe = { ...sampleRecipe, prepTimeMinutes: 30, cookTimeMinutes: 60, totalTimeMinutes: 90 }
+    selectResults = [[{ userId: 'user-1', householdId: null }]]
+    await setupUpdateResult(updatedRecipe)
 
     const { PATCH } = await import('@/app/api/recipes/[id]/route')
-    const req = makeReq('http://localhost/api/recipes/recipe-1', 'PATCH', {
-      prep_time_minutes: 30,
-      cook_time_minutes: 60,
-      total_time_minutes: 90,
+    const req = makeRequest('PATCH', 'http://localhost/api/recipes/recipe-1', {
+      prepTimeMinutes: 30,
+      cookTimeMinutes: 60,
+      totalTimeMinutes: 90,
     })
-    const res = await PATCH(req as Parameters<typeof PATCH>[0], { params: { id: 'recipe-1' } })
+    const res = await PATCH(req, { params: { id: 'recipe-1' } })
 
     expect(res.status).toBe(200)
     const json = await res.json()
-    expect(json.prep_time_minutes).toBe(30)
-    expect(json.cook_time_minutes).toBe(60)
-    expect(json.total_time_minutes).toBe(90)
+    expect(json.prepTimeMinutes).toBe(30)
+    expect(json.cookTimeMinutes).toBe(60)
+    expect(json.totalTimeMinutes).toBe(90)
   })
 })
 
 // ── POST /api/recipes/scrape time fields ──────────────────────────────────────
 
 describe('POST /api/recipes/scrape — time fields', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.resetModules()
+    selectCallIdx = 0
+    selectResults = [[]]
     process.env.FIRECRAWL_API_KEY = 'test-key'
+    await setupAuth()
   })
 
   it('returns time fields extracted from LLM response', async () => {
-    const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
     vi.mocked(callLLM).mockResolvedValueOnce(JSON.stringify({
-        title: 'Braised Short Ribs',
-        ingredients: '2 lbs short ribs',
-        steps: 'Brown the ribs\nBraise',
-        imageUrl: null,
-        suggestedTags: [],
-        prepTimeMinutes: 20,
-        cookTimeMinutes: 180,
-        totalTimeMinutes: 200,
-        inactiveTimeMinutes: null,
-      }))
+      title: 'Braised Short Ribs',
+      ingredients: '2 lbs short ribs',
+      steps: 'Brown the ribs\nBraise',
+      imageUrl: null,
+      suggestedTags: [],
+      prepTimeMinutes: 20,
+      cookTimeMinutes: 180,
+      totalTimeMinutes: 200,
+      inactiveTimeMinutes: null,
+    }))
 
     const { POST } = await import('@/app/api/recipes/scrape/route')
-    const req = makeReq('http://localhost/api/recipes/scrape', 'POST', {
+    const req = makeRequest('POST', 'http://localhost/api/recipes/scrape', {
       url: 'https://example.com/braised-short-ribs',
     })
-    const res = await POST(req as Parameters<typeof POST>[0])
+    const res = await POST(req)
 
     expect(res.status).toBe(200)
     const json = await res.json()
@@ -249,26 +233,23 @@ describe('POST /api/recipes/scrape — time fields', () => {
   })
 
   it('returns null time fields when LLM cannot extract them', async () => {
-    const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
     vi.mocked(callLLM).mockResolvedValueOnce(JSON.stringify({
-        title: 'Mystery Dish',
-        ingredients: 'stuff',
-        steps: 'do stuff',
-        imageUrl: null,
-        suggestedTags: [],
-        prepTimeMinutes: null,
-        cookTimeMinutes: null,
-        totalTimeMinutes: null,
-        inactiveTimeMinutes: null,
-      }))
+      title: 'Mystery Dish',
+      ingredients: 'stuff',
+      steps: 'do stuff',
+      imageUrl: null,
+      suggestedTags: [],
+      prepTimeMinutes: null,
+      cookTimeMinutes: null,
+      totalTimeMinutes: null,
+      inactiveTimeMinutes: null,
+    }))
 
     const { POST } = await import('@/app/api/recipes/scrape/route')
-    const req = makeReq('http://localhost/api/recipes/scrape', 'POST', {
+    const req = makeRequest('POST', 'http://localhost/api/recipes/scrape', {
       url: 'https://example.com/mystery',
     })
-    const res = await POST(req as Parameters<typeof POST>[0])
+    const res = await POST(req)
 
     expect(res.status).toBe(200)
     const json = await res.json()
@@ -276,31 +257,27 @@ describe('POST /api/recipes/scrape — time fields', () => {
     expect(json.cookTimeMinutes).toBeNull()
     expect(json.totalTimeMinutes).toBeNull()
     expect(json.inactiveTimeMinutes).toBeNull()
-    // partial = true because all time is null AND ingredients are present
     expect(json.partial).toBe(true)
   })
 
   it('sets partial = false when all core fields AND time fields are present', async () => {
-    const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
     vi.mocked(callLLM).mockResolvedValueOnce(JSON.stringify({
-        title: 'Quick Pasta',
-        ingredients: '200g pasta',
-        steps: 'Cook pasta',
-        imageUrl: null,
-        suggestedTags: [],
-        prepTimeMinutes: 5,
-        cookTimeMinutes: 10,
-        totalTimeMinutes: 15,
-        inactiveTimeMinutes: null,
-      }))
+      title: 'Quick Pasta',
+      ingredients: '200g pasta',
+      steps: 'Cook pasta',
+      imageUrl: null,
+      suggestedTags: [],
+      prepTimeMinutes: 5,
+      cookTimeMinutes: 10,
+      totalTimeMinutes: 15,
+      inactiveTimeMinutes: null,
+    }))
 
     const { POST } = await import('@/app/api/recipes/scrape/route')
-    const req = makeReq('http://localhost/api/recipes/scrape', 'POST', {
+    const req = makeRequest('POST', 'http://localhost/api/recipes/scrape', {
       url: 'https://example.com/quick-pasta',
     })
-    const res = await POST(req as Parameters<typeof POST>[0])
+    const res = await POST(req)
 
     expect(res.status).toBe(200)
     const json = await res.json()

@@ -17,7 +17,7 @@ type ImportFileResult = {
   status:     'ready' | 'partial' | 'failed'
   recipe?:    ParsedRecipe
   error?:     string
-  duplicate?: { recipe_id: string; recipe_title: string }
+  duplicate?: { recipeId: string; recipeTitle: string }
 }
 
 function recipeToStatus(r: ParsedRecipe): 'ready' | 'partial' {

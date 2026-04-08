@@ -4,32 +4,69 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { NextRequest } from 'next/server'
+import { defaultMockState, defaultGetSession, makeRequest, mockHousehold } from '@/test/helpers'
 
-const mockUser = { id: 'user-1' }
+const mockState = defaultMockState()
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Mock chain builder ───────────────────────────────────────────────────────
 
-function makeReq(url: string, method = 'POST', body?: unknown): NextRequest {
-  return new NextRequest(url, {
-    method,
-    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test' },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  })
+function mockChain(result: unknown[] = []) {
+  const chain: Record<string, unknown> = {}
+  const methods = ['from', 'where', 'orderBy', 'limit', 'offset', 'innerJoin', 'leftJoin',
+    'set', 'values', 'onConflictDoUpdate', 'onConflictDoNothing', 'returning', 'groupBy']
+  for (const m of methods) {
+    chain[m] = vi.fn().mockReturnValue(chain)
+  }
+  chain.then = vi.fn().mockImplementation(
+    (resolve: (v: unknown) => void) => Promise.resolve(result).then(resolve),
+  )
+  return chain
 }
 
-// ── Mocks ─────────────────────────────────────────────────────────────────────
+// Track insert behavior for log route
+let insertBehavior: 'success' | 'duplicate' = 'success'
+let insertResult = [{ id: 'entry-abc' }]
+let selectResults: unknown[][] = []
+let selectCallIdx = 0
 
-vi.mock('@/lib/supabase-server', () => ({
-  createServerClient: vi.fn(),
-  createAdminClient:  vi.fn(),
+vi.mock('@/lib/db', () => ({
+  db: {
+    select: vi.fn(() => {
+      const result = selectResults[selectCallIdx] ?? []
+      selectCallIdx++
+      return mockChain(result)
+    }),
+    insert: vi.fn(() => {
+      if (insertBehavior === 'duplicate') {
+        const chain = mockChain([])
+        chain.returning = vi.fn().mockReturnValue({
+          then: vi.fn().mockImplementation(
+            (_resolve: unknown, reject?: (err: Error) => void) => {
+              const err = new Error('23505: recipe_history_unique_day')
+              return Promise.reject(err).catch(reject ?? (() => { throw err }))
+            },
+          ),
+        })
+        return chain
+      }
+      return mockChain(insertResult)
+    }),
+    update: vi.fn(() => mockChain([])),
+    delete: vi.fn(() => mockChain([])),
+    execute: vi.fn().mockResolvedValue({ rows: [] }),
+  },
+}))
+
+vi.mock('@/lib/auth-server', () => ({
+  auth: {
+    api: {
+      getSession: vi.fn(),
+    },
+  },
 }))
 
 vi.mock('@/lib/household', () => ({
-  resolveHouseholdScope: async () => null,
-  canManage: (role: string) => role === 'owner' || role === 'co_owner',
-  scopeQuery: (query: { eq: (col: string, val: string) => unknown }, userId: string) => query.eq('user_id', userId),
-  scopeInsert: (_userId: string, _ctx: unknown, payload: Record<string, unknown>) => ({ user_id: 'user-1', ...payload }),
+  ...mockHousehold(),
   checkOwnership: vi.fn().mockResolvedValue({ owned: true }),
 }))
 
@@ -38,213 +75,85 @@ vi.mock('firecrawl', () => ({
 }))
 vi.mock('@/lib/llm', () => ({ callLLM: vi.fn(), LLM_MODEL_FAST: 'haiku' }))
 
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-
-// Admin mock: no pantry items to simplify
-function makeAdminMock(opts: {
-  insertResult?: { id: string } | null
-  insertError?: { code: string; message: string } | null
-} = {}) {
-  const { insertResult = { id: 'entry-abc' }, insertError = null } = opts
-  return {
-    from: vi.fn((table: string) => {
-      if (table === 'recipe_history') {
-        const insertChain: Record<string, unknown> = {
-          select: () => ({
-            single: vi.fn().mockResolvedValue({
-              data: insertError ? null : insertResult,
-              error: insertError,
-            }),
-          }),
-        }
-        return {
-          insert: vi.fn().mockReturnValue(insertChain),
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              single: vi.fn().mockResolvedValue({ data: null, error: null }),
-            }),
-          }),
-          update: vi.fn().mockReturnValue({
-            eq: vi.fn().mockResolvedValue({ data: null, error: null }),
-          }),
-        }
-      }
-      if (table === 'recipes') {
-        return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              single: vi.fn().mockResolvedValue({ data: { ingredients: '200g pasta' }, error: null }),
-            }),
-          }),
-        }
-      }
-      if (table === 'pantry_items') {
-        return {
-          select: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ data: [], error: null }) }),
-          delete: vi.fn().mockReturnValue({ in: vi.fn().mockResolvedValue({ error: null }) }),
-        }
-      }
-      return {}
-    }),
-  }
-}
-
-// Server mock factory for log route
-function makeLogServerMock(opts: {
-  insertResult?: { id: string } | null
-  insertError?: { code: string; message: string } | null
-  existingEntry?: { id: string } | null
-  updateError?: { message: string } | null
-  _entryForPatch?: { id: string } | null
-} = {}) {
-  const {
-    insertResult = { id: 'entry-abc' },
-    insertError = null,
-    existingEntry = null,
-    updateError = null,
-    _entryForPatch = { id: 'entry-abc' },
-  } = opts
-
-  return {
-    auth: {
-      getUser: vi.fn().mockResolvedValue({ data: { user: mockUser }, error: null }),
-    },
-    from: vi.fn((table: string) => {
-      if (table === 'recipe_history') {
-        const insertChain: Record<string, unknown> = {
-          select: () => ({
-            single: vi.fn().mockResolvedValue({
-              data: insertError ? null : insertResult,
-              error: insertError,
-            }),
-          }),
-        }
-        return {
-          insert: vi.fn().mockReturnValue(insertChain),
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
-                  single: vi.fn().mockResolvedValue({ data: existingEntry, error: null }),
-                }),
-              }),
-            }),
-          }),
-          update: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                eq: vi.fn().mockResolvedValue({ data: null, error: updateError }),
-              }),
-            }),
-          }),
-        }
-      }
-      if (table === 'recipes') {
-        return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              single: vi.fn().mockResolvedValue({ data: { id: 'recipe-1', user_id: 'user-1', ingredients: null }, error: null }),
-            }),
-          }),
-        }
-      }
-      return {}
-    }),
-  }
-}
-
-// Patch route mock — needs a simple entry lookup + update chain
-function makePatchServerMock(opts: {
-  entry?: { id: string } | null
-} = {}) {
-  const { entry = { id: 'entry-abc' } } = opts
-  return {
-    auth: {
-      getUser: vi.fn().mockResolvedValue({ data: { user: mockUser }, error: null }),
-    },
-    from: vi.fn((_table: string) => ({
-      select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              single: vi.fn().mockResolvedValue({ data: entry, error: entry ? null : { message: 'not found' } }),
-            }),
-          }),
-        }),
-      }),
-      update: vi.fn().mockReturnValue({
-        eq: vi.fn().mockResolvedValue({ data: null, error: null }),
-      }),
-    })),
-  }
+async function setupAuth() {
+  const { auth } = await import('@/lib/auth-server')
+  vi.mocked(auth.api.getSession).mockImplementation(defaultGetSession(mockState))
 }
 
 // ── POST /api/recipes/[id]/log ─────────────────────────────────────────────
 
 describe('POST /api/recipes/[id]/log', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.resetModules()
-    vi.mocked(createAdminClient).mockReturnValue(makeAdminMock() as unknown as ReturnType<typeof createAdminClient>)
+    insertBehavior = 'success'
+    insertResult = [{ id: 'entry-abc' }]
+    selectCallIdx = 0
+    selectResults = [
+      [{ id: 'recipe-1', userId: 'user-1', ingredients: null }],  // checkOwnership
+      [{ ingredients: '200g pasta' }],  // deductPantry recipe lookup
+      [],  // deductPantry pantry items
+    ]
+    await setupAuth()
   })
 
-  it('T06: returns entry_id in response body', async () => {
-    vi.mocked(createServerClient).mockReturnValue(
-      makeLogServerMock({ insertResult: { id: 'entry-abc' } }) as unknown as ReturnType<typeof createServerClient>,
-    )
+  it('T06: returns entryId in response body', async () => {
     const { POST } = await import('@/app/api/recipes/[id]/log/route')
     const res = await POST(
-      makeReq('http://localhost/api/recipes/recipe-1/log') as Parameters<typeof POST>[0],
+      makeRequest('POST', 'http://localhost/api/recipes/recipe-1/log'),
       { params: { id: 'recipe-1' } },
     )
     const json = await res.json()
-    expect(json.entry_id).toBe('entry-abc')
-    expect(json.already_logged).toBe(false)
+    expect(json.entryId).toBe('entry-abc')
+    expect(json.alreadyLogged).toBe(false)
   })
 
-  it('T07: accepts make_again in body and includes it in insert', async () => {
-    const mock = makeLogServerMock({ insertResult: { id: 'entry-xyz' } })
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
+  it('T07: accepts makeAgain in body and includes it in insert', async () => {
+    insertResult = [{ id: 'entry-xyz' }]
     const { POST } = await import('@/app/api/recipes/[id]/log/route')
     const res = await POST(
-      makeReq('http://localhost/api/recipes/recipe-1/log', 'POST', { make_again: true }) as Parameters<typeof POST>[0],
+      makeRequest('POST', 'http://localhost/api/recipes/recipe-1/log', { makeAgain: true }),
       { params: { id: 'recipe-1' } },
     )
     expect(res.status).toBe(200)
     const json = await res.json()
-    expect(json.entry_id).toBeDefined()
+    expect(json.entryId).toBeDefined()
   })
 })
 
 // ── PATCH /api/recipes/[id]/log/[entry_id] ─────────────────────────────────
 
 describe('PATCH /api/recipes/[id]/log/[entry_id]', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.resetModules()
+    selectCallIdx = 0
+    await setupAuth()
   })
 
-  it('T08: updates make_again and returns the entry', async () => {
-    const patchMock = makePatchServerMock({ entry: { id: 'entry-abc' } })
-    vi.mocked(createServerClient).mockReturnValue(patchMock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(patchMock as unknown as ReturnType<typeof createAdminClient>)
+  it('T08: updates makeAgain and returns the entry', async () => {
+    selectResults = [[{ id: 'entry-abc' }]]
+
+    const { db } = await import('@/lib/db')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock chain type
+    vi.mocked(db.update).mockReturnValue(mockChain([]) as any)
+
     const { PATCH } = await import('@/app/api/recipes/[id]/log/[entry_id]/route')
     const res = await PATCH(
-      makeReq('http://localhost/api/recipes/recipe-1/log/entry-abc', 'PATCH', { make_again: true }) as Parameters<typeof PATCH>[0],
-      { params: { id: 'recipe-1', entry_id: 'entry-abc' } },
+      makeRequest('PATCH', 'http://localhost/api/recipes/recipe-1/log/entry-abc', { makeAgain: true }),
+      { params: { id: 'recipe-1', entryId: 'entry-abc' } },
     )
     expect(res.status).toBe(200)
     const json = await res.json()
-    expect(json.make_again).toBe(true)
+    expect(json.makeAgain).toBe(true)
     expect(json.id).toBe('entry-abc')
   })
 
   it('T09: returns 404 when entry does not belong to user', async () => {
-    const patchMock = makePatchServerMock({ entry: null })
-    vi.mocked(createServerClient).mockReturnValue(patchMock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(patchMock as unknown as ReturnType<typeof createAdminClient>)
+    selectResults = [[]]  // no entry found
+
     const { PATCH } = await import('@/app/api/recipes/[id]/log/[entry_id]/route')
     const res = await PATCH(
-      makeReq('http://localhost/api/recipes/recipe-1/log/entry-not-mine', 'PATCH', { make_again: false }) as Parameters<typeof PATCH>[0],
-      { params: { id: 'recipe-1', entry_id: 'entry-not-mine' } },
+      makeRequest('PATCH', 'http://localhost/api/recipes/recipe-1/log/entry-not-mine', { makeAgain: false }),
+      { params: { id: 'recipe-1', entryId: 'entry-not-mine' } },
     )
     expect(res.status).toBe(404)
   })

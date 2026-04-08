@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ImportResult } from '@/types'
 import type { JobResult } from '@/lib/import-jobs'
-import { getAccessToken } from '@/lib/supabase/browser'
 
 interface Props {
   jobId:      string
@@ -43,13 +42,13 @@ function jobResultToImportResult(r: JobResult, index: number): ImportResult {
     status,
     recipe:       r.recipe,
     error:        r.error,
-    source_url:   r.url,
-    source_label: (() => {
+    sourceUrl:   r.url,
+    sourceLabel: (() => {
       try { return new URL(r.url).hostname.replace('www.', '') }
       catch { return r.url }
     })(),
     duplicate:         r.duplicate,
-    duplicate_action:  r.duplicate ? 'keep_both' : undefined,
+    duplicateAction:  r.duplicate ? 'keep_both' : undefined,
   }
 }
 
@@ -63,10 +62,7 @@ export default function ImportProgress({ jobId, onComplete }: Props) {
   useEffect(() => {
     async function poll() {
       try {
-        const token = await getAccessToken()
-        const res = await fetch(`/api/import/${jobId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
+        const res = await fetch(`/api/import/${jobId}`)
         if (!res.ok) return
 
         const data = await res.json() as JobSnapshot

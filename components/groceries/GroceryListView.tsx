@@ -6,7 +6,6 @@ import GroceryItemRow from './GroceryItemRow'
 import GotItSection from './GotItSection'
 import AddItemInput from './AddItemInput'
 import StepperInput from '@/components/preferences/StepperInput'
-import { getAccessToken } from '@/lib/supabase/browser'
 import { effectiveServings, formatWeekLabel, buildPlainTextList, buildICSExport, buildShortcutsURL } from '@/lib/grocery'
 import { TOAST_DURATION_LONG_MS } from '@/lib/constants'
 
@@ -28,7 +27,7 @@ interface GroceryListViewProps {
 export default function GroceryListView({ initialList, dateFrom, dateTo }: GroceryListViewProps) {
   const [items, setItems] = useState<GroceryItem[]>(initialList.items)
   const [planServings, setPlanServings] = useState(initialList.servings)
-  const [recipeScales, setRecipeScales] = useState<RecipeScale[]>(initialList.recipe_scales)
+  const [recipeScales, setRecipeScales] = useState<RecipeScale[]>(initialList.recipeScales)
   const [saving, setSaving] = useState(false)
   const [recipesOpen, setRecipesOpen] = useState(true)
   const [confirmRegenerate, setConfirmRegenerate] = useState(false)
@@ -37,7 +36,7 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
   const [showRemindersDialog, setShowRemindersDialog] = useState(false)
   const [isMac, setIsMac] = useState(false)
   const [shortcutInstalled, setShortcutInstalled] = useState(false)
-  const weekStart = initialList.week_start
+  const weekStart = initialList.weekStart
 
   const [isIOS, setIsIOS] = useState(false)
 
@@ -60,15 +59,14 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
   async function patch(payload: {
     items?:         GroceryItem[]
     servings?:      number
-    recipe_scales?: RecipeScale[]
+    recipeScales?: RecipeScale[]
   }) {
     setSaving(true)
     try {
-      const token = await getAccessToken()
       await fetch('/api/groceries', {
         method:  'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body:    JSON.stringify({ week_start: weekStart, ...payload }),
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ weekStart: weekStart, ...payload }),
       })
     } finally {
       setSaving(false)
@@ -98,7 +96,7 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
       amount:    null,
       unit:      null,
       section:   'Other',
-      is_pantry: false,
+      isPantry: false,
       checked:   false,
       recipes:   [],
     }
@@ -142,10 +140,10 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
 
   const handleDeleteRecipe = useCallback(async (recipeId: string, recipeTitle: string) => {
     const updated = items.filter((i) => !i.recipes.includes(recipeTitle) || i.recipes.length > 1)
-    const updatedScales = recipeScales.filter((s) => s.recipe_id !== recipeId)
+    const updatedScales = recipeScales.filter((s) => s.recipeId !== recipeId)
     setItems(updated)
     setRecipeScales(updatedScales)
-    await patch({ items: updated, recipe_scales: updatedScales })
+    await patch({ items: updated, recipeScales: updatedScales })
   }, [items, recipeScales, weekStart]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Servings ────────────────────────────────────────────────────────────────
@@ -159,15 +157,15 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
       return { ...item, amount: newAmount }
     })
     const updatedScales = recipeScales.map((s) =>
-      s.recipe_id === recipeId ? { ...s, servings: newCount } : s,
+      s.recipeId === recipeId ? { ...s, servings: newCount } : s,
     )
     setItems(updated)
     setRecipeScales(updatedScales)
-    await patch({ items: updated, recipe_scales: updatedScales })
+    await patch({ items: updated, recipeScales: updatedScales })
   }, [items, recipeScales, planServings, weekStart]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleResetOverride = useCallback(async (recipeId: string, recipeTitle: string) => {
-    const scale = recipeScales.find((s) => s.recipe_id === recipeId)
+    const scale = recipeScales.find((s) => s.recipeId === recipeId)
     if (!scale?.servings) return
     const currentOverride = scale.servings
     const updated = items.map((item) => {
@@ -177,11 +175,11 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
       return { ...item, amount: newAmount }
     })
     const updatedScales = recipeScales.map((s) =>
-      s.recipe_id === recipeId ? { ...s, servings: null } : s,
+      s.recipeId === recipeId ? { ...s, servings: null } : s,
     )
     setItems(updated)
     setRecipeScales(updatedScales)
-    await patch({ items: updated, recipe_scales: updatedScales })
+    await patch({ items: updated, recipeScales: updatedScales })
   }, [items, recipeScales, planServings, weekStart]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Regenerate ──────────────────────────────────────────────────────────────
@@ -190,20 +188,19 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
     setRegenerating(true)
     setConfirmRegenerate(false)
     try {
-      const token = await getAccessToken()
       const body = dateFrom && dateTo
-        ? { date_from: dateFrom, date_to: dateTo }
-        : { week_start: weekStart }
+        ? { dateFrom: dateFrom, dateTo: dateTo }
+        : { weekStart: weekStart }
       const res = await fetch('/api/groceries/generate', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify(body),
       })
       if (res.ok) {
         const { list } = await res.json()
         setItems(list.items)
         setPlanServings(list.servings)
-        setRecipeScales(list.recipe_scales)
+        setRecipeScales(list.recipeScales)
       }
     } finally {
       setRegenerating(false)
@@ -274,18 +271,18 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
   const boughtItems = items.filter((i) => i.bought)
 
   // Need to Buy: non-pantry items not yet bought, grouped by grocery section
-  const needToBuyItems = items.filter((i) => !i.is_pantry && !i.bought)
+  const needToBuyItems = items.filter((i) => !i.isPantry && !i.bought)
   const needToBuyBySection: Partial<Record<GrocerySection, GroceryItem[]>> = {}
   for (const item of needToBuyItems) {
     if (!needToBuyBySection[item.section]) needToBuyBySection[item.section] = []
     needToBuyBySection[item.section]!.push(item)
   }
 
-  // Pantry Items: is_pantry items not yet bought
-  const pantryItems = items.filter((i) => i.is_pantry && !i.bought)
+  // Pantry Items: isPantry items not yet bought
+  const pantryItems = items.filter((i) => i.isPantry && !i.bought)
 
   const checkedCount = items.filter((i) => i.checked || i.bought).length
-  const orderedTitles = recipeScales.map((s) => s.recipe_title)
+  const orderedTitles = recipeScales.map((s) => s.recipeTitle)
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -350,10 +347,10 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
           {recipesOpen && (
             <div className="divide-y divide-stone-50">
               {orderedTitles.map((title) => {
-                const scale = recipeScales.find((s) => s.recipe_title === title)!
-                const effective = effectiveServings(scale.recipe_id, recipeScales, planServings)
+                const scale = recipeScales.find((s) => s.recipeTitle === title)!
+                const effective = effectiveServings(scale.recipeId, recipeScales, planServings)
                 return (
-                  <div key={scale.recipe_id} className="px-4 py-3 flex flex-col gap-1.5">
+                  <div key={scale.recipeId} className="px-4 py-3 flex flex-col gap-1.5">
                     <span className="font-medium text-stone-800 text-sm">
                       {title}
                     </span>
@@ -362,13 +359,13 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
                         value={effective}
                         min={1}
                         max={20}
-                        onChange={(count) => handleRecipeServingsChange(scale.recipe_id, title, count)}
+                        onChange={(count) => handleRecipeServingsChange(scale.recipeId, title, count)}
                         label="Servings"
                       />
                       {scale.servings !== null && (
                         <button
                           type="button"
-                          onClick={() => handleResetOverride(scale.recipe_id, title)}
+                          onClick={() => handleResetOverride(scale.recipeId, title)}
                           className="text-xs text-stone-500 hover:text-stone-800 underline"
                         >
                           Reset to default
@@ -383,7 +380,7 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleDeleteRecipe(scale.recipe_id, title)}
+                        onClick={() => handleDeleteRecipe(scale.recipeId, title)}
                         aria-label={`Remove ${title} from list`}
                         className="text-xs text-stone-400 hover:text-red-500 underline transition-colors"
                       >

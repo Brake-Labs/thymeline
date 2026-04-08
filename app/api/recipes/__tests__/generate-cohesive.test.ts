@@ -4,22 +4,44 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { defaultMockState, defaultGetSession, makeRequest, mockHousehold } from '@/test/helpers'
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
-vi.mock('@/lib/supabase-server', () => ({
-  createServerClient: vi.fn(),
-  createAdminClient:  vi.fn(),
-}))
+const mockState = defaultMockState()
 
-vi.mock('@/lib/household', () => ({
-  resolveHouseholdScope: vi.fn().mockResolvedValue(null),
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  scopeQuery: (query: any, userId: string, ctx: any) => {
-    if (ctx) return query.eq('household_id', ctx.householdId)
-    return query.eq('user_id', userId)
+function mockChain(result: unknown[] = []) {
+  const chain: Record<string, unknown> = {}
+  const methods = ['from', 'where', 'orderBy', 'limit', 'offset', 'innerJoin', 'leftJoin',
+    'set', 'values', 'onConflictDoUpdate', 'onConflictDoNothing', 'returning', 'groupBy']
+  for (const m of methods) {
+    chain[m] = vi.fn().mockReturnValue(chain)
+  }
+  chain.then = vi.fn().mockImplementation(
+    (resolve: (v: unknown) => void) => Promise.resolve(result).then(resolve),
+  )
+  return chain
+}
+
+vi.mock('@/lib/db', () => ({
+  db: {
+    select: vi.fn(() => mockChain([])),
+    insert: vi.fn(() => mockChain([])),
+    update: vi.fn(() => mockChain([])),
+    delete: vi.fn(() => mockChain([])),
+    execute: vi.fn().mockResolvedValue({ rows: [] }),
   },
 }))
+
+vi.mock('@/lib/auth-server', () => ({
+  auth: {
+    api: {
+      getSession: vi.fn(),
+    },
+  },
+}))
+
+vi.mock('@/lib/household', () => mockHousehold())
 
 const mockCallLLM = vi.fn()
 vi.mock('@/lib/llm', () => ({
@@ -45,34 +67,22 @@ vi.mock('@/lib/plan-utils', () => ({
   }),
 }))
 
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
 import { deriveTasteProfile } from '@/lib/taste-profile'
 import { detectWasteOverlap } from '@/lib/waste-overlap'
 import { fetchCurrentWeekPlan } from '@/lib/plan-utils'
-import { NextRequest } from 'next/server'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function makeSupabaseMock() {
-  return {
-    auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null }) },
-    from: vi.fn(() => ({})),
-  }
-}
-
-function makeReq(body: unknown): NextRequest {
-  return new NextRequest('http://localhost/api/recipes/generate', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer token' },
-    body: JSON.stringify(body),
-  })
+async function setupAuth() {
+  const { auth } = await import('@/lib/auth-server')
+  vi.mocked(auth.api.getSession).mockImplementation(defaultGetSession(mockState))
 }
 
 const validBody = {
-  specific_ingredients: 'chicken, spinach',
-  meal_type: 'dinner',
-  style_hints: '',
-  dietary_restrictions: [],
+  specificIngredients: 'chicken, spinach',
+  mealType: 'dinner',
+  styleHints: '',
+  dietaryRestrictions: [],
 }
 
 const sampleRecipeJSON = JSON.stringify({
@@ -90,47 +100,42 @@ const sampleRecipeJSON = JSON.stringify({
 })
 
 const defaultProfile = {
-  loved_recipe_ids:    [],
-  disliked_recipe_ids: [],
-  top_tags:            ['Quick', 'Healthy'],
-  avoided_tags:        [],
-  preferred_tags:      ['Healthy'],
-  meal_context:        'Family of 4, quick meals preferred',
-  cooking_frequency:   'moderate' as const,
-  recent_recipes:      [],
+  lovedRecipeIds:    [],
+  dislikedRecipeIds: [],
+  topTags:            ['Quick', 'Healthy'],
+  avoidedTags:        [],
+  preferredTags:      ['Healthy'],
+  mealContext:        'Family of 4, quick meals preferred',
+  cookingFrequency:   'moderate' as const,
+  recentRecipes:      [],
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('POST /api/recipes/generate — spec-22 taste profile (T08–T09)', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.resetModules()
     mockCallLLM.mockClear()
     vi.mocked(deriveTasteProfile).mockResolvedValue(defaultProfile)
     vi.mocked(fetchCurrentWeekPlan).mockResolvedValue([])
     vi.mocked(detectWasteOverlap).mockResolvedValue(new Map())
+    await setupAuth()
   })
 
   it('T08: calls deriveTasteProfile in the generate route', async () => {
-    const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
     mockCallLLM.mockResolvedValue(sampleRecipeJSON)
 
     const { POST } = await import('@/app/api/recipes/generate/route')
-    await POST(makeReq(validBody))
+    await POST(makeRequest('POST', 'http://localhost/api/recipes/generate', validBody))
 
-    expect(deriveTasteProfile).toHaveBeenCalledWith('user-1', expect.anything(), null)
+    expect(deriveTasteProfile).toHaveBeenCalledWith('user-1', null, null)
   })
 
-  it('T09: system message includes top_tags, meal_context, and cooking_frequency', async () => {
-    const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
+  it('T09: system message includes topTags, mealContext, and cookingFrequency', async () => {
     mockCallLLM.mockResolvedValue(sampleRecipeJSON)
 
     const { POST } = await import('@/app/api/recipes/generate/route')
-    await POST(makeReq(validBody))
+    await POST(makeRequest('POST', 'http://localhost/api/recipes/generate', validBody))
 
     const callArgs = mockCallLLM.mock.calls[0]![0]
     expect(callArgs.system).toContain('Quick')
@@ -140,105 +145,86 @@ describe('POST /api/recipes/generate — spec-22 taste profile (T08–T09)', () 
   })
 
   it('T18: empty taste profile produces no errors', async () => {
-    const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
-
     vi.mocked(deriveTasteProfile).mockResolvedValue({
       ...defaultProfile,
-      top_tags:    [],
-      preferred_tags: [],
-      meal_context: null,
+      topTags:    [],
+      preferredTags: [],
+      mealContext: null,
     })
 
     mockCallLLM.mockResolvedValue(sampleRecipeJSON)
 
     const { POST } = await import('@/app/api/recipes/generate/route')
-    const res = await POST(makeReq(validBody))
+    const res = await POST(makeRequest('POST', 'http://localhost/api/recipes/generate', validBody))
 
     expect(res.status).toBe(200)
   })
 })
 
 describe('POST /api/recipes/generate — spec-22 waste detection (T10–T13)', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.resetModules()
     mockCallLLM.mockClear()
     vi.mocked(deriveTasteProfile).mockResolvedValue(defaultProfile)
+    await setupAuth()
   })
 
   it('T10: waste overlap detection runs against current week plan', async () => {
-    const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
-
-    const currentPlan = [{ recipe_id: 'r1', title: 'Pasta', ingredients: 'spinach, pasta' }]
+    const currentPlan = [{ recipeId: 'r1', title: 'Pasta', ingredients: 'spinach, pasta' }]
     vi.mocked(fetchCurrentWeekPlan).mockResolvedValue(currentPlan)
     vi.mocked(detectWasteOverlap).mockResolvedValue(new Map())
 
     mockCallLLM.mockResolvedValue(sampleRecipeJSON)
 
     const { POST } = await import('@/app/api/recipes/generate/route')
-    await POST(makeReq(validBody))
+    await POST(makeRequest('POST', 'http://localhost/api/recipes/generate', validBody))
 
     expect(detectWasteOverlap).toHaveBeenCalledWith(
-      [expect.objectContaining({ recipe_id: '__generated__' })],
+      [expect.objectContaining({ recipeId: '__generated__' })],
       currentPlan,
       expect.any(Function),
     )
   })
 
-  it('T11: generated recipe with waste match gets waste_badge_text', async () => {
-    const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
-
+  it('T11: generated recipe with waste match gets wasteBadgeText', async () => {
     vi.mocked(fetchCurrentWeekPlan).mockResolvedValue([
-      { recipe_id: 'r1', title: 'Pasta', ingredients: 'spinach, pasta' },
+      { recipeId: 'r1', title: 'Pasta', ingredients: 'spinach, pasta' },
     ])
 
     const wasteMap = new Map([
-      ['__generated__', [{ ingredient: 'spinach', waste_risk: 'high' as const, shared_with: ['r1'], has_next_week: false }]],
+      ['__generated__', [{ ingredient: 'spinach', wasteRisk: 'high' as const, sharedWith: ['r1'], hasNextWeek: false }]],
     ])
     vi.mocked(detectWasteOverlap).mockResolvedValue(wasteMap)
 
     mockCallLLM.mockResolvedValue(sampleRecipeJSON)
 
     const { POST } = await import('@/app/api/recipes/generate/route')
-    const res = await POST(makeReq(validBody))
+    const res = await POST(makeRequest('POST', 'http://localhost/api/recipes/generate', validBody))
     const body = await res.json()
 
-    expect(body.waste_badge_text).toBe('Uses up your spinach')
-    expect(body.waste_matches).toHaveLength(1)
+    expect(body.wasteBadgeText).toBe('Uses up your spinach')
+    expect(body.wasteMatches).toHaveLength(1)
   })
 
   it('T12: generated recipe without waste match has no badge', async () => {
-    const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
-
     vi.mocked(fetchCurrentWeekPlan).mockResolvedValue([
-      { recipe_id: 'r1', title: 'Pasta', ingredients: 'pasta only' },
+      { recipeId: 'r1', title: 'Pasta', ingredients: 'pasta only' },
     ])
     vi.mocked(detectWasteOverlap).mockResolvedValue(new Map())
 
     mockCallLLM.mockResolvedValue(sampleRecipeJSON)
 
     const { POST } = await import('@/app/api/recipes/generate/route')
-    const res = await POST(makeReq(validBody))
+    const res = await POST(makeRequest('POST', 'http://localhost/api/recipes/generate', validBody))
     const body = await res.json()
 
-    expect(body.waste_badge_text).toBeUndefined()
-    expect(body.waste_matches).toBeUndefined()
+    expect(body.wasteBadgeText).toBeUndefined()
+    expect(body.wasteMatches).toBeUndefined()
   })
 
   it('T13: regenerating with tweaks re-evaluates waste matches', async () => {
-    const mock = makeSupabaseMock()
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
-
     vi.mocked(fetchCurrentWeekPlan).mockResolvedValue([
-      { recipe_id: 'r1', title: 'Pasta', ingredients: 'spinach, pasta' },
+      { recipeId: 'r1', title: 'Pasta', ingredients: 'spinach, pasta' },
     ])
 
     // First call — no waste match
@@ -250,29 +236,29 @@ describe('POST /api/recipes/generate — spec-22 waste detection (T10–T13)', (
     })
 
     mockCallLLM
-      .mockResolvedValueOnce(sampleRecipeJSON)    // first generate
-      .mockResolvedValueOnce(tweakedRecipeJSON)   // tweak
+      .mockResolvedValueOnce(sampleRecipeJSON)
+      .mockResolvedValueOnce(tweakedRecipeJSON)
 
     // First call — no badge
     const { POST } = await import('@/app/api/recipes/generate/route')
-    const res1 = await POST(makeReq(validBody))
+    const res1 = await POST(makeRequest('POST', 'http://localhost/api/recipes/generate', validBody))
     const body1 = await res1.json()
-    expect(body1.waste_badge_text).toBeUndefined()
+    expect(body1.wasteBadgeText).toBeUndefined()
 
     // Second call — with waste match
     vi.resetModules()
     const wasteMap = new Map([
-      ['__generated__', [{ ingredient: 'spinach', waste_risk: 'high' as const, shared_with: ['r1'], has_next_week: false }]],
+      ['__generated__', [{ ingredient: 'spinach', wasteRisk: 'high' as const, sharedWith: ['r1'], hasNextWeek: false }]],
     ])
     vi.mocked(detectWasteOverlap).mockResolvedValueOnce(wasteMap)
 
     const { POST: POST2 } = await import('@/app/api/recipes/generate/route')
-    const res2 = await POST2(makeReq({
+    const res2 = await POST2(makeRequest('POST', 'http://localhost/api/recipes/generate', {
       ...validBody,
-      tweak_request: 'add more spinach',
-      previous_recipe: { title: 'Chicken Spinach', ingredients: 'chicken\nspinach', steps: 'Cook.' },
+      tweakRequest: 'add more spinach',
+      previousRecipe: { title: 'Chicken Spinach', ingredients: 'chicken\nspinach', steps: 'Cook.' },
     }))
     const body2 = await res2.json()
-    expect(body2.waste_badge_text).toBe('Uses up your spinach')
+    expect(body2.wasteBadgeText).toBe('Uses up your spinach')
   })
 })

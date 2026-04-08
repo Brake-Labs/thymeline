@@ -9,17 +9,17 @@ function makeLLM(response: unknown) {
 }
 
 const SPINACH_PASTA: RecipeForOverlap = {
-  recipe_id: 'r1',
+  recipeId: 'r1',
   title: 'Spinach Pasta',
   ingredients: 'spinach, pasta, garlic, olive oil',
 }
 const SPINACH_SALAD: RecipeForOverlap = {
-  recipe_id: 'r2',
+  recipeId: 'r2',
   title: 'Spinach Salad',
   ingredients: 'spinach, lemon, feta cheese',
 }
 const BEEF_STEW: RecipeForOverlap = {
-  recipe_id: 'r3',
+  recipeId: 'r3',
   title: 'Beef Stew',
   ingredients: 'beef, carrots, potatoes, salt, pepper',
 }
@@ -29,7 +29,7 @@ const BEEF_STEW: RecipeForOverlap = {
 describe('T02 - detectWasteOverlap returns correct matches for a shared ingredient', () => {
   it('returns a WasteMatch for each recipe sharing an ingredient', async () => {
     const llm = makeLLM([
-      { ingredient: 'spinach', recipe_ids: ['r1', 'r2'], waste_risk: 'high' },
+      { ingredient: 'spinach', recipeIds: ['r1', 'r2'], wasteRisk: 'high' },
     ])
 
     const result = await detectWasteOverlap([SPINACH_PASTA, SPINACH_SALAD], [], llm)
@@ -38,11 +38,11 @@ describe('T02 - detectWasteOverlap returns correct matches for a shared ingredie
     const r2Matches = result.get('r2')
     expect(r1Matches).toHaveLength(1)
     expect(r1Matches?.[0]?.ingredient).toBe('spinach')
-    expect(r1Matches?.[0]?.waste_risk).toBe('high')
-    expect(r1Matches?.[0]?.shared_with).toContain('r2')
+    expect(r1Matches?.[0]?.wasteRisk).toBe('high')
+    expect(r1Matches?.[0]?.sharedWith).toContain('r2')
 
     expect(r2Matches).toHaveLength(1)
-    expect(r2Matches?.[0]?.shared_with).toContain('r1')
+    expect(r2Matches?.[0]?.sharedWith).toContain('r1')
   })
 })
 
@@ -64,22 +64,22 @@ describe('T03 - Pantry staples (salt, oil) are not returned as waste matches', (
 describe('T04 - Produce and dairy are returned as waste matches', () => {
   it('returns matches for produce and dairy ingredients', async () => {
     const llm = makeLLM([
-      { ingredient: 'feta cheese', recipe_ids: ['r1', 'r2'], waste_risk: 'medium' },
+      { ingredient: 'feta cheese', recipeIds: ['r1', 'r2'], wasteRisk: 'medium' },
     ])
 
     const result = await detectWasteOverlap([SPINACH_PASTA, SPINACH_SALAD], [], llm)
 
     expect(result.get('r1')?.[0]?.ingredient).toBe('feta cheese')
-    expect(result.get('r1')?.[0]?.waste_risk).toBe('medium')
+    expect(result.get('r1')?.[0]?.wasteRisk).toBe('medium')
   })
 })
 
 // ── T07: Badge text single match, no next week ────────────────────────────────
 
 describe('T07 - Badge text: single match, no next-week → "Uses up your {ingredient}"', () => {
-  it('returns "Uses up your {ingredient}" for single match with has_next_week=false', () => {
+  it('returns "Uses up your {ingredient}" for single match with hasNextWeek=false', () => {
     const matches: WasteMatch[] = [
-      { ingredient: 'spinach', waste_risk: 'high', shared_with: ['r2'], has_next_week: false },
+      { ingredient: 'spinach', wasteRisk: 'high', sharedWith: ['r2'], hasNextWeek: false },
     ]
     expect(getPrimaryWasteBadgeText(matches)).toBe('Uses up your spinach')
   })
@@ -90,17 +90,17 @@ describe('T07 - Badge text: single match, no next-week → "Uses up your {ingred
 describe('T08 - Badge text: 2+ matches → "Uses up N ingredients"', () => {
   it('returns "Uses up 2 ingredients" for two matches', () => {
     const matches: WasteMatch[] = [
-      { ingredient: 'spinach', waste_risk: 'high', shared_with: ['r2'], has_next_week: false },
-      { ingredient: 'feta',   waste_risk: 'medium', shared_with: ['r3'], has_next_week: false },
+      { ingredient: 'spinach', wasteRisk: 'high', sharedWith: ['r2'], hasNextWeek: false },
+      { ingredient: 'feta',   wasteRisk: 'medium', sharedWith: ['r3'], hasNextWeek: false },
     ]
     expect(getPrimaryWasteBadgeText(matches)).toBe('Uses up 2 ingredients')
   })
 
   it('returns "Uses up 3 ingredients" for three matches', () => {
     const matches: WasteMatch[] = [
-      { ingredient: 'spinach', waste_risk: 'high',   shared_with: ['r2'], has_next_week: false },
-      { ingredient: 'feta',   waste_risk: 'medium', shared_with: ['r3'], has_next_week: false },
-      { ingredient: 'cream',  waste_risk: 'high',   shared_with: ['r4'], has_next_week: false },
+      { ingredient: 'spinach', wasteRisk: 'high',   sharedWith: ['r2'], hasNextWeek: false },
+      { ingredient: 'feta',   wasteRisk: 'medium', sharedWith: ['r3'], hasNextWeek: false },
+      { ingredient: 'cream',  wasteRisk: 'high',   sharedWith: ['r4'], hasNextWeek: false },
     ]
     expect(getPrimaryWasteBadgeText(matches)).toBe('Uses up 3 ingredients')
   })
@@ -109,17 +109,17 @@ describe('T08 - Badge text: 2+ matches → "Uses up N ingredients"', () => {
 // ── T09: Badge text shared with next week ─────────────────────────────────────
 
 describe('T09 - Badge text: shared with next week → "Pairs with next week\'s plan"', () => {
-  it('returns "Pairs with next week\'s plan" when has_next_week=true', () => {
+  it('returns "Pairs with next week\'s plan" when hasNextWeek=true', () => {
     const matches: WasteMatch[] = [
-      { ingredient: 'spinach', waste_risk: 'high', shared_with: ['r2'], has_next_week: true },
+      { ingredient: 'spinach', wasteRisk: 'high', sharedWith: ['r2'], hasNextWeek: true },
     ]
     expect(getPrimaryWasteBadgeText(matches)).toBe("Pairs with next week's plan")
   })
 })
 
-// ── T10: No badge when waste_matches absent ───────────────────────────────────
+// ── T10: No badge when wasteMatches absent ───────────────────────────────────
 
-describe('T10 - No badge when waste_matches is absent or empty', () => {
+describe('T10 - No badge when wasteMatches is absent or empty', () => {
   it('returns empty string for empty matches array', () => {
     expect(getPrimaryWasteBadgeText([])).toBe('')
   })
@@ -130,14 +130,14 @@ describe('T10 - No badge when waste_matches is absent or empty', () => {
 describe('T12 - No next-week plan — overlap runs on current week only', () => {
   it('runs overlap with empty nextWeekRecipes, still detects intra-week overlap', async () => {
     const llm = makeLLM([
-      { ingredient: 'spinach', recipe_ids: ['r1', 'r2'], waste_risk: 'high' },
+      { ingredient: 'spinach', recipeIds: ['r1', 'r2'], wasteRisk: 'high' },
     ])
 
     const result = await detectWasteOverlap([SPINACH_PASTA, SPINACH_SALAD], [], llm)
 
     // Both this-week recipes share spinach, no next-week flag
-    expect(result.get('r1')?.[0]?.has_next_week).toBe(false)
-    expect(result.get('r2')?.[0]?.has_next_week).toBe(false)
+    expect(result.get('r1')?.[0]?.hasNextWeek).toBe(false)
+    expect(result.get('r2')?.[0]?.hasNextWeek).toBe(false)
   })
 
   it('returns empty map when all inputs are empty', async () => {
@@ -177,7 +177,7 @@ describe('T14 - Overlap detection LLM failure returns no badges', () => {
 describe('T18 - getPrimaryWasteBadgeText — single high-risk match returns ingredient name', () => {
   it('returns ingredient name for single high-risk match without next-week flag', () => {
     const matches: WasteMatch[] = [
-      { ingredient: 'coleslaw mix', waste_risk: 'high', shared_with: ['r2'], has_next_week: false },
+      { ingredient: 'coleslaw mix', wasteRisk: 'high', sharedWith: ['r2'], hasNextWeek: false },
     ]
     expect(getPrimaryWasteBadgeText(matches)).toBe('Uses up your coleslaw mix')
   })
@@ -189,7 +189,7 @@ describe('T20 - Recipes with no ingredients text are excluded from overlap analy
   it('does not include no-ingredient recipes in the LLM prompt (verified via call args)', async () => {
     const llm = makeLLM([])
     const withIngredients: RecipeForOverlap = {
-      recipe_id: 'r1',
+      recipeId: 'r1',
       title: 'Spinach Pasta',
       ingredients: 'spinach, pasta',
     }
@@ -210,44 +210,44 @@ describe('T20 - Recipes with no ingredients text are excluded from overlap analy
   })
 })
 
-// ── has_next_week flag is set correctly ───────────────────────────────────────
+// ── hasNextWeek flag is set correctly ───────────────────────────────────────
 
-describe('has_next_week flag set correctly when next-week recipes are involved', () => {
-  it('sets has_next_week=true when shared_with recipe is from next week', async () => {
+describe('hasNextWeek flag set correctly when next-week recipes are involved', () => {
+  it('sets hasNextWeek=true when sharedWith recipe is from next week', async () => {
     const nextWeekRecipe: RecipeForOverlap = {
-      recipe_id: 'nw1',
+      recipeId: 'nw1',
       title: 'Spinach Quiche',
       ingredients: 'spinach, eggs, cream',
     }
     const llm = makeLLM([
-      { ingredient: 'spinach', recipe_ids: ['r1', 'nw1'], waste_risk: 'high' },
+      { ingredient: 'spinach', recipeIds: ['r1', 'nw1'], wasteRisk: 'high' },
     ])
 
     const result = await detectWasteOverlap([SPINACH_PASTA], [nextWeekRecipe], llm)
 
     const match = result.get('r1')?.[0]
-    expect(match?.has_next_week).toBe(true)
-    expect(match?.shared_with).toContain('nw1')
+    expect(match?.hasNextWeek).toBe(true)
+    expect(match?.sharedWith).toContain('nw1')
   })
 
-  it('sets has_next_week=false for intra-week overlap', async () => {
+  it('sets hasNextWeek=false for intra-week overlap', async () => {
     const llm = makeLLM([
-      { ingredient: 'spinach', recipe_ids: ['r1', 'r2'], waste_risk: 'high' },
+      { ingredient: 'spinach', recipeIds: ['r1', 'r2'], wasteRisk: 'high' },
     ])
 
     const result = await detectWasteOverlap([SPINACH_PASTA, SPINACH_SALAD], [], llm)
 
-    expect(result.get('r1')?.[0]?.has_next_week).toBe(false)
-    expect(result.get('r2')?.[0]?.has_next_week).toBe(false)
+    expect(result.get('r1')?.[0]?.hasNextWeek).toBe(false)
+    expect(result.get('r2')?.[0]?.hasNextWeek).toBe(false)
   })
 })
 
-// ── entries with fewer than 2 recipe_ids are skipped ─────────────────────────
+// ── entries with fewer than 2 recipeIds are skipped ─────────────────────────
 
-describe('entries with fewer than 2 recipe_ids are skipped', () => {
-  it('ignores overlap entries with only one recipe_id', async () => {
+describe('entries with fewer than 2 recipeIds are skipped', () => {
+  it('ignores overlap entries with only one recipeId', async () => {
     const llm = makeLLM([
-      { ingredient: 'spinach', recipe_ids: ['r1'], waste_risk: 'high' },
+      { ingredient: 'spinach', recipeIds: ['r1'], wasteRisk: 'high' },
     ])
 
     const result = await detectWasteOverlap([SPINACH_PASTA, SPINACH_SALAD], [], llm)

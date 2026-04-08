@@ -1,12 +1,13 @@
 import 'server-only'
 
-import type { SupabaseClient } from '@supabase/supabase-js'
+import { db } from '@/lib/db'
+import { recipes as recipesTable } from '@/lib/db/schema'
+import { scopeCondition } from '@/lib/household'
 import type { HouseholdContext, ParsedRecipe } from '@/types'
-import { scopeQuery } from '@/lib/household'
 
 export interface DuplicateMatch {
-  recipe_id:    string
-  recipe_title: string
+  recipeId:    string
+  recipeTitle: string
 }
 
 /** Compute Levenshtein edit distance between two strings (iterative DP) */
@@ -42,27 +43,20 @@ function similarity(a: string, b: string): number {
 /**
  * Detect duplicate recipes in the user's vault for each item in the parsed array.
  * Returns a parallel array: one entry per ParsedRecipe, null if no duplicate found.
- *
- * Detection steps:
- * 1. URL match — exact URL match → definite duplicate
- * 2. Title similarity — Levenshtein ≥ 80% similarity → likely duplicate
  */
 export async function detectDuplicates(
   recipes: ParsedRecipe[],
-  db: SupabaseClient,
+  _db: unknown,
   userId: string,
   ctx: HouseholdContext | null,
 ): Promise<Array<DuplicateMatch | null>> {
   if (recipes.length === 0) return []
 
   // Fetch all vault recipes once
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const baseQuery = db.from('recipes').select('id, title, url') as any
-  const query = scopeQuery(baseQuery, userId, ctx)
-  const { data: vaultRecipes } = await query as {
-    data: { id: string; title: string; url: string | null }[] | null
-  }
-  const vault = vaultRecipes ?? []
+  const vault = await db
+    .select({ id: recipesTable.id, title: recipesTable.title, url: recipesTable.url })
+    .from(recipesTable)
+    .where(scopeCondition({ userId: recipesTable.userId, householdId: recipesTable.householdId }, userId, ctx))
 
   // Build a URL→recipe map for fast O(1) lookup
   const urlMap = new Map<string, { id: string; title: string }>()
@@ -75,16 +69,16 @@ export async function detectDuplicates(
     if (recipe.url) {
       const match = urlMap.get(recipe.url.toLowerCase().trim())
       if (match) {
-        return { recipe_id: match.id, recipe_title: match.title }
+        return { recipeId: match.id, recipeTitle: match.title }
       }
     }
 
-    // 2. Title similarity (≥ 80%)
+    // 2. Title similarity (>= 80%)
     const titleLower = recipe.title.toLowerCase().trim()
     for (const vr of vault) {
       const vrTitleLower = vr.title.toLowerCase().trim()
       if (similarity(titleLower, vrTitleLower) >= 0.8) {
-        return { recipe_id: vr.id, recipe_title: vr.title }
+        return { recipeId: vr.id, recipeTitle: vr.title }
       }
     }
 

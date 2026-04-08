@@ -1,25 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { matchSchema, parseBody } from '@/lib/schemas'
-import { scopeQuery } from '@/lib/household'
+import { scopeCondition } from '@/lib/household'
 import { callLLMNonStreaming } from '../helpers'
 import { parseLLMJson } from '@/lib/llm'
+import { db } from '@/lib/db'
+import { recipes } from '@/lib/db/schema'
 
 const MAX_MATCHES = 3
 
-export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
+export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
   const { data: body, error: parseError } = await parseBody(req, matchSchema)
   if (parseError) return parseError
 
   const { query } = body
 
   // Fetch all recipes scoped by household or user (all categories)
-  const recipesQ = scopeQuery(db.from('recipes').select('id, title, tags'), user.id, ctx)
-  const { data: recipes } = await recipesQ
+  const recipeRows = await db
+    .select({ id: recipes.id, title: recipes.title, tags: recipes.tags })
+    .from(recipes)
+    .where(scopeCondition({ userId: recipes.userId, householdId: recipes.householdId }, user.id, ctx))
 
-  const recipeList = (recipes ?? []) as { id: string; title: string; tags: string[] }[]
+  const recipeList = recipeRows as { id: string; title: string; tags: string[] }[]
 
-  const toMatch = (r: { id: string; title: string }) => ({ recipe_id: r.id, recipe_title: r.title })
+  const toMatch = (r: { id: string; title: string }) => ({ recipeId: r.id, recipeTitle: r.title })
 
   // ── Step 1: keyword match (fast, no LLM) ───────────────────────────────────
   const STOP_WORDS = new Set([
@@ -42,11 +46,11 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
       try {
         const systemMessage = `You are helping find recipes from a user's personal recipe vault.
 Rank the top ${MAX_MATCHES} best matches from the candidate list for the search phrase.
-Return ONLY valid JSON: { "recipe_ids": ["uuid1", "uuid2", "uuid3"] } (fewer if fewer match well)`
-        const userMessage = `Search phrase: "${query}"\nCandidates: ${JSON.stringify(keywordMatches.map((r) => ({ recipe_id: r.id, title: r.title, tags: r.tags })))}`
+Return ONLY valid JSON: { "recipeIds": ["uuid1", "uuid2", "uuid3"] } (fewer if fewer match well)`
+        const userMessage = `Search phrase: "${query}"\nCandidates: ${JSON.stringify(keywordMatches.map((r) => ({ recipeId: r.id, title: r.title, tags: r.tags })))}`
         const raw = await callLLMNonStreaming(systemMessage, userMessage)
-        const parsed = parseLLMJson<{ recipe_ids: string[] }>(raw)
-        const ranked = (parsed.recipe_ids ?? [])
+        const parsed = parseLLMJson<{ recipeIds: string[] }>(raw)
+        const ranked = (parsed.recipeIds ?? [])
           .map((id) => keywordMatches.find((r) => r.id === id))
           .filter((r): r is typeof keywordMatches[number] => r !== undefined)
           .slice(0, MAX_MATCHES)
@@ -61,18 +65,18 @@ Return ONLY valid JSON: { "recipe_ids": ["uuid1", "uuid2", "uuid3"] } (fewer if 
 
   // ── Step 2: LLM fallback for queries with no keyword match ──────────────────
   const systemMessage = `You are helping find recipes from a user's personal recipe vault.
-Given a search phrase and a list of recipes, return the recipe_ids of the top ${MAX_MATCHES} best matches.
+Given a search phrase and a list of recipes, return the recipeIds of the top ${MAX_MATCHES} best matches.
 Match on recipe title words, tags, or general category.
 Only omit a recipe if the query has absolutely no connection to it.
-Return ONLY valid JSON: { "recipe_ids": ["uuid1", "uuid2"] } (empty array if nothing matches)`
+Return ONLY valid JSON: { "recipeIds": ["uuid1", "uuid2"] } (empty array if nothing matches)`
 
   const userMessage = `Search phrase: "${query}"
 Recipes: ${JSON.stringify(recipeList)}`
 
   try {
     const raw = await callLLMNonStreaming(systemMessage, userMessage)
-    const parsed = parseLLMJson<{ recipe_ids: string[] }>(raw)
-    const matchedIds = parsed.recipe_ids ?? []
+    const parsed = parseLLMJson<{ recipeIds: string[] }>(raw)
+    const matchedIds = parsed.recipeIds ?? []
 
     const matches = matchedIds
       .map((id) => recipeList.find((r) => r.id === id))

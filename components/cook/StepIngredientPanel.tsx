@@ -4,6 +4,10 @@ import { useState } from 'react'
 import { parseIngredientLine } from '@/lib/grocery'
 import { scaleIngredients } from '@/lib/scale-ingredients'
 
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')
+}
+
 interface Props {
   stepText: string
   ingredients: string
@@ -21,12 +25,14 @@ export function matchStepIngredients(
 ): string[] {
   const lines = ingredients.split('\n').filter(Boolean)
   const scaledLines = scaleIngredients(ingredients, baseServings, targetServings)
-  const stepLower = stepText.toLowerCase()
   return lines
     .map((line, i) => {
       const { rawName } = parseIngredientLine(line)
       if (!rawName) return null
-      return stepLower.includes(rawName.toLowerCase()) ? scaledLines[i] : null
+      // Use word-boundary regex so "oil" doesn't match inside "boil",
+      // or "rice" doesn't match inside "licorice".
+      const re = new RegExp(`\\b${escapeRegex(rawName)}\\b`, 'i')
+      return re.test(stepText) ? scaledLines[i] : null
     })
     .filter((l): l is string => l !== null)
 }

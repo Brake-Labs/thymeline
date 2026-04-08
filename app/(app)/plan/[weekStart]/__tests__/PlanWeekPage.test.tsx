@@ -1,0 +1,188 @@
+// @vitest-environment jsdom
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen } from '@testing-library/react'
+import React from 'react'
+
+// ── Mock state ─────────────────────────────────────────────────────────────────
+
+const mockState = {
+  user: { id: 'user-1' } as { id: string } | null,
+  planRows: [] as { id: string; weekStart: string }[],
+  entries: [] as { id: string; plannedDate: string; recipeId: string; position: number; confirmed: boolean; mealType: string; recipeTitle: string }[],
+}
+
+vi.mock('@/lib/auth-server', () => ({
+  auth: {
+    api: {
+      getSession: async () =>
+        mockState.user ? { user: mockState.user } : null,
+    },
+  },
+}))
+
+vi.mock('next/headers', () => ({
+  headers: async () => new Headers(),
+}))
+
+// Mock drizzle db with chainable query builder
+// Each call to db.select() returns the next set of rows from mockState
+let _selectCallCount = 0
+
+vi.mock('@/lib/db', () => {
+  const createChain = (getRows: () => unknown[]) => {
+    const chain: Record<string, unknown> = {}
+    const methods = ['select', 'from', 'where', 'innerJoin', 'orderBy', 'limit']
+    for (const m of methods) {
+      chain[m] = (..._args: unknown[]) => chain
+    }
+    // Make the chain thenable so `await db.select(...)...` resolves
+    chain.then = (resolve: (v: unknown) => void) => resolve(getRows())
+    return chain
+  }
+  return {
+    db: {
+      select: (..._args: unknown[]) => {
+        _selectCallCount++
+        const callNum = _selectCallCount
+        return createChain(() => callNum === 1 ? mockState.planRows : mockState.entries)
+      },
+    },
+  }
+})
+
+// Need to mock drizzle-orm operators
+vi.mock('drizzle-orm', () => ({
+  eq: (...args: unknown[]) => args,
+  and: (...args: unknown[]) => args,
+}))
+
+vi.mock('@/lib/db/schema', () => ({
+  mealPlans: { id: 'id', userId: 'userId', weekStart: 'weekStart' },
+  mealPlanEntries: { id: 'id', mealPlanId: 'mealPlanId', plannedDate: 'plannedDate', recipeId: 'recipeId', position: 'position', confirmed: 'confirmed', mealType: 'mealType' },
+  recipes: { id: 'id', title: 'title' },
+}))
+
+vi.mock('next/navigation', () => ({
+  notFound: vi.fn(() => { throw new Error('NEXT_NOT_FOUND') }),
+}))
+
+vi.mock('next/link', () => ({
+  default: ({ href, children, ...props }: { href: string; children: React.ReactNode; [key: string]: unknown }) =>
+    React.createElement('a', { href, ...props }, children),
+}))
+
+// Fixed current Sunday so cap tests are deterministic
+vi.mock('@/lib/date-utils', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/date-utils')>()
+  return { ...actual, getMostRecentSunday: () => '2026-03-15' }
+})
+
+import PlanWeekPage from '../page'
+import * as nextNavigation from 'next/navigation'
+
+const WEEK_START = '2026-03-01'
+
+beforeEach(() => {
+  mockState.user = { id: 'user-1' }
+  mockState.planRows = []
+  mockState.entries = []
+  _selectCallCount = 0
+  vi.mocked(nextNavigation.notFound).mockClear()
+})
+
+// ── T36: Saved plan renders recipe entries ─────────────────────────────────────
+
+describe('T36 - /plan/[weekStart] renders saved plan entries', () => {
+  it('shows each recipe title and day when a plan exists', async () => {
+    mockState.planRows = [{ id: 'plan-1', weekStart: WEEK_START }]
+    mockState.entries = [
+      { id: 'e1', plannedDate: '2026-03-01', recipeId: 'r1', position: 1, confirmed: true,  mealType: 'dinner', recipeTitle: 'Pasta' },
+      { id: 'e2', plannedDate: '2026-03-03', recipeId: 'r2', position: 1, confirmed: false, mealType: 'dinner', recipeTitle: 'Tacos' },
+    ]
+
+    const element = await PlanWeekPage({ params: { weekStart: WEEK_START } })
+    render(element as React.ReactElement)
+
+    expect(screen.getByText('Pasta')).toBeInTheDocument()
+    expect(screen.getByText('Tacos')).toBeInTheDocument()
+    // Confirmed entry shows checkmark
+    expect(screen.getByText('✓ Confirmed')).toBeInTheDocument()
+  })
+
+  it('shows "Make grocery list" and "Re-plan this week" buttons', async () => {
+    mockState.planRows = [{ id: 'plan-1', weekStart: WEEK_START }]
+    mockState.entries = [
+      { id: 'e1', plannedDate: '2026-03-01', recipeId: 'r1', position: 1, confirmed: true, mealType: 'dinner', recipeTitle: 'Pasta' },
+    ]
+
+    const element = await PlanWeekPage({ params: { weekStart: WEEK_START } })
+    render(element as React.ReactElement)
+
+    const groceriesLink = screen.getByText('Make grocery list')
+    expect(groceriesLink).toBeInTheDocument()
+    expect(groceriesLink.closest('a')).toHaveAttribute('href', `/groceries?weekStart=${WEEK_START}`)
+
+    const replanLink = screen.getByText('Re-plan this week')
+    expect(replanLink).toBeInTheDocument()
+    expect(replanLink.closest('a')).toHaveAttribute('href', `/plan?weekStart=${WEEK_START}&replan=true`)
+  })
+})
+
+// ── T37: No plan state renders correctly ──────────────────────────────────────
+
+describe('T37 - /plan/[weekStart] shows no-plan state when plan does not exist', () => {
+  it('shows "No plan for this week" and a "Plan this week" link', async () => {
+    mockState.planRows = []
+
+    const element = await PlanWeekPage({ params: { weekStart: WEEK_START } })
+    render(element as React.ReactElement)
+
+    expect(screen.getByText('No plan for this week.')).toBeInTheDocument()
+
+    const planLink = screen.getByText('Plan this week')
+    expect(planLink).toBeInTheDocument()
+    expect(planLink.closest('a')).toHaveAttribute('href', `/plan?weekStart=${WEEK_START}`)
+  })
+
+  it('does not show grocery or re-plan buttons when no plan exists', async () => {
+    mockState.planRows = []
+
+    const element = await PlanWeekPage({ params: { weekStart: WEEK_START } })
+    render(element as React.ReactElement)
+
+    expect(screen.queryByText('Make grocery list')).not.toBeInTheDocument()
+    expect(screen.queryByText('Re-plan this week')).not.toBeInTheDocument()
+  })
+})
+
+// ── T39: Week navigation arrows ───────────────────────────────────────────────
+// getCurrentWeekSunday mocked to '2026-03-15', so maxWeek = '2026-04-12'
+
+describe('T39 - Week navigation arrows render and respect the 4-week future cap', () => {
+  it('renders prev and next arrow links when within the future cap', async () => {
+    // weekStart = '2026-03-15', nextWeek = '2026-03-22' < maxWeek '2026-04-12'
+    const element = await PlanWeekPage({ params: { weekStart: '2026-03-15' } })
+    render(element as React.ReactElement)
+
+    const prevLink = screen.getByRole('link', { name: 'Previous week' })
+    expect(prevLink).toHaveAttribute('href', '/plan/2026-03-08')
+
+    const nextLink = screen.getByRole('link', { name: 'Next week' })
+    expect(nextLink).toHaveAttribute('href', '/plan/2026-03-22')
+  })
+
+  it('disables the right arrow when nextWeek would exceed the 4-week cap', async () => {
+    // weekStart = '2026-04-12' = maxWeek, nextWeek = '2026-04-19' > maxWeek
+    const element = await PlanWeekPage({ params: { weekStart: '2026-04-12' } })
+    render(element as React.ReactElement)
+
+    // Prev arrow is still a link
+    const prevLink = screen.getByRole('link', { name: 'Previous week' })
+    expect(prevLink).toHaveAttribute('href', '/plan/2026-04-05')
+
+    // Next arrow is not a link — it is a disabled span
+    expect(screen.queryByRole('link', { name: 'Next week' })).not.toBeInTheDocument()
+    const disabledNext = screen.getByLabelText('Next week')
+    expect(disabledNext).toHaveAttribute('aria-disabled', 'true')
+  })
+})

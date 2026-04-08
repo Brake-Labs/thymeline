@@ -15,7 +15,6 @@ vi.useFakeTimers()
 const defaultProps = {
   entryId:  'entry-1',
   recipeId: 'recipe-1',
-  getToken: async () => 'mock-token',
   onDismiss: vi.fn(),
 }
 
@@ -34,8 +33,8 @@ describe('MakeAgainPrompt', () => {
     expect(screen.getByRole('button', { name: /skip/i })).toBeInTheDocument()
   })
 
-  // T02: Make again calls PATCH with make_again: true
-  it('T02: "Make again" calls PATCH with make_again: true', async () => {
+  // T02: Make again calls PATCH with makeAgain: true
+  it('T02: "Make again" calls PATCH with makeAgain: true', async () => {
     render(<MakeAgainPrompt {...defaultProps} />)
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /make again/i }))
@@ -44,13 +43,13 @@ describe('MakeAgainPrompt', () => {
       '/api/recipes/recipe-1/log/entry-1',
       expect.objectContaining({
         method: 'PATCH',
-        body: JSON.stringify({ make_again: true }),
+        body: JSON.stringify({ makeAgain: true }),
       }),
     )
   })
 
-  // T03: Not for us calls PATCH with make_again: false
-  it('T03: "Not for us" calls PATCH with make_again: false', async () => {
+  // T03: Not for us calls PATCH with makeAgain: false
+  it('T03: "Not for us" calls PATCH with makeAgain: false', async () => {
     render(<MakeAgainPrompt {...defaultProps} />)
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /not for us/i }))
@@ -59,7 +58,7 @@ describe('MakeAgainPrompt', () => {
       '/api/recipes/recipe-1/log/entry-1',
       expect.objectContaining({
         method: 'PATCH',
-        body: JSON.stringify({ make_again: false }),
+        body: JSON.stringify({ makeAgain: false }),
       }),
     )
   })
@@ -91,14 +90,11 @@ describe('MakeAgainPrompt', () => {
   })
 
   // T24: Prompt appears on Cook Mode final step after log
-  // Note: The cook mode page is an integration test; this unit test verifies that
-  // MakeAgainPrompt renders correctly when mounted with a cook-mode-sourced entry_id.
-  it('T24: renders correctly when supplied with a cook-mode entry_id', () => {
+  it('T24: renders correctly when supplied with a cook-mode entryId', () => {
     render(
       <MakeAgainPrompt
         entryId="cook-entry-42"
         recipeId="recipe-99"
-        getToken={async () => 'tok'}
         onDismiss={vi.fn()}
       />
     )

@@ -4,6 +4,7 @@ import type React from 'react'
 import StepTimer, { type TimerState } from './StepTimer'
 import { injectStepQuantities } from '@/lib/inject-step-quantities'
 import { renderHighlighted } from './renderHighlighted'
+import StepIngredientPanel from './StepIngredientPanel'
 
 interface Props {
   steps: string[]
@@ -77,6 +78,14 @@ export default function ScrollStepView({
               timerState={timers.get(i)}
               onChange={(state) => onTimerChange(i, state)}
             />
+            {ingredients && (
+              <StepIngredientPanel
+                stepText={step}
+                ingredients={ingredients}
+                baseServings={baseServings ?? 4}
+                targetServings={targetServings ?? 4}
+              />
+            )}
           </div>
         )
       })}

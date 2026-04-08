@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { suggestSchema, parseBody } from '@/lib/schemas'
 import { logger } from '@/lib/logger'
-import { getTodayISO } from '@/lib/date-utils'
+import { addDays } from '@/lib/date-utils'
 import { parseLLMJsonSafe, callLLM } from '@/lib/llm'
 import {
   getSeason,
@@ -15,59 +15,60 @@ import {
   validateSuggestions,
   callLLMNonStreaming,
 } from '../helpers'
-import { scopeQuery } from '@/lib/household'
+import { db } from '@/lib/db'
+import { eq, and, gte, inArray } from 'drizzle-orm'
+import { mealPlans, mealPlanEntries, recipes } from '@/lib/db/schema'
+import { scopeCondition } from '@/lib/household'
+import { dbFirst } from '@/lib/db/helpers'
 import { deriveTasteProfile } from '@/lib/taste-profile'
 import { detectWasteOverlap, getPrimaryWasteBadgeText, type RecipeForOverlap } from '@/lib/waste-overlap'
 import type { DaySuggestions, MealType, WasteMatch } from '@/types'
 
 const WASTE_DETECTION_TIMEOUT_MS = 8000
 
-export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
+export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
   const { data: body, error: parseError } = await parseBody(req, suggestSchema)
   if (parseError) return parseError
 
-  const { week_start, active_dates, prefer_this_week, avoid_this_week, free_text } = body
-  const active_meal_types: MealType[] = body.active_meal_types?.length ? body.active_meal_types : ['dinner']
-
-  const todayISO = getTodayISO()
+  const { weekStart, activeDates, preferThisWeek, avoidThisWeek, freeText } = body
+  const activeMealTypes: MealType[] = body.activeMealTypes?.length ? body.activeMealTypes : ['dinner']
 
   const [prefs, tasteProfile] = await Promise.all([
-    fetchUserPreferences(db, user.id, ctx),
-    deriveTasteProfile(user.id, db, ctx ?? null),
+    fetchUserPreferences(user.id, ctx),
+    deriveTasteProfile(user.id, null, ctx ?? null),
   ])
-  const cooldownDays = prefs?.cooldown_days ?? 28
-  const recipesByMealType = await fetchRecipesByMealTypes(db, user.id, cooldownDays, active_meal_types, ctx)
-  const recentHistory = await fetchRecentHistory(db, user.id)
+  const cooldownDays = prefs?.cooldownDays ?? 28
+  const recipesByMealType = await fetchRecipesByMealTypes(user.id, cooldownDays, activeMealTypes, ctx)
+  const recentHistory = await fetchRecentHistory(user.id)
 
-  // Exclude recipes already planned for any future date across ALL of the user's
-  // meal plans.  Previously only the current week and target week were checked,
-  // which missed recipes scheduled for weeks in between (e.g. a recipe set for
-  // April 8 was still suggested for April 19 even with a 30-day cooldown).
+  // Exclude recipes already planned within the cooldown window (past or future).
+  // Using the planning weekStart as the anchor: any recipe whose plannedDate
+  // falls within cooldownDays before weekStart up to the end of that week is
+  // treated as "recently planned" and excluded — matching the same logic that
+  // recipe_history uses for "recently made".
   const alreadyPlannedIds = new Set<string>()
+  const cooldownCutoff = addDays(weekStart, -cooldownDays)
 
-  // Fetch every plan that belongs to this user/household in one query, then
-  // pull all entries with planned_date >= today in a single batch per plan.
-  const allPlansQ = scopeQuery(
-    db.from('meal_plans').select('id, week_start'),
-    user.id, ctx,
-  )
-  const { data: allPlans } = await allPlansQ
+  const allPlanRows = await db
+    .select({ id: mealPlans.id, weekStart: mealPlans.weekStart })
+    .from(mealPlans)
+    .where(scopeCondition(
+      { userId: mealPlans.userId, householdId: mealPlans.householdId },
+      user.id,
+      ctx,
+    ))
 
-  for (const plan of (allPlans ?? []) as { id: string; week_start: string }[]) {
-    // For the target week: only exclude entries from today onward — earlier
-    // slots in the same week are already confirmed and shouldn't block the
-    // remaining days being suggested.
-    // For every other week: still use today as the lower bound so that only
-    // future-scheduled meals are excluded; past meals are handled by the
-    // cooldown filter against recipe_history.
-    const { data: entries } = await db
-      .from('meal_plan_entries')
-      .select('recipe_id')
-      .eq('meal_plan_id', plan.id)
-      .gte('planned_date', todayISO)
+  for (const plan of allPlanRows) {
+    const entryRows = await db
+      .select({ recipeId: mealPlanEntries.recipeId })
+      .from(mealPlanEntries)
+      .where(and(
+        eq(mealPlanEntries.mealPlanId, plan.id),
+        gte(mealPlanEntries.plannedDate, cooldownCutoff),
+      ))
 
-    for (const entry of entries ?? []) {
-      alreadyPlannedIds.add((entry as { recipe_id: string }).recipe_id)
+    for (const entry of entryRows) {
+      alreadyPlannedIds.add(entry.recipeId)
     }
   }
 
@@ -78,8 +79,8 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   }
 
   // Filter out disliked recipes; build loved set for prompt annotations
-  const dislikedSet = new Set(tasteProfile.disliked_recipe_ids)
-  const lovedSet = new Set(tasteProfile.loved_recipe_ids)
+  const dislikedSet = new Set(tasteProfile.dislikedRecipeIds)
+  const lovedSet = new Set(tasteProfile.lovedRecipeIds)
   if (dislikedSet.size > 0) {
     for (const mt of Object.keys(recipesByMealType) as MealType[]) {
       recipesByMealType[mt] = recipesByMealType[mt].filter((r) => !dislikedSet.has(r.id))
@@ -87,7 +88,7 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   }
 
   const totalRecipes = Object.values(recipesByMealType).reduce((n, r) => n + r.length, 0)
-  logger.info({ userId: user.id, totalRecipes, cooldownDays, mealTypes: active_meal_types }, 'suggest: recipes after cooldown filter')
+  logger.info({ userId: user.id, totalRecipes, cooldownDays, mealTypes: activeMealTypes }, 'suggest: recipes after cooldown filter')
   if (totalRecipes === 0) {
     logger.warn({ userId: user.id, cooldownDays }, 'suggest: 0 recipes available — cooldown may be excluding all recipes')
   }
@@ -95,21 +96,21 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   const today = new Date()
   const season = getSeason(today.getMonth())
 
-  const systemMessage = buildSystemMessage(prefs, prefer_this_week ?? [], avoid_this_week ?? [], season, tasteProfile)
-  const pantryContext = await fetchPantryContext(db, user.id, ctx)
+  const systemMessage = buildSystemMessage(prefs, preferThisWeek ?? [], avoidThisWeek ?? [], season, tasteProfile)
+  const pantryContext = await fetchPantryContext(user.id, ctx)
   const userMessage = buildFullWeekUserMessage(
-    active_dates,
+    activeDates,
     recipesByMealType,
     recentHistory,
-    free_text ?? '',
-    active_meal_types,
+    freeText ?? '',
+    activeMealTypes,
     pantryContext,
     lovedSet,
   )
 
   const validIdsByMealType = new Map<MealType, Set<string>>()
-  for (const [mt, recipes] of Object.entries(recipesByMealType) as [MealType, typeof recipesByMealType[MealType]][]) {
-    validIdsByMealType.set(mt, new Set(recipes.map((r) => r.id)))
+  for (const [mt, recs] of Object.entries(recipesByMealType) as [MealType, typeof recipesByMealType[MealType]][]) {
+    validIdsByMealType.set(mt, new Set(recs.map((r) => r.id)))
   }
 
   try {
@@ -125,30 +126,39 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
     // ── Step 1: Fetch next week's saved plan ──────────────────────────────────
     let nextWeekRecipes: RecipeForOverlap[] = []
 
-    if (body.include_next_week_plan) {
-      const nextWeekDate = new Date(week_start)
+    if (body.includeNextWeekPlan) {
+      const nextWeekDate = new Date(weekStart)
       nextWeekDate.setDate(nextWeekDate.getDate() + 7)
       const nextWeekStart = nextWeekDate.toISOString().slice(0, 10)
 
-      let nextPlanQ = db.from('meal_plans').select('id').eq('week_start', nextWeekStart)
-      nextPlanQ = scopeQuery(nextPlanQ, user.id, ctx)
-      const { data: nextPlan } = await nextPlanQ.maybeSingle()
+      const nextPlanRows = await db
+        .select({ id: mealPlans.id })
+        .from(mealPlans)
+        .where(and(
+          eq(mealPlans.weekStart, nextWeekStart),
+          scopeCondition({ userId: mealPlans.userId, householdId: mealPlans.householdId }, user.id, ctx),
+        ))
+        .limit(1)
+
+      const nextPlan = dbFirst(nextPlanRows)
 
       if (nextPlan?.id) {
-        const { data: entries } = await db
-          .from('meal_plan_entries')
-          .select('recipe_id, recipes(title, ingredients)')
-          .eq('meal_plan_id', nextPlan.id)
-
-        nextWeekRecipes = (entries ?? [])
-          .map((e) => {
-            const r = e.recipes as { title: string; ingredients: string | null } | null
-            return {
-              recipe_id:   e.recipe_id,
-              title:       r?.title ?? '',
-              ingredients: r?.ingredients ?? '',
-            }
+        const entryRows = await db
+          .select({
+            recipeId: mealPlanEntries.recipeId,
+            recipeTitle: recipes.title,
+            recipeIngredients: recipes.ingredients,
           })
+          .from(mealPlanEntries)
+          .innerJoin(recipes, eq(mealPlanEntries.recipeId, recipes.id))
+          .where(eq(mealPlanEntries.mealPlanId, nextPlan.id))
+
+        nextWeekRecipes = entryRows
+          .map((e) => ({
+            recipeId:   e.recipeId,
+            title:       e.recipeTitle ?? '',
+            ingredients: e.recipeIngredients ?? '',
+          }))
           .filter((r) => r.ingredients.trim() !== '')
       }
     }
@@ -156,22 +166,24 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
     // ── Step 2: Fetch ingredients for this week's suggestions ─────────────────
     const suggestedIds = new Set<string>()
     for (const day of validated) {
-      for (const mts of day.meal_types) {
+      for (const mts of day.mealTypes) {
         for (const opt of mts.options) {
-          suggestedIds.add(opt.recipe_id)
+          suggestedIds.add(opt.recipeId)
         }
       }
     }
 
-    const { data: thisWeekData } = await db
-      .from('recipes')
-      .select('id, title, ingredients')
-      .in('id', [...suggestedIds])
+    const thisWeekData = suggestedIds.size > 0
+      ? await db
+          .select({ id: recipes.id, title: recipes.title, ingredients: recipes.ingredients })
+          .from(recipes)
+          .where(inArray(recipes.id, [...suggestedIds]))
+      : []
 
-    const thisWeekRecipes: RecipeForOverlap[] = (thisWeekData ?? [])
+    const thisWeekRecipes: RecipeForOverlap[] = thisWeekData
       .filter((r) => r.ingredients)
       .map((r) => ({
-        recipe_id:   r.id,
+        recipeId:   r.id,
         title:       r.title,
         ingredients: r.ingredients!,
       }))
@@ -193,18 +205,18 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
     // ── Step 4: Re-rank and attach badge text ─────────────────────────────────
     if (wasteMap) {
       for (const day of validated) {
-        for (const mts of day.meal_types) {
+        for (const mts of day.mealTypes) {
           for (const opt of mts.options) {
-            const matches = wasteMap.get(opt.recipe_id)
+            const matches = wasteMap.get(opt.recipeId)
             if (matches?.length) {
-              opt.waste_matches    = matches
-              opt.waste_badge_text = getPrimaryWasteBadgeText(matches)
+              opt.wasteMatches    = matches
+              opt.wasteBadgeText = getPrimaryWasteBadgeText(matches)
             }
           }
 
           mts.options.sort((a, b) => {
-            const scoreA = a.waste_matches?.length ?? 0
-            const scoreB = b.waste_matches?.length ?? 0
+            const scoreA = a.wasteMatches?.length ?? 0
+            const scoreB = b.wasteMatches?.length ?? 0
             return scoreB - scoreA
           })
         }

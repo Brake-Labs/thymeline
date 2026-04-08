@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { GroceryList } from '@/types'
 import GroceryListView from './GroceryListView'
-import { getAccessToken } from '@/lib/supabase/browser'
 import { getMostRecentSunday, getMostRecentWeekStart, addDays, formatShortDate as formatDate } from '@/lib/date-utils'
 import DateInput from '@/components/ui/DateInput'
 
@@ -30,15 +29,15 @@ export default function GroceriesPageClient({ initialDateFrom, initialDateTo }: 
     { label: 'Next 2 weeks', from: thisWeekStart,            to: addDays(thisWeekStart, 13) },
   ]
 
-  // Load week_start_day preference once on mount
+  // Load weekStartDay preference once on mount
   useEffect(() => {
     async function loadPref() {
       try {
-        const token = await getAccessToken()
-        const res = await fetch('/api/preferences', { headers: { Authorization: `Bearer ${token}` } })
+        const res = await fetch('/api/preferences')
         if (res.ok) {
           const prefs = await res.json()
-          const pref: number = prefs.week_start_day ?? 0
+          const raw = prefs.weekStartDay ?? 'sunday'
+          const pref: number = raw === 'monday' ? 1 : typeof raw === 'number' ? raw : 0
           if (pref !== 0) {
             setWeekStartDay(pref)
             if (!initialDateFrom) {
@@ -56,10 +55,7 @@ export default function GroceriesPageClient({ initialDateFrom, initialDateTo }: 
   const fetchList = useCallback(async (from: string, _to: string) => {
     setList(undefined)  // loading
     try {
-      const token = await getAccessToken()
-      const res = await fetch(`/api/groceries?date_from=${from}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      const res = await fetch(`/api/groceries?dateFrom=${from}`)
       if (!res.ok) { setList(null); return }
       const json = await res.json()
       setList(json.list ?? null)
@@ -71,13 +67,10 @@ export default function GroceriesPageClient({ initialDateFrom, initialDateTo }: 
   const fetchCount = useCallback(async (from: string, to: string) => {
     setRecipeCount(null)
     try {
-      const token = await getAccessToken()
-      const res = await fetch(`/api/groceries/count?date_from=${from}&date_to=${to}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      const res = await fetch(`/api/groceries/count?dateFrom=${from}&dateTo=${to}`)
       if (res.ok) {
         const json = await res.json()
-        setRecipeCount(json.recipe_count ?? 0)
+        setRecipeCount(json.recipeCount ?? 0)
       }
     } catch {
       setRecipeCount(0)
@@ -93,11 +86,10 @@ export default function GroceriesPageClient({ initialDateFrom, initialDateTo }: 
     setGenerating(true)
     setGenError(null)
     try {
-      const token = await getAccessToken()
       const res = await fetch('/api/groceries/generate', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body:    JSON.stringify({ date_from: dateFrom, date_to: dateTo }),
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ dateFrom: dateFrom, dateTo: dateTo }),
       })
       const json = await res.json()
       if (res.ok) {

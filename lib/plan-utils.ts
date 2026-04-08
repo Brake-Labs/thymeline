@@ -1,43 +1,52 @@
 // server-only — do not import from client components
+import { eq, and } from 'drizzle-orm'
 import { getMostRecentSunday } from '@/lib/date-utils'
-import { scopeQuery } from '@/lib/household'
-import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database } from '@/types/database'
+import { db } from '@/lib/db'
+import { mealPlans, mealPlanEntries, recipes } from '@/lib/db/schema'
+import { scopeCondition } from '@/lib/household'
 import type { HouseholdContext, WasteMatch } from '@/types'
 import type { RecipeForOverlap } from '@/lib/waste-overlap'
 
 export async function fetchCurrentWeekPlan(
   userId: string,
-  db: SupabaseClient<Database>,
+  _db: unknown,
   ctx: HouseholdContext | null,
 ): Promise<RecipeForOverlap[]> {
   const weekStart = getMostRecentSunday()
 
-  let planQ = db.from('meal_plans').select('id').eq('week_start', weekStart)
-  planQ = scopeQuery(planQ, userId, ctx)
-  const { data: plan } = await planQ.maybeSingle()
+  const planRows = await db
+    .select({ id: mealPlans.id })
+    .from(mealPlans)
+    .where(and(
+      eq(mealPlans.weekStart, weekStart),
+      scopeCondition({ userId: mealPlans.userId, householdId: mealPlans.householdId }, userId, ctx),
+    ))
+    .limit(1)
 
+  const plan = planRows[0]
   if (!plan?.id) return []
 
-  const { data: entries } = await db
-    .from('meal_plan_entries')
-    .select('recipe_id, recipes(title, ingredients)')
-    .eq('meal_plan_id', plan.id)
-
-  return (entries ?? [])
-    .map((e) => {
-      const r = e.recipes as { title: string; ingredients: string | null } | null
-      return {
-        recipe_id:   e.recipe_id,
-        title:       r?.title ?? '',
-        ingredients: r?.ingredients ?? '',
-      }
+  const entries = await db
+    .select({
+      recipeId: mealPlanEntries.recipeId,
+      title: recipes.title,
+      ingredients: recipes.ingredients,
     })
+    .from(mealPlanEntries)
+    .innerJoin(recipes, eq(mealPlanEntries.recipeId, recipes.id))
+    .where(eq(mealPlanEntries.mealPlanId, plan.id))
+
+  return entries
+    .map((e) => ({
+      recipeId:   e.recipeId,
+      title:       e.title ?? '',
+      ingredients: e.ingredients ?? '',
+    }))
     .filter((r) => r.ingredients.trim() !== '')
 }
 
 export function getPlanWasteBadgeText(
-  matches: Pick<WasteMatch, 'ingredient' | 'waste_risk'>[],
+  matches: Pick<WasteMatch, 'ingredient' | 'wasteRisk'>[],
 ): string {
   if (!matches.length) return ''
   if (matches.length >= 2) return `Uses up ${matches.length} ingredients`

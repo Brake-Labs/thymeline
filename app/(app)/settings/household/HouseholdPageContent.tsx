@@ -82,9 +82,9 @@ export function HouseholdPageContent() {
         <h2 className="text-sm font-medium text-stone-700">Members</h2>
         <ul className="divide-y divide-stone-100 rounded-md border border-stone-200">
           {members.map((m) => (
-            <li key={m.user_id} className="flex items-center justify-between px-4 py-3">
+            <li key={m.userId} className="flex items-center justify-between px-4 py-3">
               <div>
-                <p className="text-sm font-medium">{m.display_name ?? m.email ?? m.user_id}</p>
+                <p className="text-sm font-medium">{m.displayName ?? m.email ?? m.userId}</p>
                 <p className="text-xs text-stone-500 capitalize">{m.role.replace('_', ' ')}</p>
               </div>
               {/* Remove member — owner/co_owner only, cannot remove owner */}
@@ -92,7 +92,7 @@ export function HouseholdPageContent() {
                 <button
                   onClick={async () => {
                     if (!confirm('Remove this member?')) return
-                    await fetch(`/api/household/members/${m.user_id}`, { method: 'DELETE' })
+                    await fetch(`/api/household/members/${m.userId}`, { method: 'DELETE' })
                     await refresh()
                   }}
                   className="text-xs text-red-500 hover:text-red-700"
@@ -129,7 +129,7 @@ export function HouseholdPageContent() {
                   const res = await fetch('/api/household/invite', { method: 'POST' })
                   if (res.ok) {
                     const d = await res.json()
-                    setInviteUrl(d.invite_url)
+                    setInviteUrl(d.inviteUrl)
                   } else {
                     const d = await res.json()
                     setError(d.error ?? 'Failed to generate invite')

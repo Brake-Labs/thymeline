@@ -12,7 +12,5 @@ test/
 **/*.test.tsx
 vitest.config.ts
 vitest.setup.ts
-supabase/
-scripts/
 .eslintrc.json
 .vscode/

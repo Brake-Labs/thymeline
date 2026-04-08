@@ -7,9 +7,6 @@ import WeekCalendar from '../WeekCalendar'
 import type { PlanEntry } from '@/types'
 import { getMostRecentSunday, addDays } from '@/lib/date-utils'
 
-vi.mock('@/lib/supabase/browser', () => ({
-  getAccessToken: async () => 'mock-token',
-}))
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
@@ -28,12 +25,12 @@ const DATE = '2026-03-16'
 function makeEntry(overrides: Partial<PlanEntry> = {}): PlanEntry {
   return {
     id: 'entry-1',
-    recipe_id: 'r1',
-    recipe_title: 'Pasta',
-    planned_date: DATE,
-    meal_type: 'dinner',
-    is_side_dish: false,
-    parent_entry_id: null,
+    recipeId: 'r1',
+    recipeTitle: 'Pasta',
+    plannedDate: DATE,
+    mealType: 'dinner',
+    isSideDish: false,
+    parentEntryId: null,
     confirmed: true,
     position: 1,
     ...overrides,
@@ -131,6 +128,24 @@ describe('T19 - Empty week shows "Nothing planned" prompt with link to /plan', (
     expect(screen.getAllByText(/Nothing planned/).length).toBeGreaterThan(0)
     expect(screen.getByRole('link', { name: /Help Me Plan/i })).toHaveAttribute('href', '/plan')
   })
+
+  it('includes weekStart in the Help Me Plan link when weekStart is provided (regression #322)', () => {
+    render(
+      <DayCard
+        date={DATE}
+        entries={[]}
+        isExpanded={true}
+        onToggle={vi.fn()}
+        onAddEntry={vi.fn()}
+        onDeleteEntry={vi.fn()}
+        weekStart="2026-03-15"
+      />
+    )
+    expect(screen.getByRole('link', { name: /Help Me Plan/i })).toHaveAttribute(
+      'href',
+      '/plan?weekStart=2026-03-15',
+    )
+  })
 })
 
 // ── T01: DayCard summary text ─────────────────────────────────────────────────
@@ -155,8 +170,8 @@ describe('T01 - Day card shows correct summary', () => {
       <DayCard
         date={DATE}
         entries={[
-          makeEntry({ id: 'e1', meal_type: 'breakfast' }),
-          makeEntry({ id: 'e2', meal_type: 'dinner' }),
+          makeEntry({ id: 'e1', mealType: 'breakfast' }),
+          makeEntry({ id: 'e2', mealType: 'dinner' }),
         ]}
         isExpanded={false}
         onToggle={vi.fn()}
@@ -172,8 +187,8 @@ describe('T01 - Day card shows correct summary', () => {
       <DayCard
         date={DATE}
         entries={[
-          makeEntry({ id: 'e1', meal_type: 'dinner' }),
-          makeEntry({ id: 'e2', is_side_dish: true, parent_entry_id: 'e1', meal_type: 'dinner' }),
+          makeEntry({ id: 'e1', mealType: 'dinner' }),
+          makeEntry({ id: 'e2', isSideDish: true, parentEntryId: 'e1', mealType: 'dinner' }),
         ]}
         isExpanded={false}
         onToggle={vi.fn()}
@@ -189,7 +204,7 @@ describe('T01 - Day card shows correct summary', () => {
 
 describe('T11 - Add side dish link appears only on Dinner and Lunch with a main dish', () => {
   it('shows "Add side dish" on Dinner slot when main entry exists', () => {
-    const entry = makeEntry({ meal_type: 'dinner' })
+    const entry = makeEntry({ mealType: 'dinner' })
     render(
       <MealSlot
         mealType="dinner"
@@ -203,7 +218,7 @@ describe('T11 - Add side dish link appears only on Dinner and Lunch with a main 
   })
 
   it('shows "Add side dish" on Lunch slot when main entry exists', () => {
-    const entry = makeEntry({ meal_type: 'lunch' })
+    const entry = makeEntry({ mealType: 'lunch' })
     render(
       <MealSlot
         mealType="lunch"
@@ -217,7 +232,7 @@ describe('T11 - Add side dish link appears only on Dinner and Lunch with a main 
   })
 
   it('does NOT show "Add side dish" on Breakfast slot', () => {
-    const entry = makeEntry({ meal_type: 'breakfast' })
+    const entry = makeEntry({ mealType: 'breakfast' })
     render(
       <MealSlot
         mealType="breakfast"
@@ -231,7 +246,7 @@ describe('T11 - Add side dish link appears only on Dinner and Lunch with a main 
   })
 
   it('does NOT show "Add side dish" on Snacks slot', () => {
-    const entry = makeEntry({ meal_type: 'snack' })
+    const entry = makeEntry({ mealType: 'snack' })
     render(
       <MealSlot
         mealType="snack"
@@ -262,8 +277,8 @@ describe('T11 - Add side dish link appears only on Dinner and Lunch with a main 
 
 describe('T13 - Side dish appears indented under its parent main dish', () => {
   it('renders side dish recipe title in the slot', () => {
-    const main = makeEntry({ id: 'e1', meal_type: 'dinner', recipe_title: 'Chicken' })
-    const side = makeEntry({ id: 'e2', meal_type: 'dinner', is_side_dish: true, parent_entry_id: 'e1', recipe_title: 'Rice' })
+    const main = makeEntry({ id: 'e1', mealType: 'dinner', recipeTitle: 'Chicken' })
+    const side = makeEntry({ id: 'e2', mealType: 'dinner', isSideDish: true, parentEntryId: 'e1', recipeTitle: 'Rice' })
     render(
       <MealSlot
         mealType="dinner"
@@ -283,7 +298,7 @@ describe('T13 - Side dish appears indented under its parent main dish', () => {
 describe('T10 - × button on a recipe calls onDelete', () => {
   it('calls onDelete with the entry id when × is clicked', async () => {
     const onDelete = vi.fn()
-    const entry = makeEntry({ id: 'entry-1', recipe_title: 'Pasta' })
+    const entry = makeEntry({ id: 'entry-1', recipeTitle: 'Pasta' })
     render(
       <MealSlot
         mealType="dinner"
@@ -300,11 +315,11 @@ describe('T10 - × button on a recipe calls onDelete', () => {
   })
 })
 
-// ── T-TIME: MealSlot shows total_time_minutes when present ────────────────────
+// ── T-TIME: MealSlot shows totalTimeMinutes when present ────────────────────
 
 describe('MealSlot - recipe time display', () => {
-  it('renders formatted time next to recipe name when total_time_minutes is present', () => {
-    const entry = makeEntry({ total_time_minutes: 45 })
+  it('renders formatted time next to recipe name when totalTimeMinutes is present', () => {
+    const entry = makeEntry({ totalTimeMinutes: 45 })
     render(
       <MealSlot
         mealType="dinner"
@@ -317,8 +332,8 @@ describe('MealSlot - recipe time display', () => {
     expect(screen.getByText('· 45 min')).toBeInTheDocument()
   })
 
-  it('renders nothing for time when total_time_minutes is null', () => {
-    const entry = makeEntry({ total_time_minutes: null })
+  it('renders nothing for time when totalTimeMinutes is null', () => {
+    const entry = makeEntry({ totalTimeMinutes: null })
     render(
       <MealSlot
         mealType="dinner"
@@ -336,7 +351,7 @@ describe('MealSlot - recipe time display', () => {
 
 describe('MealSlot - Cook link routes to correct cook-mode URL (regression #242)', () => {
   it('single-entry Cook link routes to /recipes/:id/cook (not /cook/recipes/...)', () => {
-    const entry = makeEntry({ recipe_id: 'abc-123', meal_type: 'dinner' })
+    const entry = makeEntry({ recipeId: 'abc-123', mealType: 'dinner' })
     render(
       <MealSlot
         mealType="dinner"
@@ -352,8 +367,8 @@ describe('MealSlot - Cook link routes to correct cook-mode URL (regression #242)
   })
 
   it('multi-entry Cook link routes to /meal/:date (not /cook/meal/...)', () => {
-    const e1 = makeEntry({ id: 'e1', recipe_id: 'r1', meal_type: 'dinner', recipe_title: 'Pasta' })
-    const e2 = makeEntry({ id: 'e2', recipe_id: 'r2', meal_type: 'dinner', recipe_title: 'Tacos' })
+    const e1 = makeEntry({ id: 'e1', recipeId: 'r1', mealType: 'dinner', recipeTitle: 'Pasta' })
+    const e2 = makeEntry({ id: 'e2', recipeId: 'r2', mealType: 'dinner', recipeTitle: 'Tacos' })
     render(
       <MealSlot
         mealType="dinner"
@@ -365,16 +380,16 @@ describe('MealSlot - Cook link routes to correct cook-mode URL (regression #242)
       />
     )
     const link = screen.getByRole('link', { name: /cook dinner/i })
-    expect(link).toHaveAttribute('href', `/meal/${DATE}?meal_type=dinner`)
+    expect(link).toHaveAttribute('href', `/meal/${DATE}?mealType=dinner`)
   })
 })
 
 // ── T-SIDE-DISH-COOK: Side dish routes to multi-recipe cook (regression #245) ─
 
 describe('MealSlot - Cook link routes to /meal when a side dish is present (regression #245)', () => {
-  it('routes to /meal/:date?meal_type when main entry has a non-dessert side dish', () => {
-    const main = makeEntry({ id: 'e1', recipe_id: 'main-1', meal_type: 'dinner', is_side_dish: false })
-    const side = makeEntry({ id: 'e2', recipe_id: 'side-1', meal_type: 'dinner', is_side_dish: true, parent_entry_id: 'e1', recipe_title: 'Garlic Bread' })
+  it('routes to /meal/:date?mealType when main entry has a non-dessert side dish', () => {
+    const main = makeEntry({ id: 'e1', recipeId: 'main-1', mealType: 'dinner', isSideDish: false })
+    const side = makeEntry({ id: 'e2', recipeId: 'side-1', mealType: 'dinner', isSideDish: true, parentEntryId: 'e1', recipeTitle: 'Garlic Bread' })
     render(
       <MealSlot
         mealType="dinner"
@@ -386,12 +401,12 @@ describe('MealSlot - Cook link routes to /meal when a side dish is present (regr
       />
     )
     const link = screen.getByRole('link', { name: /cook dinner/i })
-    expect(link).toHaveAttribute('href', `/meal/${DATE}?meal_type=dinner`)
+    expect(link).toHaveAttribute('href', `/meal/${DATE}?mealType=dinner`)
   })
 
   it('still routes to /recipes/:id/cook when main entry has only a dessert (no cookable side)', () => {
-    const main = makeEntry({ id: 'e1', recipe_id: 'main-1', meal_type: 'dinner', is_side_dish: false })
-    const dessert = makeEntry({ id: 'e2', recipe_id: 'dessert-1', meal_type: 'dessert', is_side_dish: true, parent_entry_id: 'e1', recipe_title: 'Ice Cream' })
+    const main = makeEntry({ id: 'e1', recipeId: 'main-1', mealType: 'dinner', isSideDish: false })
+    const dessert = makeEntry({ id: 'e2', recipeId: 'dessert-1', mealType: 'dessert', isSideDish: true, parentEntryId: 'e1', recipeTitle: 'Ice Cream' })
     render(
       <MealSlot
         mealType="dinner"
@@ -433,7 +448,7 @@ describe('WeekCalendar - future weeks are expanded on navigation (regression #24
 
 describe('T21 - Existing dinner-only plans render correctly in Dinner slot', () => {
   it('renders a dinner entry in the Dinner meal slot', () => {
-    const entry = makeEntry({ meal_type: 'dinner', recipe_title: 'Pasta Primavera' })
+    const entry = makeEntry({ mealType: 'dinner', recipeTitle: 'Pasta Primavera' })
     render(
       <DayCard
         date={DATE}
@@ -457,19 +472,19 @@ describe('WeekCalendar - swap meals (regression #303)', () => {
   const wednesday = addDays(weekStart, 3)
 
   const swapEntries = [
-    { id: 'e1', recipe_id: 'r1', recipe_title: 'Pasta',  planned_date: monday,    meal_type: 'dinner', is_side_dish: false, parent_entry_id: null, confirmed: false, position: 1, total_time_minutes: null },
-    { id: 'e2', recipe_id: 'r2', recipe_title: 'Tacos',  planned_date: wednesday, meal_type: 'dinner', is_side_dish: false, parent_entry_id: null, confirmed: false, position: 1, total_time_minutes: null },
+    { id: 'e1', recipeId: 'r1', recipeTitle: 'Pasta',  plannedDate: monday,    mealType: 'dinner', isSideDish: false, parentEntryId: null, confirmed: false, position: 1, totalTimeMinutes: null },
+    { id: 'e2', recipeId: 'r2', recipeTitle: 'Tacos',  plannedDate: wednesday, mealType: 'dinner', isSideDish: false, parentEntryId: null, confirmed: false, position: 1, totalTimeMinutes: null },
   ]
 
   beforeEach(() => {
     global.fetch = vi.fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({}) })            // prefs
       .mockResolvedValueOnce({ ok: true, json: async () => ({              // plan
-        plan: { id: 'plan-1', week_start: weekStart, entries: swapEntries },
+        plan: { id: 'plan-1', weekStart: weekStart, entries: swapEntries },
       }) })
       .mockResolvedValue({ ok: true, json: async () => ({                  // swap + any subsequent
-        entry_a: { id: 'e1', planned_date: wednesday, recipe_id: 'r1' },
-        entry_b: { id: 'e2', planned_date: monday,    recipe_id: 'r2' },
+        entry_a: { id: 'e1', plannedDate: wednesday, recipeId: 'r1' },
+        entry_b: { id: 'e2', plannedDate: monday,    recipeId: 'r2' },
       }) })
   })
   afterEach(() => { cleanup(); vi.restoreAllMocks() })
@@ -507,7 +522,7 @@ describe('WeekCalendar - swap meals (regression #303)', () => {
     )
     expect(swapCall).toBeDefined()
     const body = JSON.parse((swapCall![1] as RequestInit).body as string)
-    expect(body).toEqual({ entry_id_a: 'e1', entry_id_b: 'e2' })
+    expect(body).toEqual({ entryIdA: 'e1', entryIdB: 'e2' })
   })
 
   it('shows SwapToast after a successful swap', async () => {
@@ -528,7 +543,7 @@ describe('WeekCalendar - swap meals (regression #303)', () => {
     global.fetch = vi.fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({}) })            // prefs
       .mockResolvedValueOnce({ ok: true, json: async () => ({
-        plan: { id: 'plan-1', week_start: weekStart, entries: swapEntries },
+        plan: { id: 'plan-1', weekStart: weekStart, entries: swapEntries },
       }) })
       .mockResolvedValue({ ok: false, status: 500, json: async () => ({ error: 'Swap failed' }) })
 
@@ -542,5 +557,44 @@ describe('WeekCalendar - swap meals (regression #303)', () => {
     })
 
     await waitFor(() => expect(screen.getByText('Swap failed. Please try again.')).toBeInTheDocument())
+  })
+
+  // Regression #318 (part 2): side dish must follow its parent in the optimistic UI update.
+  // Before the fix the optimistic setEntries only moved the two tapped entries.
+  // DayCard filters side dishes by checking whether their parent is present in
+  // the same day's entries — so an unmoved side dish disappeared from both days.
+  it('side dish moves with its parent in the optimistic update', async () => {
+    const thursday = addDays(weekStart, 4)
+    const entriesWithSide = [
+      { id: 'e1', recipeId: 'r1', recipeTitle: 'Chicken', plannedDate: monday,   mealType: 'dinner', isSideDish: false, parentEntryId: null, confirmed: true, position: 1, totalTimeMinutes: null },
+      { id: 'e3', recipeId: 'r3', recipeTitle: 'Broccoli', plannedDate: monday,  mealType: 'dinner', isSideDish: true,  parentEntryId: 'e1', confirmed: true, position: 1, totalTimeMinutes: null },
+      { id: 'e2', recipeId: 'r2', recipeTitle: 'Tacos',   plannedDate: thursday, mealType: 'dinner', isSideDish: false, parentEntryId: null, confirmed: true, position: 1, totalTimeMinutes: null },
+    ]
+
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) })           // prefs
+      .mockResolvedValueOnce({ ok: true, json: async () => ({              // plan
+        plan: { id: 'plan-1', weekStart: weekStart, entries: entriesWithSide },
+      }) })
+      .mockResolvedValue({ ok: true, json: async () => ({                  // swap
+        entry_a: { id: 'e1', plannedDate: thursday, recipeId: 'r1' },
+        entry_b: { id: 'e2', plannedDate: monday,   recipeId: 'r2' },
+      }) })
+
+    render(<WeekCalendar />)
+    // All DayCards start expanded; wait for entries to load
+    await waitFor(() => expect(screen.getByText('Chicken')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Broccoli')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Swap meals')).toBeInTheDocument())
+
+    // Swap Chicken (Monday) with Tacos (Thursday)
+    fireEvent.click(screen.getByText('Swap meals'))
+    fireEvent.click(screen.getByText('Chicken').closest('div[class*="rounded-r"]')!)
+    await act(async () => {
+      fireEvent.click(screen.getByText('Tacos').closest('div[class*="rounded-r"]')!)
+    })
+
+    // After the optimistic update Broccoli must still be visible (it moved to Thursday with Chicken)
+    await waitFor(() => expect(screen.getByText('Broccoli')).toBeInTheDocument())
   })
 })

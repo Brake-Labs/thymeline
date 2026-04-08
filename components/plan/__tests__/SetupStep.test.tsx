@@ -4,9 +4,6 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import SetupStep from '../SetupStep'
 import type { PlanSetup } from '@/types'
 
-vi.mock('@/lib/supabase/browser', () => ({
-  getAccessToken: vi.fn(async () => 'mock-token'),
-}))
 
 const SETUP: PlanSetup = {
   weekStart:       '2026-04-06',
@@ -69,13 +66,13 @@ describe('SetupStep - context textarea auto-grow (#291)', () => {
 
 describe('SetupStep - tags expansion (regression #244)', () => {
   it('renders tag name strings (not [object Object]) when tags section is expanded', async () => {
-    // /api/tags returns { firstClass: [{ name, recipe_count }], custom: [] }
+    // /api/tags returns { firstClass: [{ name, recipeCount }], custom: [] }
     // The bug: firstClass objects were spread directly into allTags, causing React to
     // throw "Objects are not valid as a React child" when TagBucketPicker rendered them.
     global.fetch = vi.fn(async () => ({
       ok: true,
       json: async () => ({
-        firstClass: [{ name: 'Quick', recipe_count: 3 }, { name: 'Healthy', recipe_count: 1 }],
+        firstClass: [{ name: 'Quick', recipeCount: 3 }, { name: 'Healthy', recipeCount: 1 }],
         custom: [{ name: 'Garden', section: 'custom' }],
       }),
     })) as unknown as typeof fetch
@@ -92,7 +89,6 @@ describe('SetupStep - tags expansion (regression #244)', () => {
     // Wait for the tags API call to resolve
     await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(
       expect.stringContaining('/api/tags'),
-      expect.any(Object),
     ))
 
     // Expand the prefer/avoid section

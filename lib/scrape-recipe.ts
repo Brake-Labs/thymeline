@@ -3,9 +3,11 @@ import 'server-only'
 import FirecrawlApp from 'firecrawl'
 import { callLLM, LLM_MODEL_FAST, LLMError } from '@/lib/llm'
 import { logger } from '@/lib/logger'
-import { scopeQuery } from '@/lib/household'
+import { db } from '@/lib/db'
+import { customTags } from '@/lib/db/schema'
+import { scopeCondition } from '@/lib/household'
 import { FIRST_CLASS_TAGS } from '@/lib/tags'
-import type { SupabaseClient } from '@supabase/supabase-js'
+import { isBlockedUrl } from '@/lib/url-validation'
 import type { HouseholdContext } from '@/types'
 
 type RawNewTag = { name: string; section: string }
@@ -44,9 +46,13 @@ export interface ScrapeRecipeError {
 export async function scrapeRecipe(
   rawUrl:   string,
   userId:   string,
-  db:       SupabaseClient,
+  _db:      unknown,
   ctx:      HouseholdContext | null,
 ): Promise<ScrapeRecipeResult | ScrapeRecipeError> {
+  if (isBlockedUrl(rawUrl)) {
+    return { error: 'URL is not allowed' }
+  }
+
   const firecrawlKey = process.env.FIRECRAWL_API_KEY
   if (!firecrawlKey) {
     return { error: 'Scraping service not configured' }
@@ -63,10 +69,11 @@ export async function scrapeRecipe(
   }
 
   // Fetch user's custom tags for tag suggestion matching
-  let customTagsQ = db.from('custom_tags').select('name')
-  customTagsQ = scopeQuery(customTagsQ, userId, ctx)
-  const { data: userCustomTagRows } = await customTagsQ
-  const userCustomTags: string[] = (userCustomTagRows ?? []).map((t: { name: string }) => t.name)
+  const userCustomTagRows = await db
+    .select({ name: customTags.name })
+    .from(customTags)
+    .where(scopeCondition({ userId: customTags.userId, householdId: customTags.householdId }, userId, ctx))
+  const userCustomTags: string[] = userCustomTagRows.map((t) => t.name)
 
   // Extract recipe data via LLM
   const firstClassList = FIRST_CLASS_TAGS.join(', ')

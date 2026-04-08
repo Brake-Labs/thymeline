@@ -5,6 +5,7 @@ import type React from 'react'
 import StepTimer, { type TimerState } from './StepTimer'
 import { injectStepQuantities } from '@/lib/inject-step-quantities'
 import { renderHighlighted } from './renderHighlighted'
+import StepIngredientPanel from './StepIngredientPanel'
 
 interface Props {
   steps: string[]
@@ -104,6 +105,16 @@ export default function SingleStepView({
         timerState={timers.get(currentStep)}
         onChange={(state) => onTimerChange(currentStep, state)}
       />
+
+      {/* Ingredients used in this step */}
+      {ingredients && (
+        <StepIngredientPanel
+          stepText={steps[currentStep] ?? ''}
+          ingredients={ingredients}
+          baseServings={baseServings}
+          targetServings={targetServings}
+        />
+      )}
 
       {/* Dot progress */}
       <div className="flex justify-center gap-2 mt-6">

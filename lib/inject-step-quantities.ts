@@ -20,8 +20,9 @@ function escapeRegex(str: string): string {
 // end of a lookback string — with an optional "of" preposition before the trailing
 // whitespace. Used to recognise when a step already contains a partial amount for
 // an ingredient so we can highlight it in-place rather than injecting the full total.
+// Matches both abbreviated (tsp, tbsp) and full (teaspoon, tablespoon) unit names.
 // Groups: [1] = the quantity token without trailing whitespace / "of".
-const INLINE_QTY_RE = /((?:\d[\d./]*(?:[\u00bd\u2153\u2154\u00bc\u00be\u2155\u2156\u2157\u2158\u2159\u215a\u215b\u215c\u215d\u215e]|\s*\d+\/\d+)?|[\u00bd\u2153\u2154\u00bc\u00be\u2155\u2156\u2157\u2158\u2159\u215a\u215b\u215c\u215d\u215e])(?:\s+(?:tsp|tbsp|cups?|oz|lbs?|g|kg|ml|l|cloves?|cans?|slices?|pieces?|sprigs?|pinch(?:es)?|handful|bunch(?:es)?|heads?|stalks?|inches?))?)(?:\s+of)?\s+$/i
+const INLINE_QTY_RE = /((?:\d[\d./]*(?:[\u00bd\u2153\u2154\u00bc\u00be\u2155\u2156\u2157\u2158\u2159\u215a\u215b\u215c\u215d\u215e]|\s*\d+\/\d+)?|[\u00bd\u2153\u2154\u00bc\u00be\u2155\u2156\u2157\u2158\u2159\u215a\u215b\u215c\u215d\u215e])(?:\s+(?:teaspoons?|tablespoons?|tsp|tbsp|cups?|fluid\s+ounces?|fl\.?\s*oz|ounces?|oz|pounds?|lbs?|grams?|g|kilograms?|kg|milliliters?|millilitres?|ml|liters?|litres?|l|cloves?|cans?|slices?|pieces?|sprigs?|pinch(?:es)?|handfuls?|bunch(?:es)?|heads?|stalks?|inches?))?)(?:\s+of)?\s+$/i
 
 /**
  * Replaces bare ingredient names in a step with their (scaled) quantity + name,
@@ -52,7 +53,15 @@ export function injectStepQuantities(
   const scaled = scaleIngredients(ingredients, originalServings, servings)
 
   type Entry = { name: string; matchName: string; ingredientName: string; quantity: string }
-  const entries: Entry[] = []
+  const primaryEntries: Entry[] = []
+  // Collect fallback candidates separately so we can apply two guards before adding them:
+  //   1. The full ingredient name must NOT appear in the step text (prevents "sauce" from
+  //      shadowing "soy sauce" when both "sauce" and "soy sauce" are in the same step).
+  //   2. The fallback last-word must be unambiguous — only one ingredient maps to it
+  //      (prevents "sauce" matching when BOTH "soy sauce" and "fish sauce" are ingredients).
+  const fallbackCandidates: { entry: Entry; fullRe: RegExp }[] = []
+  const fallbackWordCount = new Map<string, number>()
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!
     const { rawName } = parseIngredientLine(line)
@@ -64,13 +73,25 @@ export function injectStepQuantities(
     // Strip comma-separated descriptors so "garlic, minced" matches "garlic" in steps
     const preComma = rawName.includes(',') ? rawName.split(',')[0]!.trim() : rawName
     const matchName = preComma || rawName
-    entries.push({ name: rawName, matchName, ingredientName: rawName, quantity })
-    // Add last-word fallback for multi-word names (e.g. "olive oil" → "oil",
+    primaryEntries.push({ name: rawName, matchName, ingredientName: rawName, quantity })
+    // Prepare last-word fallback for multi-word names (e.g. "olive oil" → "oil",
     // "all-purpose flour" → "flour") so step text that uses only the short form still matches.
     const words = matchName.split(/\s+/)
     if (words.length > 1) {
       const lastWord = words[words.length - 1]!
-      entries.push({ name: rawName, matchName: lastWord, ingredientName: rawName, quantity })
+      const fullRe = new RegExp(`\\b${escapeRegex(matchName)}\\b`, 'i')
+      fallbackCandidates.push({ entry: { name: rawName, matchName: lastWord, ingredientName: rawName, quantity }, fullRe })
+      fallbackWordCount.set(lastWord, (fallbackWordCount.get(lastWord) ?? 0) + 1)
+    }
+  }
+
+  const entries: Entry[] = [...primaryEntries]
+  for (const { entry, fullRe } of fallbackCandidates) {
+    const lastWord = entry.matchName
+    // Guard 1: only use fallback when the full name isn't already in the step
+    // Guard 2: skip if multiple ingredients share the same fallback word (ambiguous)
+    if (!fullRe.test(stepText) && (fallbackWordCount.get(lastWord) ?? 0) <= 1) {
+      entries.push(entry)
     }
   }
 
@@ -111,18 +132,16 @@ export function injectStepQuantities(
   for (const match of deduped) {
     result += stepText.slice(cursor, match.start)
     const key = match.ingredientName.toLowerCase()
-    if (match.quantity && !seen.has(key)) {
+    if (match.quantity) {
       // Look back up to 40 chars before the ingredient name to detect whether
       // the step text already contains a quantity (either exact or partial).
-      // "1 cup of flour" → lookback "1 cup of " includes "1 cup", so no inject.
       const lookback = stepText.slice(
         Math.max(0, match.start - 40),
         match.start,
       )
-      if (lookback.includes(match.quantity)) {
-        // Exact total quantity already present — don't inject and don't highlight
-        // (avoids duplication, e.g. "Add 2 tbsp 2 tbsp olive oil").
-      } else {
+      const exactInLookback = lookback.includes(match.quantity)
+
+      if (!seen.has(key) && !exactInLookback) {
         const inlineMatch = INLINE_QTY_RE.exec(lookback)
         if (inlineMatch) {
           // A different (partial) quantity is already written in the step text.
@@ -139,7 +158,19 @@ export function injectStepQuantities(
           highlights.push({ start: qStart, end: result.length })
           result += ' '
         }
+      } else if (seen.has(key) && !exactInLookback) {
+        // Ingredient was already shown in a prior step but this step writes its own
+        // partial amount — highlight it so the cook sees exactly what to use here.
+        const inlineMatch = INLINE_QTY_RE.exec(lookback)
+        if (inlineMatch) {
+          const qtyText = inlineMatch[1]!
+          const trailingLen = inlineMatch[0].length - qtyText.length
+          const qEnd = result.length - trailingLen
+          const qStart = qEnd - qtyText.length
+          if (qStart >= 0) highlights.push({ start: qStart, end: qEnd })
+        }
       }
+      // exactInLookback (cases 2 & 4): exact total already written — no action.
     }
     seen.add(match.ingredientName.toLowerCase())
     result += match.matched

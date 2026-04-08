@@ -1,6 +1,9 @@
 /**
  * Centralized environment variable configuration.
- * Validates required env vars at import time so failures happen early.
+ *
+ * Uses getters so that env vars are validated on first access, not at
+ * import time. This allows `next build` to succeed without all env vars
+ * set (they're only needed at runtime).
  */
 
 function requireEnv(name: string): string {
@@ -12,13 +15,33 @@ function requireEnv(name: string): string {
 }
 
 export const config = {
-  supabase: {
-    url: requireEnv('NEXT_PUBLIC_SUPABASE_URL'),
-    anonKey: requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
-    serviceRoleKey: requireEnv('SUPABASE_SERVICE_ROLE_KEY'),
+  get database() {
+    return { url: requireEnv('DATABASE_URL') }
+  },
+  get auth() {
+    return {
+      secret: requireEnv('BETTER_AUTH_SECRET'),
+      google: {
+        clientId: requireEnv('GOOGLE_CLIENT_ID'),
+        clientSecret: requireEnv('GOOGLE_CLIENT_SECRET'),
+      },
+    }
+  },
+  /** Comma-separated list of allowed emails. Empty = open access. */
+  get allowedEmails(): string[] {
+    return (process.env.ALLOWED_EMAILS ?? '')
+      .split(',')
+      .map(e => e.trim().toLowerCase())
+      .filter(Boolean)
   },
   llm: { apiKey: process.env.LLM_API_KEY },
   firecrawl: { apiKey: process.env.FIRECRAWL_API_KEY },
-  admin: { userId: process.env.ADMIN_USER_ID },
+  /** Comma-separated list of admin emails. Empty = no admins. */
+  get adminEmails(): string[] {
+    return (process.env.ADMIN_EMAILS ?? '')
+      .split(',')
+      .map(e => e.trim().toLowerCase())
+      .filter(Boolean)
+  },
   siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000',
 }

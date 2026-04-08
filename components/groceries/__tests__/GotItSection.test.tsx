@@ -9,9 +9,6 @@ import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/re
 
 afterEach(() => cleanup())
 
-vi.mock('@/lib/supabase/browser', () => ({
-  getAccessToken: async () => 'mock-token',
-}))
 
 const mockFetch = vi.fn()
 vi.stubGlobal('fetch', mockFetch)
@@ -21,11 +18,11 @@ import GotItSection from '../GotItSection'
 const sampleItems = [
   {
     id: 'i1', name: 'chicken breast', amount: 1, unit: 'lb',
-    section: 'Proteins' as const, is_pantry: false, checked: true, bought: true, recipes: ['Soup'],
+    section: 'Proteins' as const, isPantry: false, checked: true, bought: true, recipes: ['Soup'],
   },
   {
     id: 'i2', name: 'spinach', amount: null, unit: null,
-    section: 'Produce' as const, is_pantry: false, checked: true, bought: true, recipes: ['Soup'],
+    section: 'Produce' as const, isPantry: false, checked: true, bought: true, recipes: ['Soup'],
   },
 ]
 

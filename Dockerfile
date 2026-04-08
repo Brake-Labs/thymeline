@@ -11,20 +11,13 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # NEXT_PUBLIC_* vars are inlined into the client bundle at build time.
-# Provide real values via --build-arg for production images.
-# Defaults are placeholders so CI builds succeed without secrets.
-ARG NEXT_PUBLIC_SUPABASE_URL=https://placeholder.supabase.co
-ARG NEXT_PUBLIC_SUPABASE_ANON_KEY=placeholder
-ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
-ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+ARG NEXT_PUBLIC_SITE_URL=http://localhost:3000
+ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# SUPABASE_SERVICE_ROLE_KEY is server-side only (not inlined by Next.js),
-# so provide it inline for the build step only — no ARG/ENV to avoid
-# leaking into image layer metadata.
 # Ensure public/ exists so the runner COPY always succeeds even if the
 # repo has no public assets yet.
-RUN mkdir -p /app/public && SUPABASE_SERVICE_ROLE_KEY=placeholder npm run build
+RUN mkdir -p /app/public && npm run build
 
 # Stage 3: Production runtime
 FROM node:20-slim AS runner
@@ -39,6 +32,8 @@ RUN addgroup --system --gid 1001 nodejs && \
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/drizzle ./drizzle
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/migrate.cjs ./scripts/migrate.cjs
 
 USER nextjs
 
@@ -49,4 +44,4 @@ ENV HOSTNAME=0.0.0.0
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "fetch('http://localhost:3000').then(r => { if (!r.ok) throw new Error(); }).catch(() => process.exit(1))"
 
-CMD ["node", "server.js"]
+CMD ["sh", "-c", "node scripts/migrate.cjs && node server.js"]

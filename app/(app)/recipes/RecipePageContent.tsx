@@ -10,7 +10,6 @@ import BulkActionBar from '@/components/recipes/BulkActionBar'
 import BulkTagModal from '@/components/recipes/BulkTagModal'
 import AddRecipeModal from '@/components/recipes/AddRecipeModal'
 import GenerateRecipeModal from '@/components/recipes/GenerateRecipeModal'
-import { getAccessToken, getSupabaseClient } from '@/lib/supabase/browser'
 import Link from 'next/link'
 
 const VIEW_KEY = 'thymeline:recipe-view'
@@ -39,13 +38,13 @@ function applyFiltersLocally(recipes: RecipeListItem[], f: RecipeFilters): Recip
     if (f.tags.length > 0 && !f.tags.every((t) => r.tags.includes(t))) return false
     if (f.categories.length > 0 && !f.categories.includes(r.category)) return false
     if (f.maxTotalMinutes !== null) {
-      if (r.total_time_minutes === null || r.total_time_minutes > f.maxTotalMinutes) return false
+      if (r.totalTimeMinutes === null || r.totalTimeMinutes > f.maxTotalMinutes) return false
     }
     if (f.neverMade) {
-      if (r.last_made !== null) return false
+      if (r.lastMade !== null) return false
     } else {
-      if (f.lastMadeFrom && (r.last_made === null || r.last_made < f.lastMadeFrom)) return false
-      if (f.lastMadeTo && (r.last_made === null || r.last_made > f.lastMadeTo)) return false
+      if (f.lastMadeFrom && (r.lastMade === null || r.lastMade < f.lastMadeFrom)) return false
+      if (f.lastMadeTo && (r.lastMade === null || r.lastMade > f.lastMadeTo)) return false
     }
     return true
   })
@@ -63,20 +62,20 @@ function sortListView(
       cmp = a.title.localeCompare(b.title)
     } else if (key === 'category') {
       cmp = a.category.localeCompare(b.category)
-    } else if (key === 'total_time_minutes') {
-      const aT = a.total_time_minutes ?? Infinity
-      const bT = b.total_time_minutes ?? Infinity
+    } else if (key === 'totalTimeMinutes') {
+      const aT = a.totalTimeMinutes ?? Infinity
+      const bT = b.totalTimeMinutes ?? Infinity
       cmp = aT - bT
-    } else if (key === 'last_made') {
-      const aD = a.last_made ?? ''
-      const bD = b.last_made ?? ''
+    } else if (key === 'lastMade') {
+      const aD = a.lastMade ?? ''
+      const bD = b.lastMade ?? ''
       cmp = aD.localeCompare(bD)
     }
     return dir === 'asc' ? cmp : -cmp
   })
 }
 
-const VALID_SORT_KEYS = new Set(['title', 'category', 'total_time_minutes', 'last_made'])
+const VALID_SORT_KEYS = new Set(['title', 'category', 'totalTimeMinutes', 'lastMade'])
 const VALID_SORT_DIRS = new Set(['asc', 'desc'])
 
 function parseSortParams(params: URLSearchParams): { key: ListSortKey; dir: 'asc' | 'desc' | null } {
@@ -106,7 +105,7 @@ export default function RecipePageContent() {
 
   // Search
   const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<{ recipe_id: string; recipe_title: string }[] | null>(null)
+  const [searchResults, setSearchResults] = useState<{ recipeId: string; recipeTitle: string }[] | null>(null)
   const [searchLoading, setSearchLoading] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const [searchError, setSearchError] = useState<string | null>(null)
@@ -150,9 +149,7 @@ export default function RecipePageContent() {
   const fetchRecipes = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/recipes', {
-        headers: { Authorization: `Bearer ${await getAccessToken()}` },
-      })
+      const res = await fetch('/api/recipes')
       if (res.ok) {
         const data: RecipeListItem[] = await res.json()
         setRecipes(data)
@@ -171,8 +168,13 @@ export default function RecipePageContent() {
 
   useEffect(() => {
     void (async () => {
-      const { data } = await getSupabaseClient().auth.getSession()
-      if (data.session?.user) setCurrentUserId(data.session.user.id)
+      try {
+        const res = await fetch('/api/auth/session')
+        if (res.ok) {
+          const data = await res.json()
+          if (data.user?.id) setCurrentUserId(data.user.id)
+        }
+      } catch { /* ignore */ }
     })()
   }, [])
 
@@ -198,7 +200,7 @@ export default function RecipePageContent() {
     if (searchResults !== null) {
       const idToRecipe = new Map(recipes.map((r) => [r.id, r]))
       base = searchResults
-        .map((sr) => idToRecipe.get(sr.recipe_id))
+        .map((sr) => idToRecipe.get(sr.recipeId))
         .filter((r): r is RecipeListItem => r !== undefined)
       base = applyFiltersLocally(base, filters)
     } else {
@@ -217,14 +219,13 @@ export default function RecipePageContent() {
     setSearchLoading(true)
     setSearchError(null)
     try {
-      const token = await getAccessToken()
       const res = await fetch('/api/recipes/search', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: q }),
       })
       if (res.ok) {
-        const data: { results: { recipe_id: string; recipe_title: string }[] } = await res.json()
+        const data: { results: { recipeId: string; recipeTitle: string }[] } = await res.json()
         setSearchResults(data.results)
       } else {
         setSearchError('Search failed. Please try again.')
@@ -249,10 +250,8 @@ export default function RecipePageContent() {
   }
 
   async function handleDeleteCustomTag(tagName: string) {
-    const token = await getAccessToken()
     const res = await fetch(`/api/tags/${encodeURIComponent(tagName)}`, {
       method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
     })
     if (res.ok || res.status === 204) {
       await fetchRecipes()
@@ -300,11 +299,10 @@ export default function RecipePageContent() {
   }
 
   async function handleBulkAddTags(tags: string[]) {
-    const token = await getAccessToken()
     const res = await fetch('/api/recipes/bulk', {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ recipe_ids: Array.from(selectedIds), add_tags: tags }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recipeIds: Array.from(selectedIds), addTags: tags }),
     })
     if (!res.ok) {
       const err: { error?: string } = await res.json()
@@ -317,12 +315,10 @@ export default function RecipePageContent() {
   async function handleBulkDelete() {
     setBulkDeleting(true)
     try {
-      const token = await getAccessToken()
       await Promise.all(
         Array.from(selectedIds).map((id) =>
           fetch(`/api/recipes/${id}`, {
             method: 'DELETE',
-            headers: { Authorization: `Bearer ${token}` },
           })
         )
       )
@@ -535,46 +531,71 @@ export default function RecipePageContent() {
         </div>
       )}
 
-      {/* Body: sidebar + recipes */}
-      <div className="flex gap-6 items-start">
-        {/* Filter sidebar */}
-        {sidebarOpen && (
-          <aside className="w-56 shrink-0">
-            <FilterSidebar
-              filters={filters}
-              onChange={setFilters}
-              onClearAll={handleClearAllFilters}
-              vaultTags={vaultTags}
-              activeCount={activeFilterCount}
-              onDeleteTag={handleDeleteCustomTag}
-            />
-          </aside>
-        )}
-
-        {/* Recipe display */}
-        <div className="flex-1 min-w-0">
-          {viewMode === 'grid' ? (
-            <RecipeGrid
-              recipes={displayedRecipes}
-              selectedIds={selectedIds}
-              onSelect={handleSelect}
-              currentUserId={currentUserId}
-              loading={loading}
-            />
-          ) : (
-            <RecipeListView
-              recipes={displayedRecipes}
-              selectedIds={selectedIds}
-              onSelect={handleSelect}
-              onSelectAll={handleSelectAll}
-              sortKey={listSortKey}
-              sortDir={listSortDir}
-              onSort={handleListSort}
-              currentUserId={currentUserId}
-            />
-          )}
+      {/* First-time empty state */}
+      {!loading && recipes.length === 0 && searchResults === null && activeFilterCount === 0 ? (
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+          <h2 className="font-display text-2xl font-semibold text-stone-800 mb-3">Add your recipes to get started</h2>
+          <p className="text-stone-500 text-sm mb-8 max-w-sm">
+            Thymeline plans meals from recipes you love. Paste a link from any recipe site and we&apos;ll import it for you. Each import takes about 30 seconds — add a handful to get going.
+          </p>
+          <div className="flex flex-col gap-3 w-56">
+            <Link
+              href="/import"
+              className="bg-sage-500 text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-sage-600 transition-colors text-center"
+            >
+              Import recipes
+            </Link>
+            <button
+              type="button"
+              onClick={() => setShowAddModal(true)}
+              className="border border-stone-300 text-stone-600 px-6 py-2.5 rounded-lg text-sm font-medium hover:border-stone-400 hover:text-stone-800 transition-colors"
+            >
+              Add a single recipe
+            </button>
+          </div>
         </div>
-      </div>
+      ) : (
+        /* Body: sidebar + recipes */
+        <div className="flex gap-6 items-start">
+          {/* Filter sidebar */}
+          {sidebarOpen && (
+            <aside className="w-56 shrink-0">
+              <FilterSidebar
+                filters={filters}
+                onChange={setFilters}
+                onClearAll={handleClearAllFilters}
+                vaultTags={vaultTags}
+                activeCount={activeFilterCount}
+                onDeleteTag={handleDeleteCustomTag}
+              />
+            </aside>
+          )}
+
+          {/* Recipe display */}
+          <div className="flex-1 min-w-0">
+            {viewMode === 'grid' ? (
+              <RecipeGrid
+                recipes={displayedRecipes}
+                selectedIds={selectedIds}
+                onSelect={handleSelect}
+                currentUserId={currentUserId}
+                loading={loading}
+              />
+            ) : (
+              <RecipeListView
+                recipes={displayedRecipes}
+                selectedIds={selectedIds}
+                onSelect={handleSelect}
+                onSelectAll={handleSelectAll}
+                sortKey={listSortKey}
+                sortDir={listSortDir}
+                onSort={handleListSort}
+                currentUserId={currentUserId}
+              />
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Add recipe modal */}
       {showAddModal && (
@@ -582,7 +603,6 @@ export default function RecipePageContent() {
           initialTab={addModalTab}
           onClose={() => setShowAddModal(false)}
           onSaved={() => void fetchRecipes()}
-          getToken={getAccessToken}
         />
       )}
 
@@ -591,7 +611,6 @@ export default function RecipePageContent() {
         <GenerateRecipeModal
           onClose={() => setShowGenerateModal(false)}
           onSaved={() => void fetchRecipes()}
-          getToken={getAccessToken}
         />
       )}
 

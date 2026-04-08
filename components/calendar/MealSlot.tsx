@@ -45,11 +45,11 @@ function MealItem({ entry, indented, onDelete, isSwapMode, isSelected, onTap }: 
   const inner = (
     <>
       <span className="text-xs font-display font-medium text-sage-900 truncate block leading-snug">
-        {entry.recipe_title}
+        {entry.recipeTitle}
       </span>
-      {entry.total_time_minutes != null && (
+      {entry.totalTimeMinutes != null && (
         <span className="text-[10px] font-sans text-stone-500 block mt-0.5">
-          · {formatMinutes(entry.total_time_minutes)}
+          · {formatMinutes(entry.totalTimeMinutes)}
         </span>
       )}
     </>
@@ -66,14 +66,14 @@ function MealItem({ entry, indented, onDelete, isSwapMode, isSelected, onTap }: 
       {isSwapMode ? (
         <div className="flex-1 min-w-0">{inner}</div>
       ) : (
-        <Link href={`/recipes/${entry.recipe_id}`} className="flex-1 min-w-0">
+        <Link href={`/recipes/${entry.recipeId}`} className="flex-1 min-w-0">
           {inner}
         </Link>
       )}
       {!isSwapMode && (
         <button
           onClick={() => onDelete(entry.id)}
-          aria-label={`Remove ${entry.recipe_title}`}
+          aria-label={`Remove ${entry.recipeTitle}`}
           className="text-stone-300 hover:text-terra-500 transition-colors opacity-0 group-hover:opacity-100 text-base leading-none flex-shrink-0"
         >
           ×
@@ -89,9 +89,9 @@ export default function MealSlot({ mealType, date, entries, onAdd, onDelete, isS
   const [dessertVaultForParent, setDessertVaultForParent] = useState<string | null>(null)
 
   const canHaveSideDishes = mealType === 'dinner' || mealType === 'lunch'
-  const mainEntries = entries.filter((e) => !e.is_side_dish)
+  const mainEntries = entries.filter((e) => !e.isSideDish)
   const hasMainEntry = mainEntries.length > 0
-  const hasCookableSide = entries.some((e) => e.is_side_dish && e.meal_type !== 'dessert')
+  const hasCookableSide = entries.some((e) => e.isSideDish && e.mealType !== 'dessert')
 
   return (
     <div className="mb-4 last:mb-0">
@@ -105,8 +105,8 @@ export default function MealSlot({ mealType, date, entries, onAdd, onDelete, isS
             <Link
               href={
                 mainEntries.length === 1 && !hasCookableSide
-                  ? `/recipes/${mainEntries[0]!.recipe_id}/cook`
-                  : `/meal/${date}?meal_type=${mealType}`
+                  ? `/recipes/${mainEntries[0]!.recipeId}/cook`
+                  : `/meal/${date}?mealType=${mealType}`
               }
               className="text-[10px] font-medium text-sage-600 bg-sage-50 border border-sage-200 hover:bg-sage-100 px-2 py-0.5 rounded transition-colors"
               aria-label={`Cook ${MEAL_TYPE_LABELS[mealType]}`}
@@ -126,15 +126,15 @@ export default function MealSlot({ mealType, date, entries, onAdd, onDelete, isS
 
       {/* Main entries */}
       {mainEntries.map((entry) => {
-        const sideDishes = entries.filter((e) => e.is_side_dish && e.meal_type !== 'dessert' && e.parent_entry_id === entry.id)
-        const dessertEntries = entries.filter((e) => e.meal_type === 'dessert' && e.parent_entry_id === entry.id)
+        const sideDishes = entries.filter((e) => e.isSideDish && e.mealType !== 'dessert' && e.parentEntryId === entry.id)
+        const dessertEntries = entries.filter((e) => e.mealType === 'dessert' && e.parentEntryId === entry.id)
         return (
           <div key={entry.id}>
             <MealItem
               entry={entry}
               indented={false}
               onDelete={onDelete}
-              isSwapMode={isSwapMode && !entry.is_side_dish}
+              isSwapMode={isSwapMode && !entry.isSideDish}
               isSelected={selectedEntryId === entry.id}
               onTap={onMealTap}
             />
@@ -149,13 +149,13 @@ export default function MealSlot({ mealType, date, entries, onAdd, onDelete, isS
                   <span className="text-[10px] font-display font-bold uppercase tracking-[0.1em] text-sage-500 flex-shrink-0">
                     Dessert
                   </span>
-                  <Link href={`/recipes/${d.recipe_id}`} className="text-xs font-display font-medium text-sage-900 truncate">
-                    {d.recipe_title}
+                  <Link href={`/recipes/${d.recipeId}`} className="text-xs font-display font-medium text-sage-900 truncate">
+                    {d.recipeTitle}
                   </Link>
                 </div>
                 <button
                   onClick={() => onDelete(d.id)}
-                  aria-label={`Remove ${d.recipe_title}`}
+                  aria-label={`Remove ${d.recipeTitle}`}
                   className="text-stone-300 hover:text-terra-500 transition-colors opacity-0 group-hover:opacity-100 text-base leading-none flex-shrink-0"
                 >
                   ×
@@ -193,8 +193,8 @@ export default function MealSlot({ mealType, date, entries, onAdd, onDelete, isS
         <VaultSearchSheet
           forDate=""
           mealType={mealType}
-          onAssign={({ recipe_id, recipe_title }) => {
-            onAdd(recipe_id, recipe_title)
+          onAssign={({ recipeId, recipeTitle }) => {
+            onAdd(recipeId, recipeTitle)
             setVaultOpen(false)
           }}
           onClose={() => setVaultOpen(false)}
@@ -206,8 +206,8 @@ export default function MealSlot({ mealType, date, entries, onAdd, onDelete, isS
         <VaultSearchSheet
           forDate=""
           mealType="snack"
-          onAssign={({ recipe_id, recipe_title }) => {
-            onAdd(recipe_id, recipe_title, true, sideDishVaultForParent)
+          onAssign={({ recipeId, recipeTitle }) => {
+            onAdd(recipeId, recipeTitle, true, sideDishVaultForParent)
             setSideDishVaultForParent(null)
           }}
           onClose={() => setSideDishVaultForParent(null)}
@@ -218,8 +218,8 @@ export default function MealSlot({ mealType, date, entries, onAdd, onDelete, isS
         <VaultSearchSheet
           forDate=""
           mealType="dessert"
-          onAssign={({ recipe_id, recipe_title }) => {
-            onAdd(recipe_id, recipe_title, true, dessertVaultForParent, 'dessert')
+          onAssign={({ recipeId, recipeTitle }) => {
+            onAdd(recipeId, recipeTitle, true, dessertVaultForParent, 'dessert')
             setDessertVaultForParent(null)
           }}
           onClose={() => setDessertVaultForParent(null)}

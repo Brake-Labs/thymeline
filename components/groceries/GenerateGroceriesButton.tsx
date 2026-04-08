@@ -2,13 +2,12 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { getAccessToken } from '@/lib/supabase/browser'
 
 interface GenerateGroceriesButtonProps {
   /** Preferred: explicit date range */
   dateFrom?: string
   dateTo?:   string
-  /** Legacy: single week_start (still accepted by the API) */
+  /** Legacy: single weekStart (still accepted by the API) */
   weekStart?: string
 }
 
@@ -21,14 +20,13 @@ export default function GenerateGroceriesButton({ dateFrom, dateTo, weekStart }:
     setLoading(true)
     setError(null)
     try {
-      const token = await getAccessToken()
       const payload = dateFrom && dateTo
-        ? { date_from: dateFrom, date_to: dateTo }
-        : { week_start: weekStart }
+        ? { dateFrom: dateFrom, dateTo: dateTo }
+        : { weekStart: weekStart }
 
       const res = await fetch('/api/groceries/generate', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify(payload),
       })
       if (!res.ok) {
@@ -36,9 +34,9 @@ export default function GenerateGroceriesButton({ dateFrom, dateTo, weekStart }:
         setError(body.error ?? 'Failed to generate grocery list')
         return
       }
-      // Navigate to the list using date_from as the key
+      // Navigate to the list using dateFrom as the key
       if (dateFrom) {
-        router.push(`/groceries?date_from=${dateFrom}&date_to=${dateTo}`)
+        router.push(`/groceries?dateFrom=${dateFrom}&dateTo=${dateTo}`)
       }
       router.refresh()
     } catch {

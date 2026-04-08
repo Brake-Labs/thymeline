@@ -4,113 +4,103 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { defaultMockState, defaultGetSession, makeRequest, mockHousehold } from '@/test/helpers'
 
-const mockUser = { id: 'user-1' }
+const mockState = defaultMockState()
 
 const ownedRecipe = {
   id: 'recipe-1',
-  user_id: 'user-1',
+  userId: 'user-1',
+  householdId: null,
   tags: ['Chicken', 'Quick'],
 }
 
 const foreignRecipe = {
   id: 'recipe-2',
-  user_id: 'user-2',
+  userId: 'user-2',
+  householdId: null,
   tags: ['Beef'],
 }
 
-function makeSupabaseMock(opts: {
-  user?: typeof mockUser | null
-  recipes?: typeof ownedRecipe[]
-  customTags?: { name: string }[]
-  updateResult?: unknown
-}) {
-  const { user = mockUser, recipes = [ownedRecipe], customTags = [], updateResult = null } = opts
+// ── Mock chain builder ───────────────────────────────────────────────────────
 
-  return {
-    auth: {
-      getUser: vi.fn().mockResolvedValue({
-        data: { user },
-        error: user ? null : new Error('No user'),
-      }),
-    },
-    from: vi.fn((table: string) => {
-      if (table === 'recipes') {
-        return {
-          select: vi.fn().mockReturnValue({
-            in: vi.fn().mockResolvedValue({ data: recipes, error: null }),
-          }),
-          update: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              select: vi.fn().mockReturnValue({
-                single: vi.fn().mockResolvedValue({ data: updateResult, error: null }),
-              }),
-            }),
-          }),
-        }
-      }
-      if (table === 'custom_tags') {
-        return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockResolvedValue({ data: customTags, error: null }),
-          }),
-        }
-      }
-      return {}
-    }),
+function mockChain(result: unknown[] = []) {
+  const chain: Record<string, unknown> = {}
+  const methods = ['from', 'where', 'orderBy', 'limit', 'offset', 'innerJoin', 'leftJoin',
+    'set', 'values', 'onConflictDoUpdate', 'onConflictDoNothing', 'returning', 'groupBy']
+  for (const m of methods) {
+    chain[m] = vi.fn().mockReturnValue(chain)
   }
+  chain.then = vi.fn().mockImplementation(
+    (resolve: (v: unknown) => void) => Promise.resolve(result).then(resolve),
+  )
+  return chain
 }
 
-vi.mock('@/lib/supabase-server', () => ({
-  createServerClient: vi.fn(),
-  createAdminClient:  vi.fn(),
-}))
+let selectResults: unknown[][] = [[ownedRecipe]]
+let selectCallIdx = 0
+let updateResult: unknown[] = []
 
-vi.mock('@/lib/household', () => ({
-  resolveHouseholdScope: async () => null,
-  canManage: (role: string) => role === 'owner' || role === 'co_owner',
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  scopeQuery: (query: any, userId: string, ctx: any) => {
-    if (ctx) return query.eq('household_id', ctx.householdId)
-    return query.eq('user_id', userId)
+vi.mock('@/lib/db', () => ({
+  db: {
+    select: vi.fn(() => {
+      const result = selectResults[selectCallIdx] ?? []
+      selectCallIdx++
+      return mockChain(result)
+    }),
+    insert: vi.fn(() => mockChain([])),
+    update: vi.fn(() => mockChain(updateResult)),
+    delete: vi.fn(() => mockChain([])),
+    execute: vi.fn().mockResolvedValue({ rows: [] }),
   },
 }))
 
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
+vi.mock('@/lib/auth-server', () => ({
+  auth: {
+    api: {
+      getSession: vi.fn(),
+    },
+  },
+}))
 
-function makeReq(body?: unknown): Request {
-  return new Request('http://localhost/api/recipes/bulk', {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test' },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  })
+vi.mock('@/lib/household', () => mockHousehold())
+
+vi.mock('@/lib/tags-server', () => ({
+  validateTags: vi.fn().mockResolvedValue({ valid: true }),
+}))
+
+async function setupAuth() {
+  const { auth } = await import('@/lib/auth-server')
+  vi.mocked(auth.api.getSession).mockImplementation(defaultGetSession(mockState))
 }
 
 describe('PATCH /api/recipes/bulk', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.resetModules()
+    selectCallIdx = 0
+    updateResult = []
+    await setupAuth()
   })
 
-  it('T42: returns 403 when any recipe_id belongs to a different user', async () => {
-    const mock = makeSupabaseMock({ recipes: [ownedRecipe, foreignRecipe] })
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
+  it('T42: returns 403 when any recipeId belongs to a different user', async () => {
+    selectResults = [[ownedRecipe, foreignRecipe]]
 
     const { PATCH } = await import('../route')
     const res = await PATCH(
-      makeReq({ recipe_ids: ['recipe-1', 'recipe-2'], add_tags: ['Chicken'] }) as Parameters<typeof PATCH>[0]
+      makeRequest('PATCH', 'http://localhost/api/recipes/bulk', { recipeIds: ['recipe-1', 'recipe-2'], addTags: ['Chicken'] }),
     )
     expect(res.status).toBe(403)
   })
 
-  it('T43: returns 400 when add_tags contains an unknown tag', async () => {
-    const mock = makeSupabaseMock({ customTags: [] })
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
+  it('T43: returns 400 when addTags contains an unknown tag', async () => {
+    selectResults = [[ownedRecipe]]
+
+    const { validateTags } = await import('@/lib/tags-server')
+    vi.mocked(validateTags).mockResolvedValue({ valid: false, unknownTags: ['NotARealTag'] })
 
     const { PATCH } = await import('../route')
     const res = await PATCH(
-      makeReq({ recipe_ids: ['recipe-1'], add_tags: ['NotARealTag'] }) as Parameters<typeof PATCH>[0]
+      makeRequest('PATCH', 'http://localhost/api/recipes/bulk', { recipeIds: ['recipe-1'], addTags: ['NotARealTag'] }),
     )
     expect(res.status).toBe(400)
     const body = await res.json()
@@ -118,48 +108,46 @@ describe('PATCH /api/recipes/bulk', () => {
   })
 
   it('T22: returns 200 with updated recipes on success', async () => {
+    selectResults = [[ownedRecipe]]
     const updatedRecipe = { ...ownedRecipe, tags: ['Chicken', 'Quick', 'Favorite'] }
-    const mock = makeSupabaseMock({ customTags: [{ name: 'Favorite' }], updateResult: updatedRecipe })
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
+    updateResult = [updatedRecipe]
+
+    const { validateTags } = await import('@/lib/tags-server')
+    vi.mocked(validateTags).mockResolvedValue({ valid: true })
 
     const { PATCH } = await import('../route')
     const res = await PATCH(
-      makeReq({ recipe_ids: ['recipe-1'], add_tags: ['Favorite'] }) as Parameters<typeof PATCH>[0]
+      makeRequest('PATCH', 'http://localhost/api/recipes/bulk', { recipeIds: ['recipe-1'], addTags: ['Favorite'] }),
     )
     expect(res.status).toBe(200)
     const json = await res.json()
     expect(Array.isArray(json)).toBe(true)
   })
 
-  it('T23: merges add_tags additively with existing recipe tags', async () => {
-    // ownedRecipe already has ['Chicken', 'Quick']; adding 'Healthy' (in library) should merge
+  it('T23: merges addTags additively with existing recipe tags', async () => {
+    selectResults = [[ownedRecipe]]
     const updatedRecipe = { ...ownedRecipe, tags: ['Chicken', 'Quick', 'Healthy'] }
-    const mock = makeSupabaseMock({ customTags: [{ name: 'Healthy' }], updateResult: updatedRecipe })
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
+    updateResult = [updatedRecipe]
+
+    const { validateTags } = await import('@/lib/tags-server')
+    vi.mocked(validateTags).mockResolvedValue({ valid: true })
 
     const { PATCH } = await import('../route')
     const res = await PATCH(
-      makeReq({ recipe_ids: ['recipe-1'], add_tags: ['Healthy'] }) as Parameters<typeof PATCH>[0]
+      makeRequest('PATCH', 'http://localhost/api/recipes/bulk', { recipeIds: ['recipe-1'], addTags: ['Healthy'] }),
     )
     expect(res.status).toBe(200)
     const json = await res.json()
     expect(Array.isArray(json)).toBe(true)
-    // The updated recipe should contain all original tags plus the new one
     expect(updatedRecipe.tags).toContain('Chicken')
     expect(updatedRecipe.tags).toContain('Quick')
     expect(updatedRecipe.tags).toContain('Healthy')
   })
 
-  it('returns 400 when recipe_ids is empty', async () => {
-    const mock = makeSupabaseMock({})
-    vi.mocked(createServerClient).mockReturnValue(mock as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(mock as unknown as ReturnType<typeof createAdminClient>)
-
+  it('returns 400 when recipeIds is empty', async () => {
     const { PATCH } = await import('../route')
     const res = await PATCH(
-      makeReq({ recipe_ids: [], add_tags: ['Chicken'] }) as Parameters<typeof PATCH>[0]
+      makeRequest('PATCH', 'http://localhost/api/recipes/bulk', { recipeIds: [], addTags: ['Chicken'] }),
     )
     expect(res.status).toBe(400)
   })

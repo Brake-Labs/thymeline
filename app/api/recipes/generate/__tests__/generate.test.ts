@@ -4,8 +4,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { defaultMockState, defaultGetSession, makeRequest, mockHousehold } from '@/test/helpers'
 
-const mockUser = { id: 'user-1' }
+const mockState = defaultMockState()
 
 // Module-level LLM mock state
 const mockLLMState = {
@@ -37,70 +38,79 @@ vi.mock('@/lib/llm', () => ({
   LLM_MODEL_CAPABLE: 'claude-sonnet-4-6',
 }))
 
-vi.mock('@/lib/supabase-server', () => ({
-  createServerClient: vi.fn(),
-  createAdminClient: vi.fn(),
-}))
+// ── Mock chain builder ───────────────────────────────────────────────────────
 
-vi.mock('@/lib/household', () => ({
-  resolveHouseholdScope: async () => null,
-  canManage: (role: string) => role === 'owner' || role === 'co_owner',
-  scopeQuery: (query: { eq: (col: string, val: string) => unknown }) => query.eq('user_id', 'user-1'),
-}))
-
-import { createServerClient, createAdminClient } from '@/lib/supabase-server'
-
-function makeAuthMock() {
-  return {
-    auth: {
-      getUser: vi.fn().mockResolvedValue({ data: { user: mockUser }, error: null }),
-    },
-    from: vi.fn((table: string) => {
-      if (table === 'user_preferences') {
-        return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              maybeSingle: vi.fn().mockResolvedValue({ data: { meal_context: null }, error: null }),
-            }),
-          }),
-        }
-      }
-      return {}
-    }),
+function mockChain(result: unknown[] = []) {
+  const chain: Record<string, unknown> = {}
+  const methods = ['from', 'where', 'orderBy', 'limit', 'offset', 'innerJoin', 'leftJoin',
+    'set', 'values', 'onConflictDoUpdate', 'onConflictDoNothing', 'returning', 'groupBy']
+  for (const m of methods) {
+    chain[m] = vi.fn().mockReturnValue(chain)
   }
+  chain.then = vi.fn().mockImplementation(
+    (resolve: (v: unknown) => void) => Promise.resolve(result).then(resolve),
+  )
+  return chain
 }
 
-function makeReq(body: unknown): Request {
-  return new Request('http://localhost/api/recipes/generate', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test' },
-    body: JSON.stringify(body),
-  })
+vi.mock('@/lib/db', () => ({
+  db: {
+    select: vi.fn(() => mockChain([])),
+    insert: vi.fn(() => mockChain([])),
+    update: vi.fn(() => mockChain([])),
+    delete: vi.fn(() => mockChain([])),
+    execute: vi.fn().mockResolvedValue({ rows: [] }),
+  },
+}))
+
+vi.mock('@/lib/auth-server', () => ({
+  auth: {
+    api: {
+      getSession: vi.fn(),
+    },
+  },
+}))
+
+vi.mock('@/lib/household', () => mockHousehold())
+
+vi.mock('@/lib/taste-profile', () => ({
+  deriveTasteProfile: vi.fn().mockResolvedValue(null),
+}))
+
+vi.mock('@/lib/waste-overlap', () => ({
+  detectWasteOverlap: vi.fn().mockResolvedValue(new Map()),
+}))
+
+vi.mock('@/lib/plan-utils', () => ({
+  fetchCurrentWeekPlan: vi.fn().mockResolvedValue([]),
+  getPlanWasteBadgeText: vi.fn().mockReturnValue(''),
+}))
+
+async function setupAuth() {
+  const { auth } = await import('@/lib/auth-server')
+  vi.mocked(auth.api.getSession).mockImplementation(defaultGetSession(mockState))
 }
 
 const defaultBody = {
-  specific_ingredients: 'chicken breast, spinach',
-  meal_type: 'dinner',
-  style_hints: '',
-  dietary_restrictions: [],
+  specificIngredients: 'chicken breast, spinach',
+  mealType: 'dinner',
+  styleHints: '',
+  dietaryRestrictions: [],
 }
 
 // ── T05: Returns 400 when no ingredients ──────────────────────────────────────
 
 describe('T05 - POST /api/recipes/generate returns 400 when no ingredients', () => {
-  beforeEach(() => { vi.resetModules(); mockLLMState.shouldThrow = false })
+  beforeEach(async () => { vi.resetModules(); mockLLMState.shouldThrow = false; await setupAuth() })
 
-  it('returns 400 when specific_ingredients is blank', async () => {
-    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createAdminClient>)
-
+  it('returns 400 when specificIngredients is blank', async () => {
     const { POST } = await import('../route')
-    const res = await POST(makeReq({
-      specific_ingredients: '',
-      meal_type: 'dinner',
-      style_hints: '',
-      dietary_restrictions: [],
-    }) as Parameters<typeof POST>[0])
+    const res = await POST(makeRequest('POST', 'http://localhost/api/recipes/generate', {
+      specificIngredients: '',
+      mealType: 'dinner',
+      styleHints: '',
+      dietaryRestrictions: [],
+    }))
 
     expect(res.status).toBe(400)
     const json = await res.json()
@@ -111,7 +121,7 @@ describe('T05 - POST /api/recipes/generate returns 400 when no ingredients', () 
 // ── T06: Returns valid GeneratedRecipe on success ─────────────────────────────
 
 describe('T06 - POST /api/recipes/generate returns a valid GeneratedRecipe', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.resetModules()
     mockLLMState.shouldThrow = false
     mockLLMState.response = JSON.stringify({
@@ -127,14 +137,12 @@ describe('T06 - POST /api/recipes/generate returns a valid GeneratedRecipe', () 
       inactiveTimeMinutes: null,
       notes: 'Great weeknight meal',
     })
+    await setupAuth()
   })
 
   it('returns 200 with a GeneratedRecipe shape', async () => {
-    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createAdminClient>)
-
     const { POST } = await import('../route')
-    const res = await POST(makeReq(defaultBody) as Parameters<typeof POST>[0])
+    const res = await POST(makeRequest('POST', 'http://localhost/api/recipes/generate', defaultBody))
 
     expect(res.status).toBe(200)
     const json = await res.json()
@@ -143,10 +151,10 @@ describe('T06 - POST /api/recipes/generate returns a valid GeneratedRecipe', () 
     expect(json.steps).toBe('Cook chicken\nAdd spinach')
     expect(json.category).toBe('main_dish')
     expect(json.servings).toBe(4)
-    expect(json.prep_time_minutes).toBe(10)
-    expect(json.cook_time_minutes).toBe(20)
-    expect(json.total_time_minutes).toBe(30)
-    expect(json.inactive_time_minutes).toBeNull()
+    expect(json.prepTimeMinutes).toBe(10)
+    expect(json.cookTimeMinutes).toBe(20)
+    expect(json.totalTimeMinutes).toBe(30)
+    expect(json.inactiveTimeMinutes).toBeNull()
     expect(json.notes).toBe('Great weeknight meal')
   })
 })
@@ -154,7 +162,7 @@ describe('T06 - POST /api/recipes/generate returns a valid GeneratedRecipe', () 
 // ── T07: Tags filtered to FIRST_CLASS_TAGS ────────────────────────────────────
 
 describe('T07 - Tags returned by LLM are filtered to FIRST_CLASS_TAGS', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.resetModules()
     mockLLMState.shouldThrow = false
     mockLLMState.response = JSON.stringify({
@@ -170,14 +178,12 @@ describe('T07 - Tags returned by LLM are filtered to FIRST_CLASS_TAGS', () => {
       inactiveTimeMinutes: null,
       notes: null,
     })
+    await setupAuth()
   })
 
   it('drops unrecognised tags, keeps valid ones', async () => {
-    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createAdminClient>)
-
     const { POST } = await import('../route')
-    const res = await POST(makeReq(defaultBody) as Parameters<typeof POST>[0])
+    const res = await POST(makeRequest('POST', 'http://localhost/api/recipes/generate', defaultBody))
 
     expect(res.status).toBe(200)
     const json = await res.json()
@@ -191,7 +197,7 @@ describe('T07 - Tags returned by LLM are filtered to FIRST_CLASS_TAGS', () => {
 // ── T08: Invalid LLM category falls back to mealTypeToCategory ───────────────
 
 describe('T08 - Invalid LLM category falls back to mealTypeToCategory("dinner")', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.resetModules()
     mockLLMState.shouldThrow = false
     mockLLMState.response = JSON.stringify({
@@ -207,14 +213,12 @@ describe('T08 - Invalid LLM category falls back to mealTypeToCategory("dinner")'
       inactiveTimeMinutes: null,
       notes: null,
     })
+    await setupAuth()
   })
 
-  it('returns main_dish when LLM category is invalid and meal_type is dinner', async () => {
-    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createAdminClient>)
-
+  it('returns main_dish when LLM category is invalid and mealType is dinner', async () => {
     const { POST } = await import('../route')
-    const res = await POST(makeReq(defaultBody) as Parameters<typeof POST>[0])
+    const res = await POST(makeRequest('POST', 'http://localhost/api/recipes/generate', defaultBody))
 
     expect(res.status).toBe(200)
     const json = await res.json()
@@ -237,7 +241,6 @@ describe('T09 - All mealType → category mappings are correct', () => {
     it(`${mealType} → ${expectedCategory}`, async () => {
       vi.resetModules()
       mockLLMState.shouldThrow = false
-      // Return invalid category so fallback fires
       mockLLMState.response = JSON.stringify({
         title: 'Test', ingredients: 'x', steps: 'y',
         tags: [], category: 'invalid', servings: null,
@@ -245,11 +248,10 @@ describe('T09 - All mealType → category mappings are correct', () => {
         totalTimeMinutes: null, inactiveTimeMinutes: null, notes: null,
       })
 
-      vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createServerClient>)
-      vi.mocked(createAdminClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createAdminClient>)
+      await setupAuth()
 
       const { POST } = await import('../route')
-      const res = await POST(makeReq({ ...defaultBody, meal_type: mealType }) as Parameters<typeof POST>[0])
+      const res = await POST(makeRequest('POST', 'http://localhost/api/recipes/generate', { ...defaultBody, mealType: mealType }))
 
       expect(res.status).toBe(200)
       const json = await res.json()
@@ -261,17 +263,15 @@ describe('T09 - All mealType → category mappings are correct', () => {
 // ── T10: Returns 500 when LLM throws ─────────────────────────────────────────
 
 describe('T10 - POST /api/recipes/generate returns 500 when LLM call throws', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.resetModules()
     mockLLMState.shouldThrow = true
+    await setupAuth()
   })
 
   it('returns 500 on LLM error', async () => {
-    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createAdminClient>)
-
     const { POST } = await import('../route')
-    const res = await POST(makeReq(defaultBody) as Parameters<typeof POST>[0])
+    const res = await POST(makeRequest('POST', 'http://localhost/api/recipes/generate', defaultBody))
 
     expect(res.status).toBe(500)
     const json = await res.json()
@@ -282,18 +282,16 @@ describe('T10 - POST /api/recipes/generate returns 500 when LLM call throws', ()
 // ── T11: Returns 500 when LLM returns unparseable JSON ────────────────────────
 
 describe('T11 - POST /api/recipes/generate returns 500 when LLM returns unparseable JSON', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.resetModules()
     mockLLMState.shouldThrow = false
     mockLLMState.response = 'not valid json at all }{{'
+    await setupAuth()
   })
 
   it('returns 500 on parse failure', async () => {
-    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createAdminClient>)
-
     const { POST } = await import('../route')
-    const res = await POST(makeReq(defaultBody) as Parameters<typeof POST>[0])
+    const res = await POST(makeRequest('POST', 'http://localhost/api/recipes/generate', defaultBody))
 
     expect(res.status).toBe(500)
     const json = await res.json()
@@ -303,8 +301,8 @@ describe('T11 - POST /api/recipes/generate returns 500 when LLM returns unparsea
 
 // ── T12: Tweak request — user message references previous recipe ───────────────
 
-describe('T12 - POST /api/recipes/generate with tweak_request references previous recipe in LLM message', () => {
-  beforeEach(() => {
+describe('T12 - POST /api/recipes/generate with tweakRequest references previous recipe in LLM message', () => {
+  beforeEach(async () => {
     vi.resetModules()
     vi.clearAllMocks()
     mockLLMState.shouldThrow = false
@@ -321,22 +319,20 @@ describe('T12 - POST /api/recipes/generate with tweak_request references previou
       inactiveTimeMinutes: null,
       notes: null,
     })
+    await setupAuth()
   })
 
-  it('passes tweak_request and previous_recipe in the LLM user message', async () => {
-    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createAdminClient>)
-
+  it('passes tweakRequest and previousRecipe in the LLM user message', async () => {
     const { POST } = await import('../route')
-    await POST(makeReq({
+    await POST(makeRequest('POST', 'http://localhost/api/recipes/generate', {
       ...defaultBody,
-      tweak_request: 'remove the chickpeas',
-      previous_recipe: {
+      tweakRequest: 'remove the chickpeas',
+      previousRecipe: {
         title: 'Original Stir Fry',
         ingredients: 'chicken breast\nchickpeas\nspinach',
         steps: 'Cook chicken\nAdd chickpeas\nAdd spinach',
       },
-    }) as Parameters<typeof POST>[0])
+    }))
 
     const { callLLM } = await import('@/lib/llm')
     expect(vi.mocked(callLLM)).toHaveBeenCalled()
@@ -347,19 +343,16 @@ describe('T12 - POST /api/recipes/generate with tweak_request references previou
   })
 
   it('returns revised recipe on success', async () => {
-    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createAdminClient>)
-
     const { POST } = await import('../route')
-    const res = await POST(makeReq({
+    const res = await POST(makeRequest('POST', 'http://localhost/api/recipes/generate', {
       ...defaultBody,
-      tweak_request: 'add more spice',
-      previous_recipe: {
+      tweakRequest: 'add more spice',
+      previousRecipe: {
         title: 'Original Stir Fry',
         ingredients: 'chicken breast\nspinach',
         steps: 'Cook chicken\nAdd spinach',
       },
-    }) as Parameters<typeof POST>[0])
+    }))
 
     expect(res.status).toBe(200)
     const json = await res.json()
@@ -370,7 +363,7 @@ describe('T12 - POST /api/recipes/generate with tweak_request references previou
 // ── T13: No tweak fields → standard user message ──────────────────────────────
 
 describe('T13 - POST /api/recipes/generate without tweak fields uses standard user message', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.resetModules()
     vi.clearAllMocks()
     mockLLMState.shouldThrow = false
@@ -387,14 +380,12 @@ describe('T13 - POST /api/recipes/generate without tweak fields uses standard us
       inactiveTimeMinutes: null,
       notes: null,
     })
+    await setupAuth()
   })
 
   it('does not include tweak language in LLM message when no tweak fields provided', async () => {
-    vi.mocked(createServerClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createServerClient>)
-    vi.mocked(createAdminClient).mockReturnValue(makeAuthMock() as unknown as ReturnType<typeof createAdminClient>)
-
     const { POST } = await import('../route')
-    await POST(makeReq(defaultBody) as Parameters<typeof POST>[0])
+    await POST(makeRequest('POST', 'http://localhost/api/recipes/generate', defaultBody))
 
     const { callLLM } = await import('@/lib/llm')
     expect(vi.mocked(callLLM)).toHaveBeenCalled()

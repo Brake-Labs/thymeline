@@ -6,7 +6,7 @@
  * file because vitest hoists them.
  *
  * Usage:
- *   import { mockSupabase, mockHousehold, makeRequest, defaultMockState, tableMock } from '@/test/helpers'
+ *   import { mockAuth, mockHousehold, makeRequest, defaultMockState } from '@/test/helpers'
  */
 import { vi } from 'vitest'
 import { NextRequest } from 'next/server'
@@ -18,42 +18,112 @@ import { NextRequest } from 'next/server'
 /** The mock user shape used across tests. */
 export interface MockUser {
   id: string
+  email: string
+  name: string | null
+  image: string | null
 }
 
-/** A single table's mock method overrides (select, insert, update, etc.). */
-export type TableBehavior = Record<string, (...args: unknown[]) => unknown>
-
-/** Config object mapping table names to their mock behaviors. */
-export type TableConfig = Record<string, TableBehavior>
-
 // ---------------------------------------------------------------------------
-// 1. mockSupabase — returns the factory object for vi.mock('@/lib/supabase-server')
+// 1. mockAuth — returns the factory object for vi.mock('@/lib/auth-server')
 // ---------------------------------------------------------------------------
+
+/** The mock session shape returned by getSession. */
+export interface MockSession {
+  user: MockUser
+  session: {
+    id: string
+    createdAt: Date
+    updatedAt: Date
+    userId: string
+    expiresAt: Date
+    token: string
+  }
+}
+
+/** Build a mock session object from a MockUser. */
+export function buildMockSession(user: MockUser): MockSession {
+  return {
+    user,
+    session: {
+      id: 'sess-1',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      userId: user.id,
+      expiresAt: new Date(Date.now() + 86400000),
+      token: 'tok',
+    },
+  }
+}
 
 /**
- * Build the mock module shape for `@/lib/supabase-server`.
+ * Build the mock module shape for `@/lib/auth-server`.
  *
- * @param mockFromFn  A `from(table)` function that dispatches to table-specific mocks.
- * @param getUserFn   Optional override for `auth.getUser`. Defaults to reading from
- *                    whatever `mockState.user` the caller defines.
- *
- * Returns `{ createServerClient, createAdminClient }` suitable for vi.mock's factory.
+ * @param getSessionFn  Returns a session object or null.
  */
-export function mockSupabase(
-  mockFromFn: (table: string) => unknown,
-  getUserFn: () => Promise<{ data: { user: MockUser | null }; error: { message: string } | null }>,
+export function mockAuth(
+  getSessionFn: () => Promise<MockSession | null>,
 ) {
   return {
-    createServerClient: () => ({
-      auth: { getUser: getUserFn },
-      from: mockFromFn,
-    }),
-    createAdminClient: () => ({ from: mockFromFn }),
+    auth: {
+      api: {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock session type
+        getSession: vi.fn(getSessionFn as any),
+      },
+    },
   }
 }
 
 // ---------------------------------------------------------------------------
-// 2. mockHousehold — returns the factory object for vi.mock('@/lib/household')
+// 2. mockDb — returns a mock Drizzle db object
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a mock db module for vi.mock('@/lib/db').
+ *
+ * The mock db object supports:
+ * - db.select().from().where().orderBy().limit() → returns configured array
+ * - db.insert().values().returning() → returns configured array
+ * - db.update().set().where().returning() → returns configured array
+ * - db.delete().where() → resolves
+ * - db.execute() → resolves with configured result
+ *
+ * @param queryResults  A function that receives the query context and returns result rows.
+ *                      If not provided, all queries return empty arrays.
+ */
+export function mockDb(queryResults?: (ctx: { method: string; table?: string }) => unknown[]) {
+  const defaultResults = queryResults ?? (() => [])
+
+  function createChain(method: string): Record<string, unknown> {
+    const chain: Record<string, unknown> = {}
+    const methods = ['from', 'where', 'orderBy', 'limit', 'offset', 'innerJoin',
+      'leftJoin', 'set', 'values', 'onConflictDoUpdate', 'onConflictDoNothing',
+      'returning', 'groupBy', 'having']
+
+    for (const m of methods) {
+      chain[m] = vi.fn().mockReturnValue(chain)
+    }
+
+    // Make the chain thenable (awaitable) — resolves with the configured results
+    chain.then = vi.fn().mockImplementation(
+      (resolve: (v: unknown) => void) => Promise.resolve(defaultResults({ method })).then(resolve),
+    )
+
+    return chain
+  }
+
+  return {
+    db: {
+      select: vi.fn(() => createChain('select')),
+      insert: vi.fn(() => createChain('insert')),
+      update: vi.fn(() => createChain('update')),
+      delete: vi.fn(() => createChain('delete')),
+      execute: vi.fn().mockResolvedValue({ rows: [] }),
+    },
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 3. mockHousehold — returns the factory object for vi.mock('@/lib/household')
 // ---------------------------------------------------------------------------
 
 interface HouseholdContext {
@@ -65,8 +135,11 @@ interface HouseholdContext {
  * Build the mock module shape for `@/lib/household`.
  *
  * By default:
- * - `resolveHouseholdScope` is a vi.fn() that resolves to `null` (solo user).
+ * - `resolveHouseholdScope` resolves to `null` (solo user).
  * - `canManage` checks for 'owner' or 'co_owner'.
+ * - `scopeCondition` returns a mock SQL condition.
+ * - `scopeInsert` returns `{ userId }`.
+ * - `checkOwnership` returns `{ owned: true }`.
  */
 export function mockHousehold(ctx?: HouseholdContext) {
   return {
@@ -74,30 +147,24 @@ export function mockHousehold(ctx?: HouseholdContext) {
       ctx?.resolveHouseholdScope ?? vi.fn().mockResolvedValue(null),
     canManage:
       ctx?.canManage ?? ((role: string) => role === 'owner' || role === 'co_owner'),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock mirrors real scopeQuery behavior
-    scopeQuery: (query: any, userId: string, hctx: any) => {
-      if (hctx) return query.eq('household_id', hctx.householdId)
-      return query.eq('user_id', userId)
-    },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock mirrors real scopeInsert behavior
-    scopeInsert: (userId: string, hctx: any, payload: Record<string, unknown>) => {
-      if (hctx) return { ...payload, household_id: hctx.householdId, user_id: userId }
-      return { ...payload, user_id: userId }
-    },
+    scopeCondition: vi.fn().mockReturnValue({}),
+    scopeInsert: vi.fn((userId: string) => ({ userId })),
+    checkOwnership: vi.fn().mockResolvedValue({ owned: true }),
   }
 }
 
 // ---------------------------------------------------------------------------
-// 3. makeRequest — creates a NextRequest with JSON body and auth header
+// 4. makeRequest — creates a NextRequest with JSON body (no auth header needed)
 // ---------------------------------------------------------------------------
 
 /**
  * Create a `NextRequest` suitable for API route handler tests.
+ * No Authorization header needed — Better Auth uses cookies.
  *
  * @param method  HTTP method (GET, POST, PATCH, DELETE, etc.)
  * @param url     Full URL string (e.g. 'http://localhost/api/tags')
  * @param body    Optional JSON-serializable body (omit for GET)
- * @param headers Optional extra headers (Authorization is always included)
+ * @param headers Optional extra headers
  */
 export function makeRequest(
   method: string,
@@ -109,7 +176,6 @@ export function makeRequest(
     method,
     headers: {
       'Content-Type': 'application/json',
-      Authorization: 'Bearer token',
       ...headers,
     },
   }
@@ -118,7 +184,7 @@ export function makeRequest(
 }
 
 // ---------------------------------------------------------------------------
-// 4. defaultMockState — returns a fresh baseline mock state object
+// 5. defaultMockState — returns a fresh baseline mock state object
 // ---------------------------------------------------------------------------
 
 /**
@@ -127,125 +193,23 @@ export function makeRequest(
  */
 export function defaultMockState() {
   return {
-    user: { id: 'user-1' } as MockUser | null,
+    user: { id: 'user-1', email: 'test@example.com', name: 'Test User', image: null } as MockUser | null,
   }
 }
 
 // ---------------------------------------------------------------------------
-// 5. tableMock — builds a from() dispatch function from a config map
+// 6. defaultGetSession — builds the common auth.api.getSession mock
 // ---------------------------------------------------------------------------
 
 /**
- * Build a `from(table)` mock function from a config object.
+ * Returns an async function suitable for `auth.api.getSession` that reads
+ * from a `mockState` object. The reference is captured so mutations to
+ * `mockState.user` are reflected in later calls.
  *
- * Each key in `config` is a table name; the value is an object whose keys
- * are Supabase method names (select, insert, update, delete, upsert) and
- * whose values are mock implementations.
- *
- * Tables not in the config return an empty object.
- *
- * @example
- * ```ts
- * const from = tableMock({
- *   recipes: {
- *     select: () => ({ eq: () => ({ data: [...], error: null }) }),
- *   },
- *   custom_tags: {
- *     select: () => ({ eq: () => ({ data: [], error: null }) }),
- *   },
- * })
- * ```
+ * Uses `as any` because Better Auth's getSession return type requires full
+ * user/session objects, but test mocks only need minimal fields.
  */
-export function tableMock(config: TableConfig): (table: string) => TableBehavior {
-  return (table: string) => config[table] ?? {}
-}
-
-// ---------------------------------------------------------------------------
-// 6. defaultGetUser — builds the common auth.getUser mock from a mockState ref
-// ---------------------------------------------------------------------------
-
-/**
- * Returns an async function suitable for `auth.getUser` that reads from a
- * `mockState` object with a `user` property. The reference is captured so
- * mutations to `mockState.user` are reflected in later calls.
- *
- * @param mockState  An object with a `user` property (MockUser | null).
- */
-export function defaultGetUser(mockState: { user: MockUser | null }) {
-  return async () => ({
-    data: { user: mockState.user },
-    error: mockState.user ? null : { message: 'no user' },
-  })
-}
-
-// ---------------------------------------------------------------------------
-// 7. chainMock — builds a chainable Supabase query mock
-// ---------------------------------------------------------------------------
-
-/**
- * Creates a deeply chainable mock that supports any sequence of Supabase
- * query builder methods (.eq(), .in(), .order(), .select(), .single(), etc.).
- *
- * Terminal methods:
- * - `.single()` resolves with `{ data, error }`
- * - Awaiting the chain resolves with `{ data, error }`
- *
- * @param data     The data to resolve with
- * @param error    Optional error to resolve with (default: null)
- */
-export function chainMock(data: unknown, error: unknown = null) {
-  const chain: Record<string, unknown> = {}
-  const terminal = { data, error }
-
-  // All chainable methods return the same chain object
-  for (const method of ['eq', 'neq', 'in', 'order', 'select', 'limit', 'gte', 'lte', 'contains', 'is', 'not', 'filter', 'match', 'maybeSingle', 'update', 'delete', 'insert', 'upsert']) {
-    chain[method] = vi.fn().mockReturnValue(chain)
-  }
-
-  // Terminal methods
-  chain.single = vi.fn().mockResolvedValue(terminal)
-  chain.maybeSingle = vi.fn().mockResolvedValue(terminal)
-  chain.then = vi.fn().mockImplementation(
-    (resolve: (v: unknown) => void) => Promise.resolve(terminal).then(resolve),
-  )
-
-  return chain
-}
-
-// ---------------------------------------------------------------------------
-// 8. tableMockWithChain — builds a from() dispatch with chainable mocks
-// ---------------------------------------------------------------------------
-
-/** Config for tableMockWithChain: maps table names to their resolved data. */
-export type ChainTableConfig = Record<string, {
-  select?: { data: unknown; error?: unknown }
-  insert?: { data: unknown; error?: unknown }
-  update?: { data: unknown; error?: unknown }
-  delete?: { data: unknown; error?: unknown }
-  upsert?: { data: unknown; error?: unknown }
-}>
-
-/**
- * Build a `from(table)` mock function where each table method returns
- * a deeply chainable query builder.
- *
- * @example
- * ```ts
- * const from = tableMockWithChain({
- *   recipes: { select: { data: [recipe1, recipe2] } },
- *   custom_tags: { select: { data: [] } },
- * })
- * ```
- */
-export function tableMockWithChain(config: ChainTableConfig): (table: string) => Record<string, unknown> {
-  return (table: string) => {
-    const tableConfig = config[table]
-    if (!tableConfig) return chainMock(null)
-
-    const result: Record<string, unknown> = {}
-    for (const [method, cfg] of Object.entries(tableConfig)) {
-      result[method] = vi.fn().mockReturnValue(chainMock(cfg.data, cfg.error ?? null))
-    }
-    return result
-  }
+export function defaultGetSession(mockState: { user: MockUser | null }) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock session type
+  return (async () => mockState.user ? buildMockSession(mockState.user) : null) as any
 }

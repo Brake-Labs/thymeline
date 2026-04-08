@@ -19,14 +19,6 @@ vi.mock('next/link', () => ({
     <a href={href} {...props}>{children}</a>,
 }))
 
-// ── Mock auth ────────────────────────────────────────────────────────────────
-
-vi.mock('@/lib/supabase/browser', () => ({
-  getAccessToken: async () => 'test-token',
-  getSupabaseClient: () => ({
-    auth: { getSession: async () => ({ data: { session: { user: { id: 'user-1' } } } }) },
-  }),
-}))
 
 // ── Wake lock mock ────────────────────────────────────────────────────────────
 
@@ -43,32 +35,32 @@ const mockWakeLockSentinel = {
 
 const sampleRecipe = {
   id: 'recipe-1',
-  user_id: 'user-1',
+  userId: 'user-1',
   title: 'Test Recipe',
   category: 'main_dish' as const,
   tags: [],
-  is_shared: false,
+  isShared: false,
   ingredients: '2 cups flour\n1/2 tsp salt\nSalt to taste',
   steps: 'Mix ingredients\nKnead dough\nBake for 30 minutes',
   notes: null,
   url: null,
-  image_url: null,
-  created_at: '2026-01-01T00:00:00Z',
+  imageUrl: null,
+  createdAt: '2026-01-01T00:00:00Z',
   source: 'manual' as const,
   servings: 4,
-  prep_time_minutes: null,
-  cook_time_minutes: null,
-  total_time_minutes: null,
-  inactive_time_minutes: null,
-  step_photos: [] as { stepIndex: number; imageUrl: string }[],
-  last_made: null,
-  times_made: 0,
-  dates_made: [],
+  prepTimeMinutes: null,
+  cookTimeMinutes: null,
+  totalTimeMinutes: null,
+  inactiveTimeMinutes: null,
+  stepPhotos: [] as { stepIndex: number; imageUrl: string }[],
+  lastMade: null,
+  timesMade: 0,
+  datesMade: [],
 }
 
 const recipeWithPhoto = {
   ...sampleRecipe,
-  step_photos: [{ stepIndex: 0, imageUrl: 'https://example.com/photo.jpg' }],
+  stepPhotos: [{ stepIndex: 0, imageUrl: 'https://example.com/photo.jpg' }],
 }
 
 // ── Test helpers ──────────────────────────────────────────────────────────────
@@ -130,7 +122,7 @@ afterEach(() => {
 
 // ── T01, T02: Start Cooking button on detail page ────────────────────────────
 // Source-code checks: rendering RecipeDetailPage in jsdom requires mocking its
-// entire Supabase + auth dependency tree, which is out of scope here.
+// entire auth dependency tree, which is out of scope here.
 // Instead we verify the link and conditional logic exist in the source.
 
 describe('T01/T02 - Start Cooking button on detail page', () => {
@@ -406,7 +398,7 @@ describe('T26-T29 - Log Made Today', () => {
   it('T27 - Log button calls POST /api/recipes/[id]/log', async () => {
     global.fetch = vi.fn().mockImplementation((url: string) => {
       if ((url as string).includes('/log')) {
-        return Promise.resolve({ ok: true, json: async () => ({ made_on: '2026-03-28', already_logged: false }) })
+        return Promise.resolve({ ok: true, json: async () => ({ madeOn: '2026-03-28', alreadyLogged: false }) })
       }
       return Promise.resolve({ ok: true, json: async () => sampleRecipe, status: 200 })
     })
@@ -431,7 +423,7 @@ describe('T26-T29 - Log Made Today', () => {
     // don't exhaust mockResolvedValueOnce before the log call fires.
     global.fetch = vi.fn().mockImplementation((url: string) => {
       if ((url as string).includes('/log')) {
-        return Promise.resolve({ ok: true, json: async () => ({ made_on: '2026-03-28', already_logged: false }) })
+        return Promise.resolve({ ok: true, json: async () => ({ madeOn: '2026-03-28', alreadyLogged: false }) })
       }
       return Promise.resolve({ ok: true, json: async () => sampleRecipe, status: 200 })
     })
@@ -447,10 +439,10 @@ describe('T26-T29 - Log Made Today', () => {
     await waitFor(() => expect(screen.getByText(/✓ Logged!/)).toBeDefined())
   })
 
-  it('T29 - already_logged → "Already logged today"', async () => {
+  it('T29 - alreadyLogged → "Already logged today"', async () => {
     global.fetch = vi.fn().mockImplementation((url: string) => {
       if ((url as string).includes('/log')) {
-        return Promise.resolve({ ok: true, json: async () => ({ made_on: '2026-03-28', already_logged: true }) })
+        return Promise.resolve({ ok: true, json: async () => ({ madeOn: '2026-03-28', alreadyLogged: true }) })
       }
       return Promise.resolve({ ok: true, json: async () => sampleRecipe, status: 200 })
     })
@@ -662,7 +654,8 @@ describe('T51 - Scroll view also injects quantities inline', () => {
     await renderCookPage(recipe)
     // Switch to all-steps view
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /all steps/i })) })
-    expect(screen.getByText(/2 cups/)).toBeDefined()
+    // "2 cups" appears at least once (inline injection + possibly in the step ingredient panel)
+    expect(screen.getAllByText(/2 cups/).length).toBeGreaterThan(0)
   })
 })
 
@@ -675,9 +668,10 @@ describe('T52 - Injected quantity is wrapped in a highlighted span', () => {
       servings: 4,
     }
     await renderCookPage(recipe)
-    // "2 cups" appears inside a <span>, not as a bare text node
-    const quantityEl = screen.getByText(/2 cups/)
-    expect(quantityEl.tagName).toBe('SPAN')
+    // "2 cups" must appear inside a highlighted <span> (inline injection)
+    const allMatches = screen.getAllByText(/2 cups/)
+    const spanEl = allMatches.find((el) => el.tagName === 'SPAN')
+    expect(spanEl).toBeDefined()
   })
 })
 
@@ -705,8 +699,8 @@ describe('T54 - cook page renders step text with injected inline quantity', () =
       servings: 4,
     }
     await renderCookPage(recipe)
-    // "2 cups" is injected inline before "flour" — confirm it renders in the DOM
-    expect(screen.getByText(/2 cups/)).toBeDefined()
+    // "2 cups" is injected inline before "flour" — at least one match in the DOM
+    expect(screen.getAllByText(/2 cups/).length).toBeGreaterThan(0)
   })
 })
 
@@ -840,5 +834,37 @@ describe('T60-T62 - Tab bar: Steps / Ingredients switching', () => {
     })
     expect(screen.getByText('Mix ingredients')).toBeDefined()
     expect(screen.queryByText(/2 cups flour/i)).toBeNull()
+  })
+})
+
+// ── T63-T64: StepIngredientPanel shown in single-step view (regression #319) ──
+
+describe('T63 - StepIngredientPanel renders "Ingredients for this step" label when step mentions an ingredient', () => {
+  it('shows "Ingredients for this step" panel for step that references avocado', async () => {
+    const recipe = {
+      ...sampleRecipe,
+      ingredients: '1 avocado\n2 limes',
+      steps: 'Mash the avocado with lime juice\nServe immediately',
+    }
+    await renderCookPage(recipe)
+    expect(screen.getByText(/ingredients for this step/i)).toBeDefined()
+  })
+})
+
+describe('T64 - StepIngredientPanel shows correct quantity (not zero or garbled) for count-only ingredient', () => {
+  it('shows "1 avocado" in the panel — quantity before name, not after', async () => {
+    const recipe = {
+      ...sampleRecipe,
+      ingredients: '1 avocado\n2 limes',
+      steps: 'Mash the avocado with lime juice\nServe immediately',
+    }
+    await renderCookPage(recipe)
+    // The panel must list "1 avocado" — quantity ("1") must precede the name
+    const panelItems = screen.getAllByRole('listitem')
+    const avocadoItem = panelItems.find((el) => /avocado/i.test(el.textContent ?? ''))
+    expect(avocadoItem).toBeDefined()
+    // quantity "1" must come before "avocado" in the rendered text
+    const text = avocadoItem!.textContent ?? ''
+    expect(text.indexOf('1')).toBeLessThan(text.indexOf('avocado'))
   })
 })

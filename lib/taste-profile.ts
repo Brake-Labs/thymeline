@@ -1,23 +1,25 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database } from '@/types/database'
+import { eq, and, inArray, gte, desc } from 'drizzle-orm'
+import { db } from '@/lib/db'
+import { recipeHistory, recipes, userPreferences, householdMembers } from '@/lib/db/schema'
+import { scopeCondition } from '@/lib/household'
 import type { TasteProfile, CookingFrequency, HouseholdContext } from '@/types'
-import { scopeQuery } from '@/lib/household'
 
 export const IMPLICIT_LOVE_THRESHOLD = 3   // configurable constant per brief
 
 export async function deriveTasteProfile(
   userId: string,
-  db: SupabaseClient<Database>,
+  _db: unknown,
   ctx: HouseholdContext | null,
 ): Promise<TasteProfile> {
   // Resolve member IDs for the history queries
   let memberIds: string[] = [userId]
   if (ctx) {
-    const { data: members } = await db
-      .from('household_members')
-      .select('user_id')
-      .eq('household_id', ctx.householdId)
-    memberIds = members?.map((m) => m.user_id) ?? [userId]
+    const members = await db
+      .select({ userId: householdMembers.userId })
+      .from(householdMembers)
+      .where(eq(householdMembers.householdId, ctx.householdId))
+    memberIds = members.map((m) => m.userId)
+    if (memberIds.length === 0) memberIds = [userId]
   }
 
   // Date thresholds
@@ -29,115 +31,126 @@ export async function deriveTasteProfile(
   const ago30Str  = ago30.toISOString().slice(0, 10)
   const ago90Str  = ago90.toISOString().slice(0, 10)
 
-  // Fetch user preferences for avoided_tags, preferred_tags, meal_context
-  let prefsQ = db.from('user_preferences').select('avoided_tags, preferred_tags, meal_context')
-  prefsQ = scopeQuery(prefsQ, userId, ctx)
-  const { data: prefs } = await prefsQ.maybeSingle()
+  // Fetch user preferences
+  const prefsRows = await db
+    .select({
+      avoidedTags: userPreferences.avoidedTags,
+      preferredTags: userPreferences.preferredTags,
+      mealContext: userPreferences.mealContext,
+    })
+    .from(userPreferences)
+    .where(scopeCondition({ userId: userPreferences.userId, householdId: userPreferences.householdId }, userId, ctx))
+    .limit(1)
+  const prefs = prefsRows[0] ?? null
 
-  // ── loved_recipe_ids ───────────────────────────────────────────────────────
+  // ── lovedRecipeIds ───────────────────────────────────────────────────────
 
-  // Explicit: make_again = true (any member)
-  const { data: explicitLoved } = await db
-    .from('recipe_history')
-    .select('recipe_id')
-    .in('user_id', memberIds)
-    .eq('make_again', true)
+  // Explicit: makeAgain = true (any member)
+  const explicitLoved = await db
+    .select({ recipeId: recipeHistory.recipeId })
+    .from(recipeHistory)
+    .where(and(inArray(recipeHistory.userId, memberIds), eq(recipeHistory.makeAgain, true)))
 
   // Implicit: made >= IMPLICIT_LOVE_THRESHOLD times in last 6 months
-  const { data: recentHistory } = await db
-    .from('recipe_history')
-    .select('recipe_id, made_on')
-    .in('user_id', memberIds)
-    .gte('made_on', sixMonthsAgo)
+  const recentHistoryRows = await db
+    .select({ recipeId: recipeHistory.recipeId, madeOn: recipeHistory.madeOn })
+    .from(recipeHistory)
+    .where(and(inArray(recipeHistory.userId, memberIds), gte(recipeHistory.madeOn, sixMonthsAgo)))
 
   const countMap = new Map<string, number>()
-  for (const entry of recentHistory ?? []) {
-    countMap.set(entry.recipe_id, (countMap.get(entry.recipe_id) ?? 0) + 1)
+  for (const entry of recentHistoryRows) {
+    countMap.set(entry.recipeId, (countMap.get(entry.recipeId) ?? 0) + 1)
   }
   const implicitLoved = [...countMap.entries()]
     .filter(([, n]) => n >= IMPLICIT_LOVE_THRESHOLD)
     .map(([id]) => id)
 
   const lovedSet = new Set([
-    ...(explicitLoved ?? []).map((r) => r.recipe_id),
+    ...explicitLoved.map((r) => r.recipeId),
     ...implicitLoved,
   ])
-  const loved_recipe_ids = [...lovedSet]
+  const lovedRecipeIds = [...lovedSet]
 
-  // ── disliked_recipe_ids ────────────────────────────────────────────────────
+  // ── dislikedRecipeIds ────────────────────────────────────────────────────
 
-  const { data: disliked } = await db
-    .from('recipe_history')
-    .select('recipe_id')
-    .in('user_id', memberIds)
-    .eq('make_again', false)
+  const disliked = await db
+    .select({ recipeId: recipeHistory.recipeId })
+    .from(recipeHistory)
+    .where(and(inArray(recipeHistory.userId, memberIds), eq(recipeHistory.makeAgain, false)))
 
-  const disliked_recipe_ids = [...new Set((disliked ?? []).map((r) => r.recipe_id))]
+  const dislikedRecipeIds = [...new Set(disliked.map((r) => r.recipeId))]
 
-  // ── top_tags ───────────────────────────────────────────────────────────────
+  // ── topTags ───────────────────────────────────────────────────────────────
 
-  const { data: tagHistory } = await db
-    .from('recipe_history')
-    .select('made_on, recipes(tags)')
-    .in('user_id', memberIds)
-    .gte('made_on', sixMonthsAgo)
+  const tagHistory = await db
+    .select({
+      madeOn: recipeHistory.madeOn,
+      tags: recipes.tags,
+    })
+    .from(recipeHistory)
+    .innerJoin(recipes, eq(recipeHistory.recipeId, recipes.id))
+    .where(and(inArray(recipeHistory.userId, memberIds), gte(recipeHistory.madeOn, sixMonthsAgo)))
 
   const tagWeights = new Map<string, number>()
 
-  for (const entry of tagHistory ?? []) {
-    const weight = entry.made_on >= ago30Str ? 3
-                 : entry.made_on >= ago90Str ? 2
+  for (const entry of tagHistory) {
+    const weight = entry.madeOn >= ago30Str ? 3
+                 : entry.madeOn >= ago90Str ? 2
                  : 1
-    for (const tag of (entry.recipes?.tags as string[] | null) ?? []) {
+    for (const tag of entry.tags ?? []) {
       tagWeights.set(tag, (tagWeights.get(tag) ?? 0) + weight)
     }
   }
 
   // Remove avoided tags and return top 10
-  const avoided = (prefs?.avoided_tags as string[] | null) ?? []
-  const top_tags = [...tagWeights.entries()]
+  const avoided = prefs?.avoidedTags ?? []
+  const topTags = [...tagWeights.entries()]
     .filter(([tag]) => !avoided.includes(tag))
     .sort((a, b) => b[1] - a[1])
     .slice(0, 10)
     .map(([tag]) => tag)
 
-  // ── cooking_frequency ──────────────────────────────────────────────────────
+  // ── cookingFrequency ──────────────────────────────────────────────────────
 
-  const { data: recent30 } = await db
-    .from('recipe_history')
-    .select('recipe_id')
-    .in('user_id', memberIds)
-    .gte('made_on', ago30.toISOString().slice(0, 10))
+  const recent30 = await db
+    .select({ recipeId: recipeHistory.recipeId })
+    .from(recipeHistory)
+    .where(and(inArray(recipeHistory.userId, memberIds), gte(recipeHistory.madeOn, ago30.toISOString().slice(0, 10))))
 
-  const distinctCount = new Set((recent30 ?? []).map((r) => r.recipe_id)).size
-  const cooking_frequency: CookingFrequency =
+  const distinctCount = new Set(recent30.map((r) => r.recipeId)).size
+  const cookingFrequency: CookingFrequency =
     distinctCount <= 2 ? 'light'
     : distinctCount <= 6 ? 'moderate'
     : 'frequent'
 
-  // ── recent_recipes ─────────────────────────────────────────────────────────
+  // ── recentRecipes ─────────────────────────────────────────────────────────
 
-  const { data: recent } = await db
-    .from('recipe_history')
-    .select('recipe_id, made_on, recipes(title)')
-    .in('user_id', memberIds)
-    .order('made_on', { ascending: false })
+  const recent = await db
+    .select({
+      recipeId: recipeHistory.recipeId,
+      madeOn: recipeHistory.madeOn,
+      title: recipes.title,
+    })
+    .from(recipeHistory)
+    .innerJoin(recipes, eq(recipeHistory.recipeId, recipes.id))
+    .where(inArray(recipeHistory.userId, memberIds))
+    .orderBy(desc(recipeHistory.madeOn))
     .limit(10)
 
-  const recent_recipes = (recent ?? []).map((r) => ({
-    recipe_id: r.recipe_id,
-    title:     (r.recipes as { title: string } | null)?.title ?? '',
-    made_on:   r.made_on,
+  const recentRecipes = recent.map((r) => ({
+    recipeId: r.recipeId,
+    title:     r.title ?? '',
+    madeOn:   r.madeOn,
   }))
 
   return {
-    loved_recipe_ids,
-    disliked_recipe_ids,
-    top_tags,
-    avoided_tags:    avoided,
-    preferred_tags:  (prefs?.preferred_tags as string[] | null) ?? [],
-    meal_context:    (prefs?.meal_context as string | null) ?? null,
-    cooking_frequency,
-    recent_recipes,
+    lovedRecipeIds,
+    dislikedRecipeIds,
+    topTags,
+    avoidedTags:    avoided,
+    preferredTags:  prefs?.preferredTags ?? [],
+    mealContext:    prefs?.mealContext ?? null,
+    cookingFrequency,
+    recentRecipes,
   }
 }

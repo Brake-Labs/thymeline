@@ -2,13 +2,17 @@
 
 import { useEffect, useState } from 'react'
 import { Leaf } from 'lucide-react'
-import { getSupabaseClient } from '@/lib/supabase/browser'
 import { DIETARY_TAGS } from '@/lib/tags'
 import type { GeneratedRecipe, MealType } from '@/types'
 
+export interface GenerationContext {
+  mealType:            string
+  styleHints:          string
+  dietaryRestrictions: string[]
+}
+
 interface GenerateRecipeTabProps {
-  getToken:            () => Promise<string> | string
-  onGenerated:         (recipe: GeneratedRecipe) => void
+  onGenerated:         (recipe: GeneratedRecipe, context: GenerationContext) => void
   initialIngredients?: string
 }
 
@@ -21,7 +25,6 @@ const MEAL_TYPES: { value: MealType; label: string }[] = [
 ]
 
 export default function GenerateRecipeTab({
-  getToken,
   onGenerated,
   initialIngredients = '',
 }: GenerateRecipeTabProps) {
@@ -39,20 +42,17 @@ export default function GenerateRecipeTab({
   // Pre-populate dietary restrictions from user preferences
   useEffect(() => {
     async function prefillDietary() {
-      const supabase = getSupabaseClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data } = await supabase
-        .from('user_preferences')
-        .select('avoided_tags')
-        .eq('user_id', user.id)
-        .single()
-      if (data?.avoided_tags) {
-        const preChecked = data.avoided_tags.filter((t: string) =>
-          (DIETARY_TAGS as readonly string[]).includes(t)
-        )
-        setDietaryRestrictions(preChecked)
-      }
+      try {
+        const res = await fetch('/api/preferences')
+        if (!res.ok) return
+        const data = await res.json()
+        if (data?.avoidedTags) {
+          const preChecked = data.avoidedTags.filter((t: string) =>
+            (DIETARY_TAGS as readonly string[]).includes(t)
+          )
+          setDietaryRestrictions(preChecked)
+        }
+      } catch { /* non-fatal */ }
     }
     prefillDietary()
   }, [])
@@ -63,18 +63,16 @@ export default function GenerateRecipeTab({
     setGenerating(true)
     setError(null)
     try {
-      const token = await getToken()
       const res = await fetch('/api/recipes/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          specific_ingredients: specificIngredients,
-          meal_type:            mealType,
-          style_hints:          styleHints,
-          dietary_restrictions: dietaryRestrictions,
+          specificIngredients: specificIngredients,
+          mealType:            mealType,
+          styleHints:          styleHints,
+          dietaryRestrictions: dietaryRestrictions,
         }),
       })
       if (!res.ok) {
@@ -83,7 +81,7 @@ export default function GenerateRecipeTab({
       }
       const recipe: GeneratedRecipe = await res.json()
       setGeneratedRecipe(recipe)
-      onGenerated(recipe)
+      onGenerated(recipe, { mealType: mealType, styleHints: styleHints, dietaryRestrictions: dietaryRestrictions })
     } catch {
       setError("Couldn't generate a recipe — try adjusting your ingredients")
     } finally {
@@ -96,20 +94,18 @@ export default function GenerateRecipeTab({
     setTweaking(true)
     setTweakError(null)
     try {
-      const token = await getToken()
       const res = await fetch('/api/recipes/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          specific_ingredients: specificIngredients,
-          meal_type:            mealType,
-          style_hints:          styleHints,
-          dietary_restrictions: dietaryRestrictions,
-          tweak_request:        tweakInput.trim(),
-          previous_recipe: {
+          specificIngredients: specificIngredients,
+          mealType:            mealType,
+          styleHints:          styleHints,
+          dietaryRestrictions: dietaryRestrictions,
+          tweakRequest:        tweakInput.trim(),
+          previousRecipe: {
             title:       generatedRecipe.title,
             ingredients: generatedRecipe.ingredients ?? '',
             steps:       generatedRecipe.steps ?? '',
@@ -123,7 +119,7 @@ export default function GenerateRecipeTab({
       const recipe: GeneratedRecipe = await res.json()
       setGeneratedRecipe(recipe)
       setTweakInput('')
-      onGenerated(recipe)
+      onGenerated(recipe, { mealType: mealType, styleHints: styleHints, dietaryRestrictions: dietaryRestrictions })
     } catch {
       setTweakError("Couldn't update the recipe — please try again")
     } finally {
@@ -242,13 +238,13 @@ export default function GenerateRecipeTab({
       {generatedRecipe && (
         <div className="border border-stone-200 rounded-xl p-4 space-y-3">
           <p className="text-sm font-semibold text-stone-800">{generatedRecipe.title}</p>
-          {generatedRecipe.waste_badge_text && (
+          {generatedRecipe.wasteBadgeText && (
             <div
               className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
               style={{ backgroundColor: '#FFF0C0', color: '#5C4A00' }}
             >
               <Leaf size={10} className="flex-shrink-0" />
-              {generatedRecipe.waste_badge_text}
+              {generatedRecipe.wasteBadgeText}
             </div>
           )}
           <label className="block text-sm font-medium text-stone-700">

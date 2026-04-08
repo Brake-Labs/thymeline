@@ -8,9 +8,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import type { GroceryList } from '@/types'
 
-vi.mock('@/lib/supabase/browser', () => ({
-  getAccessToken: async () => 'mock-token',
-}))
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
@@ -21,21 +18,21 @@ vi.stubGlobal('fetch', mockFetch)
 
 const sampleList: GroceryList = {
   id:            'list-1',
-  user_id:       'user-1',
-  meal_plan_id:  'plan-1',
-  week_start:    '2026-03-15',
+  userId:       'user-1',
+  mealPlanId:  'plan-1',
+  weekStart:    '2026-03-15',
   servings: 4,
-  recipe_scales: [
-    { recipe_id: 'r1', recipe_title: 'Pasta', servings: null },
-    { recipe_id: 'r2', recipe_title: 'Salad', servings: null },
+  recipeScales: [
+    { recipeId: 'r1', recipeTitle: 'Pasta', servings: null },
+    { recipeId: 'r2', recipeTitle: 'Salad', servings: null },
   ],
   items: [
-    { id: 'i1', name: 'pasta', amount: 200, unit: 'g', section: 'Pantry', is_pantry: false, checked: false, recipes: ['Pasta'] },
-    { id: 'i2', name: 'lettuce', amount: 1, unit: null, section: 'Produce', is_pantry: false, checked: false, recipes: ['Salad'] },
-    { id: 'i3', name: 'olive oil', amount: 2, unit: 'tbsp', section: 'Pantry', is_pantry: true, checked: false, recipes: ['Pasta'] },
+    { id: 'i1', name: 'pasta', amount: 200, unit: 'g', section: 'Pantry', isPantry: false, checked: false, recipes: ['Pasta'] },
+    { id: 'i2', name: 'lettuce', amount: 1, unit: null, section: 'Produce', isPantry: false, checked: false, recipes: ['Salad'] },
+    { id: 'i3', name: 'olive oil', amount: 2, unit: 'tbsp', section: 'Pantry', isPantry: true, checked: false, recipes: ['Pasta'] },
   ],
-  created_at:    '2026-03-15T00:00:00Z',
-  updated_at:    '2026-03-15T00:00:00Z',
+  createdAt:    '2026-03-15T00:00:00Z',
+  updatedAt:    '2026-03-15T00:00:00Z',
 }
 
 beforeEach(() => {
@@ -106,9 +103,9 @@ describe('T14 - Overridden recipe shows reset option', () => {
   it('shows "Reset to default" when recipe has servings override', () => {
     const listWithOverride = {
       ...sampleList,
-      recipe_scales: [
-        { recipe_id: 'r1', recipe_title: 'Pasta', servings: 4 },
-        { recipe_id: 'r2', recipe_title: 'Salad', servings: null },
+      recipeScales: [
+        { recipeId: 'r1', recipeTitle: 'Pasta', servings: 4 },
+        { recipeId: 'r2', recipeTitle: 'Salad', servings: null },
       ],
     }
     render(<GroceryListView initialList={listWithOverride} />)
@@ -125,7 +122,7 @@ describe('T14 - Overridden recipe shows reset option', () => {
 // ── T15: Pantry items show "(in pantry)" ───────────────────────────────────────────────
 
 describe('T15 - Pantry items show in-pantry text', () => {
-  it('renders (in pantry) for unchecked is_pantry items', () => {
+  it('renders (in pantry) for unchecked isPantry items', () => {
     render(<GroceryListView initialList={sampleList} />)
     expect(screen.getByText('(in pantry)')).toBeInTheDocument()
   })
@@ -160,16 +157,16 @@ describe('T19 - Cancelling regenerate leaves list unchanged', () => {
 
 // ── T18: Confirming regenerate replaces items and resets scales ───────────────
 
-describe('T18 - Confirming regenerate replaces items and resets recipe_scales', () => {
+describe('T18 - Confirming regenerate replaces items and resets recipeScales', () => {
   it('calls POST /api/groceries/generate and updates state', async () => {
     const regeneratedList = {
       ...sampleList,
-      items: [{ id: 'new-1', name: 'tomato', amount: 2, unit: null, section: 'Produce', is_pantry: false, checked: false, recipes: ['Pasta'] }],
-      recipe_scales: [{ recipe_id: 'r1', recipe_title: 'Pasta', servings: null }],
+      items: [{ id: 'new-1', name: 'tomato', amount: 2, unit: null, section: 'Produce', isPantry: false, checked: false, recipes: ['Pasta'] }],
+      recipeScales: [{ recipeId: 'r1', recipeTitle: 'Pasta', servings: null }],
     }
     mockFetch.mockImplementation((url: string) => {
       if (url.includes('generate')) {
-        return Promise.resolve({ ok: true, json: async () => ({ list: regeneratedList, skipped_recipes: [] }) })
+        return Promise.resolve({ ok: true, json: async () => ({ list: regeneratedList, skippedRecipes: [] }) })
       }
       return Promise.resolve({ ok: true, json: async () => ({}) })
     })
@@ -408,10 +405,10 @@ describe('T261-A - Need to Buy section shows non-pantry items (regression for #2
   })
 })
 
-// ── T261-B: Pantry Items section shows is_pantry items (regression for #261) ──
+// ── T261-B: Pantry Items section shows isPantry items (regression for #261) ──
 
-describe('T261-B - Pantry Items section shows is_pantry items (regression for #261)', () => {
-  it('renders Pantry Items heading and places is_pantry items under it', () => {
+describe('T261-B - Pantry Items section shows isPantry items (regression for #261)', () => {
+  it('renders Pantry Items heading and places isPantry items under it', () => {
     render(<GroceryListView initialList={sampleList} />)
     expect(screen.getByRole('region', { name: 'Pantry Items' })).toBeInTheDocument()
     expect(screen.getByLabelText('Check olive oil')).toBeInTheDocument()

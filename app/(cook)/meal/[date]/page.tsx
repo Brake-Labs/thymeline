@@ -8,7 +8,6 @@ import IngredientChecklist from '@/components/cook/IngredientChecklist'
 import StepTimer, { type TimerState } from '@/components/cook/StepTimer'
 import { renderHighlighted } from '@/components/cook/renderHighlighted'
 import { injectStepQuantities } from '@/lib/inject-step-quantities'
-import { getAccessToken } from '@/lib/supabase/browser'
 import { getMostRecentSunday, getTodayISO } from '@/lib/date-utils'
 import { TOAST_DURATION_LONG_MS } from '@/lib/constants'
 import type { MealType, Recipe } from '@/types'
@@ -21,7 +20,7 @@ interface RecipeDetail {
   steps: string[]
   ingredients: string
   servings: number
-  total_time_minutes: number | null
+  totalTimeMinutes: number | null
 }
 
 interface CombinedStep {
@@ -41,7 +40,7 @@ interface CombinedStep {
 function buildCombinedSteps(recipes: RecipeDetail[]): CombinedStep[] {
   // Sort longest-cooking recipe first so the user starts it early
   const sorted = [...recipes].sort(
-    (a, b) => (b.total_time_minutes ?? 0) - (a.total_time_minutes ?? 0),
+    (a, b) => (b.totalTimeMinutes ?? 0) - (a.totalTimeMinutes ?? 0),
   )
   const combined: CombinedStep[] = []
   for (const r of sorted) {
@@ -69,7 +68,7 @@ interface Props {
 export default function MultiRecipeCookPage({ params }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const mealTypeParam = searchParams.get('meal_type') as MealType | null
+  const mealTypeParam = searchParams.get('mealType') as MealType | null
 
   const [recipes, setRecipes] = useState<RecipeDetail[]>([])
   const [combinedSteps, setCombinedSteps] = useState<CombinedStep[]>([])
@@ -97,37 +96,34 @@ export default function MultiRecipeCookPage({ params }: Props) {
   useEffect(() => {
     async function load() {
       try {
-        const token = await getAccessToken()
-        const headers = { Authorization: `Bearer ${token}` }
-
-        // Compute the week_start that contains `params.date`
+        // Compute the weekStart that contains `params.date`
         const weekStart = getMostRecentSunday(new Date(params.date + 'T12:00:00Z'))
 
         // Fetch the plan for that week
-        const planRes = await fetch(`/api/plan?week_start=${weekStart}`, { headers })
+        const planRes = await fetch(`/api/plan?weekStart=${weekStart}`)
         if (!planRes.ok) { setError('Could not load meal plan.'); setLoading(false); return }
-        const planData: { plan: { entries: { recipe_id: string; planned_date: string; meal_type: MealType; is_side_dish: boolean; parent_entry_id: string | null }[] } | null } = await planRes.json()
+        const planData: { plan: { entries: { recipeId: string; plannedDate: string; mealType: MealType; isSideDish: boolean; parentEntryId: string | null }[] } | null } = await planRes.json()
 
         if (!planData.plan) { setError('No meal plan for this date.'); setLoading(false); return }
 
         // Filter entries for this date (and optionally meal type)
-        let entries = planData.plan.entries.filter((e) => e.planned_date === params.date)
+        let entries = planData.plan.entries.filter((e) => e.plannedDate === params.date)
         if (mealTypeParam) {
           entries = entries.filter((e) =>
-            e.meal_type === mealTypeParam ||
+            e.mealType === mealTypeParam ||
             // Include side dishes whose parent belongs to this meal type
-            (e.is_side_dish && entries.find((p) => p.recipe_id === e.parent_entry_id)?.meal_type === mealTypeParam),
+            (e.isSideDish && entries.find((p) => p.recipeId === e.parentEntryId)?.mealType === mealTypeParam),
           )
         }
 
         // Collect unique recipe IDs (skip desserts unless they're the only thing)
-        const recipeIds = [...new Set(entries.map((e) => e.recipe_id))]
+        const recipeIds = [...new Set(entries.map((e) => e.recipeId))]
         if (recipeIds.length === 0) { setError('No recipes planned for this date.'); setLoading(false); return }
 
         // Fetch each recipe
         const fetched = await Promise.all(
           recipeIds.map((id) =>
-            fetch(`/api/recipes/${id}`, { headers }).then((r) => (r.ok ? r.json() as Promise<Recipe> : null)),
+            fetch(`/api/recipes/${id}`).then((r) => (r.ok ? r.json() as Promise<Recipe> : null)),
           ),
         )
 
@@ -139,7 +135,7 @@ export default function MultiRecipeCookPage({ params }: Props) {
             steps:              (r.steps ?? '').split('\n').filter(Boolean),
             ingredients:        r.ingredients ?? '',
             servings:           r.servings ?? 4,
-            total_time_minutes: r.total_time_minutes ?? null,
+            totalTimeMinutes: r.totalTimeMinutes ?? null,
           }))
 
         if (details.length === 0) { setError('None of the planned recipes have steps.'); setLoading(false); return }
@@ -253,10 +249,9 @@ export default function MultiRecipeCookPage({ params }: Props) {
     setOrderError(null)
 
     try {
-      const token = await getAccessToken()
       const res = await fetch('/api/cook/order', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           recipes: cooking.map((r) => ({ id: r.id, title: r.title, steps: r.steps })),
         }),
@@ -296,15 +291,14 @@ export default function MultiRecipeCookPage({ params }: Props) {
   async function handleLogAll() {
     setLogStatus('loading')
     try {
-      const token = await getAccessToken()
       const today = getTodayISO()
       const cookingRecipes = recipes.filter((r) => selectedIds.has(r.id))
       await Promise.all(
         cookingRecipes.map((r) =>
           fetch(`/api/recipes/${r.id}/log`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ made_on: today }),
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ madeOn: today }),
           }),
         ),
       )
@@ -430,7 +424,7 @@ export default function MultiRecipeCookPage({ params }: Props) {
       <div className="min-h-screen bg-stone-50 pb-28">
         <div className="bg-sage-900 fixed top-0 left-0 right-0 z-40 h-14 flex items-center px-4 gap-3">
           <Link
-            href={`/calendar?week_start=${getMostRecentSunday(new Date(params.date + 'T12:00:00Z'))}`}
+            href={`/calendar?weekStart=${getMostRecentSunday(new Date(params.date + 'T12:00:00Z'))}`}
             className="text-white/70 hover:text-white transition-colors shrink-0"
             aria-label="Exit cook mode"
           >
@@ -476,8 +470,8 @@ export default function MultiRecipeCookPage({ params }: Props) {
                 </span>
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-stone-800 truncate">{r.title}</p>
-                  {r.total_time_minutes != null && (
-                    <p className="text-xs text-stone-400 mt-0.5">{r.total_time_minutes} min</p>
+                  {r.totalTimeMinutes != null && (
+                    <p className="text-xs text-stone-400 mt-0.5">{r.totalTimeMinutes} min</p>
                   )}
                 </div>
               </button>
@@ -515,7 +509,7 @@ export default function MultiRecipeCookPage({ params }: Props) {
       {/* Header */}
       <div className="bg-sage-900 fixed top-0 left-0 right-0 z-40 h-14 flex items-center px-4 gap-3">
         <Link
-          href={`/calendar?week_start=${getMostRecentSunday(new Date(params.date + 'T12:00:00Z'))}`}
+          href={`/calendar?weekStart=${getMostRecentSunday(new Date(params.date + 'T12:00:00Z'))}`}
           className="text-white/70 hover:text-white transition-colors shrink-0"
           aria-label="Exit cook mode"
         >

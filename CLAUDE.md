@@ -1,8 +1,9 @@
 # Thymeline — Agent Instructions
 
 Thymeline is an AI-powered weekly meal planning app built with Next.js (TypeScript),
-Tailwind CSS, and Supabase. Users store recipes, get LLM-assisted meal suggestions
-based on preferences, generate grocery lists, and track what they've cooked.
+Tailwind CSS, Better Auth, and Drizzle ORM (Postgres). Users store recipes, get
+LLM-assisted meal suggestions based on preferences, generate grocery lists, and
+track what they've cooked.
 
 ## Repo Structure
 - `main` — production, never commit directly
@@ -19,18 +20,62 @@ based on preferences, generate grocery lists, and track what they've cooked.
 ## Tech Stack
 - **Frontend:** Next.js 14+ with TypeScript, Tailwind CSS
 - **Backend:** Next.js API routes
-- **Database:** Supabase (Postgres)
+- **Database:** Postgres via Drizzle ORM (`lib/db/schema.ts`, `lib/db/index.ts`)
 - **LLM:** `@anthropic-ai/sdk` — centralized in `lib/llm.ts` (see below)
-- **Auth:** Supabase Auth — centralized in `lib/auth.ts` via `withAuth()` HOF
+- **Auth:** Better Auth (Google OAuth) — server config in `lib/auth-server.ts`, client in `lib/auth-client.ts`, centralized in `lib/auth.ts` via `withAuth()` HOF
 - **Validation:** Zod schemas in `lib/schemas.ts` via `parseBody()` helper
+- **Access Control:** Email whitelist via `ALLOWED_EMAILS` env var
+
+## Local Development Setup
+
+### Prerequisites
+- Node 20+, npm, Docker (for Postgres)
+- Google OAuth credentials from [console.cloud.google.com](https://console.cloud.google.com)
+
+### Quick start
+```bash
+# 1. Start Postgres
+docker compose up -d
+
+# 2. Configure env
+cp .env.local.example .env.local   # then fill in credentials
+
+# 3. Install + push schema + run
+npm install
+npm run dev                         # runs migrations automatically, then starts server
+```
+
+### Required environment variables
+| Variable | Description |
+|---|---|
+| `DATABASE_URL` | Postgres connection string |
+| `BETTER_AUTH_SECRET` | Random secret (`openssl rand -base64 32`) |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
+| `NEXT_PUBLIC_SITE_URL` | App URL (default: `http://localhost:3000`) |
+| `ALLOWED_EMAILS` | Comma-separated email whitelist (empty = open access) |
+| `LLM_API_KEY` | Anthropic API key |
+
+### Google OAuth redirect URI
+`http://localhost:3000/api/auth/callback/google`
+
+### Database schema changes
+Schema is defined in `lib/db/schema.ts`. After modifying:
+```bash
+npm run db:generate     # generate a migration file from schema diff
+npm run dev             # migrations run automatically on startup
+```
+Migrations live in `drizzle/` and are committed to git. They run automatically
+on `npm run dev` and `npm start`. For quick iteration you can also use
+`npm run db:push` which skips migration files and applies schema directly.
 
 ## API Route Patterns
 
 All authenticated routes use the `withAuth()` higher-order function from `lib/auth.ts`:
 ```typescript
 export const GET = withAuth(async (req, { user, db, ctx }, params) => {
-  // user: authenticated Supabase user
-  // db: admin Supabase client (bypasses RLS)
+  // user: Better Auth user (id, email, name, image)
+  // db: Drizzle ORM client
   // ctx: HouseholdContext | null (for multi-tenant scoping)
   // params: route params e.g. { id: '...' }
 })
@@ -44,15 +89,21 @@ if (error) return error
 
 ### Household scoping
 All data queries must be scoped to the correct user or household. Use helpers from `lib/household.ts`:
-- `scopeQuery(query, userId, ctx)` — adds `.eq('household_id', ...)` or `.eq('user_id', ...)` to a query
-- `scopeInsert(userId, ctx, payload)` — adds household_id/user_id fields to an insert payload
-- `checkOwnership(db, table, id, userId, ctx)` — verifies a record belongs to the user/household
+- `scopeCondition(columns, userId, ctx)` — returns a Drizzle SQL condition for `.where()`
+- `scopeInsert(userId, ctx)` — returns `{ userId, householdId? }` to spread into `.values()`
+- `checkOwnership(tableName, id, userId, ctx)` — verifies a record belongs to the user/household
 
-**Important:** Do not pass `scopeQuery` inline with the query builder (e.g., `scopeQuery(db.from('table').select('*'), ...)`).
-This causes TS2589 (infinite type instantiation). Always use two-step assignment:
+Usage:
 ```typescript
-let q = db.from('table').select('*')
-q = scopeQuery(q, user.id, ctx)
+import { scopeCondition, scopeInsert } from '@/lib/household'
+import { recipes } from '@/lib/db/schema'
+
+// Querying:
+const data = await db.select().from(recipes)
+  .where(scopeCondition({ userId: recipes.userId, householdId: recipes.householdId }, user.id, ctx))
+
+// Inserting:
+await db.insert(recipes).values({ ...body, ...scopeInsert(user.id, ctx) })
 ```
 
 ### LLM usage
@@ -75,21 +126,71 @@ All LLM calls go through `lib/llm.ts` which provides:
 Both can be overridden independently in `.env.local`. Setting only `LLM_MODEL` does NOT affect the capable tier — you must also set `LLM_MODEL_CAPABLE` to override it.
 
 ### Server-only modules
-Some modules import Node-only dependencies (firecrawl, etc.) and must not be imported by client components:
+Some modules import Node-only dependencies (pg, firecrawl, etc.) and must not be imported by client components:
+- `lib/db/` — Drizzle ORM (uses `pg` which requires Node.js `tls`)
+- `lib/household.ts` — imports from `lib/db`
+- `lib/tags-server.ts` — server-only tag validation (split from `lib/tags.ts`)
 - `lib/grocery-scrape.ts` — `resolveRecipeIngredients()` (uses firecrawl + LLM)
+- `lib/tags.ts` — tag constants only, safe for client import
 - `lib/grocery.ts` — safe for client import (parsing, combining, section assignment)
 
 ### Testing
 Run tests: `npm test` (vitest)
-- Auth behavior is tested in `lib/__tests__/auth.test.ts` — route tests should NOT duplicate 401 checks
 - Schema validation is tested in `lib/__tests__/schemas.test.ts` — route tests should NOT duplicate basic field validation
 - LLM resilience is tested in `lib/__tests__/llm.test.ts`
+- Route tests mock `@/lib/db` and `@/lib/auth-server` at the module level
 - Route tests should focus on business logic: ownership, DB operations, household scoping
+
+### Dev Auth Bypass (for Playwright / headless testing)
+Set `DEV_BYPASS_AUTH=true` in `.env` to skip Google OAuth. All API routes and server
+components will use a dev user without requiring a real session.
+
+Optional env vars for the dev user:
+- `DEV_BYPASS_AUTH_USER_ID` — user ID (default: `dev-user`)
+- `DEV_BYPASS_AUTH_EMAIL` — email (default: `dev@localhost`)
+
+Seed the dev user's DB records: `npx tsx scripts/seed-dev.ts`
+
+### Playwright Testing
+Playwright is the recommended way to verify pages work end-to-end after code changes.
+It can be used via Claude Code's Playwright MCP tools or run directly from the terminal.
+
+**Setup:**
+1. Install Playwright and Chromium: `npx playwright install chromium --with-deps`
+2. Start Postgres (see Quick Start above) and push schema: `npx drizzle-kit push`
+3. Set `DEV_BYPASS_AUTH=true` in `.env.local` (skips Google OAuth for testing)
+4. Seed the dev user: `npx tsx scripts/seed-dev.ts`
+5. Start the dev server: `npm run dev`
+
+**Via Claude Code MCP tools (sandbox):**
+Use `mcp__plugin_playwright_playwright__browser_navigate` to visit pages and
+`mcp__plugin_playwright_playwright__browser_snapshot` to inspect the DOM.
+Check `mcp__plugin_playwright_playwright__browser_console_messages` for errors.
+In sandbox environments you may also need to symlink Chrome:
+`mkdir -p /opt/google/chrome && ln -sf $(find ~/.cache/pw -name chrome -path "*/chromium-*/chrome-linux/*") /opt/google/chrome/chrome`
+
+**Via terminal (local dev):**
+You can also run Playwright directly for quick smoke tests:
+```bash
+npx playwright test          # run all e2e tests (if any exist)
+npx playwright open http://localhost:3000/home  # open a page in headed browser
+```
+
+**Pages to verify after changes:**
+- `/home` — dashboard with week plan, quick actions, recently made
+- `/recipes` — recipe list with filters, search, add button
+- `/plan` — meal planner with week picker, day/meal toggles, suggestions
+- `/calendar` — weekly calendar with meal slots
+- `/groceries` — grocery list generation
+- `/discover` — recipe discovery
+- `/settings/preferences` — all preference sections (planning, tags, seasonal)
+- `/settings/household` — household management
+- `/login` — Google OAuth button
 
 ## Core Data Models
 
 ### users
-Managed by Supabase Auth.
+Managed by Better Auth (`user`, `session`, `account`, `verification` tables).
 
 ### user_preferences
 | Column | Type | Notes |

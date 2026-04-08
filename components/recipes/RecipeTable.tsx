@@ -7,9 +7,8 @@ import { RecipeListItem } from '@/types'
 import { CATEGORY_LABELS } from '@/lib/category-labels'
 import TagPill from './TagPill'
 import DeleteConfirmDialog from './DeleteConfirmDialog'
-import { getAccessToken } from '@/lib/supabase/browser'
 
-export type SortKey = 'title' | 'category' | 'last_made'
+export type SortKey = 'title' | 'category' | 'lastMade'
 export type SortDir = 'asc' | 'desc'
 
 interface RecipeTableProps {
@@ -60,9 +59,9 @@ export default function RecipeTable({ recipes, sortKey, sortDir, onSort, current
               <th
                 scope="col"
                 className="px-4 py-3 text-left font-medium text-stone-500 uppercase tracking-wider cursor-pointer select-none"
-                onClick={() => onSort('last_made')}
+                onClick={() => onSort('lastMade')}
               >
-                Last Made <SortIndicator active={sortKey === 'last_made'} dir={sortDir} />
+                Last Made <SortIndicator active={sortKey === 'lastMade'} dir={sortDir} />
               </th>
               {hasActions && (
                 <th scope="col" className="px-4 py-3 text-left font-medium text-stone-500 uppercase tracking-wider">
@@ -82,7 +81,7 @@ export default function RecipeTable({ recipes, sortKey, sortDir, onSort, current
             {recipes.map((recipe) => {
               const visibleTags = recipe.tags.slice(0, MAX_VISIBLE_TAGS)
               const extraCount = recipe.tags.length - MAX_VISIBLE_TAGS
-              const isOwner = currentUserId !== undefined && recipe.user_id === currentUserId
+              const isOwner = currentUserId !== undefined && recipe.userId === currentUserId
 
               return (
                 <tr key={recipe.id} className="hover:bg-stone-50">
@@ -105,7 +104,7 @@ export default function RecipeTable({ recipes, sortKey, sortDir, onSort, current
                     </div>
                   </td>
                   <td className="px-4 py-3 text-stone-600">
-                    {recipe.last_made ?? 'Never'}
+                    {recipe.lastMade ?? 'Never'}
                   </td>
                   {hasActions && (
                     <td className="px-4 py-3">
@@ -140,7 +139,6 @@ export default function RecipeTable({ recipes, sortKey, sortDir, onSort, current
       {deleteId && (
         <DeleteConfirmDialog
           recipeId={deleteId}
-          getToken={getAccessToken}
           onCancel={() => setDeleteId(null)}
         />
       )}
