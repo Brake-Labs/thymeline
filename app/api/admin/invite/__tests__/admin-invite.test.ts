@@ -101,6 +101,17 @@ describe('T19 - POST /api/admin/invite returns 403 for non-admin', () => {
   })
 })
 
+// ── Multi-admin: second admin in list can create invites ────────────────────
+describe('Multi-admin support', () => {
+  it('returns 200 when user is the second admin in the list', async () => {
+    mockConfig.adminEmails = ['first@example.com', 'admin@example.com']
+    const res = await POST(makeRequest())
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.invite_url).toMatch(/^https:\/\/example\.com\/invite\?token=/)
+  })
+})
+
 // ── T20: POST /api/admin/invite returns 403 when ADMIN_EMAILS not set ───────
 describe('T20 - POST /api/admin/invite returns 403 when ADMIN_EMAILS not set', () => {
   it('returns 403 when ADMIN_EMAILS is empty', async () => {
