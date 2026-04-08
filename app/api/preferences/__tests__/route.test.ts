@@ -1,6 +1,6 @@
 /**
  * Regression tests for GET /api/preferences and PATCH /api/preferences
- * Verifies that week_start_day is normalized from DB text ('sunday'…'saturday')
+ * Verifies that weekStartDay is normalized from DB text ('sunday'…'saturday')
  * to a number (0–6) at the API boundary, and that PATCH correctly converts
  * a number back to text before writing to the DB.
  */
@@ -22,20 +22,20 @@ function mockChain(result: unknown[] = []) {
   return chain
 }
 
-// A mock preferences row as Drizzle returns it (camelCase, DB text for week_start_day)
+// A mock preferences row as Drizzle returns it (camelCase, DB text for weekStartDay)
 function makePrefsRow(weekStartDay = 'sunday') {
   return {
-    options_per_day: 3,
-    cooldown_days: 28,
-    seasonal_mode: true,
-    preferred_tags: [],
-    avoided_tags: [],
-    limited_tags: [],
-    onboarding_completed: false,
-    is_active: true,
-    meal_context: null,
-    hidden_tags: [],
-    week_start_day: weekStartDay,
+    optionsPerDay: 3,
+    cooldownDays: 28,
+    seasonalMode: true,
+    preferredTags: [],
+    avoidedTags: [],
+    limitedTags: [],
+    onboardingCompleted: false,
+    isActive: true,
+    mealContext: null,
+    hiddenTags: [],
+    weekStartDay: weekStartDay,
   }
 }
 
@@ -116,7 +116,7 @@ async function setupAuth() {
   } as any)
 }
 
-describe('GET /api/preferences — week_start_day as number', () => {
+describe('GET /api/preferences — weekStartDay as number', () => {
   beforeEach(async () => {
     vi.resetModules()
     await setupAuth()
@@ -131,7 +131,7 @@ describe('GET /api/preferences — week_start_day as number', () => {
     const res = await GET(makeGetReq() as Parameters<typeof GET>[0])
     expect(res.status).toBe(200)
     const json = await res.json()
-    expect(json.week_start_day).toBe(0)
+    expect(json.weekStartDay).toBe(0)
   })
 
   it('returns 1 for monday', async () => {
@@ -143,7 +143,7 @@ describe('GET /api/preferences — week_start_day as number', () => {
     const res = await GET(makeGetReq() as Parameters<typeof GET>[0])
     expect(res.status).toBe(200)
     const json = await res.json()
-    expect(json.week_start_day).toBe(1)
+    expect(json.weekStartDay).toBe(1)
   })
 
   it('returns 3 for wednesday', async () => {
@@ -155,7 +155,7 @@ describe('GET /api/preferences — week_start_day as number', () => {
     const res = await GET(makeGetReq() as Parameters<typeof GET>[0])
     expect(res.status).toBe(200)
     const json = await res.json()
-    expect(json.week_start_day).toBe(3)
+    expect(json.weekStartDay).toBe(3)
   })
 
   it('returns 6 for saturday', async () => {
@@ -167,7 +167,7 @@ describe('GET /api/preferences — week_start_day as number', () => {
     const res = await GET(makeGetReq() as Parameters<typeof GET>[0])
     expect(res.status).toBe(200)
     const json = await res.json()
-    expect(json.week_start_day).toBe(6)
+    expect(json.weekStartDay).toBe(6)
   })
 
   it('returns 0 (default) when no prefs row exists', async () => {
@@ -179,10 +179,10 @@ describe('GET /api/preferences — week_start_day as number', () => {
     const res = await GET(makeGetReq() as Parameters<typeof GET>[0])
     expect(res.status).toBe(200)
     const json = await res.json()
-    expect(json.week_start_day).toBe(0)
+    expect(json.weekStartDay).toBe(0)
   })
 
-  it('week_start_day is a number, not a string', async () => {
+  it('weekStartDay is a number, not a string', async () => {
     const { db } = await import('@/lib/db')
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(db.select).mockReturnValue(mockChain([makePrefsRow('friday')]) as any)
@@ -190,11 +190,11 @@ describe('GET /api/preferences — week_start_day as number', () => {
     const { GET } = await import('@/app/api/preferences/route')
     const res = await GET(makeGetReq() as Parameters<typeof GET>[0])
     const json = await res.json()
-    expect(typeof json.week_start_day).toBe('number')
+    expect(typeof json.weekStartDay).toBe('number')
   })
 })
 
-describe('PATCH /api/preferences — week_start_day number → DB text conversion', () => {
+describe('PATCH /api/preferences — weekStartDay number → DB text conversion', () => {
   beforeEach(async () => {
     vi.resetModules()
     await setupAuth()
@@ -203,7 +203,7 @@ describe('PATCH /api/preferences — week_start_day number → DB text conversio
   it('saves wednesday (3) as "wednesday" and returns 3', async () => {
     const { parseBody } = await import('@/lib/schemas')
     vi.mocked(parseBody).mockResolvedValue({
-      data: { week_start_day: 3 } as Record<string, unknown>,
+      data: { weekStartDay: 3 } as Record<string, unknown>,
     })
 
     const returnedRow = makePrefsRow('wednesday')
@@ -213,16 +213,16 @@ describe('PATCH /api/preferences — week_start_day number → DB text conversio
     vi.mocked(db.insert).mockReturnValue(insertChain as any)
 
     const { PATCH } = await import('@/app/api/preferences/route')
-    const res = await PATCH(makePatchReq({ week_start_day: 3 }) as Parameters<typeof PATCH>[0])
+    const res = await PATCH(makePatchReq({ weekStartDay: 3 }) as Parameters<typeof PATCH>[0])
     expect(res.status).toBe(200)
     const json = await res.json()
-    expect(json.week_start_day).toBe(3)
+    expect(json.weekStartDay).toBe(3)
   })
 
   it('saves saturday (6) and returns 6', async () => {
     const { parseBody } = await import('@/lib/schemas')
     vi.mocked(parseBody).mockResolvedValue({
-      data: { week_start_day: 6 } as Record<string, unknown>,
+      data: { weekStartDay: 6 } as Record<string, unknown>,
     })
 
     const returnedRow = makePrefsRow('saturday')
@@ -232,16 +232,16 @@ describe('PATCH /api/preferences — week_start_day number → DB text conversio
     vi.mocked(db.insert).mockReturnValue(insertChain as any)
 
     const { PATCH } = await import('@/app/api/preferences/route')
-    const res = await PATCH(makePatchReq({ week_start_day: 6 }) as Parameters<typeof PATCH>[0])
+    const res = await PATCH(makePatchReq({ weekStartDay: 6 }) as Parameters<typeof PATCH>[0])
     expect(res.status).toBe(200)
     const json = await res.json()
-    expect(json.week_start_day).toBe(6)
+    expect(json.weekStartDay).toBe(6)
   })
 
   it('saves sunday (0) and returns 0', async () => {
     const { parseBody } = await import('@/lib/schemas')
     vi.mocked(parseBody).mockResolvedValue({
-      data: { week_start_day: 0 } as Record<string, unknown>,
+      data: { weekStartDay: 0 } as Record<string, unknown>,
     })
 
     const returnedRow = makePrefsRow('sunday')
@@ -251,9 +251,9 @@ describe('PATCH /api/preferences — week_start_day number → DB text conversio
     vi.mocked(db.insert).mockReturnValue(insertChain as any)
 
     const { PATCH } = await import('@/app/api/preferences/route')
-    const res = await PATCH(makePatchReq({ week_start_day: 0 }) as Parameters<typeof PATCH>[0])
+    const res = await PATCH(makePatchReq({ weekStartDay: 0 }) as Parameters<typeof PATCH>[0])
     expect(res.status).toBe(200)
     const json = await res.json()
-    expect(json.week_start_day).toBe(0)
+    expect(json.weekStartDay).toBe(0)
   })
 })

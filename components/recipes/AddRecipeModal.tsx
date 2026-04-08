@@ -70,11 +70,11 @@ export default function AddRecipeModal({
           steps: values.steps || null,
           notes: values.notes || null,
           url: values.url || null,
-          image_url: values.image_url || null,
-          prep_time_minutes: values.prep_time_minutes !== '' ? Number(values.prep_time_minutes) : null,
-          cook_time_minutes: values.cook_time_minutes !== '' ? Number(values.cook_time_minutes) : null,
-          total_time_minutes: values.total_time_minutes !== '' ? Number(values.total_time_minutes) : null,
-          inactive_time_minutes: values.inactive_time_minutes !== '' ? Number(values.inactive_time_minutes) : null,
+          imageUrl: values.imageUrl || null,
+          prepTimeMinutes: values.prepTimeMinutes !== '' ? Number(values.prepTimeMinutes) : null,
+          cookTimeMinutes: values.cookTimeMinutes !== '' ? Number(values.cookTimeMinutes) : null,
+          totalTimeMinutes: values.totalTimeMinutes !== '' ? Number(values.totalTimeMinutes) : null,
+          inactiveTimeMinutes: values.inactiveTimeMinutes !== '' ? Number(values.inactiveTimeMinutes) : null,
           servings: values.servings !== '' ? Number(values.servings) : null,
           source,
         }),
@@ -90,7 +90,7 @@ export default function AddRecipeModal({
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ made_on: values.lastMade }),
+          body: JSON.stringify({ madeOn: values.lastMade }),
         })
       }
       onSaved()
@@ -106,12 +106,12 @@ export default function AddRecipeModal({
         title: scrapeResult.title ?? undefined,
         ingredients: scrapeResult.ingredients ?? undefined,
         steps: scrapeResult.steps ?? undefined,
-        image_url: scrapeResult.imageUrl ?? undefined,
+        imageUrl: scrapeResult.imageUrl ?? undefined,
         url: scrapeResult.sourceUrl,
-        prep_time_minutes: scrapeResult.prepTimeMinutes !== null ? String(scrapeResult.prepTimeMinutes) : '',
-        cook_time_minutes: scrapeResult.cookTimeMinutes !== null ? String(scrapeResult.cookTimeMinutes) : '',
-        total_time_minutes: scrapeResult.totalTimeMinutes !== null ? String(scrapeResult.totalTimeMinutes) : '',
-        inactive_time_minutes: scrapeResult.inactiveTimeMinutes !== null ? String(scrapeResult.inactiveTimeMinutes) : '',
+        prepTimeMinutes: scrapeResult.prepTimeMinutes !== null ? String(scrapeResult.prepTimeMinutes) : '',
+        cookTimeMinutes: scrapeResult.cookTimeMinutes !== null ? String(scrapeResult.cookTimeMinutes) : '',
+        totalTimeMinutes: scrapeResult.totalTimeMinutes !== null ? String(scrapeResult.totalTimeMinutes) : '',
+        inactiveTimeMinutes: scrapeResult.inactiveTimeMinutes !== null ? String(scrapeResult.inactiveTimeMinutes) : '',
         servings: scrapeResult.servings !== null ? String(scrapeResult.servings) : '',
       }
     : undefined

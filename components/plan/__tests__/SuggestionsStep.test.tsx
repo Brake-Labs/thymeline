@@ -13,8 +13,8 @@ const WEEK_START = '2026-03-01'
 const DATE_1 = '2026-03-01'
 const DATE_2 = '2026-03-02'
 
-const RECIPE_A: RecipeSuggestion = { recipe_id: 'r1', recipe_title: 'Pasta', reason: 'Quick' }
-const RECIPE_B: RecipeSuggestion = { recipe_id: 'r2', recipe_title: 'Tacos' }
+const RECIPE_A: RecipeSuggestion = { recipeId: 'r1', recipeTitle: 'Pasta', reason: 'Quick' }
+const RECIPE_B: RecipeSuggestion = { recipeId: 'r2', recipeTitle: 'Tacos' }
 
 function makeSetup(activeDates = [DATE_1, DATE_2]) {
   return {
@@ -31,8 +31,8 @@ function makeSuggestions(days = [DATE_1]) {
   return {
     days: days.map((date) => ({
       date,
-      meal_types: [{
-        meal_type: 'dinner' as MealType,
+      mealTypes: [{
+        mealType: 'dinner' as MealType,
         options: date === DATE_1 ? [RECIPE_A, RECIPE_B] : [RECIPE_B],
         isSwapping: false,
       }],
@@ -66,7 +66,7 @@ describe('T14 - Skeleton shown while a slot is swapping', () => {
       days: [
         {
           date: DATE_1,
-          meal_types: [{ meal_type: 'dinner' as MealType, options: [RECIPE_A], isSwapping: true }],
+          mealTypes: [{ mealType: 'dinner' as MealType, options: [RECIPE_A], isSwapping: true }],
         },
       ],
     }
@@ -93,7 +93,7 @@ describe('T15 - Regenerate with no selections regenerates immediately', () => {
 describe('T15b - Regenerate prompt shown when selections exist', () => {
   it('shows two options when user has existing selections', () => {
     const sel: Record<string, DaySelection | null> = {
-      [`${DATE_1}:dinner`]: { date: DATE_1, meal_type: 'dinner', recipe_id: 'r1', recipe_title: 'Pasta', from_vault: false },
+      [`${DATE_1}:dinner`]: { date: DATE_1, mealType: 'dinner', recipeId: 'r1', recipeTitle: 'Pasta', fromVault: false },
     }
     render(
       <SuggestionsStep
@@ -112,7 +112,7 @@ describe('T15c - Regenerate all days clears selections', () => {
   it('calls onRegenerate(false) for all days', () => {
     const onRegenerate = vi.fn()
     const sel: Record<string, DaySelection | null> = {
-      [`${DATE_1}:dinner`]: { date: DATE_1, meal_type: 'dinner', recipe_id: 'r1', recipe_title: 'Pasta', from_vault: false },
+      [`${DATE_1}:dinner`]: { date: DATE_1, mealType: 'dinner', recipeId: 'r1', recipeTitle: 'Pasta', fromVault: false },
     }
     render(
       <SuggestionsStep
@@ -131,7 +131,7 @@ describe('T15d - Regenerate unselected slots only', () => {
   it('calls onRegenerate(true) for unselected slots only', () => {
     const onRegenerate = vi.fn()
     const sel: Record<string, DaySelection | null> = {
-      [`${DATE_1}:dinner`]: { date: DATE_1, meal_type: 'dinner', recipe_id: 'r1', recipe_title: 'Pasta', from_vault: false },
+      [`${DATE_1}:dinner`]: { date: DATE_1, mealType: 'dinner', recipeId: 'r1', recipeTitle: 'Pasta', fromVault: false },
     }
     render(
       <SuggestionsStep
@@ -154,7 +154,7 @@ describe('T24 - Confirm Plan button state', () => {
 
   it('is enabled when at least 1 selection exists', () => {
     const sel: Record<string, DaySelection | null> = {
-      [`${DATE_1}:dinner`]: { date: DATE_1, meal_type: 'dinner', recipe_id: 'r1', recipe_title: 'Pasta', from_vault: false },
+      [`${DATE_1}:dinner`]: { date: DATE_1, mealType: 'dinner', recipeId: 'r1', recipeTitle: 'Pasta', fromVault: false },
     }
     render(<SuggestionsStep {...makeDefaultProps({ selections: sel })} />)
     expect(screen.getByText('Confirm Plan')).not.toBeDisabled()

@@ -14,7 +14,7 @@ const ACTIONS = [
 ]
 
 export default function DuplicateActions({ result, onChange }: Props) {
-  const current = result.duplicate_action ?? 'keep_both'
+  const current = result.duplicateAction ?? 'keep_both'
 
   return (
     <div className="mt-1 space-y-1">
@@ -36,7 +36,7 @@ export default function DuplicateActions({ result, onChange }: Props) {
       </div>
       {current === 'replace' && result.duplicate && (
         <p className="text-xs text-amber-600">
-          Will replace: {result.duplicate.recipe_title}
+          Will replace: {result.duplicate.recipeTitle}
         </p>
       )}
     </div>

@@ -159,28 +159,28 @@ describe('ReviewTable', () => {
     {
       id:           'r1',
       status:       'ready' as const,
-      recipe:       { title: 'Chicken Soup', category: null, ingredients: 'chicken', steps: 'boil', notes: null, url: null, image_url: null, prep_time_minutes: null, cook_time_minutes: null, total_time_minutes: null, inactive_time_minutes: null, servings: null, tags: [], source: 'manual' as const },
-      source_label: 'manual',
+      recipe:       { title: 'Chicken Soup', category: null, ingredients: 'chicken', steps: 'boil', notes: null, url: null, imageUrl: null, prepTimeMinutes: null, cookTimeMinutes: null, totalTimeMinutes: null, inactiveTimeMinutes: null, servings: null, tags: [], source: 'manual' as const },
+      sourceLabel: 'manual',
     },
     {
       id:           'r2',
       status:       'partial' as const,
-      recipe:       { title: 'Pasta', category: null, ingredients: 'pasta', steps: null, notes: null, url: null, image_url: null, prep_time_minutes: null, cook_time_minutes: null, total_time_minutes: null, inactive_time_minutes: null, servings: null, tags: [], source: 'manual' as const },
-      source_label: 'manual',
+      recipe:       { title: 'Pasta', category: null, ingredients: 'pasta', steps: null, notes: null, url: null, imageUrl: null, prepTimeMinutes: null, cookTimeMinutes: null, totalTimeMinutes: null, inactiveTimeMinutes: null, servings: null, tags: [], source: 'manual' as const },
+      sourceLabel: 'manual',
     },
     {
       id:           'r3',
       status:       'failed' as const,
       error:        'Missing title',
       recipe:       undefined,
-      source_label: 'manual',
+      sourceLabel: 'manual',
     },
     {
       id:           'r4',
       status:       'ready' as const,
-      recipe:       { title: 'Dupe Recipe', category: null, ingredients: 'x', steps: 'y', notes: null, url: 'https://x.com', image_url: null, prep_time_minutes: null, cook_time_minutes: null, total_time_minutes: null, inactive_time_minutes: null, servings: null, tags: [], source: 'scraped' as const },
-      source_label: 'x.com',
-      duplicate:    { recipe_id: 'existing-1', recipe_title: 'Existing Recipe' },
+      recipe:       { title: 'Dupe Recipe', category: null, ingredients: 'x', steps: 'y', notes: null, url: 'https://x.com', imageUrl: null, prepTimeMinutes: null, cookTimeMinutes: null, totalTimeMinutes: null, inactiveTimeMinutes: null, servings: null, tags: [], source: 'scraped' as const },
+      sourceLabel: 'x.com',
+      duplicate:    { recipeId: 'existing-1', recipeTitle: 'Existing Recipe' },
     },
   ]
 
@@ -348,8 +348,8 @@ describe('DuplicateActions', () => {
     const result = {
       id:           'dup-1',
       status:       'ready' as const,
-      source_label: 'example.com',
-      duplicate:    { recipe_id: 'existing-1', recipe_title: 'Old Recipe' },
+      sourceLabel: 'example.com',
+      duplicate:    { recipeId: 'existing-1', recipeTitle: 'Old Recipe' },
     }
 
     render(<DuplicateActions result={result} onChange={vi.fn()} />)
@@ -363,9 +363,9 @@ describe('DuplicateActions', () => {
     const result = {
       id:              'dup-1',
       status:          'ready' as const,
-      source_label:    'example.com',
-      duplicate:       { recipe_id: 'existing-1', recipe_title: 'Old Recipe' },
-      duplicate_action: 'replace' as const,
+      sourceLabel:    'example.com',
+      duplicate:       { recipeId: 'existing-1', recipeTitle: 'Old Recipe' },
+      duplicateAction: 'replace' as const,
     }
 
     render(<DuplicateActions result={result} onChange={vi.fn()} />)
@@ -378,8 +378,8 @@ describe('DuplicateActions', () => {
     const result = {
       id:           'dup-1',
       status:       'ready' as const,
-      source_label: 'example.com',
-      duplicate:    { recipe_id: 'existing-1', recipe_title: 'Old Recipe' },
+      sourceLabel: 'example.com',
+      duplicate:    { recipeId: 'existing-1', recipeTitle: 'Old Recipe' },
     }
 
     render(<DuplicateActions result={result} onChange={onChange} />)

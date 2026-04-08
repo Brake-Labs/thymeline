@@ -16,7 +16,7 @@ const DISCOVER_WASTE_TIMEOUT_MS = 5000
 // Web search requires a model that supports the web_search_20250305 tool — haiku does not.
 
 export const POST = withAuth(async (req: NextRequest, { user, db: _db, ctx }) => {
-  let body: { query?: string; site_filter?: string }
+  let body: { query?: string; siteFilter?: string }
   try {
     body = await req.json()
   } catch {
@@ -30,7 +30,7 @@ export const POST = withAuth(async (req: NextRequest, { user, db: _db, ctx }) =>
 
   console.log('[discover] query:', query)
 
-  const siteFilter = (body.site_filter ?? '').trim()
+  const siteFilter = (body.siteFilter ?? '').trim()
 
   try {
     // ── Step 1: Fetch vault context + taste profile + current plan ────────────
@@ -93,7 +93,7 @@ Extract key ingredients, cooking method, and cuisine style from the request. Ret
     interface RawResult {
       url: string
       title: string
-      site_name: string
+      siteName: string
       description: string | null
     }
 
@@ -108,7 +108,7 @@ Extract key ingredients, cooking method, and cuisine style from the request. Ret
         messages: [
           {
             role: 'user',
-            content: `Search for recipes using these queries and return the URLs and titles of real recipe pages you find. Queries: ${JSON.stringify(searchQueries)}. Return a JSON array of { url, title, site_name, description } objects — up to 10 results. Only include URLs that look like actual recipe pages (containing /recipe/, /recipes/, or from known recipe domains). Do not invent URLs.`,
+            content: `Search for recipes using these queries and return the URLs and titles of real recipe pages you find. Queries: ${JSON.stringify(searchQueries)}. Return a JSON array of { url, title, siteName, description } objects — up to 10 results. Only include URLs that look like actual recipe pages (containing /recipe/, /recipes/, or from known recipe domains). Do not invent URLs.`,
           },
         ],
       })
@@ -130,7 +130,7 @@ Extract key ingredients, cooking method, and cuisine style from the request. Ret
               rawResults.push({
                 url: item.url,
                 title: item.title ?? '',
-                site_name: item.site_name ?? '',
+                siteName: item.siteName ?? '',
                 description: item.description ?? null,
               })
               if (rawResults.length >= 10) break
@@ -153,9 +153,9 @@ Extract key ingredients, cooking method, and cuisine style from the request. Ret
 
     // ── Step 4: Rank, compare against vault, suggest tags ────────────────────
     interface RankedResult extends RawResult {
-      suggested_tags: string[]
-      vault_match?: {
-        similar_recipe_title: string
+      suggestedTags: string[]
+      vaultMatch?: {
+        similarRecipeTitle: string
         similarity: 'exact' | 'similar'
       }
     }
@@ -164,9 +164,9 @@ Extract key ingredients, cooking method, and cuisine style from the request. Ret
     try {
       const tasteSection = (() => {
         const lines: string[] = []
-        if (tasteProfile?.meal_context) lines.push(`Household context: ${tasteProfile.meal_context}`)
-        if (tasteProfile?.top_tags?.length) lines.push(`Favourite styles: ${tasteProfile.top_tags.slice(0, 5).join(', ')}`)
-        if (tasteProfile?.avoided_tags?.length) lines.push(`Avoid: ${tasteProfile.avoided_tags.join(', ')}`)
+        if (tasteProfile?.mealContext) lines.push(`Household context: ${tasteProfile.mealContext}`)
+        if (tasteProfile?.topTags?.length) lines.push(`Favourite styles: ${tasteProfile.topTags.slice(0, 5).join(', ')}`)
+        if (tasteProfile?.avoidedTags?.length) lines.push(`Avoid: ${tasteProfile.avoidedTags.join(', ')}`)
         return lines.length > 0 ? `\n${lines.join('\n')}\n` : ''
       })()
       const rankMsg = await anthropic.messages.create({
@@ -194,17 +194,17 @@ Instructions:
 3. For each result, check if it matches anything in the vault:
    - "exact": same title or same URL already in vault
    - "similar": same main ingredient + cooking method as an existing vault recipe
-   - complementary (gap-filler): omit vault_match entirely
+   - complementary (gap-filler): omit vaultMatch entirely
 4. Return the top 6 results as a JSON array
 
 Return ONLY a JSON array with this shape (no explanation):
 [{
   "url": "...",
   "title": "...",
-  "site_name": "...",
+  "siteName": "...",
   "description": "..." or null,
-  "suggested_tags": [...],
-  "vault_match": { "similar_recipe_title": "...", "similarity": "exact" | "similar" }
+  "suggestedTags": [...],
+  "vaultMatch": { "similarRecipeTitle": "...", "similarity": "exact" | "similar" }
 }]`,
           },
         ],
@@ -221,20 +221,20 @@ Return ONLY a JSON array with this shape (no explanation):
           rankedResults = parsed.slice(0, 6)
         }
       } catch {
-        rankedResults = rawResults.slice(0, 6).map((r) => ({ ...r, suggested_tags: [] }))
+        rankedResults = rawResults.slice(0, 6).map((r) => ({ ...r, suggestedTags: [] }))
       }
     } catch (err) {
       console.error('[discover] ranking failed:', err)
-      rankedResults = rawResults.slice(0, 6).map((r) => ({ ...r, suggested_tags: [] }))
+      rankedResults = rawResults.slice(0, 6).map((r) => ({ ...r, suggestedTags: [] }))
     }
 
     console.log('[discover] after LLM ranking:', JSON.stringify(rankedResults, null, 2))
 
     // ── Step 4.5: Post-filter recipes that have any avoided tag ─────────────
-    if (tasteProfile?.avoided_tags?.length) {
-      const avoidedSet = new Set(tasteProfile.avoided_tags.map((t) => t.toLowerCase()))
+    if (tasteProfile?.avoidedTags?.length) {
+      const avoidedSet = new Set(tasteProfile.avoidedTags.map((t) => t.toLowerCase()))
       rankedResults = rankedResults.filter((r) => {
-        const recipeTags = (r.suggested_tags ?? []).map((t) => t.toLowerCase())
+        const recipeTags = (r.suggestedTags ?? []).map((t) => t.toLowerCase())
         return !recipeTags.some((t) => avoidedSet.has(t))
       })
     }
@@ -245,16 +245,16 @@ Return ONLY a JSON array with this shape (no explanation):
     const results: DiscoveryResult[] = rankedResults.map((r) => ({
       title: r.title ?? '',
       url: r.url ?? '',
-      site_name: r.site_name ?? '',
+      siteName: r.siteName ?? '',
       description: r.description ?? null,
-      suggested_tags: (r.suggested_tags ?? []).filter(
+      suggestedTags: (r.suggestedTags ?? []).filter(
         (t) => typeof t === 'string' && firstClassSet.has(t.toLowerCase()),
       ),
-      ...(r.vault_match
+      ...(r.vaultMatch
         ? {
-            vault_match: {
-              similar_recipe_title: r.vault_match.similar_recipe_title ?? '',
-              similarity: r.vault_match.similarity === 'exact' ? 'exact' : 'similar',
+            vaultMatch: {
+              similarRecipeTitle: r.vaultMatch.similarRecipeTitle ?? '',
+              similarity: r.vaultMatch.similarity === 'exact' ? 'exact' : 'similar',
             },
           }
         : {}),
@@ -266,7 +266,7 @@ Return ONLY a JSON array with this shape (no explanation):
     if (currentPlanRecipes.length > 0 && results.length > 0) {
       try {
         const candidateRecipes: RecipeForOverlap[] = results.map((r) => ({
-          recipe_id: r.url,
+          recipeId: r.url,
           title: r.title,
           ingredients: r.description ?? '',
         }))
@@ -279,8 +279,8 @@ Return ONLY a JSON array with this shape (no explanation):
         for (const result of results) {
           const matches = wasteMap.get(result.url)
           if (matches && matches.length > 0) {
-            result.waste_matches = matches.map((m) => ({ ingredient: m.ingredient, waste_risk: m.waste_risk }))
-            result.waste_badge_text = getPlanWasteBadgeText(matches)
+            result.wasteMatches = matches.map((m) => ({ ingredient: m.ingredient, wasteRisk: m.wasteRisk }))
+            result.wasteBadgeText = getPlanWasteBadgeText(matches)
           }
         }
       } catch (err) {

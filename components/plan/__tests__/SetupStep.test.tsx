@@ -66,13 +66,13 @@ describe('SetupStep - context textarea auto-grow (#291)', () => {
 
 describe('SetupStep - tags expansion (regression #244)', () => {
   it('renders tag name strings (not [object Object]) when tags section is expanded', async () => {
-    // /api/tags returns { firstClass: [{ name, recipe_count }], custom: [] }
+    // /api/tags returns { firstClass: [{ name, recipeCount }], custom: [] }
     // The bug: firstClass objects were spread directly into allTags, causing React to
     // throw "Objects are not valid as a React child" when TagBucketPicker rendered them.
     global.fetch = vi.fn(async () => ({
       ok: true,
       json: async () => ({
-        firstClass: [{ name: 'Quick', recipe_count: 3 }, { name: 'Healthy', recipe_count: 1 }],
+        firstClass: [{ name: 'Quick', recipeCount: 3 }, { name: 'Healthy', recipeCount: 1 }],
         custom: [{ name: 'Garden', section: 'custom' }],
       }),
     })) as unknown as typeof fetch

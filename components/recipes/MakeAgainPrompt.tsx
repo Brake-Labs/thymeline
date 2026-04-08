@@ -21,7 +21,7 @@ export default function MakeAgainPrompt({ entryId, recipeId, onDismiss }: MakeAg
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ make_again: makeAgain }),
+        body: JSON.stringify({ makeAgain: makeAgain }),
       })
     } catch {
       // never block the user on this

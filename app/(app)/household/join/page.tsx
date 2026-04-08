@@ -23,7 +23,7 @@ export default function JoinHouseholdPage() {
       .then((r) => r.json())
       .then((d) => {
         if (d.valid) {
-          setHouseholdName(d.household_name)
+          setHouseholdName(d.householdName)
           setStatus('valid')
         } else {
           setStatus('invalid')

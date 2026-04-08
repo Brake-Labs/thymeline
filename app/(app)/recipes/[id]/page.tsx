@@ -20,7 +20,7 @@ import DateInput from '@/components/ui/DateInput'
 import { Sparkles } from 'lucide-react'
 import MakeAgainPrompt from '@/components/recipes/MakeAgainPrompt'
 
-type RecipeWithHistory = Recipe & { last_made: string | null; times_made: number }
+type RecipeWithHistory = Recipe & { lastMade: string | null; timesMade: number }
 
 interface Props {
   params: { id: string }
@@ -35,7 +35,7 @@ export default function RecipeDetailPage({ params }: Props) {
   const [showRegenerate, setShowRegenerate] = useState(false)
   const [currentUserId, setCurrentUserId] = useState('')
   const [datesMade, setDatesMade] = useState<string[]>([])
-  const [logStatus, setLogStatus] = useState<'idle' | 'loading' | 'success' | 'already_logged'>('idle')
+  const [logStatus, setLogStatus] = useState<'idle' | 'loading' | 'success' | 'alreadyLogged'>('idle')
   const [showLogModal, setShowLogModal] = useState(false)
   const [logDate, setLogDate] = useState('')
   const [fetchError, setFetchError] = useState<string | null>(null)
@@ -47,7 +47,7 @@ export default function RecipeDetailPage({ params }: Props) {
   const [saveAsNewPrefill, setSaveAsNewPrefill] = useState<ModifiedRecipe | null>(null)
   const [makeAgainEntryId, setMakeAgainEntryId] = useState<string | null>(null)
 
-  const isOwner = !!currentUserId && recipe?.user_id === currentUserId
+  const isOwner = !!currentUserId && recipe?.userId === currentUserId
 
   useEffect(() => {
     void (async () => {
@@ -70,7 +70,7 @@ export default function RecipeDetailPage({ params }: Props) {
         const data: RecipeWithHistory = await r.json()
         if (data) {
           setRecipe(data)
-          setDatesMade((data.dates_made ?? []).slice().sort().reverse())
+          setDatesMade((data.datesMade ?? []).slice().sort().reverse())
         }
         setFetchError(null)
         setLoading(false)
@@ -99,18 +99,18 @@ export default function RecipeDetailPage({ params }: Props) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ made_on: logDate }),
+        body: JSON.stringify({ madeOn: logDate }),
       })
       if (res.ok) {
-        const data: { made_on: string; already_logged: boolean; entry_id: string | null } = await res.json()
-        if (data.already_logged) {
-          setLogStatus('already_logged')
+        const data: { madeOn: string; alreadyLogged: boolean; entryId: string | null } = await res.json()
+        if (data.alreadyLogged) {
+          setLogStatus('alreadyLogged')
         } else {
           setLogStatus('success')
           setDatesMade((prev) =>
-            prev.includes(data.made_on) ? prev : [data.made_on, ...prev].sort().reverse()
+            prev.includes(data.madeOn) ? prev : [data.madeOn, ...prev].sort().reverse()
           )
-          if (data.entry_id) setMakeAgainEntryId(data.entry_id)
+          if (data.entryId) setMakeAgainEntryId(data.entryId)
         }
         setTimeout(() => setLogStatus('idle'), TOAST_DURATION_MS)
       } else {
@@ -163,10 +163,10 @@ export default function RecipeDetailPage({ params }: Props) {
     : recipe
 
   const timeItems = [
-    { label: 'Prep', value: formatMinutes(recipe.prep_time_minutes ?? null) },
-    { label: 'Cook', value: formatMinutes(recipe.cook_time_minutes ?? null) },
-    { label: 'Total', value: formatMinutes(recipe.total_time_minutes ?? null) },
-    { label: 'Inactive', value: formatMinutes(recipe.inactive_time_minutes ?? null) },
+    { label: 'Prep', value: formatMinutes(recipe.prepTimeMinutes ?? null) },
+    { label: 'Cook', value: formatMinutes(recipe.cookTimeMinutes ?? null) },
+    { label: 'Total', value: formatMinutes(recipe.totalTimeMinutes ?? null) },
+    { label: 'Inactive', value: formatMinutes(recipe.inactiveTimeMinutes ?? null) },
     { label: 'Servings', value: displayRecipe.servings != null ? String(displayRecipe.servings) : '—' },
   ]
 
@@ -187,10 +187,10 @@ export default function RecipeDetailPage({ params }: Props) {
           <div className="h-[5px] bg-sage-500" />
 
           {/* Hero image */}
-          {recipe.image_url && (
+          {recipe.imageUrl && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={recipe.image_url}
+              src={recipe.imageUrl}
               alt={recipe.title}
               className="w-full object-cover max-h-[280px]"
             />
@@ -398,7 +398,7 @@ export default function RecipeDetailPage({ params }: Props) {
               disabled={logStatus === 'loading'}
               className="font-display font-medium text-[13px] text-stone-700 border border-stone-200 rounded-xl py-2 px-4 bg-white hover:bg-stone-50 disabled:opacity-50"
             >
-              {logStatus === 'success' ? '✓ Logged!' : logStatus === 'already_logged' ? 'Already logged' : 'Log made'}
+              {logStatus === 'success' ? '✓ Logged!' : logStatus === 'alreadyLogged' ? 'Already logged' : 'Log made'}
             </button>
             {isOwner && recipe.source === 'generated' && (
               <button

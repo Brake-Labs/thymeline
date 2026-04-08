@@ -10,7 +10,7 @@ interface LogDateSectionProps {
   onLogged?: (date: string) => void
 }
 
-type Status = 'idle' | 'loading' | 'success' | 'already_logged' | 'picking'
+type Status = 'idle' | 'loading' | 'success' | 'alreadyLogged' | 'picking'
 
 function getToday(): string {
   return getTodayISO()
@@ -39,12 +39,12 @@ export default function LogDateSection({
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ made_on: dateStr }),
+        body: JSON.stringify({ madeOn: dateStr }),
       })
       if (res.ok) {
-        const data: { made_on: string; already_logged: boolean } = await res.json()
-        setStatus(data.already_logged ? 'already_logged' : 'success')
-        if (!data.already_logged) onLogged?.(data.made_on)
+        const data: { madeOn: string; alreadyLogged: boolean } = await res.json()
+        setStatus(data.alreadyLogged ? 'alreadyLogged' : 'success')
+        if (!data.alreadyLogged) onLogged?.(data.madeOn)
         setTimeout(() => setStatus('idle'), TOAST_DURATION_MS)
       } else {
         setStatus('idle')
@@ -58,7 +58,7 @@ export default function LogDateSection({
     return <p className="text-sm text-sage-600 font-medium">✓ Logged!</p>
   }
 
-  if (status === 'already_logged') {
+  if (status === 'alreadyLogged') {
     return <p className="text-sm text-stone-500 font-medium">Already logged for that day</p>
   }
 

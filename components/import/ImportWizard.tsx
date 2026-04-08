@@ -45,8 +45,8 @@ const INITIAL_STATE: WizardState = {
 function resultToSavePayload(r: ImportResult) {
   return {
     data:             r.recipe!,
-    duplicate_action: r.duplicate_action,
-    existing_id:      r.duplicate_action === 'replace' ? r.duplicate?.recipe_id : undefined,
+    duplicateAction: r.duplicateAction,
+    existingId:      r.duplicateAction === 'replace' ? r.duplicate?.recipeId : undefined,
   }
 }
 
@@ -122,8 +122,8 @@ export default function ImportWizard() {
       const results: ImportResult[] = (data.results ?? []).map((r, _i) => ({
         ...r,
         id:           r.id ?? crypto.randomUUID(),
-        source_label: r.source_label ?? (file.name ?? 'File'),
-        duplicate_action: r.duplicate ? 'keep_both' : undefined,
+        sourceLabel: r.sourceLabel ?? (file.name ?? 'File'),
+        duplicateAction: r.duplicate ? 'keep_both' : undefined,
       }))
 
       setState((prev) => ({
@@ -155,7 +155,7 @@ export default function ImportWizard() {
       const res = await fetch('/api/import/confirm-notion-mapping', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ file_content: rawCsv, mapping }),
+        body:    JSON.stringify({ fileContent: rawCsv, mapping }),
       })
       const data = await res.json() as {
         results: ImportResult[]
@@ -166,8 +166,8 @@ export default function ImportWizard() {
       const results: ImportResult[] = (data.results ?? []).map((r) => ({
         ...r,
         id:           r.id ?? crypto.randomUUID(),
-        source_label: r.source_label ?? 'Notion',
-        duplicate_action: r.duplicate ? 'keep_both' : undefined,
+        sourceLabel: r.sourceLabel ?? 'Notion',
+        duplicateAction: r.duplicate ? 'keep_both' : undefined,
       }))
 
       setState((prev) => ({ ...prev, step: 'review', results }))

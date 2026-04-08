@@ -43,9 +43,9 @@ export async function deriveTasteProfile(
     .limit(1)
   const prefs = prefsRows[0] ?? null
 
-  // ── loved_recipe_ids ───────────────────────────────────────────────────────
+  // ── lovedRecipeIds ───────────────────────────────────────────────────────
 
-  // Explicit: make_again = true (any member)
+  // Explicit: makeAgain = true (any member)
   const explicitLoved = await db
     .select({ recipeId: recipeHistory.recipeId })
     .from(recipeHistory)
@@ -69,18 +69,18 @@ export async function deriveTasteProfile(
     ...explicitLoved.map((r) => r.recipeId),
     ...implicitLoved,
   ])
-  const loved_recipe_ids = [...lovedSet]
+  const lovedRecipeIds = [...lovedSet]
 
-  // ── disliked_recipe_ids ────────────────────────────────────────────────────
+  // ── dislikedRecipeIds ────────────────────────────────────────────────────
 
   const disliked = await db
     .select({ recipeId: recipeHistory.recipeId })
     .from(recipeHistory)
     .where(and(inArray(recipeHistory.userId, memberIds), eq(recipeHistory.makeAgain, false)))
 
-  const disliked_recipe_ids = [...new Set(disliked.map((r) => r.recipeId))]
+  const dislikedRecipeIds = [...new Set(disliked.map((r) => r.recipeId))]
 
-  // ── top_tags ───────────────────────────────────────────────────────────────
+  // ── topTags ───────────────────────────────────────────────────────────────
 
   const tagHistory = await db
     .select({
@@ -104,13 +104,13 @@ export async function deriveTasteProfile(
 
   // Remove avoided tags and return top 10
   const avoided = prefs?.avoidedTags ?? []
-  const top_tags = [...tagWeights.entries()]
+  const topTags = [...tagWeights.entries()]
     .filter(([tag]) => !avoided.includes(tag))
     .sort((a, b) => b[1] - a[1])
     .slice(0, 10)
     .map(([tag]) => tag)
 
-  // ── cooking_frequency ──────────────────────────────────────────────────────
+  // ── cookingFrequency ──────────────────────────────────────────────────────
 
   const recent30 = await db
     .select({ recipeId: recipeHistory.recipeId })
@@ -118,12 +118,12 @@ export async function deriveTasteProfile(
     .where(and(inArray(recipeHistory.userId, memberIds), gte(recipeHistory.madeOn, ago30.toISOString().slice(0, 10))))
 
   const distinctCount = new Set(recent30.map((r) => r.recipeId)).size
-  const cooking_frequency: CookingFrequency =
+  const cookingFrequency: CookingFrequency =
     distinctCount <= 2 ? 'light'
     : distinctCount <= 6 ? 'moderate'
     : 'frequent'
 
-  // ── recent_recipes ─────────────────────────────────────────────────────────
+  // ── recentRecipes ─────────────────────────────────────────────────────────
 
   const recent = await db
     .select({
@@ -137,20 +137,20 @@ export async function deriveTasteProfile(
     .orderBy(desc(recipeHistory.madeOn))
     .limit(10)
 
-  const recent_recipes = recent.map((r) => ({
-    recipe_id: r.recipeId,
+  const recentRecipes = recent.map((r) => ({
+    recipeId: r.recipeId,
     title:     r.title ?? '',
-    made_on:   r.madeOn,
+    madeOn:   r.madeOn,
   }))
 
   return {
-    loved_recipe_ids,
-    disliked_recipe_ids,
-    top_tags,
-    avoided_tags:    avoided,
-    preferred_tags:  prefs?.preferredTags ?? [],
-    meal_context:    prefs?.mealContext ?? null,
-    cooking_frequency,
-    recent_recipes,
+    lovedRecipeIds,
+    dislikedRecipeIds,
+    topTags,
+    avoidedTags:    avoided,
+    preferredTags:  prefs?.preferredTags ?? [],
+    mealContext:    prefs?.mealContext ?? null,
+    cookingFrequency,
+    recentRecipes,
   }
 }

@@ -19,8 +19,8 @@ export const POST = withAuth(async (req, { user }) => {
       .values({ token, createdBy: user.id, expiresAt })
 
     return NextResponse.json({
-      invite_url: `${config.siteUrl}/invite?token=${token}`,
-      expires_at: expiresAt.toISOString(),
+      inviteUrl: `${config.siteUrl}/invite?token=${token}`,
+      expiresAt: expiresAt.toISOString(),
     })
   } catch (err) {
     console.error('[POST /api/admin/invite] error:', err)

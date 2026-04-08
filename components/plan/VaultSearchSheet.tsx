@@ -15,7 +15,7 @@ interface VaultSearchSheetProps {
   forDate: string
   mealType?: MealType
   allowedCategories?: string[]
-  onAssign: (recipe: { recipe_id: string; recipe_title: string }) => void
+  onAssign: (recipe: { recipeId: string; recipeTitle: string }) => void
   onClose: () => void
 }
 
@@ -120,7 +120,7 @@ export default function VaultSearchSheet({ forDate: _forDate, mealType, allowedC
             <button
               key={r.id}
               onClick={() => {
-                onAssign({ recipe_id: r.id, recipe_title: r.title })
+                onAssign({ recipeId: r.id, recipeTitle: r.title })
                 onClose()
               }}
               className="w-full text-left py-3 border-b border-stone-50 last:border-0 hover:bg-stone-50 rounded-lg px-2 transition-colors"

@@ -6,7 +6,7 @@ import { CATEGORY_LABELS } from '@/lib/category-labels'
 import { formatMinutes } from '@/lib/format-time'
 import { MAX_VISIBLE_TAGS } from '@/lib/constants'
 
-export type ListSortKey = 'title' | 'category' | 'total_time_minutes' | 'last_made' | null
+export type ListSortKey = 'title' | 'category' | 'totalTimeMinutes' | 'lastMade' | null
 
 interface RecipeListViewProps {
   recipes: RecipeListItem[]
@@ -23,8 +23,8 @@ const COLUMNS: { key: ListSortKey; label: string; className: string }[] = [
   { key: 'title', label: 'Recipe', className: 'w-52 min-w-0' },
   { key: 'category', label: 'Category', className: 'w-28' },
   { key: null, label: 'Tags', className: 'w-52' },
-  { key: 'total_time_minutes', label: 'Time', className: 'w-20' },
-  { key: 'last_made', label: 'Last Made', className: 'w-24' },
+  { key: 'totalTimeMinutes', label: 'Time', className: 'w-20' },
+  { key: 'lastMade', label: 'Last Made', className: 'w-24' },
   { key: null, label: '', className: 'w-12' },
 ]
 
@@ -84,7 +84,7 @@ export default function RecipeListView({
         </thead>
         <tbody>
           {recipes.map((recipe) => {
-            const isOwner = currentUserId && recipe.user_id === currentUserId
+            const isOwner = currentUserId && recipe.userId === currentUserId
             const visibleTags = recipe.tags.slice(0, MAX_VISIBLE_TAGS)
             const extraCount = recipe.tags.length - MAX_VISIBLE_TAGS
 
@@ -131,10 +131,10 @@ export default function RecipeListView({
                   </div>
                 </td>
                 <td className="py-3 pr-4 w-20 text-xs text-stone-500">
-                  {formatMinutes(recipe.total_time_minutes)}
+                  {formatMinutes(recipe.totalTimeMinutes)}
                 </td>
                 <td className="py-3 pr-4 w-24 text-xs text-stone-500">
-                  {recipe.last_made ?? 'Never'}
+                  {recipe.lastMade ?? 'Never'}
                 </td>
                 <td className="py-3 w-12">
                   {isOwner && (

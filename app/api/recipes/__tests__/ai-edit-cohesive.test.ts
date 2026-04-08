@@ -69,14 +69,14 @@ async function setupAuth() {
 
 const validBody = {
   message: 'Make it spicier',
-  current_recipe: {
+  currentRecipe: {
     title:       'Chicken Stir Fry',
     ingredients: '500g chicken\n2 tbsp soy sauce',
     steps:       '1. Cook chicken\n2. Add sauce',
     notes:       null,
     servings:    4,
   },
-  conversation_history: [],
+  conversationHistory: [],
 }
 
 const sampleEditResponse = JSON.stringify({
@@ -90,14 +90,14 @@ const sampleEditResponse = JSON.stringify({
 })
 
 const defaultProfile = {
-  loved_recipe_ids:    [],
-  disliked_recipe_ids: [],
-  top_tags:            ['Quick', 'Asian'],
-  avoided_tags:        [],
-  preferred_tags:      ['Quick'],
-  meal_context:        'Family with young kids',
-  cooking_frequency:   'moderate' as const,
-  recent_recipes:      [],
+  lovedRecipeIds:    [],
+  dislikedRecipeIds: [],
+  topTags:            ['Quick', 'Asian'],
+  avoidedTags:        [],
+  preferredTags:      ['Quick'],
+  mealContext:        'Family with young kids',
+  cookingFrequency:   'moderate' as const,
+  recentRecipes:      [],
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -119,7 +119,7 @@ describe('POST /api/recipes/[id]/ai-edit — spec-22 taste profile (T14–T17)',
     expect(deriveTasteProfile).toHaveBeenCalledWith('user-1', null, null)
   })
 
-  it('T15: system prompt includes meal_context and top_tags when profile is non-empty', async () => {
+  it('T15: system prompt includes mealContext and topTags when profile is non-empty', async () => {
     mockCallLLMMultimodal.mockResolvedValue(sampleEditResponse)
 
     const { POST } = await import('@/app/api/recipes/[id]/ai-edit/route')
@@ -131,11 +131,11 @@ describe('POST /api/recipes/[id]/ai-edit — spec-22 taste profile (T14–T17)',
     expect(callArgs.system).toContain('Asian')
   })
 
-  it('T16: system prompt does not include loved_recipe_ids or disliked_recipe_ids', async () => {
+  it('T16: system prompt does not include lovedRecipeIds or dislikedRecipeIds', async () => {
     vi.mocked(deriveTasteProfile).mockResolvedValue({
       ...defaultProfile,
-      loved_recipe_ids:    ['recipe-abc'],
-      disliked_recipe_ids: ['recipe-xyz'],
+      lovedRecipeIds:    ['recipe-abc'],
+      dislikedRecipeIds: ['recipe-xyz'],
     })
 
     mockCallLLMMultimodal.mockResolvedValue(sampleEditResponse)
@@ -157,15 +157,15 @@ describe('POST /api/recipes/[id]/ai-edit — spec-22 taste profile (T14–T17)',
     const res = await POST(makeRequest('POST', 'http://localhost/api/recipes/r1/ai-edit', validBody), { params: { id: 'r1' } })
     const body = await res.json()
 
-    expect(body.waste_badge_text).toBeUndefined()
-    expect(body.waste_matches).toBeUndefined()
+    expect(body.wasteBadgeText).toBeUndefined()
+    expect(body.wasteMatches).toBeUndefined()
   })
 
   it('T18: empty taste profile — route succeeds without errors', async () => {
     vi.mocked(deriveTasteProfile).mockResolvedValue({
       ...defaultProfile,
-      top_tags:    [],
-      meal_context: null,
+      topTags:    [],
+      mealContext: null,
     })
 
     mockCallLLMMultimodal.mockResolvedValue(sampleEditResponse)

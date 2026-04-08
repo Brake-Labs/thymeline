@@ -30,7 +30,7 @@ export default function DiscoveryPageClient() {
         },
         body: JSON.stringify({
           query: q.trim(),
-          ...(site.trim() ? { site_filter: site.trim() } : {}),
+          ...(site.trim() ? { siteFilter: site.trim() } : {}),
         }),
       })
 

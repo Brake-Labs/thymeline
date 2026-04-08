@@ -18,9 +18,9 @@ export const GET = withAuth(async (req) => {
     const inviteRows = await db
       .select({
         id: householdInvites.id,
-        household_id: householdInvites.householdId,
-        used_by: householdInvites.usedBy,
-        expires_at: householdInvites.expiresAt,
+        householdId: householdInvites.householdId,
+        usedBy: householdInvites.usedBy,
+        expiresAt: householdInvites.expiresAt,
       })
       .from(householdInvites)
       .where(eq(householdInvites.token, token))
@@ -31,25 +31,25 @@ export const GET = withAuth(async (req) => {
       return NextResponse.json({ valid: false })
     }
 
-    if (invite.used_by !== null) {
+    if (invite.usedBy !== null) {
       return NextResponse.json({ valid: false })
     }
 
-    if (new Date(invite.expires_at) < new Date()) {
+    if (new Date(invite.expiresAt) < new Date()) {
       return NextResponse.json({ valid: false })
     }
 
     const householdRows = await db
       .select({ name: households.name })
       .from(households)
-      .where(eq(households.id, invite.household_id))
+      .where(eq(households.id, invite.householdId))
 
     const household = dbFirst(householdRows)
 
     return NextResponse.json({
       valid: true,
-      household_name: household?.name ?? null,
-      expires_at: invite.expires_at,
+      householdName: household?.name ?? null,
+      expiresAt: invite.expiresAt,
     })
   } catch (err) {
     console.error('[GET /api/household/invite/validate] error:', err)

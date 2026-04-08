@@ -39,14 +39,14 @@ describe('isToday', () => {
 // from a different week were returned. Those entries had dates outside the
 // current week grid, so no meals were displayed and the day count was wrong.
 describe('buildEntriesByDay', () => {
-  const makeEntry = (planned_date: string, recipe_id: string, recipe_title = 'Recipe', total_time_minutes: number | null = null) =>
-    ({ planned_date, recipe_id, recipe_title, total_time_minutes })
+  const makeEntry = (plannedDate: string, recipeId: string, recipeTitle = 'Recipe', totalTimeMinutes: number | null = null) =>
+    ({ plannedDate, recipeId, recipeTitle, totalTimeMinutes })
 
   it('returns an empty map for no entries', () => {
     expect(buildEntriesByDay([]).size).toBe(0)
   })
 
-  it('groups entries by planned_date', () => {
+  it('groups entries by plannedDate', () => {
     const entries = [
       makeEntry('2026-04-06', 'r1', 'Pasta'),
       makeEntry('2026-04-07', 'r2', 'Soup'),
@@ -54,12 +54,12 @@ describe('buildEntriesByDay', () => {
     ]
     const map = buildEntriesByDay(entries)
     expect(map.size).toBe(3)
-    expect(map.get('2026-04-06')?.[0]?.recipe_title).toBe('Pasta')
-    expect(map.get('2026-04-07')?.[0]?.recipe_title).toBe('Soup')
-    expect(map.get('2026-04-08')?.[0]?.recipe_title).toBe('Pizza')
+    expect(map.get('2026-04-06')?.[0]?.recipeTitle).toBe('Pasta')
+    expect(map.get('2026-04-07')?.[0]?.recipeTitle).toBe('Soup')
+    expect(map.get('2026-04-08')?.[0]?.recipeTitle).toBe('Pizza')
   })
 
-  it('deduplicates the same recipe_id within the same day', () => {
+  it('deduplicates the same recipeId within the same day', () => {
     const entries = [
       makeEntry('2026-04-06', 'r1', 'Pasta'),
       makeEntry('2026-04-06', 'r1', 'Pasta'),  // duplicate

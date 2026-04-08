@@ -92,22 +92,22 @@ async function getHomeData(): Promise<HomeData & { weekStart: string }> {
 
     currentWeekPlan = {
       id:         plan.id,
-      week_start: plan.weekStart,
+      weekStart: plan.weekStart,
       entries: entries.map((e) => ({
-        planned_date:       e.plannedDate,
-        recipe_id:          e.recipeId,
-        recipe_title:       e.recipeTitle ?? '',
+        plannedDate:       e.plannedDate,
+        recipeId:          e.recipeId,
+        recipeTitle:       e.recipeTitle ?? '',
         position:           e.position,
         confirmed:          e.confirmed,
-        total_time_minutes: e.totalTimeMinutes ?? null,
+        totalTimeMinutes: e.totalTimeMinutes ?? null,
       })),
     }
   }
 
   const recentlyMade = historyRows.map((h) => ({
-    recipe_id:    h.recipeId,
-    recipe_title: h.title ?? '',
-    made_on:      h.madeOn,
+    recipeId:    h.recipeId,
+    recipeTitle: h.title ?? '',
+    madeOn:      h.madeOn,
     tags:         h.tags ?? [],
   }))
 
@@ -201,18 +201,18 @@ export default async function HomePage() {
                         <div className="space-y-1">
                           {entries.map((e) => (
                             <div
-                              key={e.recipe_id}
+                              key={e.recipeId}
                               className="rounded bg-sage-50 px-1.5 py-1"
                             >
                               <Link
-                                href={`/recipes/${e.recipe_id}`}
+                                href={`/recipes/${e.recipeId}`}
                                 className="text-[11px] font-medium text-stone-800 hover:text-sage-600 leading-snug block"
                               >
-                                {e.recipe_title}
+                                {e.recipeTitle}
                               </Link>
-                              {e.total_time_minutes != null && (
+                              {e.totalTimeMinutes != null && (
                                 <p className="text-[10px] text-stone-400 mt-0.5">
-                                  {formatMinutes(e.total_time_minutes)}
+                                  {formatMinutes(e.totalTimeMinutes)}
                                 </p>
                               )}
                             </div>
@@ -220,7 +220,7 @@ export default async function HomePage() {
                           <Link
                             href={
                               entries.length === 1
-                                ? `/recipes/${entries[0]!.recipe_id}/cook`
+                                ? `/recipes/${entries[0]!.recipeId}/cook`
                                 : `/meal/${day}`
                             }
                             className="inline-block mt-1.5 text-[10px] font-medium text-sage-600 bg-sage-50 border border-sage-200 hover:bg-sage-100 px-2 py-0.5 rounded transition-colors"
@@ -243,7 +243,7 @@ export default async function HomePage() {
             >
               <span className="text-sm text-stone-500">{daysPlanned} of 7 days planned</span>
               <Link
-                href={`/calendar?week_start=${weekStart}`}
+                href={`/calendar?weekStart=${weekStart}`}
                 className="border border-stone-300 rounded-full px-4 py-1.5 text-sm text-stone-700 hover:bg-stone-100 transition-colors"
               >
                 View full plan &#8594;
@@ -277,15 +277,15 @@ export default async function HomePage() {
             <div className="bg-white rounded-xl border border-stone-200 overflow-hidden divide-y divide-stone-100">
               {recentlyMade.map((item) => (
                 <Link
-                  key={`${item.recipe_id}-${item.made_on}`}
-                  href={`/recipes/${item.recipe_id}`}
+                  key={`${item.recipeId}-${item.madeOn}`}
+                  href={`/recipes/${item.recipeId}`}
                   className="flex items-center justify-between px-4 py-4 hover:bg-stone-50 transition-colors"
                 >
                   <span className="text-sm font-medium text-stone-900 flex-1 min-w-0 mr-4 truncate">
-                    {item.recipe_title}
+                    {item.recipeTitle}
                   </span>
                   <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                    <span className="text-xs text-stone-500">{formatShortDate(item.made_on)}</span>
+                    <span className="text-xs text-stone-500">{formatShortDate(item.madeOn)}</span>
                     {item.tags.length > 0 && (
                       <div className="flex gap-1 flex-wrap justify-end">
                         {item.tags.slice(0, 2).map((tag) => (

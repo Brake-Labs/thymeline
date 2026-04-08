@@ -37,9 +37,9 @@ describe('parseCsv', () => {
   it('parses time values including h:mm format', () => {
     const csv = 'title,prep time,cook time,total time\nChicken,30 min,1h 30m,2:00'
     const results = parseCsv(csv)
-    expect(results[0]!.prep_time_minutes).toBe(30)
-    expect(results[0]!.cook_time_minutes).toBe(90)
-    expect(results[0]!.total_time_minutes).toBe(120)
+    expect(results[0]!.prepTimeMinutes).toBe(30)
+    expect(results[0]!.cookTimeMinutes).toBe(90)
+    expect(results[0]!.totalTimeMinutes).toBe(120)
   })
 
   it('matches tags case-insensitively against FIRST_CLASS_TAGS', () => {
@@ -85,9 +85,9 @@ describe('parsePlanToEat', () => {
     const r = results[0]!
     expect(r.title).toBe('Lemon Chicken')
     expect(r.url).toBe('https://example.com/lemon')
-    expect(r.prep_time_minutes).toBe(20)
-    expect(r.cook_time_minutes).toBe(30)
-    expect(r.total_time_minutes).toBe(50)
+    expect(r.prepTimeMinutes).toBe(20)
+    expect(r.cookTimeMinutes).toBe(30)
+    expect(r.totalTimeMinutes).toBe(50)
     expect(r.ingredients).toContain('2 chicken breasts')
     expect(r.steps).toContain('Season and bake')
     expect(r.servings).toBe(4)
@@ -128,8 +128,8 @@ describe('parseWhisk', () => {
     expect(results).toHaveLength(1)
     const r = results[0]!
     expect(r.title).toBe('Quick Pasta')
-    expect(r.prep_time_minutes).toBe(30)
-    expect(r.cook_time_minutes).toBe(90)
+    expect(r.prepTimeMinutes).toBe(30)
+    expect(r.cookTimeMinutes).toBe(90)
     expect(r.ingredients).toContain('1 lb pasta')
     expect(r.steps).toContain('Boil pasta.')
     expect(r.tags).toContain('Italian')
@@ -148,7 +148,7 @@ describe('parseWhisk', () => {
 
     const results = parseWhisk(json)
     expect(results[0]!.steps).toBe('Heat oil.\nAdd vegetables.')
-    expect(results[0]!.prep_time_minutes).toBe(15)
+    expect(results[0]!.prepTimeMinutes).toBe(15)
   })
 
   it('returns empty array for invalid JSON', () => {

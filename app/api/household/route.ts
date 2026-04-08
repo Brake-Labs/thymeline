@@ -57,10 +57,10 @@ export const GET = withAuth(async (req, { ctx }) => {
 
     const members = await db
       .select({
-        household_id: householdMembers.householdId,
-        user_id: householdMembers.userId,
+        householdId: householdMembers.householdId,
+        userId: householdMembers.userId,
         role: householdMembers.role,
-        joined_at: householdMembers.joinedAt,
+        joinedAt: householdMembers.joinedAt,
       })
       .from(householdMembers)
       .where(eq(householdMembers.householdId, ctx.householdId))
@@ -69,7 +69,7 @@ export const GET = withAuth(async (req, { ctx }) => {
     // Return members without email enrichment. Convert Date to ISO string for API response.
     const enrichedMembers: HouseholdMember[] = members.map((m) => ({
       ...m,
-      joined_at: m.joined_at.toISOString(),
+      joinedAt: m.joinedAt.toISOString(),
     })) as HouseholdMember[]
 
     return NextResponse.json({ household, members: enrichedMembers, myRole: ctx.role })

@@ -79,10 +79,10 @@ async function setupAuth() {
 }
 
 const validBody = {
-  specific_ingredients: 'chicken, spinach',
-  meal_type: 'dinner',
-  style_hints: '',
-  dietary_restrictions: [],
+  specificIngredients: 'chicken, spinach',
+  mealType: 'dinner',
+  styleHints: '',
+  dietaryRestrictions: [],
 }
 
 const sampleRecipeJSON = JSON.stringify({
@@ -100,14 +100,14 @@ const sampleRecipeJSON = JSON.stringify({
 })
 
 const defaultProfile = {
-  loved_recipe_ids:    [],
-  disliked_recipe_ids: [],
-  top_tags:            ['Quick', 'Healthy'],
-  avoided_tags:        [],
-  preferred_tags:      ['Healthy'],
-  meal_context:        'Family of 4, quick meals preferred',
-  cooking_frequency:   'moderate' as const,
-  recent_recipes:      [],
+  lovedRecipeIds:    [],
+  dislikedRecipeIds: [],
+  topTags:            ['Quick', 'Healthy'],
+  avoidedTags:        [],
+  preferredTags:      ['Healthy'],
+  mealContext:        'Family of 4, quick meals preferred',
+  cookingFrequency:   'moderate' as const,
+  recentRecipes:      [],
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -131,7 +131,7 @@ describe('POST /api/recipes/generate — spec-22 taste profile (T08–T09)', () 
     expect(deriveTasteProfile).toHaveBeenCalledWith('user-1', null, null)
   })
 
-  it('T09: system message includes top_tags, meal_context, and cooking_frequency', async () => {
+  it('T09: system message includes topTags, mealContext, and cookingFrequency', async () => {
     mockCallLLM.mockResolvedValue(sampleRecipeJSON)
 
     const { POST } = await import('@/app/api/recipes/generate/route')
@@ -147,9 +147,9 @@ describe('POST /api/recipes/generate — spec-22 taste profile (T08–T09)', () 
   it('T18: empty taste profile produces no errors', async () => {
     vi.mocked(deriveTasteProfile).mockResolvedValue({
       ...defaultProfile,
-      top_tags:    [],
-      preferred_tags: [],
-      meal_context: null,
+      topTags:    [],
+      preferredTags: [],
+      mealContext: null,
     })
 
     mockCallLLM.mockResolvedValue(sampleRecipeJSON)
@@ -170,7 +170,7 @@ describe('POST /api/recipes/generate — spec-22 waste detection (T10–T13)', (
   })
 
   it('T10: waste overlap detection runs against current week plan', async () => {
-    const currentPlan = [{ recipe_id: 'r1', title: 'Pasta', ingredients: 'spinach, pasta' }]
+    const currentPlan = [{ recipeId: 'r1', title: 'Pasta', ingredients: 'spinach, pasta' }]
     vi.mocked(fetchCurrentWeekPlan).mockResolvedValue(currentPlan)
     vi.mocked(detectWasteOverlap).mockResolvedValue(new Map())
 
@@ -180,19 +180,19 @@ describe('POST /api/recipes/generate — spec-22 waste detection (T10–T13)', (
     await POST(makeRequest('POST', 'http://localhost/api/recipes/generate', validBody))
 
     expect(detectWasteOverlap).toHaveBeenCalledWith(
-      [expect.objectContaining({ recipe_id: '__generated__' })],
+      [expect.objectContaining({ recipeId: '__generated__' })],
       currentPlan,
       expect.any(Function),
     )
   })
 
-  it('T11: generated recipe with waste match gets waste_badge_text', async () => {
+  it('T11: generated recipe with waste match gets wasteBadgeText', async () => {
     vi.mocked(fetchCurrentWeekPlan).mockResolvedValue([
-      { recipe_id: 'r1', title: 'Pasta', ingredients: 'spinach, pasta' },
+      { recipeId: 'r1', title: 'Pasta', ingredients: 'spinach, pasta' },
     ])
 
     const wasteMap = new Map([
-      ['__generated__', [{ ingredient: 'spinach', waste_risk: 'high' as const, shared_with: ['r1'], has_next_week: false }]],
+      ['__generated__', [{ ingredient: 'spinach', wasteRisk: 'high' as const, sharedWith: ['r1'], hasNextWeek: false }]],
     ])
     vi.mocked(detectWasteOverlap).mockResolvedValue(wasteMap)
 
@@ -202,13 +202,13 @@ describe('POST /api/recipes/generate — spec-22 waste detection (T10–T13)', (
     const res = await POST(makeRequest('POST', 'http://localhost/api/recipes/generate', validBody))
     const body = await res.json()
 
-    expect(body.waste_badge_text).toBe('Uses up your spinach')
-    expect(body.waste_matches).toHaveLength(1)
+    expect(body.wasteBadgeText).toBe('Uses up your spinach')
+    expect(body.wasteMatches).toHaveLength(1)
   })
 
   it('T12: generated recipe without waste match has no badge', async () => {
     vi.mocked(fetchCurrentWeekPlan).mockResolvedValue([
-      { recipe_id: 'r1', title: 'Pasta', ingredients: 'pasta only' },
+      { recipeId: 'r1', title: 'Pasta', ingredients: 'pasta only' },
     ])
     vi.mocked(detectWasteOverlap).mockResolvedValue(new Map())
 
@@ -218,13 +218,13 @@ describe('POST /api/recipes/generate — spec-22 waste detection (T10–T13)', (
     const res = await POST(makeRequest('POST', 'http://localhost/api/recipes/generate', validBody))
     const body = await res.json()
 
-    expect(body.waste_badge_text).toBeUndefined()
-    expect(body.waste_matches).toBeUndefined()
+    expect(body.wasteBadgeText).toBeUndefined()
+    expect(body.wasteMatches).toBeUndefined()
   })
 
   it('T13: regenerating with tweaks re-evaluates waste matches', async () => {
     vi.mocked(fetchCurrentWeekPlan).mockResolvedValue([
-      { recipe_id: 'r1', title: 'Pasta', ingredients: 'spinach, pasta' },
+      { recipeId: 'r1', title: 'Pasta', ingredients: 'spinach, pasta' },
     ])
 
     // First call — no waste match
@@ -243,22 +243,22 @@ describe('POST /api/recipes/generate — spec-22 waste detection (T10–T13)', (
     const { POST } = await import('@/app/api/recipes/generate/route')
     const res1 = await POST(makeRequest('POST', 'http://localhost/api/recipes/generate', validBody))
     const body1 = await res1.json()
-    expect(body1.waste_badge_text).toBeUndefined()
+    expect(body1.wasteBadgeText).toBeUndefined()
 
     // Second call — with waste match
     vi.resetModules()
     const wasteMap = new Map([
-      ['__generated__', [{ ingredient: 'spinach', waste_risk: 'high' as const, shared_with: ['r1'], has_next_week: false }]],
+      ['__generated__', [{ ingredient: 'spinach', wasteRisk: 'high' as const, sharedWith: ['r1'], hasNextWeek: false }]],
     ])
     vi.mocked(detectWasteOverlap).mockResolvedValueOnce(wasteMap)
 
     const { POST: POST2 } = await import('@/app/api/recipes/generate/route')
     const res2 = await POST2(makeRequest('POST', 'http://localhost/api/recipes/generate', {
       ...validBody,
-      tweak_request: 'add more spinach',
-      previous_recipe: { title: 'Chicken Spinach', ingredients: 'chicken\nspinach', steps: 'Cook.' },
+      tweakRequest: 'add more spinach',
+      previousRecipe: { title: 'Chicken Spinach', ingredients: 'chicken\nspinach', steps: 'Cook.' },
     }))
     const body2 = await res2.json()
-    expect(body2.waste_badge_text).toBe('Uses up your spinach')
+    expect(body2.wasteBadgeText).toBe('Uses up your spinach')
   })
 })

@@ -23,7 +23,7 @@ export const PATCH = withAuth(async (req: NextRequest, { user, ctx }, params) =>
   try {
     const [updated] = await db
       .update(recipes)
-      .set({ isShared: body.is_shared })
+      .set({ isShared: body.isShared })
       .where(eq(recipes.id, id))
       .returning()
 

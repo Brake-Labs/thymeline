@@ -88,14 +88,14 @@ async function setupAuth() {
 
 const validBody = {
   message: 'no chickpeas please',
-  current_recipe: {
+  currentRecipe: {
     title: 'Roast Chicken',
     ingredients: '1 whole chicken\n2 cans chickpeas',
     steps: 'Roast the chicken.\nServe with chickpeas.',
     notes: null,
     servings: 4,
   },
-  conversation_history: [],
+  conversationHistory: [],
 }
 
 beforeEach(async () => {

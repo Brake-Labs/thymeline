@@ -17,7 +17,7 @@ export default async function AppLayout({
     redirect('/login')
   }
 
-  // Check is_active and onboarding status via direct DB query
+  // Check isActive and onboarding status via direct DB query
   const prefs = await db
     .select({
       isActive: userPreferences.isActive,

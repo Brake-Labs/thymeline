@@ -20,34 +20,34 @@ function numberToDayName(n: number): string {
 }
 
 const DEFAULT_PREFS = {
-  options_per_day: 3,
-  cooldown_days: 28,
-  seasonal_mode: true,
-  preferred_tags: [] as string[],
-  avoided_tags: [] as string[],
-  limited_tags: [] as LimitedTag[],
-  onboarding_completed: false,
-  is_active: true,
-  meal_context: null as string | null,
-  hidden_tags: [] as string[],
-  week_start_day: 0,
+  optionsPerDay: 3,
+  cooldownDays: 28,
+  seasonalMode: true,
+  preferredTags: [] as string[],
+  avoidedTags: [] as string[],
+  limitedTags: [] as LimitedTag[],
+  onboardingCompleted: false,
+  isActive: true,
+  mealContext: null as string | null,
+  hiddenTags: [] as string[],
+  weekStartDay: 0,
 }
 
 export const GET = withAuth(async (req, { user, ctx }) => {
   try {
     const rows = await db
       .select({
-        options_per_day: userPreferences.optionsPerDay,
-        cooldown_days: userPreferences.cooldownDays,
-        seasonal_mode: userPreferences.seasonalMode,
-        preferred_tags: userPreferences.preferredTags,
-        avoided_tags: userPreferences.avoidedTags,
-        limited_tags: userPreferences.limitedTags,
-        onboarding_completed: userPreferences.onboardingCompleted,
-        is_active: userPreferences.isActive,
-        meal_context: userPreferences.mealContext,
-        hidden_tags: userPreferences.hiddenTags,
-        week_start_day: userPreferences.weekStartDay,
+        optionsPerDay: userPreferences.optionsPerDay,
+        cooldownDays: userPreferences.cooldownDays,
+        seasonalMode: userPreferences.seasonalMode,
+        preferredTags: userPreferences.preferredTags,
+        avoidedTags: userPreferences.avoidedTags,
+        limitedTags: userPreferences.limitedTags,
+        onboardingCompleted: userPreferences.onboardingCompleted,
+        isActive: userPreferences.isActive,
+        mealContext: userPreferences.mealContext,
+        hiddenTags: userPreferences.hiddenTags,
+        weekStartDay: userPreferences.weekStartDay,
       })
       .from(userPreferences)
       .where(scopeCondition({ userId: userPreferences.userId, householdId: userPreferences.householdId }, user.id, ctx))
@@ -58,7 +58,7 @@ export const GET = withAuth(async (req, { user, ctx }) => {
       return NextResponse.json(DEFAULT_PREFS)
     }
 
-    return NextResponse.json({ ...data, week_start_day: dayNameToNumber(data.week_start_day) })
+    return NextResponse.json({ ...data, weekStartDay: dayNameToNumber(data.weekStartDay) })
   } catch (err) {
     console.error('[GET /api/preferences] DB error:', err)
     return NextResponse.json(DEFAULT_PREFS)
@@ -80,11 +80,11 @@ export const PATCH = withAuth(async (req, { user, ctx }) => {
   // Validate all tag references against user's tag library (single DB lookup).
   // First-class tags are always valid; only unknown (potentially custom) tags need a check.
   const allTagsToValidate: string[] = []
-  for (const field of ['preferred_tags', 'avoided_tags'] as const) {
+  for (const field of ['preferredTags', 'avoidedTags'] as const) {
     if (field in body) allTagsToValidate.push(...(body[field] as string[]))
   }
-  if ('limited_tags' in body) {
-    allTagsToValidate.push(...(body.limited_tags as LimitedTag[]).map((i) => i.tag))
+  if ('limitedTags' in body) {
+    allTagsToValidate.push(...(body.limitedTags as LimitedTag[]).map((i) => i.tag))
   }
   const needsLookup = allTagsToValidate.filter((t) => !FIRST_CLASS_TAGS.includes(t))
   if (needsLookup.length > 0) {
@@ -103,27 +103,27 @@ export const PATCH = withAuth(async (req, { user, ctx }) => {
   }
 
   // Build the payload with only allowed fields
-  const allowed = ['options_per_day', 'cooldown_days', 'seasonal_mode', 'preferred_tags', 'avoided_tags', 'limited_tags', 'onboarding_completed', 'meal_context', 'hidden_tags', 'week_start_day'] as const
+  const allowed = ['optionsPerDay', 'cooldownDays', 'seasonalMode', 'preferredTags', 'avoidedTags', 'limitedTags', 'onboardingCompleted', 'mealContext', 'hiddenTags', 'weekStartDay'] as const
   const bodyRecord = body as Record<string, unknown>
 
   // Map snake_case body keys to camelCase Drizzle columns
   const keyMap: Record<string, string> = {
-    options_per_day: 'optionsPerDay',
-    cooldown_days: 'cooldownDays',
-    seasonal_mode: 'seasonalMode',
-    preferred_tags: 'preferredTags',
-    avoided_tags: 'avoidedTags',
-    limited_tags: 'limitedTags',
-    onboarding_completed: 'onboardingCompleted',
-    meal_context: 'mealContext',
-    hidden_tags: 'hiddenTags',
-    week_start_day: 'weekStartDay',
+    optionsPerDay: 'optionsPerDay',
+    cooldownDays: 'cooldownDays',
+    seasonalMode: 'seasonalMode',
+    preferredTags: 'preferredTags',
+    avoidedTags: 'avoidedTags',
+    limitedTags: 'limitedTags',
+    onboardingCompleted: 'onboardingCompleted',
+    mealContext: 'mealContext',
+    hiddenTags: 'hiddenTags',
+    weekStartDay: 'weekStartDay',
   }
 
   const update: Record<string, unknown> = {}
   for (const key of allowed) {
     if (key in body) {
-      if (key === 'week_start_day') {
+      if (key === 'weekStartDay') {
         update[keyMap[key]!] = numberToDayName(bodyRecord[key] as number)
       } else {
         update[keyMap[key]!] = bodyRecord[key]
@@ -143,17 +143,17 @@ export const PATCH = withAuth(async (req, { user, ctx }) => {
         set: payload,
       })
       .returning({
-        options_per_day: userPreferences.optionsPerDay,
-        cooldown_days: userPreferences.cooldownDays,
-        seasonal_mode: userPreferences.seasonalMode,
-        preferred_tags: userPreferences.preferredTags,
-        avoided_tags: userPreferences.avoidedTags,
-        limited_tags: userPreferences.limitedTags,
-        onboarding_completed: userPreferences.onboardingCompleted,
-        is_active: userPreferences.isActive,
-        meal_context: userPreferences.mealContext,
-        hidden_tags: userPreferences.hiddenTags,
-        week_start_day: userPreferences.weekStartDay,
+        optionsPerDay: userPreferences.optionsPerDay,
+        cooldownDays: userPreferences.cooldownDays,
+        seasonalMode: userPreferences.seasonalMode,
+        preferredTags: userPreferences.preferredTags,
+        avoidedTags: userPreferences.avoidedTags,
+        limitedTags: userPreferences.limitedTags,
+        onboardingCompleted: userPreferences.onboardingCompleted,
+        isActive: userPreferences.isActive,
+        mealContext: userPreferences.mealContext,
+        hiddenTags: userPreferences.hiddenTags,
+        weekStartDay: userPreferences.weekStartDay,
       })
 
     const data = dbFirst(rows)
@@ -161,7 +161,7 @@ export const PATCH = withAuth(async (req, { user, ctx }) => {
       return NextResponse.json({ error: 'Failed to update preferences' }, { status: 500 })
     }
 
-    return NextResponse.json({ ...data, week_start_day: dayNameToNumber(data.week_start_day) })
+    return NextResponse.json({ ...data, weekStartDay: dayNameToNumber(data.weekStartDay) })
   } catch (err) {
     console.warn('[PATCH /api/preferences] upsert error:', err)
     return NextResponse.json({ error: 'Failed to update preferences' }, { status: 500 })

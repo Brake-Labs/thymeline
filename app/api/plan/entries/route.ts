@@ -13,38 +13,38 @@ export const POST = withAuth(async (req, { user, ctx }) => {
   const { data: body, error: parseError } = await parseBody(req, createPlanEntrySchema)
   if (parseError) return parseError
 
-  const { week_start, date, recipe_id, meal_type, parent_entry_id } = body
-  const is_side_dish = meal_type === 'dessert' ? true : (body.is_side_dish ?? false)
+  const { weekStart, date, recipeId, mealType, parentEntryId } = body
+  const isSideDish = mealType === 'dessert' ? true : (body.isSideDish ?? false)
 
-  // Validate date falls within the week of week_start
-  const weekStartDate = new Date(week_start + 'T12:00:00Z')
+  // Validate date falls within the week of weekStart
+  const weekStartDate = new Date(weekStart + 'T12:00:00Z')
   const entryDate = new Date(date + 'T12:00:00Z')
   const diffDays = Math.round((entryDate.getTime() - weekStartDate.getTime()) / (1000 * 60 * 60 * 24))
   if (diffDays < 0 || diffDays > 6) {
-    return NextResponse.json({ error: 'date must fall within the week of week_start' }, { status: 400 })
+    return NextResponse.json({ error: 'date must fall within the week of weekStart' }, { status: 400 })
   }
 
   // Non-dessert side dishes only allowed for Dinner and Lunch
-  if (is_side_dish && meal_type !== 'dessert' && meal_type !== 'dinner' && meal_type !== 'lunch') {
+  if (isSideDish && mealType !== 'dessert' && mealType !== 'dinner' && mealType !== 'lunch') {
     return NextResponse.json({ error: 'Side dishes are only allowed for Dinner and Lunch slots.' }, { status: 400 })
   }
 
-  // Non-dessert side dish requires parent_entry_id
-  if (is_side_dish && meal_type !== 'dessert' && !parent_entry_id) {
-    return NextResponse.json({ error: 'parent_entry_id is required for side dish entries' }, { status: 400 })
+  // Non-dessert side dish requires parentEntryId
+  if (isSideDish && mealType !== 'dessert' && !parentEntryId) {
+    return NextResponse.json({ error: 'parentEntryId is required for side dish entries' }, { status: 400 })
   }
 
-  // Dessert requires parent_entry_id
-  if (meal_type === 'dessert' && !parent_entry_id) {
-    return NextResponse.json({ error: 'parent_entry_id is required for dessert entries' }, { status: 400 })
+  // Dessert requires parentEntryId
+  if (mealType === 'dessert' && !parentEntryId) {
+    return NextResponse.json({ error: 'parentEntryId is required for dessert entries' }, { status: 400 })
   }
 
   // Dessert parent must be a Dinner or Lunch slot
-  if (meal_type === 'dessert' && parent_entry_id) {
+  if (mealType === 'dessert' && parentEntryId) {
     const parentRows = await db
       .select({ mealType: mealPlanEntries.mealType })
       .from(mealPlanEntries)
-      .where(eq(mealPlanEntries.id, parent_entry_id))
+      .where(eq(mealPlanEntries.id, parentEntryId))
       .limit(1)
     const parentEntry = dbFirst(parentRows)
     if (!parentEntry || (parentEntry.mealType !== 'dinner' && parentEntry.mealType !== 'lunch')) {
@@ -53,12 +53,12 @@ export const POST = withAuth(async (req, { user, ctx }) => {
   }
 
   // Verify the recipe belongs to this user/household
-  const ownership = await checkOwnership('recipes', recipe_id, user.id, ctx)
+  const ownership = await checkOwnership('recipes', recipeId, user.id, ctx)
   if (!ownership.owned) {
     return NextResponse.json({ error: 'Recipe not found' }, { status: ownership.status })
   }
 
-  const planResult = await getOrCreateMealPlan(user.id, week_start, ctx)
+  const planResult = await getOrCreateMealPlan(user.id, weekStart, ctx)
   if ('error' in planResult) {
     console.error('[entries] getOrCreateMealPlan error:', planResult.error)
     return NextResponse.json({ error: 'Failed to create plan' }, { status: 500 })
@@ -69,13 +69,13 @@ export const POST = withAuth(async (req, { user, ctx }) => {
     // Insert the entry
     const [entry] = await db.insert(mealPlanEntries).values({
       mealPlanId:    planId,
-      recipeId:      recipe_id,
+      recipeId:      recipeId,
       plannedDate:   date,
       position:      1,
       confirmed:     true,
-      mealType:      meal_type,
-      isSideDish:    is_side_dish,
-      parentEntryId: parent_entry_id ?? null,
+      mealType:      mealType,
+      isSideDish:    isSideDish,
+      parentEntryId: parentEntryId ?? null,
     }).returning()
 
     if (!entry) {
@@ -105,15 +105,15 @@ export const POST = withAuth(async (req, { user, ctx }) => {
 
     const planEntry: PlanEntry = {
       id:              result.id,
-      recipe_id:       result.recipeId,
-      recipe_title:    result.recipeTitle ?? '',
-      planned_date:    result.plannedDate,
-      meal_type:       result.mealType as MealType,
-      is_side_dish:    result.isSideDish,
-      parent_entry_id: result.parentEntryId,
+      recipeId:       result.recipeId,
+      recipeTitle:    result.recipeTitle ?? '',
+      plannedDate:    result.plannedDate,
+      mealType:       result.mealType as MealType,
+      isSideDish:    result.isSideDish,
+      parentEntryId: result.parentEntryId,
       confirmed:       result.confirmed,
       position:           result.position,
-      total_time_minutes: result.totalTimeMinutes ?? null,
+      totalTimeMinutes: result.totalTimeMinutes ?? null,
     }
 
     return NextResponse.json(planEntry, { status: 201 })

@@ -33,7 +33,7 @@ export default function AuthCompletePage() {
       const prefsRes = await fetch('/api/preferences')
       const prefs = prefsRes.ok ? await prefsRes.json() : null
 
-      if (prefs && (prefs.onboarding_completed === true || prefs.is_active === true)) {
+      if (prefs && (prefs.onboardingCompleted === true || prefs.isActive === true)) {
         // Returning user with completed setup
         router.push('/home')
         return

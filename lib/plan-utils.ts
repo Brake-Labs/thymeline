@@ -38,7 +38,7 @@ export async function fetchCurrentWeekPlan(
 
   return entries
     .map((e) => ({
-      recipe_id:   e.recipeId,
+      recipeId:   e.recipeId,
       title:       e.title ?? '',
       ingredients: e.ingredients ?? '',
     }))
@@ -46,7 +46,7 @@ export async function fetchCurrentWeekPlan(
 }
 
 export function getPlanWasteBadgeText(
-  matches: Pick<WasteMatch, 'ingredient' | 'waste_risk'>[],
+  matches: Pick<WasteMatch, 'ingredient' | 'wasteRisk'>[],
 ): string {
   if (!matches.length) return ''
   if (matches.length >= 2) return `Uses up ${matches.length} ingredients`

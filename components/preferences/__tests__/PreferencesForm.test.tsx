@@ -9,14 +9,14 @@ const mockFetch = vi.fn()
 global.fetch = mockFetch
 
 const defaultPrefs = {
-  options_per_day: 3,
-  cooldown_days: 28,
-  seasonal_mode: true,
-  preferred_tags: [],
-  avoided_tags: [],
-  limited_tags: [],
-  onboarding_completed: true,
-  meal_context: null,
+  optionsPerDay: 3,
+  cooldownDays: 28,
+  seasonalMode: true,
+  preferredTags: [],
+  avoidedTags: [],
+  limitedTags: [],
+  onboardingCompleted: true,
+  mealContext: null,
 }
 
 beforeEach(() => {
@@ -38,14 +38,14 @@ beforeEach(() => {
 
 // ── T09: Settings page loads with current saved values pre-filled ────────────
 describe('T09 - PreferencesForm loads with current saved values', () => {
-  it('displays the fetched options_per_day value', async () => {
+  it('displays the fetched optionsPerDay value', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ ...defaultPrefs, options_per_day: 5, cooldown_days: 14 }),
+      json: async () => ({ ...defaultPrefs, optionsPerDay: 5, cooldownDays: 14 }),
     })
 
     await act(async () => {
-      render(<PreferencesForm firstClassTags={[{ name: 'Healthy', recipe_count: 0 }]} customTags={[]} hiddenTags={[]} />)
+      render(<PreferencesForm firstClassTags={[{ name: 'Healthy', recipeCount: 0 }]} customTags={[]} hiddenTags={[]} />)
     })
 
     await waitFor(() => {
@@ -56,11 +56,11 @@ describe('T09 - PreferencesForm loads with current saved values', () => {
   it('displays saved preferred tags as selected', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ ...defaultPrefs, preferred_tags: ['Healthy'] }),
+      json: async () => ({ ...defaultPrefs, preferredTags: ['Healthy'] }),
     })
 
     await act(async () => {
-      render(<PreferencesForm firstClassTags={[{ name: 'Healthy', recipe_count: 0 }, { name: 'Quick', recipe_count: 0 }]} customTags={[]} hiddenTags={[]} />)
+      render(<PreferencesForm firstClassTags={[{ name: 'Healthy', recipeCount: 0 }, { name: 'Quick', recipeCount: 0 }]} customTags={[]} hiddenTags={[]} />)
     })
 
     await waitFor(() => {
@@ -72,7 +72,7 @@ describe('T09 - PreferencesForm loads with current saved values', () => {
 
 // ── T12: Each section Save sends only that section's fields ─────────────────
 describe('T12 - Section Save sends only its own fields', () => {
-  it('Planning Defaults Save sends only options_per_day and cooldown_days', async () => {
+  it('Planning Defaults Save sends only optionsPerDay and cooldownDays', async () => {
     await act(async () => {
       render(<PreferencesForm firstClassTags={[]} customTags={[]} hiddenTags={[]} />)
     })
@@ -95,13 +95,13 @@ describe('T12 - Section Save sends only its own fields', () => {
     )
     expect(patchCall).toBeDefined()
     const body = JSON.parse(patchCall![1].body as string)
-    expect(body).toHaveProperty('options_per_day')
-    expect(body).toHaveProperty('cooldown_days')
-    expect(body).not.toHaveProperty('preferred_tags')
-    expect(body).not.toHaveProperty('seasonal_mode')
+    expect(body).toHaveProperty('optionsPerDay')
+    expect(body).toHaveProperty('cooldownDays')
+    expect(body).not.toHaveProperty('preferredTags')
+    expect(body).not.toHaveProperty('seasonalMode')
   })
 
-  it('Seasonal Mode Save sends only seasonal_mode', async () => {
+  it('Seasonal Mode Save sends only seasonalMode', async () => {
     await act(async () => {
       render(<PreferencesForm firstClassTags={[]} customTags={[]} hiddenTags={[]} />)
     })
@@ -122,9 +122,9 @@ describe('T12 - Section Save sends only its own fields', () => {
       (call: unknown[]) => (call[1] as RequestInit)?.method === 'PATCH'
     )
     const body = JSON.parse(patchCall![1].body as string)
-    expect(body).toHaveProperty('seasonal_mode')
-    expect(body).not.toHaveProperty('options_per_day')
-    expect(body).not.toHaveProperty('preferred_tags')
+    expect(body).toHaveProperty('seasonalMode')
+    expect(body).not.toHaveProperty('optionsPerDay')
+    expect(body).not.toHaveProperty('preferredTags')
   })
 })
 

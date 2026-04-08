@@ -6,8 +6,8 @@ import { scopeCondition } from '@/lib/household'
 import type { HouseholdContext, ParsedRecipe } from '@/types'
 
 export interface DuplicateMatch {
-  recipe_id:    string
-  recipe_title: string
+  recipeId:    string
+  recipeTitle: string
 }
 
 /** Compute Levenshtein edit distance between two strings (iterative DP) */
@@ -69,7 +69,7 @@ export async function detectDuplicates(
     if (recipe.url) {
       const match = urlMap.get(recipe.url.toLowerCase().trim())
       if (match) {
-        return { recipe_id: match.id, recipe_title: match.title }
+        return { recipeId: match.id, recipeTitle: match.title }
       }
     }
 
@@ -78,7 +78,7 @@ export async function detectDuplicates(
     for (const vr of vault) {
       const vrTitleLower = vr.title.toLowerCase().trim()
       if (similarity(titleLower, vrTitleLower) >= 0.8) {
-        return { recipe_id: vr.id, recipe_title: vr.title }
+        return { recipeId: vr.id, recipeTitle: vr.title }
       }
     }
 

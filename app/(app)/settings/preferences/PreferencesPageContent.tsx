@@ -4,14 +4,14 @@ import { useEffect, useState } from 'react'
 import PreferencesForm from '@/components/preferences/PreferencesForm'
 
 type TagsResponse = {
-  firstClass: { name: string; recipe_count: number }[]
-  custom:     { name: string; section: string; recipe_count: number }[]
+  firstClass: { name: string; recipeCount: number }[]
+  custom:     { name: string; section: string; recipeCount: number }[]
   hidden:     { name: string }[]
 }
 
 export default function PreferencesPageContent() {
-  const [firstClassTags, setFirstClassTags] = useState<{ name: string; recipe_count: number }[]>([])
-  const [customTags, setCustomTags]         = useState<{ name: string; section: string; recipe_count: number }[]>([])
+  const [firstClassTags, setFirstClassTags] = useState<{ name: string; recipeCount: number }[]>([])
+  const [customTags, setCustomTags]         = useState<{ name: string; section: string; recipeCount: number }[]>([])
   const [hiddenTags, setHiddenTags]         = useState<{ name: string }[]>([])
   const [tagError, setTagError]             = useState<string | null>(null)
   // null = loading, 'member' = read-only, anything else = can manage

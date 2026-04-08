@@ -14,12 +14,12 @@ export interface RecipeFormValues {
   steps: string
   notes: string
   url: string
-  image_url: string
+  imageUrl: string
   lastMade: string  // ISO date string, optional — '' means not set
-  prep_time_minutes: string   // stored as string in form, converted to int | null on submit
-  cook_time_minutes: string
-  total_time_minutes: string
-  inactive_time_minutes: string
+  prepTimeMinutes: string   // stored as string in form, converted to int | null on submit
+  cookTimeMinutes: string
+  totalTimeMinutes: string
+  inactiveTimeMinutes: string
   servings: string
 }
 
@@ -56,12 +56,12 @@ export default function RecipeForm({
     steps: initialValues.steps ?? '',
     notes: initialValues.notes ?? '',
     url: initialValues.url ?? '',
-    image_url: initialValues.image_url ?? '',
+    imageUrl: initialValues.imageUrl ?? '',
     lastMade: initialValues.lastMade ?? '',
-    prep_time_minutes: initialValues.prep_time_minutes ?? '',
-    cook_time_minutes: initialValues.cook_time_minutes ?? '',
-    total_time_minutes: initialValues.total_time_minutes ?? '',
-    inactive_time_minutes: initialValues.inactive_time_minutes ?? '',
+    prepTimeMinutes: initialValues.prepTimeMinutes ?? '',
+    cookTimeMinutes: initialValues.cookTimeMinutes ?? '',
+    totalTimeMinutes: initialValues.totalTimeMinutes ?? '',
+    inactiveTimeMinutes: initialValues.inactiveTimeMinutes ?? '',
     servings: initialValues.servings ?? '',
   })
   const [errors, setErrors] = useState<{ title?: string; category?: string }>({})
@@ -124,10 +124,10 @@ export default function RecipeForm({
       <div className="grid grid-cols-2 gap-4">
         {(
           [
-            { field: 'prep_time_minutes', label: 'Prep time (min)' },
-            { field: 'cook_time_minutes', label: 'Cook time (min)' },
-            { field: 'total_time_minutes', label: 'Total time (min)' },
-            { field: 'inactive_time_minutes', label: 'Inactive time (min)' },
+            { field: 'prepTimeMinutes', label: 'Prep time (min)' },
+            { field: 'cookTimeMinutes', label: 'Cook time (min)' },
+            { field: 'totalTimeMinutes', label: 'Total time (min)' },
+            { field: 'inactiveTimeMinutes', label: 'Inactive time (min)' },
           ] as const
         ).map(({ field, label }) => (
           <div key={field}>
@@ -232,18 +232,18 @@ export default function RecipeForm({
       </div>
 
       {/* Hero image */}
-      {values.image_url && (
+      {values.imageUrl && (
         <div>
           <label className="block text-sm font-medium text-stone-700 mb-1">Hero Image</label>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={values.image_url}
+            src={values.imageUrl}
             alt="Recipe hero"
             className="h-40 w-auto rounded object-cover mb-2"
           />
           <button
             type="button"
-            onClick={() => set('image_url', '')}
+            onClick={() => set('imageUrl', '')}
             className="text-xs text-red-500 hover:underline"
           >
             Remove

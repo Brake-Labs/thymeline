@@ -29,7 +29,7 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
       continue
     }
 
-    if (item.duplicate_action === 'skip') {
+    if (item.duplicateAction === 'skip') {
       skipped++
       continue
     }
@@ -78,11 +78,11 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
       steps:              recipe.steps,
       notes:              recipe.notes,
       url:                recipe.url,
-      imageUrl:           recipe.image_url,
-      prepTimeMinutes:    recipe.prep_time_minutes,
-      cookTimeMinutes:    recipe.cook_time_minutes,
-      totalTimeMinutes:   recipe.total_time_minutes,
-      inactiveTimeMinutes: recipe.inactive_time_minutes,
+      imageUrl:           recipe.imageUrl,
+      prepTimeMinutes:    recipe.prepTimeMinutes,
+      cookTimeMinutes:    recipe.cookTimeMinutes,
+      totalTimeMinutes:   recipe.totalTimeMinutes,
+      inactiveTimeMinutes: recipe.inactiveTimeMinutes,
       servings:           recipe.servings,
       tags:               allTags,
       source:             recipe.source,
@@ -90,9 +90,9 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
       stepPhotos:         [],
     }
 
-    if (item.duplicate_action === 'replace' && item.existing_id) {
+    if (item.duplicateAction === 'replace' && item.existingId) {
       // Verify ownership before updating
-      const ownership = await checkOwnership('recipes', item.existing_id, user.id, ctx)
+      const ownership = await checkOwnership('recipes', item.existingId, user.id, ctx)
       if (!ownership.owned) {
         failed.push({ title: recipe.title, error: 'Cannot replace: recipe not found or not owned' })
         continue
@@ -102,7 +102,7 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
         await db
           .update(recipes)
           .set(recipePayload)
-          .where(eq(recipes.id, item.existing_id))
+          .where(eq(recipes.id, item.existingId))
         replaced++
       } catch (err) {
         console.error('[import/save] Update failed:', err)

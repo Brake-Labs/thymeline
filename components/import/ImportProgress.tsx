@@ -42,13 +42,13 @@ function jobResultToImportResult(r: JobResult, index: number): ImportResult {
     status,
     recipe:       r.recipe,
     error:        r.error,
-    source_url:   r.url,
-    source_label: (() => {
+    sourceUrl:   r.url,
+    sourceLabel: (() => {
       try { return new URL(r.url).hostname.replace('www.', '') }
       catch { return r.url }
     })(),
     duplicate:         r.duplicate,
-    duplicate_action:  r.duplicate ? 'keep_both' : undefined,
+    duplicateAction:  r.duplicate ? 'keep_both' : undefined,
   }
 }
 

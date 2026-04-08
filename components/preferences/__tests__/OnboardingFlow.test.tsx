@@ -19,7 +19,7 @@ beforeEach(() => {
   mockFetch.mockClear()
   mockFetch.mockResolvedValue({
     ok: true,
-    json: async () => ({ onboarding_completed: true }),
+    json: async () => ({ onboardingCompleted: true }),
   })
 })
 
@@ -63,8 +63,8 @@ describe('OnboardingFlow - step navigation', () => {
   })
 })
 
-describe('T06 - Skip for now saves only onboarding_completed', () => {
-  it('calls PATCH with only onboarding_completed: true and redirects', async () => {
+describe('T06 - Skip for now saves only onboardingCompleted', () => {
+  it('calls PATCH with only onboardingCompleted: true and redirects', async () => {
     render(<OnboardingFlow allTags={['Healthy']} />)
 
     fireEvent.click(screen.getByText('Skip for now'))
@@ -75,19 +75,19 @@ describe('T06 - Skip for now saves only onboarding_completed', () => {
     expect(url).toBe('/api/preferences')
     expect(opts.method).toBe('PATCH')
     const body = JSON.parse(opts.body)
-    expect(body).toEqual({ onboarding_completed: true })
-    expect(body).not.toHaveProperty('options_per_day')
-    expect(body).not.toHaveProperty('preferred_tags')
+    expect(body).toEqual({ onboardingCompleted: true })
+    expect(body).not.toHaveProperty('optionsPerDay')
+    expect(body).not.toHaveProperty('preferredTags')
 
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/recipes'))
   })
 })
 
 describe('T07 - Done saves all collected values', () => {
-  it('calls PATCH with all step values plus onboarding_completed: true', async () => {
+  it('calls PATCH with all step values plus onboardingCompleted: true', async () => {
     render(<OnboardingFlow allTags={['Healthy', 'Quick']} />)
 
-    // Step 1: change options_per_day to 4
+    // Step 1: change optionsPerDay to 4
     fireEvent.click(screen.getByLabelText('Increase'))
     fireEvent.click(screen.getByText('Next'))
 
@@ -106,19 +106,19 @@ describe('T07 - Done saves all collected values', () => {
     expect(url).toBe('/api/preferences')
     expect(opts.method).toBe('PATCH')
     const body = JSON.parse(opts.body)
-    expect(body.onboarding_completed).toBe(true)
-    expect(body.options_per_day).toBe(4)
-    expect(body).toHaveProperty('cooldown_days')
-    expect(body).toHaveProperty('preferred_tags')
-    expect(body).toHaveProperty('limited_tags')
-    expect(body).toHaveProperty('avoided_tags')
+    expect(body.onboardingCompleted).toBe(true)
+    expect(body.optionsPerDay).toBe(4)
+    expect(body).toHaveProperty('cooldownDays')
+    expect(body).toHaveProperty('preferredTags')
+    expect(body).toHaveProperty('limitedTags')
+    expect(body).toHaveProperty('avoidedTags')
 
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/recipes'))
   })
 })
 
 describe('T08 - collected values persist across Back navigation', () => {
-  it('preserves options_per_day value after going Back from step 2', () => {
+  it('preserves optionsPerDay value after going Back from step 2', () => {
     render(<OnboardingFlow allTags={[]} />)
 
     // Increment to 4

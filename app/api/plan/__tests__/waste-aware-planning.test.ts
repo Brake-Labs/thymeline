@@ -6,11 +6,11 @@ import { NextRequest } from 'next/server'
 const mockState = {
   user: { id: 'user-1' } as { id: string } | null,
   llmResponse: '{"days":[]}',
-  wasteMap: null as Map<string, { ingredient: string; waste_risk: 'high' | 'medium'; shared_with: string[]; has_next_week: boolean }[]> | null,
+  wasteMap: null as Map<string, { ingredient: string; wasteRisk: 'high' | 'medium'; sharedWith: string[]; hasNextWeek: boolean }[]> | null,
   detectWasteOverlapError: false,
   detectWasteOverlapDelayMs: 0,
   nextWeekPlan: null as { id: string } | null,
-  nextWeekEntries: [] as { recipe_id: string; recipes: { title: string; ingredients: string | null } | null }[],
+  nextWeekEntries: [] as { recipeId: string; recipes: { title: string; ingredients: string | null } | null }[],
   recipeIngredients: [] as { id: string; title: string; ingredients: string | null }[],
   poolRecipes: [] as { id: string; title: string; tags: string[] }[],
   householdCtx: null as { householdId: string; role: string } | null,
@@ -63,10 +63,10 @@ vi.mock('@/lib/db/helpers', () => ({
 
 vi.mock('@/lib/taste-profile', () => ({
   deriveTasteProfile: vi.fn().mockResolvedValue({
-    loved_recipe_ids: [],
-    disliked_recipe_ids: [],
-    top_tags: [],
-    avoided_tags: [],
+    lovedRecipeIds: [],
+    dislikedRecipeIds: [],
+    topTags: [],
+    avoidedTags: [],
   }),
 }))
 
@@ -98,9 +98,9 @@ vi.mock('@/app/api/plan/helpers', async () => {
       dinner: mockState.poolRecipes,
     })),
     fetchUserPreferences: vi.fn().mockImplementation(async () => ({
-      user_id: 'user-1', options_per_day: 3, cooldown_days: 0, seasonal_mode: false,
-      preferred_tags: [], avoided_tags: [], limited_tags: [], seasonal_rules: null,
-      onboarding_completed: true, is_active: true,
+      userId: 'user-1', optionsPerDay: 3, cooldownDays: 0, seasonalMode: false,
+      preferredTags: [], avoidedTags: [], limitedTags: [], seasonalRules: null,
+      onboardingCompleted: true, isActive: true,
     })),
     fetchRecentHistory: vi.fn().mockResolvedValue([]),
     fetchPantryContext: vi.fn().mockResolvedValue(''),
@@ -128,11 +128,11 @@ function makeReq(body: unknown): NextRequest {
 }
 
 const BASE_BODY = {
-  week_start: '2026-03-01',
-  active_dates: ['2026-03-01'],
-  prefer_this_week: [],
-  avoid_this_week: [],
-  free_text: '',
+  weekStart: '2026-03-01',
+  activeDates: ['2026-03-01'],
+  preferThisWeek: [],
+  avoidThisWeek: [],
+  freeText: '',
 }
 
 beforeEach(async () => {
@@ -141,11 +141,11 @@ beforeEach(async () => {
   mockState.llmResponse = JSON.stringify({
     days: [{
       date: '2026-03-01',
-      meal_types: [{
-        meal_type: 'dinner',
+      mealTypes: [{
+        mealType: 'dinner',
         options: [
-          { recipe_id: 'r1', recipe_title: 'Spinach Pasta', reason: 'Quick' },
-          { recipe_id: 'r2', recipe_title: 'Beef Stew' },
+          { recipeId: 'r1', recipeTitle: 'Spinach Pasta', reason: 'Quick' },
+          { recipeId: 'r2', recipeTitle: 'Beef Stew' },
         ],
       }],
     }],
@@ -177,8 +177,8 @@ beforeEach(async () => {
   getPrimaryWasteBadgeTextMock.mockImplementation((matches: unknown[]) => {
     if (!matches.length) return ''
     if (matches.length >= 2) return `Uses up ${matches.length} ingredients`
-    const m = matches[0] as { has_next_week: boolean; ingredient: string }
-    if (m.has_next_week) return "Pairs with next week's plan"
+    const m = matches[0] as { hasNextWeek: boolean; ingredient: string }
+    if (m.hasNextWeek) return "Pairs with next week's plan"
     return `Uses up your ${m.ingredient}`
   })
 
@@ -197,7 +197,7 @@ beforeEach(async () => {
     }
     if (callNum === 3 && mockState.nextWeekEntries.length > 0) {
       return mockChain(mockState.nextWeekEntries.map(e => ({
-        recipeId: e.recipe_id,
+        recipeId: e.recipeId,
         recipeTitle: e.recipes?.title ?? '',
         recipeIngredients: e.recipes?.ingredients ?? null,
       }))) as any
@@ -225,12 +225,12 @@ describe('T01 - Overlap detection runs after suggestion generation', () => {
   })
 })
 
-// ── T05: waste_matches attached to correct recipe_id ─────────────────────────
+// ── T05: wasteMatches attached to correct recipeId ─────────────────────────
 
-describe('T05 - waste_matches attached to correct recipe_id in response', () => {
+describe('T05 - wasteMatches attached to correct recipeId in response', () => {
   it('attaches waste badge text to the recipe that has matches', async () => {
     const wasteMap = new Map([
-      ['r1', [{ ingredient: 'spinach', waste_risk: 'high' as const, shared_with: ['r3'], has_next_week: false }]],
+      ['r1', [{ ingredient: 'spinach', wasteRisk: 'high' as const, sharedWith: ['r3'], hasNextWeek: false }]],
     ])
     detectWasteOverlapMock.mockResolvedValue(wasteMap)
 
@@ -238,13 +238,13 @@ describe('T05 - waste_matches attached to correct recipe_id in response', () => 
     expect(res.status).toBe(200)
     const body = await res.json()
 
-    const options = body.days[0].meal_types[0].options
-    const r1 = options.find((o: { recipe_id: string }) => o.recipe_id === 'r1')
-    const r2 = options.find((o: { recipe_id: string }) => o.recipe_id === 'r2')
+    const options = body.days[0].mealTypes[0].options
+    const r1 = options.find((o: { recipeId: string }) => o.recipeId === 'r1')
+    const r2 = options.find((o: { recipeId: string }) => o.recipeId === 'r2')
 
-    expect(r1.waste_badge_text).toBe('Uses up your spinach')
-    expect(r2.waste_badge_text).toBeUndefined()
-    expect(r1.waste_matches).toHaveLength(1)
+    expect(r1.wasteBadgeText).toBe('Uses up your spinach')
+    expect(r2.wasteBadgeText).toBeUndefined()
+    expect(r1.wasteMatches).toHaveLength(1)
   })
 })
 
@@ -254,14 +254,14 @@ describe('T11 - Next week\'s saved plan is fetched and included in overlap analy
   it('passes next-week recipes to detectWasteOverlap when next-week plan exists', async () => {
     mockState.nextWeekPlan = { id: 'nw-plan-1' }
     mockState.nextWeekEntries = [
-      { recipe_id: 'nw1', recipes: { title: 'Spinach Quiche', ingredients: 'spinach, eggs, cream' } },
+      { recipeId: 'nw1', recipes: { title: 'Spinach Quiche', ingredients: 'spinach, eggs, cream' } },
     ]
 
     await suggestPOST(makeReq(BASE_BODY))
 
     const [, nextWeekArg] = detectWasteOverlapMock.mock.calls[0]!
     expect(Array.isArray(nextWeekArg)).toBe(true)
-    expect(nextWeekArg.some((r: { recipe_id: string }) => r.recipe_id === 'nw1')).toBe(true)
+    expect(nextWeekArg.some((r: { recipeId: string }) => r.recipeId === 'nw1')).toBe(true)
   })
 
   it('passes empty nextWeekRecipes when no next-week plan exists', async () => {
@@ -280,7 +280,7 @@ describe('T13 - Overlap detection timeout (>8s) returns suggestions without badg
   it('returns suggestions without waste badges when detectWasteOverlap times out', async () => {
     detectWasteOverlapMock.mockReturnValue(new Promise(() => {/* never resolves */}))
 
-    const res = await suggestPOST(makeReq({ ...BASE_BODY, include_next_week_plan: false }))
+    const res = await suggestPOST(makeReq({ ...BASE_BODY, includeNextWeekPlan: false }))
     expect(typeof res.status).toBe('number')
   }, 15000)
 })
@@ -295,9 +295,9 @@ describe('T14 (route) - Overlap detection LLM failure returns suggestions withou
     expect(res.status).toBe(200)
     const body = await res.json()
 
-    const options = body.days[0].meal_types[0].options
+    const options = body.days[0].mealTypes[0].options
     for (const opt of options) {
-      expect(opt.waste_badge_text).toBeUndefined()
+      expect(opt.wasteBadgeText).toBeUndefined()
     }
   })
 })
@@ -307,20 +307,20 @@ describe('T14 (route) - Overlap detection LLM failure returns suggestions withou
 describe('T15 - Re-ranking puts higher waste_score options first', () => {
   it('moves option with more waste matches to the top of the list', async () => {
     const wasteMap = new Map([
-      ['r1', [{ ingredient: 'spinach', waste_risk: 'high' as const, shared_with: ['r3'], has_next_week: false }]],
+      ['r1', [{ ingredient: 'spinach', wasteRisk: 'high' as const, sharedWith: ['r3'], hasNextWeek: false }]],
       ['r2', [
-        { ingredient: 'carrot', waste_risk: 'medium' as const, shared_with: ['r3'], has_next_week: false },
-        { ingredient: 'cream', waste_risk: 'medium' as const, shared_with: ['r4'], has_next_week: false },
+        { ingredient: 'carrot', wasteRisk: 'medium' as const, sharedWith: ['r3'], hasNextWeek: false },
+        { ingredient: 'cream', wasteRisk: 'medium' as const, sharedWith: ['r4'], hasNextWeek: false },
       ]],
     ])
     detectWasteOverlapMock.mockResolvedValue(wasteMap)
 
     const res = await suggestPOST(makeReq(BASE_BODY))
     const body = await res.json()
-    const options = body.days[0].meal_types[0].options
+    const options = body.days[0].mealTypes[0].options
 
-    expect(options[0].recipe_id).toBe('r2')
-    expect(options[1].recipe_id).toBe('r1')
+    expect(options[0].recipeId).toBe('r2')
+    expect(options[1].recipeId).toBe('r1')
   })
 })
 
@@ -329,16 +329,16 @@ describe('T15 - Re-ranking puts higher waste_score options first', () => {
 describe('T16 - Waste-aware boost does not add or remove recipes from the pool', () => {
   it('returns the same number of options before and after waste re-ranking', async () => {
     const wasteMap = new Map([
-      ['r1', [{ ingredient: 'spinach', waste_risk: 'high' as const, shared_with: ['r2'], has_next_week: false }]],
+      ['r1', [{ ingredient: 'spinach', wasteRisk: 'high' as const, sharedWith: ['r2'], hasNextWeek: false }]],
     ])
     detectWasteOverlapMock.mockResolvedValue(wasteMap)
 
     const res = await suggestPOST(makeReq(BASE_BODY))
     const body = await res.json()
-    const options = body.days[0].meal_types[0].options
+    const options = body.days[0].mealTypes[0].options
 
     expect(options).toHaveLength(2)
-    const ids = options.map((o: { recipe_id: string }) => o.recipe_id).sort()
+    const ids = options.map((o: { recipeId: string }) => o.recipeId).sort()
     expect(ids).toEqual(['r1', 'r2'])
   })
 })
@@ -355,15 +355,15 @@ describe('T17 - Household: next-week plan fetch scoped to household', () => {
   })
 })
 
-// ── T19: include_next_week_plan: false skips next-week fetch ─────────────────
+// ── T19: includeNextWeekPlan: false skips next-week fetch ─────────────────
 
-describe('T19 - include_next_week_plan: false skips next-week fetch entirely', () => {
-  it('passes empty nextWeekRecipes to detectWasteOverlap when include_next_week_plan=false', async () => {
-    // Note: we don't set nextWeekPlan here because the include_next_week_plan=false
+describe('T19 - includeNextWeekPlan: false skips next-week fetch entirely', () => {
+  it('passes empty nextWeekRecipes to detectWasteOverlap when includeNextWeekPlan=false', async () => {
+    // Note: we don't set nextWeekPlan here because the includeNextWeekPlan=false
     // flag means the route never queries for it. The db mock is stateful based on
     // nextWeekPlan, so setting it would incorrectly affect subsequent db calls.
 
-    await suggestPOST(makeReq({ ...BASE_BODY, include_next_week_plan: false }))
+    await suggestPOST(makeReq({ ...BASE_BODY, includeNextWeekPlan: false }))
 
     // detectWasteOverlap should still be called (for this-week overlap)
     // but with empty nextWeekRecipes
@@ -387,7 +387,7 @@ describe('T20 (route) - Recipes with no ingredients text are excluded from overl
     await suggestPOST(makeReq(BASE_BODY))
 
     const [thisWeekArg] = detectWasteOverlapMock.mock.calls[0]!
-    const ids = (thisWeekArg as { recipe_id: string }[]).map((r) => r.recipe_id)
+    const ids = (thisWeekArg as { recipeId: string }[]).map((r) => r.recipeId)
     expect(ids).toContain('r1')
     expect(ids).not.toContain('r2')
   })

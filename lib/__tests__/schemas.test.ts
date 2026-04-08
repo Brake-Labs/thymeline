@@ -171,34 +171,34 @@ describe('createTagSchema', () => {
 // ---------------------------------------------------------------------------
 
 describe('shareRecipeSchema', () => {
-  it('accepts is_shared = true', () => {
-    const result = shareRecipeSchema.safeParse({ is_shared: true })
+  it('accepts isShared = true', () => {
+    const result = shareRecipeSchema.safeParse({ isShared: true })
     expect(result.success).toBe(true)
     if (result.success) {
-      expect(result.data.is_shared).toBe(true)
+      expect(result.data.isShared).toBe(true)
     }
   })
 
-  it('accepts is_shared = false', () => {
-    const result = shareRecipeSchema.safeParse({ is_shared: false })
+  it('accepts isShared = false', () => {
+    const result = shareRecipeSchema.safeParse({ isShared: false })
     expect(result.success).toBe(true)
     if (result.success) {
-      expect(result.data.is_shared).toBe(false)
+      expect(result.data.isShared).toBe(false)
     }
   })
 
-  it('rejects non-boolean is_shared', () => {
-    const result = shareRecipeSchema.safeParse({ is_shared: 'yes' })
+  it('rejects non-boolean isShared', () => {
+    const result = shareRecipeSchema.safeParse({ isShared: 'yes' })
     expect(result.success).toBe(false)
   })
 
-  it('rejects missing is_shared', () => {
+  it('rejects missing isShared', () => {
     const result = shareRecipeSchema.safeParse({})
     expect(result.success).toBe(false)
   })
 
-  it('rejects numeric value for is_shared', () => {
-    const result = shareRecipeSchema.safeParse({ is_shared: 1 })
+  it('rejects numeric value for isShared', () => {
+    const result = shareRecipeSchema.safeParse({ isShared: 1 })
     expect(result.success).toBe(false)
   })
 })
@@ -251,54 +251,54 @@ describe('scrapeRecipeSchema', () => {
 // ---------------------------------------------------------------------------
 
 describe('bulkUpdateRecipesSchema', () => {
-  it('accepts a non-empty recipe_ids array', () => {
+  it('accepts a non-empty recipeIds array', () => {
     const result = bulkUpdateRecipesSchema.safeParse({
-      recipe_ids: ['id-1', 'id-2'],
+      recipeIds: ['id-1', 'id-2'],
     })
     expect(result.success).toBe(true)
     if (result.success) {
-      expect(result.data.recipe_ids).toEqual(['id-1', 'id-2'])
+      expect(result.data.recipeIds).toEqual(['id-1', 'id-2'])
     }
   })
 
-  it('defaults add_tags to empty array when not provided', () => {
+  it('defaults addTags to empty array when not provided', () => {
     const result = bulkUpdateRecipesSchema.safeParse({
-      recipe_ids: ['id-1'],
+      recipeIds: ['id-1'],
     })
     expect(result.success).toBe(true)
     if (result.success) {
-      expect(result.data.add_tags).toEqual([])
+      expect(result.data.addTags).toEqual([])
     }
   })
 
-  it('accepts add_tags when provided', () => {
+  it('accepts addTags when provided', () => {
     const result = bulkUpdateRecipesSchema.safeParse({
-      recipe_ids: ['id-1'],
-      add_tags: ['Healthy', 'Quick'],
+      recipeIds: ['id-1'],
+      addTags: ['Healthy', 'Quick'],
     })
     expect(result.success).toBe(true)
     if (result.success) {
-      expect(result.data.add_tags).toEqual(['Healthy', 'Quick'])
+      expect(result.data.addTags).toEqual(['Healthy', 'Quick'])
     }
   })
 
-  it('rejects empty recipe_ids array', () => {
-    const result = bulkUpdateRecipesSchema.safeParse({ recipe_ids: [] })
+  it('rejects empty recipeIds array', () => {
+    const result = bulkUpdateRecipesSchema.safeParse({ recipeIds: [] })
     expect(result.success).toBe(false)
     if (!result.success) {
       expect(result.error.issues[0]!.message).toBe(
-        'recipe_ids is required and must be non-empty'
+        'recipeIds is required and must be non-empty'
       )
     }
   })
 
-  it('rejects missing recipe_ids', () => {
+  it('rejects missing recipeIds', () => {
     const result = bulkUpdateRecipesSchema.safeParse({})
     expect(result.success).toBe(false)
   })
 
-  it('rejects non-array recipe_ids', () => {
-    const result = bulkUpdateRecipesSchema.safeParse({ recipe_ids: 'id-1' })
+  it('rejects non-array recipeIds', () => {
+    const result = bulkUpdateRecipesSchema.safeParse({ recipeIds: 'id-1' })
     expect(result.success).toBe(false)
   })
 })

@@ -10,10 +10,10 @@ export const POST = withAuth(async (req, { user, ctx }) => {
   const { data: body, error } = await parseBody(req, swapEntriesSchema)
   if (error) return error
 
-  const { entry_id_a, entry_id_b } = body
+  const { entryIdA, entryIdB } = body
 
-  if (entry_id_a === entry_id_b) {
-    return NextResponse.json({ error: 'entry_id_a and entry_id_b must be different' }, { status: 400 })
+  if (entryIdA === entryIdB) {
+    return NextResponse.json({ error: 'entryIdA and entryIdB must be different' }, { status: 400 })
   }
 
   // Fetch both entries in parallel with their parent plan's ownership info
@@ -28,7 +28,7 @@ export const POST = withAuth(async (req, { user, ctx }) => {
     })
       .from(mealPlanEntries)
       .innerJoin(mealPlans, eq(mealPlanEntries.mealPlanId, mealPlans.id))
-      .where(eq(mealPlanEntries.id, entry_id_a))
+      .where(eq(mealPlanEntries.id, entryIdA))
       .limit(1),
     db.select({
       id: mealPlanEntries.id,
@@ -40,7 +40,7 @@ export const POST = withAuth(async (req, { user, ctx }) => {
     })
       .from(mealPlanEntries)
       .innerJoin(mealPlans, eq(mealPlanEntries.mealPlanId, mealPlans.id))
-      .where(eq(mealPlanEntries.id, entry_id_b))
+      .where(eq(mealPlanEntries.id, entryIdB))
       .limit(1),
   ])
 
@@ -69,14 +69,14 @@ export const POST = withAuth(async (req, { user, ctx }) => {
     parentEntryId: mealPlanEntries.parentEntryId,
   })
     .from(mealPlanEntries)
-    .where(inArray(mealPlanEntries.parentEntryId, [entry_id_a, entry_id_b]))
+    .where(inArray(mealPlanEntries.parentEntryId, [entryIdA, entryIdB]))
 
-  const sideDishIdsA = sideDishes.filter(sd => sd.parentEntryId === entry_id_a).map(sd => sd.id)
-  const sideDishIdsB = sideDishes.filter(sd => sd.parentEntryId === entry_id_b).map(sd => sd.id)
+  const sideDishIdsA = sideDishes.filter(sd => sd.parentEntryId === entryIdA).map(sd => sd.id)
+  const sideDishIdsB = sideDishes.filter(sd => sd.parentEntryId === entryIdB).map(sd => sd.id)
 
   // Atomic swap via RPC
   try {
-    await db.execute(sql`SELECT swap_meal_plan_entries(${entry_id_a}::uuid, ${entry_id_b}::uuid)`)
+    await db.execute(sql`SELECT swap_meal_plan_entries(${entryIdA}::uuid, ${entryIdB}::uuid)`)
     // Side dishes must follow their parent even when using the RPC path
     await Promise.all([
       ...(sideDishIdsA.length > 0 ? [db.update(mealPlanEntries).set({ plannedDate: entryB.plannedDate }).where(inArray(mealPlanEntries.id, sideDishIdsA))] : []),
@@ -87,8 +87,8 @@ export const POST = withAuth(async (req, { user, ctx }) => {
     // Not atomic, but acceptable for a meal-planning context.
     try {
       await Promise.all([
-        db.update(mealPlanEntries).set({ plannedDate: entryB.plannedDate }).where(eq(mealPlanEntries.id, entry_id_a)),
-        db.update(mealPlanEntries).set({ plannedDate: entryA.plannedDate }).where(eq(mealPlanEntries.id, entry_id_b)),
+        db.update(mealPlanEntries).set({ plannedDate: entryB.plannedDate }).where(eq(mealPlanEntries.id, entryIdA)),
+        db.update(mealPlanEntries).set({ plannedDate: entryA.plannedDate }).where(eq(mealPlanEntries.id, entryIdB)),
         ...(sideDishIdsA.length > 0 ? [db.update(mealPlanEntries).set({ plannedDate: entryB.plannedDate }).where(inArray(mealPlanEntries.id, sideDishIdsA))] : []),
         ...(sideDishIdsB.length > 0 ? [db.update(mealPlanEntries).set({ plannedDate: entryA.plannedDate }).where(inArray(mealPlanEntries.id, sideDishIdsB))] : []),
       ])
@@ -97,7 +97,7 @@ export const POST = withAuth(async (req, { user, ctx }) => {
     }
   }
 
-  // Re-fetch both rows to get updated planned_date values
+  // Re-fetch both rows to get updated plannedDate values
   const [updatedRowsA, updatedRowsB] = await Promise.all([
     db.select({
       id: mealPlanEntries.id,
@@ -105,7 +105,7 @@ export const POST = withAuth(async (req, { user, ctx }) => {
       recipeId: mealPlanEntries.recipeId,
     })
       .from(mealPlanEntries)
-      .where(eq(mealPlanEntries.id, entry_id_a))
+      .where(eq(mealPlanEntries.id, entryIdA))
       .limit(1),
     db.select({
       id: mealPlanEntries.id,
@@ -113,7 +113,7 @@ export const POST = withAuth(async (req, { user, ctx }) => {
       recipeId: mealPlanEntries.recipeId,
     })
       .from(mealPlanEntries)
-      .where(eq(mealPlanEntries.id, entry_id_b))
+      .where(eq(mealPlanEntries.id, entryIdB))
       .limit(1),
   ])
 
@@ -121,7 +121,7 @@ export const POST = withAuth(async (req, { user, ctx }) => {
   const resultB = dbFirst(updatedRowsB)
 
   return NextResponse.json({
-    entry_a: resultA ? { id: resultA.id, planned_date: resultA.plannedDate, recipe_id: resultA.recipeId } : null,
-    entry_b: resultB ? { id: resultB.id, planned_date: resultB.plannedDate, recipe_id: resultB.recipeId } : null,
+    entryA: resultA ? { id: resultA.id, plannedDate: resultA.plannedDate, recipeId: resultA.recipeId } : null,
+    entryB: resultB ? { id: resultB.id, plannedDate: resultB.plannedDate, recipeId: resultB.recipeId } : null,
   })
 })

@@ -17,18 +17,18 @@ const mockRecipes = [
 let capturedSystemMessage = ''
 let capturedUserMessage = ''
 
-let mockRecentHistory: { recipe_id: string }[] = []
+let mockRecentHistory: { recipeId: string }[] = []
 let mockCooldownDays = 0
 
 let tasteProfileOverride = {
-  loved_recipe_ids: [] as string[],
-  disliked_recipe_ids: [] as string[],
-  top_tags: [] as string[],
-  avoided_tags: [] as string[],
-  preferred_tags: [] as string[],
-  meal_context: null as string | null,
-  cooking_frequency: 'moderate' as const,
-  recent_recipes: [] as { recipe_id: string; title: string; made_on: string }[],
+  lovedRecipeIds: [] as string[],
+  dislikedRecipeIds: [] as string[],
+  topTags: [] as string[],
+  avoidedTags: [] as string[],
+  preferredTags: [] as string[],
+  mealContext: null as string | null,
+  cookingFrequency: 'moderate' as const,
+  recentRecipes: [] as { recipeId: string; title: string; madeOn: string }[],
 }
 
 // ── Mocks ──────────────────────────────────────────────────────────────────────
@@ -87,7 +87,7 @@ vi.mock('@anthropic-ai/sdk', () => ({
           content: [{ type: 'text', text: JSON.stringify({
             days: [{
               date: '2026-03-02',
-              meal_types: [{ meal_type: 'dinner', options: [{ recipe_id: 'r1', recipe_title: 'Pasta', reason: 'test' }] }],
+              mealTypes: [{ mealType: 'dinner', options: [{ recipeId: 'r1', recipeTitle: 'Pasta', reason: 'test' }] }],
             }],
           }) }],
         }
@@ -105,14 +105,14 @@ vi.mock('@/app/api/plan/helpers', async () => {
     fetchRecipesByMealTypes: vi.fn().mockImplementation(async () => {
       // Filter by cooldown
       const available = mockCooldownDays > 0 && mockRecentHistory.length > 0
-        ? mockRecipes.filter(r => !mockRecentHistory.some(h => h.recipe_id === r.id))
+        ? mockRecipes.filter(r => !mockRecentHistory.some(h => h.recipeId === r.id))
         : mockRecipes
       return { dinner: available.filter(r => r.category === 'main_dish') }
     }),
     fetchUserPreferences: vi.fn().mockImplementation(async () => ({
-      user_id: 'user-1', options_per_day: 3, cooldown_days: mockCooldownDays, seasonal_mode: false,
-      preferred_tags: [], avoided_tags: [], limited_tags: [], seasonal_rules: null,
-      onboarding_completed: true, is_active: true,
+      userId: 'user-1', optionsPerDay: 3, cooldownDays: mockCooldownDays, seasonalMode: false,
+      preferredTags: [], avoidedTags: [], limitedTags: [], seasonalRules: null,
+      onboardingCompleted: true, isActive: true,
     })),
     fetchRecentHistory: vi.fn().mockResolvedValue([]),
     fetchPantryContext: vi.fn().mockResolvedValue(''),
@@ -141,12 +141,12 @@ function makeReq(body: unknown): NextRequest {
 }
 
 const baseBody = {
-  week_start:    '2026-03-01',
-  active_dates:  ['2026-03-02'],
-  active_meal_types: ['dinner'],
-  prefer_this_week:  [],
-  avoid_this_week:   [],
-  free_text: '',
+  weekStart:    '2026-03-01',
+  activeDates:  ['2026-03-02'],
+  activeMealTypes: ['dinner'],
+  preferThisWeek:  [],
+  avoidThisWeek:   [],
+  freeText: '',
 }
 
 beforeEach(async () => {
@@ -156,14 +156,14 @@ beforeEach(async () => {
   mockRecentHistory = []
   mockCooldownDays = 0
   tasteProfileOverride = {
-    loved_recipe_ids: [],
-    disliked_recipe_ids: [],
-    top_tags: [],
-    avoided_tags: [],
-    preferred_tags: [],
-    meal_context: null,
-    cooking_frequency: 'moderate',
-    recent_recipes: [],
+    lovedRecipeIds: [],
+    dislikedRecipeIds: [],
+    topTags: [],
+    avoidedTags: [],
+    preferredTags: [],
+    mealContext: null,
+    cookingFrequency: 'moderate',
+    recentRecipes: [],
   }
 
   const { auth } = await import('@/lib/auth-server')
@@ -183,7 +183,7 @@ describe('Plan suggest — taste profile injection', () => {
 
   // T17: Disliked recipes absent from candidate pool before LLM call
   it('T17: disliked recipes are excluded from the candidate pool', async () => {
-    tasteProfileOverride.disliked_recipe_ids = ['r2'] // Tacos
+    tasteProfileOverride.dislikedRecipeIds = ['r2'] // Tacos
     const { POST } = await import('@/app/api/plan/suggest/route')
     await POST(makeReq(baseBody) as Parameters<typeof POST>[0])
 
@@ -193,7 +193,7 @@ describe('Plan suggest — taste profile injection', () => {
 
   // T18: Loved recipes appear before non-loved recipes in candidate pool
   it('T18: loved recipes are listed before non-loved in the user message', async () => {
-    tasteProfileOverride.loved_recipe_ids = ['r3'] // Soup
+    tasteProfileOverride.lovedRecipeIds = ['r3'] // Soup
     const { POST } = await import('@/app/api/plan/suggest/route')
     await POST(makeReq(baseBody) as Parameters<typeof POST>[0])
 
@@ -207,7 +207,7 @@ describe('Plan suggest — taste profile injection', () => {
 
   // T19: Taste profile injected into system message
   it('T19: taste profile section appears in system message when profile is non-empty', async () => {
-    tasteProfileOverride.top_tags = ['Italian', 'Quick']
+    tasteProfileOverride.topTags = ['Italian', 'Quick']
     const { POST } = await import('@/app/api/plan/suggest/route')
     await POST(makeReq(baseBody) as Parameters<typeof POST>[0])
 
@@ -227,9 +227,9 @@ describe('Plan suggest — taste profile injection', () => {
   // T21: Loved recipes still respect cooldown
   it('T21: loved recipe within cooldown is absent from candidate pool (not boosted past cooldown)', async () => {
     // r2 (Tacos) is loved but was cooked 3 days ago — within the 28-day cooldown
-    tasteProfileOverride.loved_recipe_ids = ['r2']
+    tasteProfileOverride.lovedRecipeIds = ['r2']
     mockCooldownDays = 28
-    mockRecentHistory = [{ recipe_id: 'r2' }]
+    mockRecentHistory = [{ recipeId: 'r2' }]
 
     const { POST } = await import('@/app/api/plan/suggest/route')
     await POST(makeReq(baseBody) as Parameters<typeof POST>[0])

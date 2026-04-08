@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { formatWeekRange, formatDayName, formatWeekday as formatShortDay } from '@/lib/date-utils'
 import type { DaySelection, MealType, PlanSetup, SelectionsMap } from '@/types'
 
-type SideDishMap = Record<string, { recipe_id: string; recipe_title: string }>
+type SideDishMap = Record<string, { recipeId: string; recipeTitle: string }>
 
 interface SummaryStepProps {
   setup:              Pick<PlanSetup, 'weekStart' | 'activeDates' | 'activeMealTypes'>
@@ -88,18 +88,18 @@ export default function SummaryStep({
                   <div key={slotKey}>
                     <div className="flex items-center gap-3 py-1.5 border-b border-stone-100">
                       <span className="text-xs text-stone-400 w-20 flex-shrink-0">{MEAL_TYPE_LABELS[mealType]}</span>
-                      <span className="text-sm font-medium text-stone-800">{sel.recipe_title}</span>
+                      <span className="text-sm font-medium text-stone-800">{sel.recipeTitle}</span>
                     </div>
                     {sideDish && (
                       <div className="flex items-center gap-3 py-1 pl-4 border-b border-stone-100">
                         <span className="text-xs text-stone-300 w-20 flex-shrink-0">Side</span>
-                        <span className="text-xs text-stone-500">{sideDish.recipe_title}</span>
+                        <span className="text-xs text-stone-500">{sideDish.recipeTitle}</span>
                       </div>
                     )}
                     {dessert && (
                       <div className="flex items-center gap-3 py-1 pl-4 border-b border-stone-100">
                         <span className="text-xs text-stone-300 w-20 flex-shrink-0">Dessert</span>
-                        <span className="text-xs text-stone-500">{dessert.recipe_title}</span>
+                        <span className="text-xs text-stone-500">{dessert.recipeTitle}</span>
                       </div>
                     )}
                   </div>

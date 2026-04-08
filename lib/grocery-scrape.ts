@@ -4,8 +4,8 @@ import { callLLM, LLM_MODEL_FAST } from './llm'
 import { isBlockedUrl } from './url-validation'
 
 interface RecipeForIngredients {
-  recipe_id: string
-  recipe_title: string
+  recipeId: string
+  recipeTitle: string
   ingredients: string | null
   url: string | null
 }
@@ -44,7 +44,7 @@ export async function resolveRecipeIngredients(
       return parsed.ingredients
     }
   } catch (err) {
-    console.warn(`Failed to scrape/extract ingredients for "${recipe.recipe_title}":`, err)
+    console.warn(`Failed to scrape/extract ingredients for "${recipe.recipeTitle}":`, err)
   }
 
   return null

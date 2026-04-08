@@ -8,7 +8,7 @@ interface LogMadeTodayButtonProps {
   onLogged?: (entryId: string | null) => void
 }
 
-type Status = 'idle' | 'loading' | 'success' | 'already_logged'
+type Status = 'idle' | 'loading' | 'success' | 'alreadyLogged'
 
 export default function LogMadeTodayButton({
   recipeId,
@@ -23,12 +23,12 @@ export default function LogMadeTodayButton({
         method: 'POST',
       })
       if (res.ok) {
-        const data: { made_on: string; already_logged: boolean; entry_id: string | null } = await res.json()
-        if (data.already_logged) {
-          setStatus('already_logged')
+        const data: { madeOn: string; alreadyLogged: boolean; entryId: string | null } = await res.json()
+        if (data.alreadyLogged) {
+          setStatus('alreadyLogged')
         } else {
           setStatus('success')
-          onLogged?.(data.entry_id ?? null)
+          onLogged?.(data.entryId ?? null)
         }
         // Reset after toast duration
         setTimeout(() => setStatus('idle'), TOAST_DURATION_MS)
@@ -51,7 +51,7 @@ export default function LogMadeTodayButton({
     )
   }
 
-  if (status === 'already_logged') {
+  if (status === 'alreadyLogged') {
     return (
       <button className={`${baseClass} bg-stone-50 text-stone-600 focus:ring-stone-400`} disabled>
         Already logged today

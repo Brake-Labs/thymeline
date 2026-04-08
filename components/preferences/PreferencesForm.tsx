@@ -53,21 +53,21 @@ function SectionSaveButton({ onSave }: SectionSaveButtonProps) {
 }
 
 interface PreferencesFormProps {
-  firstClassTags: { name: string; recipe_count: number }[]
-  customTags:     { name: string; section: string; recipe_count: number }[]
+  firstClassTags: { name: string; recipeCount: number }[]
+  customTags:     { name: string; section: string; recipeCount: number }[]
   hiddenTags:     { name: string }[]
   readOnly?:      boolean
 }
 
 interface PrefsState {
-  options_per_day: number
-  cooldown_days: number
-  seasonal_mode: boolean
-  preferred_tags: string[]
-  avoided_tags: string[]
-  limited_tags: LimitedTag[]
-  meal_context: string | null
-  week_start_day: number
+  optionsPerDay: number
+  cooldownDays: number
+  seasonalMode: boolean
+  preferredTags: string[]
+  avoidedTags: string[]
+  limitedTags: LimitedTag[]
+  mealContext: string | null
+  weekStartDay: number
 }
 
 function SectionCard({ children }: { children: React.ReactNode }) {
@@ -91,14 +91,14 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 export default function PreferencesForm({ firstClassTags, customTags, hiddenTags, readOnly = false }: PreferencesFormProps) {
   const [prefs, setPrefs] = useState<PrefsState>({
-    options_per_day: 3,
-    cooldown_days: 28,
-    seasonal_mode: true,
-    preferred_tags: [],
-    avoided_tags: [],
-    limited_tags: [],
-    meal_context: null,
-    week_start_day: 0,
+    optionsPerDay: 3,
+    cooldownDays: 28,
+    seasonalMode: true,
+    preferredTags: [],
+    avoidedTags: [],
+    limitedTags: [],
+    mealContext: null,
+    weekStartDay: 0,
   })
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -144,9 +144,9 @@ export default function PreferencesForm({ firstClassTags, customTags, hiddenTags
   ]
 
   // Tag bucket exclusivity helpers
-  const preferredSet = new Set(prefs.preferred_tags)
-  const limitedSet = new Set(prefs.limited_tags.map((lt) => lt.tag))
-  const avoidedSet = new Set(prefs.avoided_tags)
+  const preferredSet = new Set(prefs.preferredTags)
+  const limitedSet = new Set(prefs.limitedTags.map((lt) => lt.tag))
+  const avoidedSet = new Set(prefs.avoidedTags)
 
   const availableForPreferred = allTagNames.filter((t) => !limitedSet.has(t) && !avoidedSet.has(t))
   const availableForLimited = allTagNames.filter((t) => !preferredSet.has(t) && !avoidedSet.has(t))
@@ -176,16 +176,16 @@ export default function PreferencesForm({ firstClassTags, customTags, hiddenTags
             <textarea
               rows={4}
               maxLength={1000}
-              value={prefs.meal_context ?? ''}
-              onChange={(e) => setPrefs((p) => ({ ...p, meal_context: e.target.value || null }))}
+              value={prefs.mealContext ?? ''}
+              onChange={(e) => setPrefs((p) => ({ ...p, mealContext: e.target.value || null }))}
               placeholder="e.g. Two adults and a toddler. Dad is allergic to shellfish. We like spicy food but keep it mild on weeknights."
               className="w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-800 placeholder:text-stone-400 focus:border-sage-500 focus:outline-none focus:ring-1 focus:ring-sage-500 resize-none"
             />
             <p className="text-right text-xs text-stone-400">
-              {(prefs.meal_context ?? '').length}/1000
+              {(prefs.mealContext ?? '').length}/1000
             </p>
           </div>
-          <SectionSaveButton onSave={() => patch({ meal_context: prefs.meal_context })} />
+          <SectionSaveButton onSave={() => patch({ mealContext: prefs.mealContext })} />
         </SectionCard>
 
         {/* Section 1: Planning Defaults */}
@@ -195,17 +195,17 @@ export default function PreferencesForm({ firstClassTags, customTags, hiddenTags
             <div className="space-y-2">
               <label className="text-sm font-medium text-stone-700">Options offered per day</label>
               <StepperInput
-                value={prefs.options_per_day}
+                value={prefs.optionsPerDay}
                 min={1}
                 max={5}
-                onChange={(v) => setPrefs((p) => ({ ...p, options_per_day: v }))}
+                onChange={(v) => setPrefs((p) => ({ ...p, optionsPerDay: v }))}
               />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-stone-700">Recipe cooldown</label>
               <CooldownSlider
-                value={prefs.cooldown_days}
-                onChange={(v) => setPrefs((p) => ({ ...p, cooldown_days: v }))}
+                value={prefs.cooldownDays}
+                onChange={(v) => setPrefs((p) => ({ ...p, cooldownDays: v }))}
               />
             </div>
             <div className="space-y-2">
@@ -223,9 +223,9 @@ export default function PreferencesForm({ firstClassTags, customTags, hiddenTags
                   <button
                     key={value}
                     type="button"
-                    onClick={() => setPrefs((p) => ({ ...p, week_start_day: value }))}
+                    onClick={() => setPrefs((p) => ({ ...p, weekStartDay: value }))}
                     className={`px-4 py-2 rounded-lg text-sm font-medium border-2 transition-colors ${
-                      prefs.week_start_day === value
+                      prefs.weekStartDay === value
                         ? 'border-sage-500 bg-sage-50 text-sage-700'
                         : 'border-stone-200 text-stone-600 hover:border-stone-300'
                     }`}
@@ -237,7 +237,7 @@ export default function PreferencesForm({ firstClassTags, customTags, hiddenTags
             </div>
           </div>
           <SectionSaveButton
-            onSave={() => patch({ options_per_day: prefs.options_per_day, cooldown_days: prefs.cooldown_days, week_start_day: prefs.week_start_day })}
+            onSave={() => patch({ optionsPerDay: prefs.optionsPerDay, cooldownDays: prefs.cooldownDays, weekStartDay: prefs.weekStartDay })}
           />
         </SectionCard>
 
@@ -247,11 +247,11 @@ export default function PreferencesForm({ firstClassTags, customTags, hiddenTags
           <p className="text-sm text-stone-500">{"We'll prioritize these when suggesting meals."}</p>
           <TagBucketPicker
             bucket="preferred"
-            selected={prefs.preferred_tags}
+            selected={prefs.preferredTags}
             available={availableForPreferred}
-            onChange={(tags) => setPrefs((p) => ({ ...p, preferred_tags: tags as string[] }))}
+            onChange={(tags) => setPrefs((p) => ({ ...p, preferredTags: tags as string[] }))}
           />
-          <SectionSaveButton onSave={() => patch({ preferred_tags: prefs.preferred_tags })} />
+          <SectionSaveButton onSave={() => patch({ preferredTags: prefs.preferredTags })} />
         </SectionCard>
 
         {/* Section 3: Limited Tags */}
@@ -260,12 +260,12 @@ export default function PreferencesForm({ firstClassTags, customTags, hiddenTags
           <p className="text-sm text-stone-500">These can appear in your plan, but only up to a set number per week.</p>
           <TagBucketPicker
             bucket="limited"
-            selected={prefs.limited_tags.map((lt) => lt.tag)}
-            selectedLimited={prefs.limited_tags}
+            selected={prefs.limitedTags.map((lt) => lt.tag)}
+            selectedLimited={prefs.limitedTags}
             available={availableForLimited}
-            onChange={(tags) => setPrefs((p) => ({ ...p, limited_tags: tags as LimitedTag[] }))}
+            onChange={(tags) => setPrefs((p) => ({ ...p, limitedTags: tags as LimitedTag[] }))}
           />
-          <SectionSaveButton onSave={() => patch({ limited_tags: prefs.limited_tags })} />
+          <SectionSaveButton onSave={() => patch({ limitedTags: prefs.limitedTags })} />
         </SectionCard>
 
         {/* Section 4: Avoided Tags */}
@@ -274,11 +274,11 @@ export default function PreferencesForm({ firstClassTags, customTags, hiddenTags
           <p className="text-sm text-stone-500">{"We'll never suggest recipes with these tags."}</p>
           <TagBucketPicker
             bucket="avoided"
-            selected={prefs.avoided_tags}
+            selected={prefs.avoidedTags}
             available={availableForAvoided}
-            onChange={(tags) => setPrefs((p) => ({ ...p, avoided_tags: tags as string[] }))}
+            onChange={(tags) => setPrefs((p) => ({ ...p, avoidedTags: tags as string[] }))}
           />
-          <SectionSaveButton onSave={() => patch({ avoided_tags: prefs.avoided_tags })} />
+          <SectionSaveButton onSave={() => patch({ avoidedTags: prefs.avoidedTags })} />
         </SectionCard>
 
         {/* Section 5: Seasonal Mode */}
@@ -288,15 +288,15 @@ export default function PreferencesForm({ firstClassTags, customTags, hiddenTags
             <button
               type="button"
               role="switch"
-              aria-checked={prefs.seasonal_mode}
-              onClick={() => setPrefs((p) => ({ ...p, seasonal_mode: !p.seasonal_mode }))}
+              aria-checked={prefs.seasonalMode}
+              onClick={() => setPrefs((p) => ({ ...p, seasonalMode: !p.seasonalMode }))}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-sage-500 focus:ring-offset-2 ${
-                prefs.seasonal_mode ? 'bg-sage-500' : 'bg-stone-300'
+                prefs.seasonalMode ? 'bg-sage-500' : 'bg-stone-300'
               }`}
             >
               <span
                 className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  prefs.seasonal_mode ? 'translate-x-6' : 'translate-x-1'
+                  prefs.seasonalMode ? 'translate-x-6' : 'translate-x-1'
                 }`}
               />
             </button>
@@ -305,7 +305,7 @@ export default function PreferencesForm({ firstClassTags, customTags, hiddenTags
               <p className="text-xs text-stone-500">When on, Thymeline adjusts suggestions based on the current season.</p>
             </div>
           </div>
-          <SectionSaveButton onSave={() => patch({ seasonal_mode: prefs.seasonal_mode })} />
+          <SectionSaveButton onSave={() => patch({ seasonalMode: prefs.seasonalMode })} />
         </SectionCard>
 
         {/* Section 6: Tag Library */}

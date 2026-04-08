@@ -110,13 +110,13 @@ const sampleSearchResults = [
   {
     url: 'https://budgetbytes.com/recipes/chicken-stir-fry',
     title: 'Easy Chicken Stir Fry',
-    site_name: 'budgetbytes.com',
+    siteName: 'budgetbytes.com',
     description: 'A quick weeknight dinner.',
   },
   {
     url: 'https://seriouseats.com/beef-stew-recipe',
     title: 'Classic Beef Stew',
-    site_name: 'seriouseats.com',
+    siteName: 'seriouseats.com',
     description: 'Rich and hearty.',
   },
 ]
@@ -125,20 +125,20 @@ const rankedResults = [
   {
     url: 'https://budgetbytes.com/recipes/chicken-stir-fry',
     title: 'Easy Chicken Stir Fry',
-    site_name: 'budgetbytes.com',
+    siteName: 'budgetbytes.com',
     description: 'A quick weeknight dinner.',
-    suggested_tags: ['Chicken', 'Quick'],
-    vault_match: {
-      similar_recipe_title: 'Chicken Stir Fry',
+    suggestedTags: ['Chicken', 'Quick'],
+    vaultMatch: {
+      similarRecipeTitle: 'Chicken Stir Fry',
       similarity: 'similar',
     },
   },
   {
     url: 'https://seriouseats.com/beef-stew-recipe',
     title: 'Classic Beef Stew',
-    site_name: 'seriouseats.com',
+    siteName: 'seriouseats.com',
     description: 'Rich and hearty.',
-    suggested_tags: ['Beef', 'Comfort'],
+    suggestedTags: ['Beef', 'Comfort'],
   },
 ]
 
@@ -203,7 +203,7 @@ describe('POST /api/discover — T04: returns results array', () => {
   })
 })
 
-describe('POST /api/discover — T05: suggested_tags filtered to FIRST_CLASS_TAGS', () => {
+describe('POST /api/discover — T05: suggestedTags filtered to FIRST_CLASS_TAGS', () => {
   beforeEach(() => { vi.resetModules() })
 
   it('strips tags not in FIRST_CLASS_TAGS from results', async () => {
@@ -213,9 +213,9 @@ describe('POST /api/discover — T05: suggested_tags filtered to FIRST_CLASS_TAG
       {
         url: 'https://example.com/recipe',
         title: 'Test Recipe',
-        site_name: 'example.com',
+        siteName: 'example.com',
         description: null,
-        suggested_tags: ['Chicken', 'NotATag', 'FakeCategory', 'Quick'],
+        suggestedTags: ['Chicken', 'NotATag', 'FakeCategory', 'Quick'],
       },
     ]
 
@@ -229,7 +229,7 @@ describe('POST /api/discover — T05: suggested_tags filtered to FIRST_CLASS_TAG
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.results.length).toBeGreaterThan(0)
-    const tags: string[] = body.results[0].suggested_tags
+    const tags: string[] = body.results[0].suggestedTags
     expect(tags).toContain('Chicken')
     expect(tags).toContain('Quick')
     expect(tags).not.toContain('NotATag')
@@ -237,21 +237,21 @@ describe('POST /api/discover — T05: suggested_tags filtered to FIRST_CLASS_TAG
   })
 })
 
-describe('POST /api/discover — T06: vault_match populated when similar recipe in vault', () => {
+describe('POST /api/discover — T06: vaultMatch populated when similar recipe in vault', () => {
   beforeEach(() => { vi.resetModules() })
 
-  it('includes vault_match in result when LLM identifies a match', async () => {
+  it('includes vaultMatch in result when LLM identifies a match', async () => {
     setupMocks()
 
     const resultsWithMatch = [
       {
         url: 'https://budgetbytes.com/recipes/chicken-stir-fry',
         title: 'Easy Chicken Stir Fry',
-        site_name: 'budgetbytes.com',
+        siteName: 'budgetbytes.com',
         description: 'Quick dinner.',
-        suggested_tags: ['Chicken'],
-        vault_match: {
-          similar_recipe_title: 'Chicken Stir Fry',
+        suggestedTags: ['Chicken'],
+        vaultMatch: {
+          similarRecipeTitle: 'Chicken Stir Fry',
           similarity: 'similar',
         },
       },
@@ -267,16 +267,16 @@ describe('POST /api/discover — T06: vault_match populated when similar recipe 
     expect(res.status).toBe(200)
     const body = await res.json()
     const result = body.results[0]
-    expect(result.vault_match).toBeDefined()
-    expect(result.vault_match.similarity).toBe('similar')
-    expect(result.vault_match.similar_recipe_title).toBe('Chicken Stir Fry')
+    expect(result.vaultMatch).toBeDefined()
+    expect(result.vaultMatch.similarity).toBe('similar')
+    expect(result.vaultMatch.similarRecipeTitle).toBe('Chicken Stir Fry')
   })
 })
 
-describe('POST /api/discover — T07: site_filter appends site: operator', () => {
+describe('POST /api/discover — T07: siteFilter appends site: operator', () => {
   beforeEach(() => { vi.resetModules() })
 
-  it('includes site: operator in search query when site_filter is set', async () => {
+  it('includes site: operator in search query when siteFilter is set', async () => {
     setupMocks()
 
     mockAnthropicCreate
@@ -286,7 +286,7 @@ describe('POST /api/discover — T07: site_filter appends site: operator', () =>
 
     const { POST } = await import('../route')
     const res = await POST(
-      makeReq({ query: 'chicken stir fry', site_filter: 'budgetbytes.com' }) as Parameters<typeof POST>[0]
+      makeReq({ query: 'chicken stir fry', siteFilter: 'budgetbytes.com' }) as Parameters<typeof POST>[0]
     )
     expect(res.status).toBe(200)
 

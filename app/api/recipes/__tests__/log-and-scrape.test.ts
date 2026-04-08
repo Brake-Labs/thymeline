@@ -152,18 +152,18 @@ describe('POST /api/recipes/[id]/log', () => {
     await setupAuth()
   })
 
-  it('T06: logs a new cook entry and returns already_logged = false', async () => {
+  it('T06: logs a new cook entry and returns alreadyLogged = false', async () => {
     const { POST } = await import('@/app/api/recipes/[id]/log/route')
     const req = makeRequest('POST', `http://localhost/api/recipes/${sampleRecipe.id}/log`)
     const res = await POST(req, { params: { id: sampleRecipe.id } })
 
     expect(res.status).toBe(200)
     const json = await res.json()
-    expect(json.already_logged).toBe(false)
-    expect(json.made_on).toBeDefined()
+    expect(json.alreadyLogged).toBe(false)
+    expect(json.madeOn).toBeDefined()
   })
 
-  it('T07: duplicate log returns already_logged = true and no 500', async () => {
+  it('T07: duplicate log returns alreadyLogged = true and no 500', async () => {
     insertBehavior = 'duplicate'
     // After duplicate error, the route does a select to find existing entry
     selectResults = [
@@ -177,38 +177,38 @@ describe('POST /api/recipes/[id]/log', () => {
 
     expect(res.status).toBe(200)
     const json = await res.json()
-    expect(json.already_logged).toBe(true)
+    expect(json.alreadyLogged).toBe(true)
   })
 
-  it('logs a specific date when made_on is provided in body', async () => {
+  it('logs a specific date when madeOn is provided in body', async () => {
     const { POST } = await import('@/app/api/recipes/[id]/log/route')
-    const req = makeRequest('POST', `http://localhost/api/recipes/${sampleRecipe.id}/log`, { made_on: '2025-12-25' })
+    const req = makeRequest('POST', `http://localhost/api/recipes/${sampleRecipe.id}/log`, { madeOn: '2025-12-25' })
     const res = await POST(req, { params: { id: sampleRecipe.id } })
 
     expect(res.status).toBe(200)
     const json = await res.json()
-    expect(json.made_on).toBe('2025-12-25')
-    expect(json.already_logged).toBe(false)
+    expect(json.madeOn).toBe('2025-12-25')
+    expect(json.alreadyLogged).toBe(false)
   })
 
-  it('defaults to today when made_on body is absent', async () => {
+  it('defaults to today when madeOn body is absent', async () => {
     const { POST } = await import('@/app/api/recipes/[id]/log/route')
     const req = makeRequest('POST', `http://localhost/api/recipes/${sampleRecipe.id}/log`)
     const res = await POST(req, { params: { id: sampleRecipe.id } })
 
     const json = await res.json()
     const today = new Date().toISOString().split('T')[0]
-    expect(json.made_on).toBe(today)
+    expect(json.madeOn).toBe(today)
   })
 
-  it('ignores invalid made_on format and defaults to today', async () => {
+  it('ignores invalid madeOn format and defaults to today', async () => {
     const { POST } = await import('@/app/api/recipes/[id]/log/route')
-    const req = makeRequest('POST', `http://localhost/api/recipes/${sampleRecipe.id}/log`, { made_on: 'not-a-date' })
+    const req = makeRequest('POST', `http://localhost/api/recipes/${sampleRecipe.id}/log`, { madeOn: 'not-a-date' })
     const res = await POST(req, { params: { id: sampleRecipe.id } })
 
     const json = await res.json()
     const today = new Date().toISOString().split('T')[0]
-    expect(json.made_on).toBe(today)
+    expect(json.madeOn).toBe(today)
   })
 })
 
@@ -457,7 +457,7 @@ describe('T25 - POST /api/recipes/[id]/log deducts pantry item with null quantit
     // HTTP response is unchanged — deduction is silent
     expect(res.status).toBe(200)
     const json = await res.json()
-    expect(json.already_logged).toBe(false)
+    expect(json.alreadyLogged).toBe(false)
 
     // Allow the fire-and-forget deduction to complete
     await new Promise((r) => setTimeout(r, 50))

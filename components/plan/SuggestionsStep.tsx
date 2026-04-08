@@ -7,7 +7,7 @@ import type { RecipeSuggestion, MealType, PlanSetup, SelectionsMap } from '@/typ
 
 interface DayState {
   date:       string
-  meal_types: MealTypeState[]
+  mealTypes: MealTypeState[]
 }
 
 interface SuggestionsState {
@@ -22,11 +22,11 @@ interface SuggestionsStepProps {
   onSkipSlot:       (date: string, mealType: MealType) => void
   onSwapSlot:       (date: string, mealType: MealType) => void
   onAssignToDay:    (recipe: RecipeSuggestion, sourceDate: string, targetDate: string, mealType: MealType) => void
-  onVaultPick:      (date: string, mealType: MealType, recipe: { recipe_id: string; recipe_title: string }) => void
+  onVaultPick:      (date: string, mealType: MealType, recipe: { recipeId: string; recipeTitle: string }) => void
   onFreeTextMatch:  (query: string, date: string, mealType: MealType) => Promise<{ matched: boolean }>
-  onSideDishPick?:  (date: string, mealType: MealType, recipe: { recipe_id: string; recipe_title: string }) => void
+  onSideDishPick?:  (date: string, mealType: MealType, recipe: { recipeId: string; recipeTitle: string }) => void
   onSideDishRemove?:(date: string, mealType: MealType) => void
-  onDessertPick?:   (date: string, mealType: MealType, recipe: { recipe_id: string; recipe_title: string }) => void
+  onDessertPick?:   (date: string, mealType: MealType, recipe: { recipeId: string; recipeTitle: string }) => void
   onDessertRemove?: (date: string, mealType: MealType) => void
   onRegenerate:     (onlyUnselected?: boolean) => void
   onConfirm:        () => void
@@ -70,7 +70,7 @@ export default function SuggestionsStep({
             <SuggestionDayRow
               key={day.date}
               date={day.date}
-              mealTypeSuggestions={day.meal_types}
+              mealTypeSuggestions={day.mealTypes}
               selections={selections}
               activeMealTypes={setup.activeMealTypes}
               activeDates={setup.activeDates}

@@ -25,11 +25,11 @@ interface SuggestionMealSlotRowProps {
   onSkip:       (date: string, mealType: MealType) => void
   onSwap:       (date: string, mealType: MealType) => void
   onAssignToDay:(recipe: RecipeSuggestion, sourceDate: string, targetDate: string, mealType: MealType) => void
-  onVaultPick:  (date: string, mealType: MealType, recipe: { recipe_id: string; recipe_title: string }) => void
+  onVaultPick:  (date: string, mealType: MealType, recipe: { recipeId: string; recipeTitle: string }) => void
   onFreeTextMatch:(query: string, date: string, mealType: MealType) => Promise<{ matched: boolean }>
-  onSideDishPick?:  (date: string, mealType: MealType, recipe: { recipe_id: string; recipe_title: string }) => void
+  onSideDishPick?:  (date: string, mealType: MealType, recipe: { recipeId: string; recipeTitle: string }) => void
   onSideDishRemove?:(date: string, mealType: MealType) => void
-  onDessertPick?:   (date: string, mealType: MealType, recipe: { recipe_id: string; recipe_title: string }) => void
+  onDessertPick?:   (date: string, mealType: MealType, recipe: { recipeId: string; recipeTitle: string }) => void
   onDessertRemove?: (date: string, mealType: MealType) => void
 }
 
@@ -46,11 +46,11 @@ export default function SuggestionMealSlotRow({
   const [freeTextLoading, setFreeTextLoading] = useState(false)
   const [freeTextError, setFreeTextError] = useState('')
   const [sideDishVaultOpen, setSideDishVaultOpen] = useState(false)
-  const [sideDishEntry, setSideDishEntry] = useState<{ recipe_id: string; recipe_title: string } | null>(null)
+  const [sideDishEntry, setSideDishEntry] = useState<{ recipeId: string; recipeTitle: string } | null>(null)
   const [dessertVaultOpen, setDessertVaultOpen] = useState(false)
-  const [dessertEntry, setDessertEntry] = useState<{ recipe_id: string; recipe_title: string } | null>(null)
+  const [dessertEntry, setDessertEntry] = useState<{ recipeId: string; recipeTitle: string } | null>(null)
   const isSkipped = selection === null
-  const isSelected = (recipeId: string) => selection?.recipe_id === recipeId
+  const isSelected = (recipeId: string) => selection?.recipeId === recipeId
   const canHaveDessert = mealType === 'dinner' || mealType === 'lunch'
   const hasSelection = selection !== null && selection !== undefined
 
@@ -120,15 +120,15 @@ export default function SuggestionMealSlotRow({
       ) : (
         <div>
           {/* Vault/free-text selection not in the options list — show it as the selected row */}
-          {selection && !options.some((o) => o.recipe_id === selection.recipe_id) && (
+          {selection && !options.some((o) => o.recipeId === selection.recipeId) && (
             <div className="border-b border-stone-50 px-3 py-2.5 border-l-4 border-l-sage-500 bg-sage-50">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-stone-800 truncate">{selection.recipe_title}</p>
+                  <p className="text-sm font-medium text-stone-800 truncate">{selection.recipeTitle}</p>
                   <p className="text-xs text-stone-400 italic mt-0.5">From your vault</p>
                 </div>
                 <button
-                  onClick={() => onSelect(date, mealType, { recipe_id: selection.recipe_id, recipe_title: selection.recipe_title })}
+                  onClick={() => onSelect(date, mealType, { recipeId: selection.recipeId, recipeTitle: selection.recipeTitle })}
                   title="Deselect"
                   className="text-sage-500 flex-shrink-0 hover:text-stone-400 transition-colors"
                 >
@@ -146,10 +146,10 @@ export default function SuggestionMealSlotRow({
             </div>
           ) : (
             options.map((opt) => {
-              const selected = isSelected(opt.recipe_id)
+              const selected = isSelected(opt.recipeId)
               return (
                 <div
-                  key={opt.recipe_id}
+                  key={opt.recipeId}
                   className={[
                     'border-b border-stone-50 last:border-0 px-3 py-2.5 transition-colors',
                     selected ? 'border-l-4 border-l-sage-500 bg-sage-50' : '',
@@ -158,17 +158,17 @@ export default function SuggestionMealSlotRow({
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-stone-800 truncate">{opt.recipe_title}</p>
+                      <p className="text-sm font-medium text-stone-800 truncate">{opt.recipeTitle}</p>
                       {opt.reason && (
                         <p className="text-xs text-stone-400 italic mt-0.5">{opt.reason}</p>
                       )}
-                      {opt.waste_badge_text && (
+                      {opt.wasteBadgeText && (
                         <div
                           className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-xs font-medium"
                           style={{ backgroundColor: '#FFF0C0', color: '#5C4A00' }}
                         >
                           <Leaf size={10} className="flex-shrink-0" />
-                          {opt.waste_badge_text}
+                          {opt.wasteBadgeText}
                         </div>
                       )}
                     </div>
@@ -197,7 +197,7 @@ export default function SuggestionMealSlotRow({
                     <button
                       onClick={() => {
                         setAssignRecipe(opt)
-                        setAssignOpen(assignOpen === opt.recipe_id ? null : opt.recipe_id)
+                        setAssignOpen(assignOpen === opt.recipeId ? null : opt.recipeId)
                       }}
                       className="text-xs text-stone-400 hover:text-stone-600 underline transition-colors"
                     >
@@ -206,7 +206,7 @@ export default function SuggestionMealSlotRow({
                   </div>
 
                   {/* From vault badge */}
-                  {selected && selection?.from_vault && (
+                  {selected && selection?.fromVault && (
                     <span className="text-xs text-stone-400 mt-1 block">From vault</span>
                   )}
                 </div>
@@ -220,7 +220,7 @@ export default function SuggestionMealSlotRow({
               {sideDishEntry ? (
                 <div className="flex items-center gap-2 pl-4">
                   <span className="text-xs font-medium text-stone-400 flex-shrink-0">Side dish</span>
-                  <span className="text-xs text-stone-600 flex-1 truncate">{sideDishEntry.recipe_title}</span>
+                  <span className="text-xs text-stone-600 flex-1 truncate">{sideDishEntry.recipeTitle}</span>
                   <button
                     onClick={() => {
                       setSideDishEntry(null)
@@ -249,7 +249,7 @@ export default function SuggestionMealSlotRow({
               {dessertEntry ? (
                 <div className="flex items-center gap-2 pl-4">
                   <span className="text-xs font-medium text-stone-400 flex-shrink-0">Dessert</span>
-                  <span className="text-xs text-stone-600 flex-1 truncate">{dessertEntry.recipe_title}</span>
+                  <span className="text-xs text-stone-600 flex-1 truncate">{dessertEntry.recipeTitle}</span>
                   <button
                     onClick={() => {
                       setDessertEntry(null)

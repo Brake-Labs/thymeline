@@ -21,10 +21,10 @@ const BASE_GENERATED_RECIPE = {
   tags:                  [] as string[],
   category:              'main_dish' as const,
   servings:              2,
-  prep_time_minutes:     10,
-  cook_time_minutes:     20,
-  total_time_minutes:    30,
-  inactive_time_minutes: null,
+  prepTimeMinutes:     10,
+  cookTimeMinutes:     20,
+  totalTimeMinutes:    30,
+  inactiveTimeMinutes: null,
   notes:                 'Simple and quick',
 }
 
@@ -39,7 +39,7 @@ function setupFetch(generatedRecipe = BASE_GENERATED_RECIPE) {
   vi.mocked(fetch).mockImplementation(async (url, opts) => {
     const urlStr = String(url)
     if (urlStr.includes('/api/preferences')) {
-      return { ok: true, json: async () => ({ avoided_tags: [] }) } as Response
+      return { ok: true, json: async () => ({ avoidedTags: [] }) } as Response
     }
     if (urlStr.includes('/api/tags')) {
       return { ok: true, json: async () => ({ firstClass: [], custom: [] }) } as Response

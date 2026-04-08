@@ -244,7 +244,7 @@ describe('T10 - Scale factor doubles amounts at 4 people (base 2)', () => {
 describe('scaleItem', () => {
   const baseItem: GroceryItem = {
     id: 'x', name: 'pasta', amount: 200, unit: 'g',
-    section: 'Pantry', is_pantry: false, checked: false, recipes: ['A'],
+    section: 'Pantry', isPantry: false, checked: false, recipes: ['A'],
   }
 
   it('scales amount by factor', () => {
@@ -264,8 +264,8 @@ describe('scaleItem', () => {
 
 describe('T11 & T12 - effectiveServings', () => {
   const scales: RecipeScale[] = [
-    { recipe_id: 'r1', recipe_title: 'Pasta', servings: null },    // inherits plan
-    { recipe_id: 'r2', recipe_title: 'Salad', servings: 4 },       // override
+    { recipeId: 'r1', recipeTitle: 'Pasta', servings: null },    // inherits plan
+    { recipeId: 'r2', recipeTitle: 'Salad', servings: 4 },       // override
   ]
 
   it('T11: returns override when set', () => {
@@ -287,7 +287,7 @@ describe('T11 & T12 - effectiveServings', () => {
 describe('T13 - Reset to default removes override', () => {
   it('returns plan default after override set to null', () => {
     const scales: RecipeScale[] = [
-      { recipe_id: 'r1', recipe_title: 'Pasta', servings: null },
+      { recipeId: 'r1', recipeTitle: 'Pasta', servings: null },
     ]
     // After reset, servings is null → falls back to plan default
     expect(effectiveServings('r1', scales, 3)).toBe(3)
@@ -298,11 +298,11 @@ describe('T13 - Reset to default removes override', () => {
 
 describe('buildPlainTextList', () => {
   const items: GroceryItem[] = [
-    { id: 'i1', name: 'pasta', amount: 200, unit: 'g', section: 'Pantry', is_pantry: false, checked: false, recipes: ['Pasta'] },
-    { id: 'i2', name: 'olive oil', amount: 2, unit: 'tbsp', section: 'Pantry', is_pantry: true, checked: false, recipes: ['Pasta'] },
+    { id: 'i1', name: 'pasta', amount: 200, unit: 'g', section: 'Pantry', isPantry: false, checked: false, recipes: ['Pasta'] },
+    { id: 'i2', name: 'olive oil', amount: 2, unit: 'tbsp', section: 'Pantry', isPantry: true, checked: false, recipes: ['Pasta'] },
   ]
   const scales: RecipeScale[] = [
-    { recipe_id: 'r1', recipe_title: 'Pasta', servings: 4 },
+    { recipeId: 'r1', recipeTitle: 'Pasta', servings: 4 },
   ]
 
   it('outputs one line per item with no headers or bullets', () => {
@@ -322,7 +322,7 @@ describe('buildPlainTextList', () => {
 
   it('omits amount prefix when amount is null', () => {
     const noAmountItems: GroceryItem[] = [
-      { id: 'i3', name: 'salt', amount: null, unit: null, section: 'Pantry', is_pantry: true, checked: false, recipes: ['Soup'] },
+      { id: 'i3', name: 'salt', amount: null, unit: null, section: 'Pantry', isPantry: true, checked: false, recipes: ['Soup'] },
     ]
     const text = buildPlainTextList(noAmountItems, [], 2, '2026-03-15')
     expect(text).toBe('salt')
@@ -335,8 +335,8 @@ describe('buildPlainTextList', () => {
 
   it('onlyUnchecked: true excludes bought items', () => {
     const mixedItems: GroceryItem[] = [
-      { id: 'i1', name: 'pasta', amount: 200, unit: 'g', section: 'Pantry', is_pantry: false, checked: false, bought: false, recipes: ['Pasta'] },
-      { id: 'i2', name: 'olive oil', amount: 2, unit: 'tbsp', section: 'Pantry', is_pantry: true, checked: false, bought: true, recipes: ['Pasta'] },
+      { id: 'i1', name: 'pasta', amount: 200, unit: 'g', section: 'Pantry', isPantry: false, checked: false, bought: false, recipes: ['Pasta'] },
+      { id: 'i2', name: 'olive oil', amount: 2, unit: 'tbsp', section: 'Pantry', isPantry: true, checked: false, bought: true, recipes: ['Pasta'] },
     ]
     const text = buildPlainTextList(mixedItems, scales, 2, '2026-03-15', { onlyUnchecked: true })
     expect(text).toContain('pasta')
@@ -345,8 +345,8 @@ describe('buildPlainTextList', () => {
 
   it('onlyUnchecked: false includes all items regardless of bought', () => {
     const mixedItems: GroceryItem[] = [
-      { id: 'i1', name: 'pasta', amount: 200, unit: 'g', section: 'Pantry', is_pantry: false, checked: false, bought: false, recipes: ['Pasta'] },
-      { id: 'i2', name: 'olive oil', amount: 2, unit: 'tbsp', section: 'Pantry', is_pantry: true, checked: false, bought: true, recipes: ['Pasta'] },
+      { id: 'i1', name: 'pasta', amount: 200, unit: 'g', section: 'Pantry', isPantry: false, checked: false, bought: false, recipes: ['Pasta'] },
+      { id: 'i2', name: 'olive oil', amount: 2, unit: 'tbsp', section: 'Pantry', isPantry: true, checked: false, bought: true, recipes: ['Pasta'] },
     ]
     const text = buildPlainTextList(mixedItems, scales, 2, '2026-03-15', { onlyUnchecked: false })
     expect(text).toContain('pasta')
@@ -355,8 +355,8 @@ describe('buildPlainTextList', () => {
 
   it('without options includes all items (backwards-compatible)', () => {
     const mixedItems: GroceryItem[] = [
-      { id: 'i1', name: 'pasta', amount: 200, unit: 'g', section: 'Pantry', is_pantry: false, checked: false, bought: false, recipes: ['Pasta'] },
-      { id: 'i2', name: 'olive oil', amount: 2, unit: 'tbsp', section: 'Pantry', is_pantry: true, checked: false, bought: true, recipes: ['Pasta'] },
+      { id: 'i1', name: 'pasta', amount: 200, unit: 'g', section: 'Pantry', isPantry: false, checked: false, bought: false, recipes: ['Pasta'] },
+      { id: 'i2', name: 'olive oil', amount: 2, unit: 'tbsp', section: 'Pantry', isPantry: true, checked: false, bought: true, recipes: ['Pasta'] },
     ]
     const text = buildPlainTextList(mixedItems, scales, 2, '2026-03-15')
     expect(text).toContain('pasta')
@@ -368,11 +368,11 @@ describe('buildPlainTextList', () => {
 // ── T12: Pantry export semantics ──────────────────────────────────────────────────
 
 describe('T12 - Pantry item export semantics', () => {
-  const pantryScales: RecipeScale[] = [{ recipe_id: 'r1', recipe_title: 'Soup', servings: 4 }]
+  const pantryScales: RecipeScale[] = [{ recipeId: 'r1', recipeTitle: 'Soup', servings: 4 }]
 
   it('pantry item with checked=true is included in onlyUnchecked export', () => {
     const items: GroceryItem[] = [
-      { id: 'i1', name: 'olive oil', amount: 2, unit: 'tbsp', section: 'Pantry', is_pantry: true, checked: true, bought: false, recipes: ['Soup'] },
+      { id: 'i1', name: 'olive oil', amount: 2, unit: 'tbsp', section: 'Pantry', isPantry: true, checked: true, bought: false, recipes: ['Soup'] },
     ]
     const text = buildPlainTextList(items, pantryScales, 2, '2026-03-15', { onlyUnchecked: true })
     expect(text).toContain('olive oil')
@@ -380,7 +380,7 @@ describe('T12 - Pantry item export semantics', () => {
 
   it('pantry item with checked=false is excluded from onlyUnchecked export', () => {
     const items: GroceryItem[] = [
-      { id: 'i1', name: 'olive oil', amount: 2, unit: 'tbsp', section: 'Pantry', is_pantry: true, checked: false, bought: false, recipes: ['Soup'] },
+      { id: 'i1', name: 'olive oil', amount: 2, unit: 'tbsp', section: 'Pantry', isPantry: true, checked: false, bought: false, recipes: ['Soup'] },
     ]
     const text = buildPlainTextList(items, pantryScales, 2, '2026-03-15', { onlyUnchecked: true })
     expect(text).not.toContain('olive oil')
@@ -388,7 +388,7 @@ describe('T12 - Pantry item export semantics', () => {
 
   it('non-pantry item with bought=true is excluded from onlyUnchecked export', () => {
     const items: GroceryItem[] = [
-      { id: 'i1', name: 'pasta', amount: 200, unit: 'g', section: 'Pantry', is_pantry: false, checked: false, bought: true, recipes: ['Soup'] },
+      { id: 'i1', name: 'pasta', amount: 200, unit: 'g', section: 'Pantry', isPantry: false, checked: false, bought: true, recipes: ['Soup'] },
     ]
     const text = buildPlainTextList(items, pantryScales, 2, '2026-03-15', { onlyUnchecked: true })
     expect(text).not.toContain('pasta')
@@ -396,7 +396,7 @@ describe('T12 - Pantry item export semantics', () => {
 
   it('non-pantry item with bought=false is included in onlyUnchecked export', () => {
     const items: GroceryItem[] = [
-      { id: 'i1', name: 'pasta', amount: 200, unit: 'g', section: 'Pantry', is_pantry: false, checked: false, bought: false, recipes: ['Soup'] },
+      { id: 'i1', name: 'pasta', amount: 200, unit: 'g', section: 'Pantry', isPantry: false, checked: false, bought: false, recipes: ['Soup'] },
     ]
     const text = buildPlainTextList(items, pantryScales, 2, '2026-03-15', { onlyUnchecked: true })
     expect(text).toContain('pasta')
@@ -405,7 +405,7 @@ describe('T12 - Pantry item export semantics', () => {
   it('non-pantry item with checked=true is excluded from onlyUnchecked export (#276)', () => {
     // checked=true on a non-pantry item means "I already have this" — should not be exported
     const items: GroceryItem[] = [
-      { id: 'i1', name: 'pasta', amount: 200, unit: 'g', section: 'Pantry', is_pantry: false, checked: true, bought: false, recipes: ['Soup'] },
+      { id: 'i1', name: 'pasta', amount: 200, unit: 'g', section: 'Pantry', isPantry: false, checked: true, bought: false, recipes: ['Soup'] },
     ]
     const text = buildPlainTextList(items, pantryScales, 2, '2026-03-15', { onlyUnchecked: true })
     expect(text).not.toContain('pasta')
@@ -415,20 +415,20 @@ describe('T12 - Pantry item export semantics', () => {
 // ── T13: Combined pantry + non-pantry export (#287) ───────────────────────────
 
 describe('T13 - Combined export: unchecked Need-to-Buy + checked Pantry (#287)', () => {
-  const scales: RecipeScale[] = [{ recipe_id: 'r1', recipe_title: 'Soup', servings: 4 }]
+  const scales: RecipeScale[] = [{ recipeId: 'r1', recipeTitle: 'Soup', servings: 4 }]
 
   it('exports unchecked Need-to-Buy and checked Pantry items; excludes all others', () => {
     const items: GroceryItem[] = [
       // Need to Buy — unchecked: should be included
-      { id: 'i1', name: 'chicken', amount: 1, unit: 'lb', section: 'Proteins', is_pantry: false, checked: false, bought: false, recipes: ['Soup'] },
+      { id: 'i1', name: 'chicken', amount: 1, unit: 'lb', section: 'Proteins', isPantry: false, checked: false, bought: false, recipes: ['Soup'] },
       // Need to Buy — checked ("I already have this"): should be excluded
-      { id: 'i2', name: 'carrots', amount: 3, unit: null, section: 'Produce', is_pantry: false, checked: true, bought: false, recipes: ['Soup'] },
+      { id: 'i2', name: 'carrots', amount: 3, unit: null, section: 'Produce', isPantry: false, checked: true, bought: false, recipes: ['Soup'] },
       // Need to Buy — bought ("Got It"): should be excluded
-      { id: 'i3', name: 'celery', amount: 2, unit: null, section: 'Produce', is_pantry: false, checked: false, bought: true, recipes: ['Soup'] },
+      { id: 'i3', name: 'celery', amount: 2, unit: null, section: 'Produce', isPantry: false, checked: false, bought: true, recipes: ['Soup'] },
       // Pantry — checked ("need to buy"): should be included
-      { id: 'i4', name: 'olive oil', amount: 2, unit: 'tbsp', section: 'Pantry', is_pantry: true, checked: true, bought: false, recipes: ['Soup'] },
+      { id: 'i4', name: 'olive oil', amount: 2, unit: 'tbsp', section: 'Pantry', isPantry: true, checked: true, bought: false, recipes: ['Soup'] },
       // Pantry — unchecked ("have it in pantry"): should be excluded
-      { id: 'i5', name: 'salt', amount: null, unit: null, section: 'Pantry', is_pantry: true, checked: false, bought: false, recipes: ['Soup'] },
+      { id: 'i5', name: 'salt', amount: null, unit: null, section: 'Pantry', isPantry: true, checked: false, bought: false, recipes: ['Soup'] },
     ]
     const text = buildPlainTextList(items, scales, 4, '2026-03-30', { onlyUnchecked: true })
     const lines = text.split('\n')
@@ -442,8 +442,8 @@ describe('T13 - Combined export: unchecked Need-to-Buy + checked Pantry (#287)',
 
   it('export lines are one item per line with no headers or bullets', () => {
     const items: GroceryItem[] = [
-      { id: 'i1', name: 'chicken', amount: 1, unit: 'lb', section: 'Proteins', is_pantry: false, checked: false, bought: false, recipes: ['Soup'] },
-      { id: 'i4', name: 'olive oil', amount: 2, unit: 'tbsp', section: 'Pantry', is_pantry: true, checked: true, bought: false, recipes: ['Soup'] },
+      { id: 'i1', name: 'chicken', amount: 1, unit: 'lb', section: 'Proteins', isPantry: false, checked: false, bought: false, recipes: ['Soup'] },
+      { id: 'i4', name: 'olive oil', amount: 2, unit: 'tbsp', section: 'Pantry', isPantry: true, checked: true, bought: false, recipes: ['Soup'] },
     ]
     const text = buildPlainTextList(items, scales, 4, '2026-03-30', { onlyUnchecked: true })
     const lines = text.split('\n')

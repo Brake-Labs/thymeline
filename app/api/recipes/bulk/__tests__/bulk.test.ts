@@ -82,17 +82,17 @@ describe('PATCH /api/recipes/bulk', () => {
     await setupAuth()
   })
 
-  it('T42: returns 403 when any recipe_id belongs to a different user', async () => {
+  it('T42: returns 403 when any recipeId belongs to a different user', async () => {
     selectResults = [[ownedRecipe, foreignRecipe]]
 
     const { PATCH } = await import('../route')
     const res = await PATCH(
-      makeRequest('PATCH', 'http://localhost/api/recipes/bulk', { recipe_ids: ['recipe-1', 'recipe-2'], add_tags: ['Chicken'] }),
+      makeRequest('PATCH', 'http://localhost/api/recipes/bulk', { recipeIds: ['recipe-1', 'recipe-2'], addTags: ['Chicken'] }),
     )
     expect(res.status).toBe(403)
   })
 
-  it('T43: returns 400 when add_tags contains an unknown tag', async () => {
+  it('T43: returns 400 when addTags contains an unknown tag', async () => {
     selectResults = [[ownedRecipe]]
 
     const { validateTags } = await import('@/lib/tags-server')
@@ -100,7 +100,7 @@ describe('PATCH /api/recipes/bulk', () => {
 
     const { PATCH } = await import('../route')
     const res = await PATCH(
-      makeRequest('PATCH', 'http://localhost/api/recipes/bulk', { recipe_ids: ['recipe-1'], add_tags: ['NotARealTag'] }),
+      makeRequest('PATCH', 'http://localhost/api/recipes/bulk', { recipeIds: ['recipe-1'], addTags: ['NotARealTag'] }),
     )
     expect(res.status).toBe(400)
     const body = await res.json()
@@ -117,14 +117,14 @@ describe('PATCH /api/recipes/bulk', () => {
 
     const { PATCH } = await import('../route')
     const res = await PATCH(
-      makeRequest('PATCH', 'http://localhost/api/recipes/bulk', { recipe_ids: ['recipe-1'], add_tags: ['Favorite'] }),
+      makeRequest('PATCH', 'http://localhost/api/recipes/bulk', { recipeIds: ['recipe-1'], addTags: ['Favorite'] }),
     )
     expect(res.status).toBe(200)
     const json = await res.json()
     expect(Array.isArray(json)).toBe(true)
   })
 
-  it('T23: merges add_tags additively with existing recipe tags', async () => {
+  it('T23: merges addTags additively with existing recipe tags', async () => {
     selectResults = [[ownedRecipe]]
     const updatedRecipe = { ...ownedRecipe, tags: ['Chicken', 'Quick', 'Healthy'] }
     updateResult = [updatedRecipe]
@@ -134,7 +134,7 @@ describe('PATCH /api/recipes/bulk', () => {
 
     const { PATCH } = await import('../route')
     const res = await PATCH(
-      makeRequest('PATCH', 'http://localhost/api/recipes/bulk', { recipe_ids: ['recipe-1'], add_tags: ['Healthy'] }),
+      makeRequest('PATCH', 'http://localhost/api/recipes/bulk', { recipeIds: ['recipe-1'], addTags: ['Healthy'] }),
     )
     expect(res.status).toBe(200)
     const json = await res.json()
@@ -144,10 +144,10 @@ describe('PATCH /api/recipes/bulk', () => {
     expect(updatedRecipe.tags).toContain('Healthy')
   })
 
-  it('returns 400 when recipe_ids is empty', async () => {
+  it('returns 400 when recipeIds is empty', async () => {
     const { PATCH } = await import('../route')
     const res = await PATCH(
-      makeRequest('PATCH', 'http://localhost/api/recipes/bulk', { recipe_ids: [], add_tags: ['Chicken'] }),
+      makeRequest('PATCH', 'http://localhost/api/recipes/bulk', { recipeIds: [], addTags: ['Chicken'] }),
     )
     expect(res.status).toBe(400)
   })

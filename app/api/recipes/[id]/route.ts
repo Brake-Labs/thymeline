@@ -12,20 +12,20 @@ import type { InferSelectModel } from 'drizzle-orm'
 
 type RecipeRow = InferSelectModel<typeof recipes>
 
-// Helper: attach last_made + times_made to a recipe row, then serialize to snake_case
+// Helper: attach lastMade + timesMade to a recipe row, then serialize to snake_case
 async function withHistory(recipe: RecipeRow) {
   const history = await db
     .select({ madeOn: recipeHistory.madeOn })
     .from(recipeHistory)
     .where(eq(recipeHistory.recipeId, recipe.id))
 
-  const last_made = history.reduce<string | null>((max, r) => {
+  const lastMade = history.reduce<string | null>((max, r) => {
     if (!max) return r.madeOn
     return r.madeOn > max ? r.madeOn : max
   }, null)
-  const dates_made = history.map((r) => r.madeOn).sort().reverse()
+  const datesMade = history.map((r) => r.madeOn).sort().reverse()
 
-  return recipeRowToJson({ ...recipe, last_made, times_made: history.length, dates_made })
+  return recipeRowToJson({ ...recipe, lastMade, timesMade: history.length, datesMade })
 }
 
 export const GET = withAuth(async (req, { user, ctx }, params) => {
@@ -101,11 +101,11 @@ export const PATCH = withAuth(async (req, { user, ctx }, params) => {
     if ('steps' in body) update.steps = body.steps
     if ('notes' in body) update.notes = body.notes
     if ('url' in body) update.url = body.url
-    if ('image_url' in body) update.imageUrl = body.image_url
-    if ('prep_time_minutes' in body) update.prepTimeMinutes = body.prep_time_minutes
-    if ('cook_time_minutes' in body) update.cookTimeMinutes = body.cook_time_minutes
-    if ('total_time_minutes' in body) update.totalTimeMinutes = body.total_time_minutes
-    if ('inactive_time_minutes' in body) update.inactiveTimeMinutes = body.inactive_time_minutes
+    if ('imageUrl' in body) update.imageUrl = body.imageUrl
+    if ('prepTimeMinutes' in body) update.prepTimeMinutes = body.prepTimeMinutes
+    if ('cookTimeMinutes' in body) update.cookTimeMinutes = body.cookTimeMinutes
+    if ('totalTimeMinutes' in body) update.totalTimeMinutes = body.totalTimeMinutes
+    if ('inactiveTimeMinutes' in body) update.inactiveTimeMinutes = body.inactiveTimeMinutes
     if ('servings' in body) update.servings = body.servings
 
     const [updated] = await db

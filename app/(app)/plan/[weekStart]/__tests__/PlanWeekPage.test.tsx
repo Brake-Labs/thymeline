@@ -92,7 +92,7 @@ beforeEach(() => {
 
 // ── T36: Saved plan renders recipe entries ─────────────────────────────────────
 
-describe('T36 - /plan/[week_start] renders saved plan entries', () => {
+describe('T36 - /plan/[weekStart] renders saved plan entries', () => {
   it('shows each recipe title and day when a plan exists', async () => {
     mockState.planRows = [{ id: 'plan-1', weekStart: WEEK_START }]
     mockState.entries = [
@@ -100,7 +100,7 @@ describe('T36 - /plan/[week_start] renders saved plan entries', () => {
       { id: 'e2', plannedDate: '2026-03-03', recipeId: 'r2', position: 1, confirmed: false, mealType: 'dinner', recipeTitle: 'Tacos' },
     ]
 
-    const element = await PlanWeekPage({ params: { week_start: WEEK_START } })
+    const element = await PlanWeekPage({ params: { weekStart: WEEK_START } })
     render(element as React.ReactElement)
 
     expect(screen.getByText('Pasta')).toBeInTheDocument()
@@ -115,39 +115,39 @@ describe('T36 - /plan/[week_start] renders saved plan entries', () => {
       { id: 'e1', plannedDate: '2026-03-01', recipeId: 'r1', position: 1, confirmed: true, mealType: 'dinner', recipeTitle: 'Pasta' },
     ]
 
-    const element = await PlanWeekPage({ params: { week_start: WEEK_START } })
+    const element = await PlanWeekPage({ params: { weekStart: WEEK_START } })
     render(element as React.ReactElement)
 
     const groceriesLink = screen.getByText('Make grocery list')
     expect(groceriesLink).toBeInTheDocument()
-    expect(groceriesLink.closest('a')).toHaveAttribute('href', `/groceries?week_start=${WEEK_START}`)
+    expect(groceriesLink.closest('a')).toHaveAttribute('href', `/groceries?weekStart=${WEEK_START}`)
 
     const replanLink = screen.getByText('Re-plan this week')
     expect(replanLink).toBeInTheDocument()
-    expect(replanLink.closest('a')).toHaveAttribute('href', `/plan?week_start=${WEEK_START}&replan=true`)
+    expect(replanLink.closest('a')).toHaveAttribute('href', `/plan?weekStart=${WEEK_START}&replan=true`)
   })
 })
 
 // ── T37: No plan state renders correctly ──────────────────────────────────────
 
-describe('T37 - /plan/[week_start] shows no-plan state when plan does not exist', () => {
+describe('T37 - /plan/[weekStart] shows no-plan state when plan does not exist', () => {
   it('shows "No plan for this week" and a "Plan this week" link', async () => {
     mockState.planRows = []
 
-    const element = await PlanWeekPage({ params: { week_start: WEEK_START } })
+    const element = await PlanWeekPage({ params: { weekStart: WEEK_START } })
     render(element as React.ReactElement)
 
     expect(screen.getByText('No plan for this week.')).toBeInTheDocument()
 
     const planLink = screen.getByText('Plan this week')
     expect(planLink).toBeInTheDocument()
-    expect(planLink.closest('a')).toHaveAttribute('href', `/plan?week_start=${WEEK_START}`)
+    expect(planLink.closest('a')).toHaveAttribute('href', `/plan?weekStart=${WEEK_START}`)
   })
 
   it('does not show grocery or re-plan buttons when no plan exists', async () => {
     mockState.planRows = []
 
-    const element = await PlanWeekPage({ params: { week_start: WEEK_START } })
+    const element = await PlanWeekPage({ params: { weekStart: WEEK_START } })
     render(element as React.ReactElement)
 
     expect(screen.queryByText('Make grocery list')).not.toBeInTheDocument()
@@ -160,8 +160,8 @@ describe('T37 - /plan/[week_start] shows no-plan state when plan does not exist'
 
 describe('T39 - Week navigation arrows render and respect the 4-week future cap', () => {
   it('renders prev and next arrow links when within the future cap', async () => {
-    // week_start = '2026-03-15', nextWeek = '2026-03-22' < maxWeek '2026-04-12'
-    const element = await PlanWeekPage({ params: { week_start: '2026-03-15' } })
+    // weekStart = '2026-03-15', nextWeek = '2026-03-22' < maxWeek '2026-04-12'
+    const element = await PlanWeekPage({ params: { weekStart: '2026-03-15' } })
     render(element as React.ReactElement)
 
     const prevLink = screen.getByRole('link', { name: 'Previous week' })
@@ -172,8 +172,8 @@ describe('T39 - Week navigation arrows render and respect the 4-week future cap'
   })
 
   it('disables the right arrow when nextWeek would exceed the 4-week cap', async () => {
-    // week_start = '2026-04-12' = maxWeek, nextWeek = '2026-04-19' > maxWeek
-    const element = await PlanWeekPage({ params: { week_start: '2026-04-12' } })
+    // weekStart = '2026-04-12' = maxWeek, nextWeek = '2026-04-19' > maxWeek
+    const element = await PlanWeekPage({ params: { weekStart: '2026-04-12' } })
     render(element as React.ReactElement)
 
     // Prev arrow is still a link

@@ -17,14 +17,14 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }, params) => 
     return NextResponse.json({ error: msg }, { status: ownership.status })
   }
 
-  // Accept optional made_on from body; default to today
+  // Accept optional madeOn from body; default to today
   const today = getTodayISO()
   const { data: body } = await parseBody(req, logRecipeSchema)
-  const madeOn = body?.made_on ?? today
+  const madeOn = body?.madeOn ?? today
 
   const baseInsert = { recipeId: id, userId: user.id, madeOn }
-  const insertRow = body?.make_again !== undefined
-    ? { ...baseInsert, makeAgain: body.make_again }
+  const insertRow = body?.makeAgain !== undefined
+    ? { ...baseInsert, makeAgain: body.makeAgain }
     : baseInsert
 
   try {
@@ -36,7 +36,7 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }, params) => 
     // Silent pantry deduction — fire and forget, never affects the HTTP response
     if (id) void deductPantryIngredients(id, user.id).catch(() => {})
 
-    return NextResponse.json({ made_on: madeOn, already_logged: false, entry_id: inserted?.id ?? null })
+    return NextResponse.json({ madeOn: madeOn, alreadyLogged: false, entryId: inserted?.id ?? null })
   } catch (err) {
     // Unique constraint violation = already logged today — treat as idempotent
     const errMsg = err instanceof Error ? err.message : String(err)
@@ -65,7 +65,7 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }, params) => 
     // Silent pantry deduction — fire and forget, never affects the HTTP response
     if (id) void deductPantryIngredients(id, user.id).catch(() => {})
 
-    return NextResponse.json({ made_on: madeOn, already_logged: true, entry_id: entryId })
+    return NextResponse.json({ madeOn: madeOn, alreadyLogged: true, entryId: entryId })
   }
 })
 
@@ -129,7 +129,7 @@ export const DELETE = withAuth(async (req: NextRequest, { user }, params) => {
         and(
           eq(recipeHistory.recipeId, id),
           eq(recipeHistory.userId, user.id),
-          eq(recipeHistory.madeOn, body.made_on),
+          eq(recipeHistory.madeOn, body.madeOn),
         ),
       )
 

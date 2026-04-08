@@ -37,7 +37,7 @@ export const POST = withAuth(async (req: NextRequest, { user: _user }) => {
   const { data: body, error: parseError } = await parseBody(req, generateRefineSchema)
   if (parseError) return parseError
 
-  const { message, current_recipe, conversation_history, generation_context } = body
+  const { message, currentRecipe, conversationHistory, generationContext } = body
 
   const tagLookup = new Map(FIRST_CLASS_TAGS.map((t) => [t.toLowerCase(), t]))
 
@@ -71,46 +71,46 @@ Return ONLY valid JSON with no prose or markdown:
 
   const messages: MessageParam[] = []
 
-  if (conversation_history.length === 0) {
+  if (conversationHistory.length === 0) {
     // First refinement turn: include generation context
-    const userContent = `I just generated a ${generation_context.meal_type} recipe with these preferences:
-Style: ${generation_context.style_hints || 'none'}
-Dietary restrictions: ${generation_context.dietary_restrictions.join(', ') || 'none'}
+    const userContent = `I just generated a ${generationContext.mealType} recipe with these preferences:
+Style: ${generationContext.styleHints || 'none'}
+Dietary restrictions: ${generationContext.dietaryRestrictions.join(', ') || 'none'}
 
 Here is the current recipe:
 
-Title: ${current_recipe.title}
-Servings: ${current_recipe.servings ?? 'not specified'}
+Title: ${currentRecipe.title}
+Servings: ${currentRecipe.servings ?? 'not specified'}
 
 Ingredients:
-${current_recipe.ingredients}
+${currentRecipe.ingredients}
 
 Steps:
-${current_recipe.steps}
+${currentRecipe.steps}
 
-Notes: ${current_recipe.notes ?? 'none'}
+Notes: ${currentRecipe.notes ?? 'none'}
 
 My request: ${message}`
 
     messages.push({ role: 'user', content: userContent })
   } else {
     // Subsequent turns: include full conversation history
-    for (const turn of conversation_history) {
+    for (const turn of conversationHistory) {
       messages.push({ role: turn.role, content: turn.content })
     }
 
     const userContent = `Current recipe:
 
-Title: ${current_recipe.title}
-Servings: ${current_recipe.servings ?? 'not specified'}
+Title: ${currentRecipe.title}
+Servings: ${currentRecipe.servings ?? 'not specified'}
 
 Ingredients:
-${current_recipe.ingredients}
+${currentRecipe.ingredients}
 
 Steps:
-${current_recipe.steps}
+${currentRecipe.steps}
 
-Notes: ${current_recipe.notes ?? 'none'}
+Notes: ${currentRecipe.notes ?? 'none'}
 
 My new request: ${message}`
 
@@ -157,23 +157,23 @@ My new request: ${message}`
   const llmCategory = typeof parsed.category === 'string' ? parsed.category : ''
   const category: RecipeCategory = (RECIPE_CATEGORIES as readonly string[]).includes(llmCategory)
     ? (llmCategory as RecipeCategory)
-    : (current_recipe.category as RecipeCategory)
+    : (currentRecipe.category as RecipeCategory)
 
   const recipe: GeneratedRecipe = {
     title,
     ingredients: typeof parsed.ingredients === 'string' && parsed.ingredients.trim()
       ? parsed.ingredients
-      : current_recipe.ingredients,
+      : currentRecipe.ingredients,
     steps: typeof parsed.steps === 'string' && parsed.steps.trim()
       ? parsed.steps
-      : current_recipe.steps,
+      : currentRecipe.steps,
     tags,
     category,
     servings: parsePositiveInt(parsed.servings),
-    prep_time_minutes: parseNonNegativeInt(parsed.prepTimeMinutes),
-    cook_time_minutes: parseNonNegativeInt(parsed.cookTimeMinutes),
-    total_time_minutes: parseNonNegativeInt(parsed.totalTimeMinutes),
-    inactive_time_minutes: parseNonNegativeInt(parsed.inactiveTimeMinutes),
+    prepTimeMinutes: parseNonNegativeInt(parsed.prepTimeMinutes),
+    cookTimeMinutes: parseNonNegativeInt(parsed.cookTimeMinutes),
+    totalTimeMinutes: parseNonNegativeInt(parsed.totalTimeMinutes),
+    inactiveTimeMinutes: parseNonNegativeInt(parsed.inactiveTimeMinutes),
     notes: typeof parsed.notes === 'string' ? parsed.notes : null,
   }
 

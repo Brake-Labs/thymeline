@@ -16,7 +16,7 @@ export default function DiscoveryCard({
   onPreview,
   onDismiss,
 }: DiscoveryCardProps) {
-  const displayedTags = result.suggested_tags.slice(0, 3)
+  const displayedTags = result.suggestedTags.slice(0, 3)
 
   return (
     <div className="bg-stone-50 border border-stone-200 rounded-lg overflow-hidden flex flex-col">
@@ -28,12 +28,12 @@ export default function DiscoveryCard({
         <div className="flex items-center gap-1.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(result.site_name)}`}
+            src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(result.siteName)}`}
             alt=""
             aria-hidden="true"
             className="w-4 h-4"
           />
-          <span className="text-xs text-stone-500 truncate">{result.site_name}</span>
+          <span className="text-xs text-stone-500 truncate">{result.siteName}</span>
         </div>
 
         {/* Title */}
@@ -42,13 +42,13 @@ export default function DiscoveryCard({
         </h3>
 
         {/* Waste badge */}
-        {result.waste_badge_text && (
+        {result.wasteBadgeText && (
           <div
             className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
             style={{ backgroundColor: '#FFF0C0', color: '#5C4A00' }}
           >
             <Leaf size={10} className="flex-shrink-0" />
-            {result.waste_badge_text}
+            {result.wasteBadgeText}
           </div>
         )}
 
@@ -72,15 +72,15 @@ export default function DiscoveryCard({
         )}
 
         {/* Vault match badge */}
-        {result.vault_match && (
+        {result.vaultMatch && (
           <div>
-            {result.vault_match.similarity === 'exact' ? (
+            {result.vaultMatch.similarity === 'exact' ? (
               <span className="text-xs px-2 py-0.5 rounded-full bg-stone-100 text-stone-600 font-medium">
                 Already saved
               </span>
             ) : (
               <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-medium">
-                Similar to {result.vault_match.similar_recipe_title}
+                Similar to {result.vaultMatch.similarRecipeTitle}
               </span>
             )}
           </div>

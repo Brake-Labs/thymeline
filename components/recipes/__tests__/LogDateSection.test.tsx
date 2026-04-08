@@ -10,7 +10,7 @@ vi.stubGlobal('fetch', mockFetch)
 function makeLogResponse(alreadyLogged = false, madeOn = '2026-03-13') {
   return Promise.resolve({
     ok: true,
-    json: async () => ({ made_on: madeOn, already_logged: alreadyLogged }),
+    json: async () => ({ madeOn: madeOn, alreadyLogged: alreadyLogged }),
   })
 }
 
@@ -42,7 +42,7 @@ describe('LogDateSection - Today button', () => {
     await waitFor(() => {
       const [url, opts] = mockFetch.mock.calls[0]!
       expect(url).toContain('/api/recipes/recipe-1/log')
-      expect(JSON.parse(opts.body).made_on).toBe(today)
+      expect(JSON.parse(opts.body).madeOn).toBe(today)
     })
   })
 
@@ -58,7 +58,7 @@ describe('LogDateSection - Today button', () => {
 
     await waitFor(() => {
       const [, opts] = mockFetch.mock.calls[0]!
-      expect(JSON.parse(opts.body).made_on).toBe(yesterday)
+      expect(JSON.parse(opts.body).madeOn).toBe(yesterday)
     })
   })
 
@@ -95,7 +95,7 @@ describe('LogDateSection - Today button', () => {
     })
   })
 
-  it('does not call onLogged when already_logged=true', async () => {
+  it('does not call onLogged when alreadyLogged=true', async () => {
     const onLogged = vi.fn()
     mockFetch.mockResolvedValueOnce(makeLogResponse(true))
 
@@ -147,7 +147,7 @@ describe('LogDateSection - Pick a date', () => {
 
     await waitFor(() => {
       const [, opts] = mockFetch.mock.calls[0]!
-      expect(JSON.parse(opts.body).made_on).toBe(pickedISO)
+      expect(JSON.parse(opts.body).madeOn).toBe(pickedISO)
     })
   })
 

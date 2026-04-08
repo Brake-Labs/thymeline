@@ -155,7 +155,7 @@ export async function fetchRecipesByMealTypes(
 
 export async function fetchRecentHistory(
   userId: string,
-): Promise<{ title: string; made_on: string }[]> {
+): Promise<{ title: string; madeOn: string }[]> {
   const rows = await db
     .select({
       madeOn: recipeHistory.madeOn,
@@ -169,7 +169,7 @@ export async function fetchRecentHistory(
 
   return rows.map((h) => ({
     title: h.title ?? '',
-    made_on: h.madeOn,
+    madeOn: h.madeOn,
   }))
 }
 
@@ -192,31 +192,31 @@ export async function fetchUserPreferences(
 
   return {
     id: data.id,
-    user_id: data.userId,
-    options_per_day: data.optionsPerDay,
-    cooldown_days: data.cooldownDays,
-    seasonal_mode: data.seasonalMode,
-    preferred_tags: data.preferredTags,
-    avoided_tags: data.avoidedTags,
-    limited_tags: data.limitedTags as unknown as LimitedTag[],
-    seasonal_rules: data.seasonalRules as UserPreferences['seasonal_rules'],
-    onboarding_completed: data.onboardingCompleted,
-    is_active: data.isActive,
-    meal_context: data.mealContext ?? null,
-    hidden_tags: data.hiddenTags ?? [],
-    created_at: data.createdAt.toISOString(),
+    userId: data.userId,
+    optionsPerDay: data.optionsPerDay,
+    cooldownDays: data.cooldownDays,
+    seasonalMode: data.seasonalMode,
+    preferredTags: data.preferredTags,
+    avoidedTags: data.avoidedTags,
+    limitedTags: data.limitedTags as unknown as LimitedTag[],
+    seasonalRules: data.seasonalRules as UserPreferences['seasonalRules'],
+    onboardingCompleted: data.onboardingCompleted,
+    isActive: data.isActive,
+    mealContext: data.mealContext ?? null,
+    hiddenTags: data.hiddenTags ?? [],
+    createdAt: data.createdAt.toISOString(),
   } satisfies UserPreferences
 }
 
 // ── Prompt construction ─────────────────────────────────────────────────────────
 
 function buildAvoidedTags(prefs: UserPreferences | null, sessionAvoid: string[]): string {
-  const combined = Array.from(new Set([...(prefs?.avoided_tags ?? []), ...sessionAvoid]))
+  const combined = Array.from(new Set([...(prefs?.avoidedTags ?? []), ...sessionAvoid]))
   return combined.length ? combined.join(', ') : 'none'
 }
 
 function buildPreferredTags(prefs: UserPreferences | null, sessionPrefer: string[]): string {
-  const combined = Array.from(new Set([...(prefs?.preferred_tags ?? []), ...sessionPrefer]))
+  const combined = Array.from(new Set([...(prefs?.preferredTags ?? []), ...sessionPrefer]))
   return combined.length ? combined.join(', ') : 'none'
 }
 
@@ -229,8 +229,8 @@ function buildSeasonalInstructions(
   prefs: UserPreferences | null,
   season: 'spring' | 'summer' | 'autumn' | 'winter',
 ): string {
-  if (!prefs?.seasonal_mode) return ''
-  const rules = (prefs.seasonal_rules as Record<string, { favor?: string[]; cap?: Record<string, number>; exclude?: string[] }> | null)?.[season]
+  if (!prefs?.seasonalMode) return ''
+  const rules = (prefs.seasonalRules as Record<string, { favor?: string[]; cap?: Record<string, number>; exclude?: string[] }> | null)?.[season]
   if (!rules) return ''
   const parts: string[] = []
   if (rules.favor?.length) parts.push(`Favor ${rules.favor.join(', ')} recipes.`)
@@ -243,17 +243,17 @@ function buildSeasonalInstructions(
 
 function buildTasteProfileSection(profile: TasteProfile): string {
   const parts: string[] = []
-  if (profile.loved_recipe_ids.length) {
-    parts.push(`Loved recipes (boost these in suggestions): ${profile.loved_recipe_ids.join(', ')}`)
+  if (profile.lovedRecipeIds.length) {
+    parts.push(`Loved recipes (boost these in suggestions): ${profile.lovedRecipeIds.join(', ')}`)
   }
-  if (profile.disliked_recipe_ids.length) {
-    parts.push(`Disliked recipes (avoid these): ${profile.disliked_recipe_ids.join(', ')}`)
+  if (profile.dislikedRecipeIds.length) {
+    parts.push(`Disliked recipes (avoid these): ${profile.dislikedRecipeIds.join(', ')}`)
   }
-  if (profile.top_tags.length) {
-    parts.push(`User's top flavor tags: ${profile.top_tags.join(', ')}`)
+  if (profile.topTags.length) {
+    parts.push(`User's top flavor tags: ${profile.topTags.join(', ')}`)
   }
-  if (parts.length > 0 && profile.cooking_frequency !== 'moderate') {
-    parts.push(`Cooking frequency: ${profile.cooking_frequency}`)
+  if (parts.length > 0 && profile.cookingFrequency !== 'moderate') {
+    parts.push(`Cooking frequency: ${profile.cookingFrequency}`)
   }
   return parts.length ? `\n\nTaste profile:\n${parts.join('\n')}` : ''
 }
@@ -265,21 +265,21 @@ export function buildSystemMessage(
   season: 'spring' | 'summer' | 'autumn' | 'winter',
   profile?: TasteProfile,
 ): string {
-  const optionsPerDay = prefs?.options_per_day ?? 3
+  const optionsPerDay = prefs?.optionsPerDay ?? 3
   const avoided = buildAvoidedTags(prefs, sessionAvoid)
   const preferred = buildPreferredTags(prefs, sessionPrefer)
-  const limited = buildLimitedTagsSummary(prefs?.limited_tags ?? [])
+  const limited = buildLimitedTagsSummary(prefs?.limitedTags ?? [])
   const seasonal = buildSeasonalInstructions(prefs, season)
 
-  const mealContextLine = prefs?.meal_context
-    ? `\nHousehold context: ${prefs.meal_context}`
+  const mealContextLine = prefs?.mealContext
+    ? `\nHousehold context: ${prefs.mealContext}`
     : ''
 
   const base = `You are a meal planning assistant. You will be given a list of recipes and user preferences, and you must suggest meals for specific days of the week.${mealContextLine}
 
 Rules you must follow exactly:
 - Only suggest recipes from the provided recipe list. Never invent recipes.
-- Only use recipe_ids from the provided list. Never guess or modify ids.
+- Only use recipeIds from the provided list. Never guess or modify ids.
 - Return exactly ${optionsPerDay} options per day.
 - Never suggest the same recipe for more than one day.
 - Never suggest recipes with avoided tags: ${avoided}.
@@ -294,13 +294,13 @@ Return ONLY valid JSON in this exact format, with no prose, no markdown:
   "days": [
     {
       "date": "YYYY-MM-DD",
-      "meal_types": [
+      "mealTypes": [
         {
-          "meal_type": "dinner",
+          "mealType": "dinner",
           "options": [
             {
-              "recipe_id": "uuid",
-              "recipe_title": "Recipe Name",
+              "recipeId": "uuid",
+              "recipeTitle": "Recipe Name",
               "reason": "One-line reason, e.g. Quick weeknight option"
             }
           ]
@@ -353,7 +353,7 @@ function shuffleArray<T>(arr: T[]): T[] {
 export function buildFullWeekUserMessage(
   activeDates: string[],
   recipesByMealType: Record<MealType, RecipeForLLM[]>,
-  recentHistory: { title: string; made_on: string }[],
+  recentHistory: { title: string; madeOn: string }[],
   freeText: string,
   activeMealTypes: MealType[],
   pantryContext: string = '',
@@ -364,7 +364,7 @@ export function buildFullWeekUserMessage(
     const loved = all.filter((r) => lovedIds?.has(r.id))
     const others = shuffleArray(all.filter((r) => !lovedIds?.has(r.id)))
     const list = [...loved, ...others].map((r) => ({
-      recipe_id: r.id,
+      recipeId: r.id,
       title: lovedIds?.has(r.id) ? `${r.title} [LOVED]` : r.title,
       tags: r.tags,
     }))
@@ -391,18 +391,18 @@ export function buildSwapUserMessage(
   date: string,
   mealType: MealType,
   recipes: RecipeForLLM[],
-  recentHistory: { title: string; made_on: string }[],
-  alreadySelected: { date: string; recipe_id: string }[],
+  recentHistory: { title: string; madeOn: string }[],
+  alreadySelected: { date: string; recipeId: string }[],
   freeText: string,
   allRecipes: RecipeForLLM[],
   pantryContext: string = '',
 ): string {
   const selectedTitles = alreadySelected
-    .map((s) => allRecipes.find((r) => r.id === s.recipe_id)?.title ?? s.recipe_id)
+    .map((s) => allRecipes.find((r) => r.id === s.recipeId)?.title ?? s.recipeId)
     .filter(Boolean)
     .join(', ')
 
-  const recipesForPrompt = recipes.map((r) => ({ recipe_id: r.id, title: r.title, tags: r.tags }))
+  const recipesForPrompt = recipes.map((r) => ({ recipeId: r.id, title: r.title, tags: r.tags }))
   return `Plan meals for these dates: ${date}
 Meal type: ${mealType}
 
@@ -431,11 +431,11 @@ export function validateSuggestions(
 ): DaySuggestions[] {
   return days.map((day) => ({
     date: day.date,
-    meal_types: (day.meal_types ?? []).map((mts) => ({
-      meal_type: mts.meal_type,
+    mealTypes: (day.mealTypes ?? []).map((mts) => ({
+      mealType: mts.mealType,
       options: mts.options.filter((opt) => {
-        const ids = validIdsByMealType.get(mts.meal_type)
-        return ids ? ids.has(opt.recipe_id) : false
+        const ids = validIdsByMealType.get(mts.mealType)
+        return ids ? ids.has(opt.recipeId) : false
       }),
     })),
   }))

@@ -48,7 +48,7 @@ export const GET = withAuth(async (req, { user, ctx }, params) => {
       )
 
     const count = Number(rows[0]?.count ?? 0)
-    return NextResponse.json({ name: tagName, recipe_count: count })
+    return NextResponse.json({ name: tagName, recipeCount: count })
   } catch (err) {
     console.error('DB error:', err)
     return NextResponse.json({ error: 'Database query failed' }, { status: 500 })
@@ -153,7 +153,7 @@ export const DELETE = withAuth(async (req, { user, ctx }, params) => {
   }
 
   try {
-    // First-class tags: hide them (add to hidden_tags) rather than deleting
+    // First-class tags: hide them (add to hiddenTags) rather than deleting
     const isFirstClass = FIRST_CLASS_TAGS.some(
       (t) => t.toLowerCase() === tagName.toLowerCase()
     )

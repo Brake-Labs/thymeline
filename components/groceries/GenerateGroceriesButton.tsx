@@ -7,7 +7,7 @@ interface GenerateGroceriesButtonProps {
   /** Preferred: explicit date range */
   dateFrom?: string
   dateTo?:   string
-  /** Legacy: single week_start (still accepted by the API) */
+  /** Legacy: single weekStart (still accepted by the API) */
   weekStart?: string
 }
 
@@ -21,8 +21,8 @@ export default function GenerateGroceriesButton({ dateFrom, dateTo, weekStart }:
     setError(null)
     try {
       const payload = dateFrom && dateTo
-        ? { date_from: dateFrom, date_to: dateTo }
-        : { week_start: weekStart }
+        ? { dateFrom: dateFrom, dateTo: dateTo }
+        : { weekStart: weekStart }
 
       const res = await fetch('/api/groceries/generate', {
         method:  'POST',
@@ -34,9 +34,9 @@ export default function GenerateGroceriesButton({ dateFrom, dateTo, weekStart }:
         setError(body.error ?? 'Failed to generate grocery list')
         return
       }
-      // Navigate to the list using date_from as the key
+      // Navigate to the list using dateFrom as the key
       if (dateFrom) {
-        router.push(`/groceries?date_from=${dateFrom}&date_to=${dateTo}`)
+        router.push(`/groceries?dateFrom=${dateFrom}&dateTo=${dateTo}`)
       }
       router.refresh()
     } catch {

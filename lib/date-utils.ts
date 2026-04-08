@@ -22,7 +22,7 @@ export function getMostRecentWeekStart(weekStartDay: number, date: Date = new Da
   return toDateString(d)
 }
 
-/** Return the most-recent Sunday (week_start) as "YYYY-MM-DD". */
+/** Return the most-recent Sunday (weekStart) as "YYYY-MM-DD". */
 export function getMostRecentSunday(date: Date = new Date()): string {
   return getMostRecentWeekStart(0, date)
 }
