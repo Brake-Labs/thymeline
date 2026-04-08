@@ -125,7 +125,7 @@ export default function GenerateRecipeChatPanel({
       {/* Header */}
       <div>
         <h3 className="font-display font-semibold text-stone-800 text-base">Refine your recipe</h3>
-        <p className="text-xs text-stone-500 mt-0.5">Make any changes before saving to your vault</p>
+        <p className="text-xs text-stone-500 mt-0.5">Make any changes before saving to your recipe box</p>
       </div>
 
       {/* Recipe preview */}

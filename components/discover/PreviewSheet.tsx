@@ -253,7 +253,7 @@ export default function PreviewSheet({
               </>
             ) : existingRecipeId ? (
               <>
-                <span className="text-sm text-stone-500 font-medium">Already in your vault</span>
+                <span className="text-sm text-stone-500 font-medium">Already in your recipe box</span>
                 <a
                   href={`/recipes/${existingRecipeId}`}
                   className="text-sm text-sage-500 hover:underline"

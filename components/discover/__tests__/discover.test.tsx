@@ -493,7 +493,7 @@ describe('T16 — Save success shows "Saved to vault" and view link', () => {
   })
 })
 
-describe('T17 — duplicate URL shows "Already in your vault"', () => {
+describe('T17 — duplicate URL shows "Already in your recipe box"', () => {
   beforeEach(() => { vi.restoreAllMocks() })
 
   it('shows already-in-vault state when GET /api/recipes returns a match', async () => {
@@ -526,7 +526,7 @@ describe('T17 — duplicate URL shows "Already in your vault"', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getByText('Already in your vault')).toBeInTheDocument()
+      expect(screen.getByText('Already in your recipe box')).toBeInTheDocument()
       expect(screen.getByText('View →')).toBeInTheDocument()
     })
   })
