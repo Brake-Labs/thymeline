@@ -51,7 +51,7 @@ function makeTagsResponse() {
 /** Helper to build a mockFetch implementation that includes session + recipe */
 function setupFetchWithSession(userId: string | null) {
   mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
-    if (url.includes('/api/auth/get-session')) {
+    if (url.includes('/api/auth/session')) {
       return Promise.resolve({
         ok: true,
         json: async () => (userId ? { user: { id: userId } } : { user: null }),
@@ -76,7 +76,7 @@ const { default: RecipeDetailPage } = await import('../page')
 describe('RecipeDetailPage — source URL link', () => {
   it('renders "View original recipe →" link when recipe.url is present', async () => {
     mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
-      if (url.includes('/api/auth/get-session')) {
+      if (url.includes('/api/auth/session')) {
         return Promise.resolve({ ok: true, json: async () => ({ user: null }) })
       }
       if (url.includes('/api/recipes/recipe-1') && (!opts?.method || opts.method === 'GET')) {
@@ -210,7 +210,7 @@ describe('spec-18 T12 - "Cook from this version" stores modified recipe in sessi
     const setItemSpy = vi.spyOn(Storage.prototype, 'setItem')
 
     mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
-      if (url.includes('/api/auth/get-session')) {
+      if (url.includes('/api/auth/session')) {
         return Promise.resolve({ ok: true, json: async () => ({ user: { id: 'owner-user' } }) })
       }
       if (url.includes('/api/recipes/recipe-1/ai-edit') && opts?.method === 'POST') {
@@ -269,7 +269,7 @@ describe('spec-18 T12 - "Cook from this version" stores modified recipe in sessi
 describe('spec-18 T19 - Closing the sheet reverts recipe preview to original', () => {
   it('reverts modifiedRecipe to null when sheet is closed', async () => {
     mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
-      if (url.includes('/api/auth/get-session')) {
+      if (url.includes('/api/auth/session')) {
         return Promise.resolve({ ok: true, json: async () => ({ user: { id: 'owner-user' } }) })
       }
       if (url.includes('/api/recipes/recipe-1/ai-edit') && opts?.method === 'POST') {

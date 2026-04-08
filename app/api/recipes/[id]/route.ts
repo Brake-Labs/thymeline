@@ -7,13 +7,17 @@ import { eq } from 'drizzle-orm'
 import { recipes, recipeHistory } from '@/lib/db/schema'
 import { dbFirst } from '@/lib/db/helpers'
 import { checkOwnership } from '@/lib/household'
+import { recipeRowToJson } from '@/lib/db/serialize'
+import type { InferSelectModel } from 'drizzle-orm'
 
-// Helper: attach last_made + times_made to a recipe row
-async function withHistory(recipe: Record<string, unknown>) {
+type RecipeRow = InferSelectModel<typeof recipes>
+
+// Helper: attach last_made + times_made to a recipe row, then serialize to snake_case
+async function withHistory(recipe: RecipeRow) {
   const history = await db
     .select({ madeOn: recipeHistory.madeOn })
     .from(recipeHistory)
-    .where(eq(recipeHistory.recipeId, recipe.id as string))
+    .where(eq(recipeHistory.recipeId, recipe.id))
 
   const last_made = history.reduce<string | null>((max, r) => {
     if (!max) return r.madeOn
@@ -21,7 +25,7 @@ async function withHistory(recipe: Record<string, unknown>) {
   }, null)
   const dates_made = history.map((r) => r.madeOn).sort().reverse()
 
-  return { ...recipe, last_made, times_made: history.length, dates_made }
+  return recipeRowToJson({ ...recipe, last_made, times_made: history.length, dates_made })
 }
 
 export const GET = withAuth(async (req, { user, ctx }, params) => {
@@ -44,7 +48,7 @@ export const GET = withAuth(async (req, { user, ctx }, params) => {
       }
     }
 
-    return NextResponse.json(await withHistory(recipe as Record<string, unknown>))
+    return NextResponse.json(await withHistory(recipe))
   } catch (err) {
     console.error('DB error:', err)
     return NextResponse.json({ error: 'Database query failed' }, { status: 500 })
@@ -110,7 +114,8 @@ export const PATCH = withAuth(async (req, { user, ctx }, params) => {
       .where(eq(recipes.id, id))
       .returning()
 
-    return NextResponse.json(updated)
+    if (!updated) return NextResponse.json({ error: 'Failed to update recipe' }, { status: 500 })
+    return NextResponse.json(recipeRowToJson(updated))
   } catch (err) {
     console.error('DB error:', err)
     return NextResponse.json({ error: 'Failed to update recipe' }, { status: 500 })

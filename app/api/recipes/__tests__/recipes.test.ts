@@ -266,7 +266,7 @@ describe('GET /api/recipes/[id] — T05, T13: detail and shared access', () => {
 
     expect(res.status).toBe(200)
     const json = await res.json()
-    expect(json.isShared).toBe(true)
+    expect(json.is_shared).toBe(true)
   })
 
   it('returns 403 for non-shared recipe accessed by non-owner (IDOR fix)', async () => {
@@ -610,7 +610,7 @@ describe('T17 - household POST sets household_id in insert payload', () => {
     )
     expect(res.status).toBe(201)
     const json = await res.json()
-    expect(json.householdId).toBe('hh-1')
+    expect(json.household_id).toBe('hh-1')
   })
 })
 

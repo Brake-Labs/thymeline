@@ -134,10 +134,10 @@ describe('POST /api/recipes — time fields', () => {
 
     expect(res.status).toBe(201)
     const json = await res.json()
-    expect(json.prepTimeMinutes).toBe(20)
-    expect(json.cookTimeMinutes).toBe(180)
-    expect(json.totalTimeMinutes).toBe(200)
-    expect(json.inactiveTimeMinutes).toBeNull()
+    expect(json.prep_time_minutes).toBe(20)
+    expect(json.cook_time_minutes).toBe(180)
+    expect(json.total_time_minutes).toBe(200)
+    expect(json.inactive_time_minutes).toBeNull()
   })
 
   it('saves null time fields when omitted', async () => {
@@ -159,8 +159,8 @@ describe('POST /api/recipes — time fields', () => {
 
     expect(res.status).toBe(201)
     const json = await res.json()
-    expect(json.prepTimeMinutes).toBeNull()
-    expect(json.cookTimeMinutes).toBeNull()
+    expect(json.prep_time_minutes).toBeNull()
+    expect(json.cook_time_minutes).toBeNull()
   })
 })
 
@@ -188,9 +188,9 @@ describe('PATCH /api/recipes/[id] — time fields', () => {
 
     expect(res.status).toBe(200)
     const json = await res.json()
-    expect(json.prepTimeMinutes).toBe(30)
-    expect(json.cookTimeMinutes).toBe(60)
-    expect(json.totalTimeMinutes).toBe(90)
+    expect(json.prep_time_minutes).toBe(30)
+    expect(json.cook_time_minutes).toBe(60)
+    expect(json.total_time_minutes).toBe(90)
   })
 })
 

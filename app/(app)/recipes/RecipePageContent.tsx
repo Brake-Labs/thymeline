@@ -169,7 +169,7 @@ export default function RecipePageContent() {
   useEffect(() => {
     void (async () => {
       try {
-        const res = await fetch('/api/auth/get-session')
+        const res = await fetch('/api/auth/session')
         if (res.ok) {
           const data = await res.json()
           if (data.user?.id) setCurrentUserId(data.user.id)

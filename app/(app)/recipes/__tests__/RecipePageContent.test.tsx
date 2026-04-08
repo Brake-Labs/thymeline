@@ -79,7 +79,7 @@ describe('RecipePageContent - handleDeleteCustomTag', () => {
     const fetchMock = vi.mocked(fetch)
     fetchMock.mockImplementation(async (url, reqOpts) => {
       const urlStr = String(url)
-      if (urlStr.includes('/api/auth/get-session')) {
+      if (urlStr.includes('/api/auth/session')) {
         return { ok: true, json: async () => ({ user: { id: 'user-1' } }) } as Response
       }
       if (urlStr.includes('/api/tags/') && (reqOpts as RequestInit)?.method === 'DELETE') {
