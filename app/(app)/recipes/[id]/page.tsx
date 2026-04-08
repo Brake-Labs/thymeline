@@ -19,6 +19,7 @@ import { convertIngredients } from '@/lib/convert-units'
 import DateInput from '@/components/ui/DateInput'
 import { Sparkles } from 'lucide-react'
 import MakeAgainPrompt from '@/components/recipes/MakeAgainPrompt'
+import ExportButton from '@/components/recipes/ExportButton'
 
 type RecipeWithHistory = Recipe & { lastMade: string | null; timesMade: number }
 
@@ -400,6 +401,9 @@ export default function RecipeDetailPage({ params }: Props) {
             >
               {logStatus === 'success' ? '✓ Logged!' : logStatus === 'alreadyLogged' ? 'Already logged' : 'Log made'}
             </button>
+            {recipe && (
+              <ExportButton recipeId={recipe.id} recipeTitle={recipe.title} />
+            )}
             {isOwner && recipe.source === 'generated' && (
               <button
                 onClick={() => setShowRegenerate(true)}

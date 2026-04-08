@@ -306,6 +306,13 @@ export const consumeInviteSchema = z.object({
   token: z.string().min(1),
 })
 
+// ─── Export ────────────────────────────────────────────────────────────────
+
+export const exportPdfSchema = z.object({
+  recipe_ids: z.array(z.string().uuid()).min(1).max(50),
+  format: z.enum(['single', 'cookbook']),
+})
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 import { NextRequest, NextResponse } from 'next/server'
