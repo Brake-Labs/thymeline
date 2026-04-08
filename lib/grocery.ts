@@ -152,7 +152,7 @@ function singularize(word: string): string {
 // Intentionally excluded: "dried" (dried vs fresh changes the product — dried
 // cranberries ≠ cranberries), "unsalted" (baking recipes are specific about salt),
 // Greek/whole/low-fat dairy variants (different fat/flavor profiles).
-const PREP_ADJECTIVE_RE = /^(fresh|raw|grated|shredded|crumbled|chopped|diced|minced|sliced|peeled|pitted|julienned|roasted|toasted|thawed|softened|melted|cooled|chilled|trimmed|rinsed|drained|halved|quartered|boneless|skinless|extra|virgin|large|medium|small|mini|whole|lean)\s+/
+const PREP_ADJECTIVE_RE = /^(fresh|raw|grated|shredded|crumbled|chopped|diced|minced|sliced|peeled|pitted|julienned|roasted|toasted|thawed|softened|melted|cooled|chilled|trimmed|rinsed|drained|halved|quartered|boneless|skinless|extra|virgin|large|medium|small|mini|lean)\s+/
 
 // Named cheeses where the trailing " cheese" word is redundant and can be stripped
 // so "parmesan cheese" and "grated parmesan" both normalize to "parmesan".

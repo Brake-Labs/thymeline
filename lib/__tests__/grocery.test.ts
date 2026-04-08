@@ -1004,6 +1004,14 @@ describe('regression #358c - color/variety normalization for dedup', () => {
     expect(normalizeIngredientName('dried cranberry')).not.toBe('cranberry')
   })
 
+  it('does NOT strip "whole" so "whole milk" stays distinct from "milk" (regression #361)', () => {
+    expect(normalizeIngredientName('whole milk')).toBe('whole milk')
+  })
+
+  it('does NOT strip "whole" so "whole wheat" stays intact (regression #361)', () => {
+    expect(normalizeIngredientName('whole wheat flour')).toBe('whole wheat flour')
+  })
+
   it('combines "yellow onion" and "white onion" into one item', () => {
     const inputs = [
       { parsed: parseIngredientLine('2 yellow onions'), recipeTitle: 'Taco', scaleFactor: 1 },
