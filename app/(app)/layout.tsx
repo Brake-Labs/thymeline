@@ -42,7 +42,7 @@ export default async function AppLayout({
 
   return (
     <HouseholdProvider>
-      <AppNav />
+      {!pathname.startsWith('/onboarding') && <AppNav />}
       <main>{children}</main>
     </HouseholdProvider>
   )

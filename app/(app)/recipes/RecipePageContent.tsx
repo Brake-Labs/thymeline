@@ -531,46 +531,71 @@ export default function RecipePageContent() {
         </div>
       )}
 
-      {/* Body: sidebar + recipes */}
-      <div className="flex gap-6 items-start">
-        {/* Filter sidebar */}
-        {sidebarOpen && (
-          <aside className="w-56 shrink-0">
-            <FilterSidebar
-              filters={filters}
-              onChange={setFilters}
-              onClearAll={handleClearAllFilters}
-              vaultTags={vaultTags}
-              activeCount={activeFilterCount}
-              onDeleteTag={handleDeleteCustomTag}
-            />
-          </aside>
-        )}
-
-        {/* Recipe display */}
-        <div className="flex-1 min-w-0">
-          {viewMode === 'grid' ? (
-            <RecipeGrid
-              recipes={displayedRecipes}
-              selectedIds={selectedIds}
-              onSelect={handleSelect}
-              currentUserId={currentUserId}
-              loading={loading}
-            />
-          ) : (
-            <RecipeListView
-              recipes={displayedRecipes}
-              selectedIds={selectedIds}
-              onSelect={handleSelect}
-              onSelectAll={handleSelectAll}
-              sortKey={listSortKey}
-              sortDir={listSortDir}
-              onSort={handleListSort}
-              currentUserId={currentUserId}
-            />
-          )}
+      {/* First-time empty state */}
+      {!loading && recipes.length === 0 && searchResults === null && activeFilterCount === 0 ? (
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+          <h2 className="font-display text-2xl font-semibold text-stone-800 mb-3">Add your recipes to get started</h2>
+          <p className="text-stone-500 text-sm mb-8 max-w-sm">
+            Thymeline plans meals from recipes you love. Paste a link from any recipe site and we&apos;ll import it for you. Each import takes about 30 seconds — add a handful to get going.
+          </p>
+          <div className="flex flex-col gap-3 w-56">
+            <Link
+              href="/import"
+              className="bg-sage-500 text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-sage-600 transition-colors text-center"
+            >
+              Import recipes
+            </Link>
+            <button
+              type="button"
+              onClick={() => setShowAddModal(true)}
+              className="border border-stone-300 text-stone-600 px-6 py-2.5 rounded-lg text-sm font-medium hover:border-stone-400 hover:text-stone-800 transition-colors"
+            >
+              Add a single recipe
+            </button>
+          </div>
         </div>
-      </div>
+      ) : (
+        /* Body: sidebar + recipes */
+        <div className="flex gap-6 items-start">
+          {/* Filter sidebar */}
+          {sidebarOpen && (
+            <aside className="w-56 shrink-0">
+              <FilterSidebar
+                filters={filters}
+                onChange={setFilters}
+                onClearAll={handleClearAllFilters}
+                vaultTags={vaultTags}
+                activeCount={activeFilterCount}
+                onDeleteTag={handleDeleteCustomTag}
+              />
+            </aside>
+          )}
+
+          {/* Recipe display */}
+          <div className="flex-1 min-w-0">
+            {viewMode === 'grid' ? (
+              <RecipeGrid
+                recipes={displayedRecipes}
+                selectedIds={selectedIds}
+                onSelect={handleSelect}
+                currentUserId={currentUserId}
+                loading={loading}
+              />
+            ) : (
+              <RecipeListView
+                recipes={displayedRecipes}
+                selectedIds={selectedIds}
+                onSelect={handleSelect}
+                onSelectAll={handleSelectAll}
+                sortKey={listSortKey}
+                sortDir={listSortDir}
+                onSort={handleListSort}
+                currentUserId={currentUserId}
+              />
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Add recipe modal */}
       {showAddModal && (
