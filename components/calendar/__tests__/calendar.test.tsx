@@ -128,6 +128,24 @@ describe('T19 - Empty week shows "Nothing planned" prompt with link to /plan', (
     expect(screen.getAllByText(/Nothing planned/).length).toBeGreaterThan(0)
     expect(screen.getByRole('link', { name: /Help Me Plan/i })).toHaveAttribute('href', '/plan')
   })
+
+  it('includes week_start in the Help Me Plan link when weekStart is provided (regression #322)', () => {
+    render(
+      <DayCard
+        date={DATE}
+        entries={[]}
+        isExpanded={true}
+        onToggle={vi.fn()}
+        onAddEntry={vi.fn()}
+        onDeleteEntry={vi.fn()}
+        weekStart="2026-03-15"
+      />
+    )
+    expect(screen.getByRole('link', { name: /Help Me Plan/i })).toHaveAttribute(
+      'href',
+      '/plan?week_start=2026-03-15',
+    )
+  })
 })
 
 // ── T01: DayCard summary text ─────────────────────────────────────────────────

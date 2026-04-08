@@ -30,8 +30,9 @@ function PlanPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const step = searchParams.get('step') ?? 'setup'
+  const weekStartParam = searchParams.get('week_start')
 
-  const initialWeekStart = getMostRecentSunday()
+  const initialWeekStart = weekStartParam ?? getMostRecentSunday()
 
   const [weekStartDay, setWeekStartDay] = useState(0)
   const [setup, setSetup] = useState<PlanSetup>({
@@ -61,7 +62,7 @@ function PlanPageInner() {
           const raw = prefs.week_start_day ?? 'sunday'
           const pref: number = raw === 'monday' ? 1 : typeof raw === 'number' ? raw : 0
           setWeekStartDay(pref)
-          if (pref !== 0) {
+          if (pref !== 0 && !weekStartParam) {
             const start = getMostRecentWeekStart(pref)
             setSetup((prev) => ({ ...prev, weekStart: start, activeDates: getWeekDates(start) }))
           }

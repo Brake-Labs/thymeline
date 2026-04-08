@@ -273,6 +273,7 @@ export default function WeekCalendar() {
           isSwapMode={isSwapMode}
           selectedEntryId={selectedEntryId}
           onMealTap={handleMealTap}
+          weekStart={weekStart}
         />
       ))}
 
