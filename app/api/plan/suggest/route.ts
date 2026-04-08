@@ -32,7 +32,7 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
   const { week_start, active_dates, prefer_this_week, avoid_this_week, free_text } = body
   const active_meal_types: MealType[] = body.active_meal_types?.length ? body.active_meal_types : ['dinner']
 
-  const todayISO = getTodayISO()
+  const _todayISO = getTodayISO()
 
   const [prefs, tasteProfile] = await Promise.all([
     fetchUserPreferences(user.id, ctx),

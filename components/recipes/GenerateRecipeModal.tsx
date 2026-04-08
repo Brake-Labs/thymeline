@@ -1,15 +1,18 @@
 'use client'
 
 import { useState } from 'react'
-import GenerateRecipeTab from './GenerateRecipeTab'
+import GenerateRecipeTab, { GenerationContext } from './GenerateRecipeTab'
+import GenerateRecipeChatPanel from './GenerateRecipeChatPanel'
 import RecipeForm, { RecipeFormValues } from './RecipeForm'
 import AIGeneratedBadge from './AIGeneratedBadge'
 import type { GeneratedRecipe } from '@/types'
 
+type GenerateStep = 'input' | 'refining' | 'finalized'
+
 interface Props {
-  onClose:              () => void
-  onSaved:              () => void
-  initialIngredients?:  string
+  onClose:             () => void
+  onSaved:             () => void
+  initialIngredients?: string
 }
 
 export default function GenerateRecipeModal({
@@ -17,9 +20,28 @@ export default function GenerateRecipeModal({
   onSaved,
   initialIngredients,
 }: Props) {
-  const [generatedRecipe, setGeneratedRecipe] = useState<GeneratedRecipe | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [saveError, setSaveError] = useState<string | null>(null)
+  const [generateStep, setGenerateStep]           = useState<GenerateStep>('input')
+  const [draftRecipe, setDraftRecipe]             = useState<GeneratedRecipe | null>(null)
+  const [generationContext, setGenerationContext] = useState<GenerationContext | null>(null)
+  const [isSubmitting, setIsSubmitting]           = useState(false)
+  const [saveError, setSaveError]                 = useState<string | null>(null)
+
+  function handleGenerated(recipe: GeneratedRecipe, context: GenerationContext) {
+    setDraftRecipe(recipe)
+    setGenerationContext(context)
+    setGenerateStep('refining')
+  }
+
+  function handleUseRecipe(recipe: GeneratedRecipe) {
+    setDraftRecipe(recipe)
+    setGenerateStep('finalized')
+  }
+
+  function handleStartOver() {
+    setDraftRecipe(null)
+    setGenerationContext(null)
+    setGenerateStep('input')
+  }
 
   async function handleSubmit(values: RecipeFormValues) {
     setIsSubmitting(true)
@@ -29,20 +51,20 @@ export default function GenerateRecipeModal({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: values.title,
-          category: values.category || undefined,
-          tags: values.tags,
-          ingredients: values.ingredients || null,
-          steps: values.steps || null,
-          notes: values.notes || null,
-          url: values.url || null,
-          image_url: values.image_url || null,
-          prep_time_minutes: values.prep_time_minutes !== '' ? Number(values.prep_time_minutes) : null,
-          cook_time_minutes: values.cook_time_minutes !== '' ? Number(values.cook_time_minutes) : null,
-          total_time_minutes: values.total_time_minutes !== '' ? Number(values.total_time_minutes) : null,
+          title:                 values.title,
+          category:              values.category || undefined,
+          tags:                  values.tags,
+          ingredients:           values.ingredients || null,
+          steps:                 values.steps || null,
+          notes:                 values.notes || null,
+          url:                   values.url || null,
+          image_url:             values.image_url || null,
+          prep_time_minutes:     values.prep_time_minutes !== '' ? Number(values.prep_time_minutes) : null,
+          cook_time_minutes:     values.cook_time_minutes !== '' ? Number(values.cook_time_minutes) : null,
+          total_time_minutes:    values.total_time_minutes !== '' ? Number(values.total_time_minutes) : null,
           inactive_time_minutes: values.inactive_time_minutes !== '' ? Number(values.inactive_time_minutes) : null,
-          servings: values.servings !== '' ? Number(values.servings) : null,
-          source: 'generated',
+          servings:              values.servings !== '' ? Number(values.servings) : null,
+          source:                'generated',
         }),
       })
       if (!res.ok) {
@@ -66,21 +88,26 @@ export default function GenerateRecipeModal({
     }
   }
 
-  const formInitialValues: Partial<RecipeFormValues> = generatedRecipe
+  const formInitialValues: Partial<RecipeFormValues> = draftRecipe
     ? {
-        title: generatedRecipe.title,
-        category: generatedRecipe.category,
-        tags: generatedRecipe.tags,
-        ingredients: generatedRecipe.ingredients ?? '',
-        steps: generatedRecipe.steps ?? '',
-        notes: generatedRecipe.notes ?? '',
-        prep_time_minutes: generatedRecipe.prep_time_minutes != null ? String(generatedRecipe.prep_time_minutes) : '',
-        cook_time_minutes: generatedRecipe.cook_time_minutes != null ? String(generatedRecipe.cook_time_minutes) : '',
-        total_time_minutes: generatedRecipe.total_time_minutes != null ? String(generatedRecipe.total_time_minutes) : '',
-        inactive_time_minutes: generatedRecipe.inactive_time_minutes != null ? String(generatedRecipe.inactive_time_minutes) : '',
-        servings: generatedRecipe.servings != null ? String(generatedRecipe.servings) : '',
+        title:                 draftRecipe.title,
+        category:              draftRecipe.category,
+        tags:                  draftRecipe.tags,
+        ingredients:           draftRecipe.ingredients ?? '',
+        steps:                 draftRecipe.steps ?? '',
+        notes:                 draftRecipe.notes ?? '',
+        prep_time_minutes:     draftRecipe.prep_time_minutes  != null ? String(draftRecipe.prep_time_minutes)  : '',
+        cook_time_minutes:     draftRecipe.cook_time_minutes  != null ? String(draftRecipe.cook_time_minutes)  : '',
+        total_time_minutes:    draftRecipe.total_time_minutes != null ? String(draftRecipe.total_time_minutes) : '',
+        inactive_time_minutes: draftRecipe.inactive_time_minutes != null ? String(draftRecipe.inactive_time_minutes) : '',
+        servings:              draftRecipe.servings != null ? String(draftRecipe.servings) : '',
       }
     : {}
+
+  const headerTitle =
+    generateStep === 'input'    ? 'Generate Recipe with AI' :
+    generateStep === 'refining' ? 'Refine Your Recipe'      :
+                                  'Review Generated Recipe'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -88,7 +115,7 @@ export default function GenerateRecipeModal({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <h2 className="font-display text-lg font-semibold text-gray-900">
-            {generatedRecipe ? 'Review Generated Recipe' : 'Generate Recipe with AI'}
+            {headerTitle}
           </h2>
           <button
             onClick={onClose}
@@ -101,23 +128,26 @@ export default function GenerateRecipeModal({
 
         {/* Body */}
         <div className="overflow-y-auto px-6 py-5 flex-1">
-          {!generatedRecipe ? (
+          {/* Always mounted — CSS-hidden when not active so form state is preserved */}
+          <div className={generateStep === 'input' ? '' : 'hidden'}>
             <GenerateRecipeTab
-              onGenerated={setGeneratedRecipe}
+              onGenerated={handleGenerated}
               initialIngredients={initialIngredients}
             />
-          ) : (
+          </div>
+
+          {generateStep === 'refining' && draftRecipe && generationContext && (
+            <GenerateRecipeChatPanel
+              initialRecipe={draftRecipe}
+              generationContext={generationContext}
+              onUseRecipe={handleUseRecipe}
+              onStartOver={handleStartOver}
+            />
+          )}
+
+          {generateStep === 'finalized' && draftRecipe && (
             <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <AIGeneratedBadge />
-                <button
-                  type="button"
-                  onClick={() => setGeneratedRecipe(null)}
-                  className="text-xs text-stone-500 border border-stone-200 rounded-lg px-3 py-1 hover:bg-stone-50"
-                >
-                  Regenerate
-                </button>
-              </div>
+              <AIGeneratedBadge />
               {saveError && (
                 <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
                   {saveError}

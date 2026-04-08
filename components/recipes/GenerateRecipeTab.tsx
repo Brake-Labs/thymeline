@@ -5,8 +5,14 @@ import { Leaf } from 'lucide-react'
 import { DIETARY_TAGS } from '@/lib/tags'
 import type { GeneratedRecipe, MealType } from '@/types'
 
+export interface GenerationContext {
+  meal_type:            string
+  style_hints:          string
+  dietary_restrictions: string[]
+}
+
 interface GenerateRecipeTabProps {
-  onGenerated:         (recipe: GeneratedRecipe) => void
+  onGenerated:         (recipe: GeneratedRecipe, context: GenerationContext) => void
   initialIngredients?: string
 }
 
@@ -75,7 +81,7 @@ export default function GenerateRecipeTab({
       }
       const recipe: GeneratedRecipe = await res.json()
       setGeneratedRecipe(recipe)
-      onGenerated(recipe)
+      onGenerated(recipe, { meal_type: mealType, style_hints: styleHints, dietary_restrictions: dietaryRestrictions })
     } catch {
       setError("Couldn't generate a recipe — try adjusting your ingredients")
     } finally {
@@ -113,7 +119,7 @@ export default function GenerateRecipeTab({
       const recipe: GeneratedRecipe = await res.json()
       setGeneratedRecipe(recipe)
       setTweakInput('')
-      onGenerated(recipe)
+      onGenerated(recipe, { meal_type: mealType, style_hints: styleHints, dietary_restrictions: dietaryRestrictions })
     } catch {
       setTweakError("Couldn't update the recipe — please try again")
     } finally {
