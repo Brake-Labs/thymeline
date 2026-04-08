@@ -5,9 +5,9 @@ import MakeAgainPrompt from '@/components/recipes/MakeAgainPrompt'
 import { TOAST_DURATION_MS } from '@/lib/constants'
 
 interface PlanEntry {
-  planned_date:  string
-  recipe_id:     string
-  recipe_title:  string
+  plannedDate:  string
+  recipeId:     string
+  recipeTitle:  string
   confirmed:     boolean
   dateLabel:     string
 }
@@ -23,26 +23,26 @@ interface EntryState {
 
 export default function PlanEntriesList({ entries }: Props) {
   const [entryStates, setEntryStates] = useState<Record<string, EntryState>>(() =>
-    Object.fromEntries(entries.map((e) => [`${e.planned_date}-${e.recipe_id}`, { status: 'idle', makeAgainEntryId: null }]))
+    Object.fromEntries(entries.map((e) => [`${e.plannedDate}-${e.recipeId}`, { status: 'idle', makeAgainEntryId: null }]))
   )
 
   function getKey(entry: PlanEntry) {
-    return `${entry.planned_date}-${entry.recipe_id}`
+    return `${entry.plannedDate}-${entry.recipeId}`
   }
 
   async function handleLog(entry: PlanEntry) {
     const key = getKey(entry)
     setEntryStates((prev) => ({ ...prev, [key]: { ...prev[key]!, status: 'loading', makeAgainEntryId: null } }))
     try {
-      const res = await fetch(`/api/recipes/${entry.recipe_id}/log`, {
+      const res = await fetch(`/api/recipes/${entry.recipeId}/log`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ made_on: entry.planned_date }),
+        body: JSON.stringify({ madeOn: entry.plannedDate }),
       })
       if (res.ok) {
-        const data: { made_on: string; already_logged: boolean; entry_id: string | null } = await res.json()
+        const data: { madeOn: string; already_logged: boolean; entry_id: string | null } = await res.json()
         setEntryStates((prev) => ({
           ...prev,
           [key]: {
@@ -74,7 +74,7 @@ export default function PlanEntriesList({ entries }: Props) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-stone-500">{entry.dateLabel}</p>
-                <p className="text-sm font-medium text-stone-900">{entry.recipe_title}</p>
+                <p className="text-sm font-medium text-stone-900">{entry.recipeTitle}</p>
               </div>
               <div className="flex items-center gap-2">
                 {entry.confirmed && (
@@ -94,7 +94,7 @@ export default function PlanEntriesList({ entries }: Props) {
             {state.makeAgainEntryId && (
               <MakeAgainPrompt
                 entryId={state.makeAgainEntryId}
-                recipeId={entry.recipe_id}
+                recipeId={entry.recipeId}
                 onDismiss={() =>
                   setEntryStates((prev) => ({ ...prev, [key]: { ...prev[key]!, makeAgainEntryId: null } }))
                 }

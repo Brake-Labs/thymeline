@@ -4,9 +4,9 @@ import { formatDayName } from '@/lib/date-utils'
 
 interface MealCardProps {
   id: string
-  planned_date: string
-  recipe_title: string
-  meal_type: string
+  plannedDate: string
+  recipeTitle: string
+  mealType: string
   confirmed: boolean
   isSwapMode: boolean
   isSelected: boolean
@@ -15,9 +15,9 @@ interface MealCardProps {
 
 export default function MealCard({
   id,
-  planned_date,
-  recipe_title,
-  meal_type: _meal_type,
+  plannedDate,
+  recipeTitle,
+  mealType: _meal_type,
   confirmed,
   isSwapMode,
   isSelected,
@@ -40,8 +40,8 @@ export default function MealCard({
         </span>
       )}
       <div>
-        <p className="text-xs text-stone-500">{formatDayName(planned_date)}</p>
-        <p className="text-sm font-medium text-stone-900">{recipe_title}</p>
+        <p className="text-xs text-stone-500">{formatDayName(plannedDate)}</p>
+        <p className="text-sm font-medium text-stone-900">{recipeTitle}</p>
       </div>
       {confirmed && !isSelected && (
         <span className="text-xs text-sage-500 font-medium">✓ Confirmed</span>

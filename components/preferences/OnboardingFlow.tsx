@@ -8,11 +8,11 @@ import CooldownSlider from './CooldownSlider'
 import TagBucketPicker from './TagBucketPicker'
 
 interface OnboardingState {
-  options_per_day: number
-  cooldown_days: number
-  preferred_tags: string[]
-  limited_tags: LimitedTag[]
-  avoided_tags: string[]
+  optionsPerDay: number
+  cooldownDays: number
+  preferredTags: string[]
+  limitedTags: LimitedTag[]
+  avoidedTags: string[]
 }
 
 interface OnboardingFlowProps {
@@ -23,18 +23,18 @@ export default function OnboardingFlow({ allTags }: OnboardingFlowProps) {
   const router = useRouter()
   const [step, setStep] = useState(1)
   const [values, setValues] = useState<OnboardingState>({
-    options_per_day: 3,
-    cooldown_days: 28,
-    preferred_tags: [],
-    limited_tags: [],
-    avoided_tags: [],
+    optionsPerDay: 3,
+    cooldownDays: 28,
+    preferredTags: [],
+    limitedTags: [],
+    avoidedTags: [],
   })
   const [saving, setSaving] = useState(false)
 
   const totalSteps = 4
 
-  const preferredSet = new Set(values.preferred_tags)
-  const limitedSet = new Set(values.limited_tags.map((lt) => lt.tag))
+  const preferredSet = new Set(values.preferredTags)
+  const limitedSet = new Set(values.limitedTags.map((lt) => lt.tag))
 
   const availableForLimited = allTags.filter((t) => !preferredSet.has(t))
   const availableForAvoided = allTags.filter((t) => !preferredSet.has(t) && !limitedSet.has(t))
@@ -53,17 +53,17 @@ export default function OnboardingFlow({ allTags }: OnboardingFlowProps) {
 
   async function handleDone() {
     await saveAndRedirect({
-      options_per_day: values.options_per_day,
-      cooldown_days: values.cooldown_days,
-      preferred_tags: values.preferred_tags,
-      limited_tags: values.limited_tags,
-      avoided_tags: values.avoided_tags,
-      onboarding_completed: true,
+      optionsPerDay: values.optionsPerDay,
+      cooldownDays: values.cooldownDays,
+      preferredTags: values.preferredTags,
+      limitedTags: values.limitedTags,
+      avoidedTags: values.avoidedTags,
+      onboardingCompleted: true,
     })
   }
 
   async function handleSkip() {
-    await saveAndRedirect({ onboarding_completed: true })
+    await saveAndRedirect({ onboardingCompleted: true })
   }
 
   function handlePreferredChange(tags: string[] | LimitedTag[]) {
@@ -71,9 +71,9 @@ export default function OnboardingFlow({ allTags }: OnboardingFlowProps) {
     // Remove any newly-preferred tags from limited/avoided
     setValues((prev) => ({
       ...prev,
-      preferred_tags: newPreferred,
-      limited_tags: prev.limited_tags.filter((lt) => !newPreferred.includes(lt.tag)),
-      avoided_tags: prev.avoided_tags.filter((t) => !newPreferred.includes(t)),
+      preferredTags: newPreferred,
+      limitedTags: prev.limitedTags.filter((lt) => !newPreferred.includes(lt.tag)),
+      avoidedTags: prev.avoidedTags.filter((t) => !newPreferred.includes(t)),
     }))
   }
 
@@ -82,13 +82,13 @@ export default function OnboardingFlow({ allTags }: OnboardingFlowProps) {
     const newLimitedNames = newLimited.map((lt) => lt.tag)
     setValues((prev) => ({
       ...prev,
-      limited_tags: newLimited,
-      avoided_tags: prev.avoided_tags.filter((t) => !newLimitedNames.includes(t)),
+      limitedTags: newLimited,
+      avoidedTags: prev.avoidedTags.filter((t) => !newLimitedNames.includes(t)),
     }))
   }
 
   function handleAvoidedChange(tags: string[] | LimitedTag[]) {
-    setValues((prev) => ({ ...prev, avoided_tags: tags as string[] }))
+    setValues((prev) => ({ ...prev, avoidedTags: tags as string[] }))
   }
 
   const dots = Array.from({ length: totalSteps }, (_, i) => i + 1)
@@ -129,10 +129,10 @@ export default function OnboardingFlow({ allTags }: OnboardingFlowProps) {
               <p className="text-sm text-stone-500">{"We'll show you this many recipe choices for each day you're planning."}</p>
               <div className="py-2">
                 <StepperInput
-                  value={values.options_per_day}
+                  value={values.optionsPerDay}
                   min={1}
                   max={5}
-                  onChange={(v) => setValues((prev) => ({ ...prev, options_per_day: v }))}
+                  onChange={(v) => setValues((prev) => ({ ...prev, optionsPerDay: v }))}
                   label="Options per day"
                 />
               </div>
@@ -145,8 +145,8 @@ export default function OnboardingFlow({ allTags }: OnboardingFlowProps) {
               <p className="text-sm text-stone-500">{"We won't suggest a recipe you've made more recently than this."}</p>
               <div className="py-2">
                 <CooldownSlider
-                  value={values.cooldown_days}
-                  onChange={(v) => setValues((prev) => ({ ...prev, cooldown_days: v }))}
+                  value={values.cooldownDays}
+                  onChange={(v) => setValues((prev) => ({ ...prev, cooldownDays: v }))}
                 />
               </div>
             </>
@@ -159,7 +159,7 @@ export default function OnboardingFlow({ allTags }: OnboardingFlowProps) {
               <div className="py-2">
                 <TagBucketPicker
                   bucket="preferred"
-                  selected={values.preferred_tags}
+                  selected={values.preferredTags}
                   available={allTags}
                   onChange={handlePreferredChange}
                 />
@@ -176,8 +176,8 @@ export default function OnboardingFlow({ allTags }: OnboardingFlowProps) {
                   <p className="text-sm text-stone-500">These can appear in your plan, but only up to a set number per week.</p>
                   <TagBucketPicker
                     bucket="limited"
-                    selected={values.limited_tags.map((lt) => lt.tag)}
-                    selectedLimited={values.limited_tags}
+                    selected={values.limitedTags.map((lt) => lt.tag)}
+                    selectedLimited={values.limitedTags}
                     available={availableForLimited}
                     onChange={handleLimitedChange}
                   />
@@ -187,7 +187,7 @@ export default function OnboardingFlow({ allTags }: OnboardingFlowProps) {
                   <p className="text-sm text-stone-500">{"We'll never suggest recipes with these tags."}</p>
                   <TagBucketPicker
                     bucket="avoided"
-                    selected={values.avoided_tags}
+                    selected={values.avoidedTags}
                     available={availableForAvoided}
                     onChange={handleAvoidedChange}
                   />

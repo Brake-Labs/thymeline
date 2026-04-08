@@ -23,7 +23,7 @@ export default function LogMadeTodayButton({
         method: 'POST',
       })
       if (res.ok) {
-        const data: { made_on: string; already_logged: boolean; entry_id: string | null } = await res.json()
+        const data: { madeOn: string; already_logged: boolean; entry_id: string | null } = await res.json()
         if (data.already_logged) {
           setStatus('already_logged')
         } else {

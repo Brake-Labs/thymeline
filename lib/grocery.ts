@@ -223,7 +223,7 @@ export interface ParsedIngredient {
   amount:    number | null
   unit:      string | null
   section:   GrocerySection
-  is_pantry: boolean
+  isPantry: boolean
 }
 
 /**
@@ -269,9 +269,9 @@ export function parseIngredientLine(line: string): ParsedIngredient {
 
   const name = normalizeIngredientName(rawName)
   const section = assignSection(name)
-  const is_pantry = isPantryStaple(name)
+  const isPantry = isPantryStaple(name)
 
-  return { raw: line, name, rawName, amount, unit, section, is_pantry }
+  return { raw: line, name, rawName, amount, unit, section, isPantry }
 }
 
 // ── Combine items ─────────────────────────────────────────────────────────────
@@ -313,7 +313,7 @@ export function combineIngredients(inputs: CombineInput[]): {
         amount:    scaled !== null ? Math.round(scaled * 100) / 100 : null,
         unit:      parsed.unit,
         section:   parsed.section,
-        is_pantry: parsed.is_pantry,
+        isPantry: parsed.isPantry,
         checked:   false,
         recipes:   [recipeTitle],
       })
@@ -348,7 +348,7 @@ export function combineIngredients(inputs: CombineInput[]): {
           amount:    total !== null ? Math.round(total * 100) / 100 : null,
           unit,
           section:   first.section,
-          is_pantry: first.is_pantry,
+          isPantry: first.isPantry,
           checked:   false,
           recipes:   recipeNames,
         })
@@ -382,7 +382,7 @@ export function effectiveServings(
   recipeScales: RecipeScale[],
   planServings: number,
 ): number {
-  const scale = recipeScales.find((s) => s.recipe_id === recipeId)
+  const scale = recipeScales.find((s) => s.recipeId === recipeId)
   return scale?.servings ?? planServings
 }
 
@@ -403,7 +403,7 @@ export function buildPlainTextList(
   // Pantry semantics: checked=true means "add to cart" (include).
   // Non-pantry: checked=true means "I already have this" (exclude); bought=true means "Got it" (exclude).
   const filtered = options?.onlyUnchecked
-    ? items.filter((i) => i.is_pantry ? i.checked : !i.checked && !i.bought)
+    ? items.filter((i) => i.isPantry ? i.checked : !i.checked && !i.bought)
     : items
   return filtered
     .map((item) => {

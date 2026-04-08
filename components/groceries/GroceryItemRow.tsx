@@ -22,7 +22,7 @@ export default function GroceryItemRow({ item, mode = 'need', onToggle, onRemove
   const [editAmount, setEditAmount] = useState(item.amount !== null ? String(item.amount) : '')
   const [editUnit,   setEditUnit  ] = useState(item.unit ?? '')
 
-  const isPantryUnchecked = item.is_pantry && !item.checked
+  const isPantryUnchecked = item.isPantry && !item.checked
 
   function handleSave() {
     if (!onEdit) return
@@ -172,7 +172,7 @@ export default function GroceryItemRow({ item, mode = 'need', onToggle, onRemove
         className={`flex-1 text-sm ${
           item.checked
             ? 'line-through text-stone-400'
-            : item.is_pantry
+            : item.isPantry
             ? 'text-stone-400'
             : 'text-stone-800'
         }`}
@@ -199,7 +199,7 @@ export default function GroceryItemRow({ item, mode = 'need', onToggle, onRemove
         </button>
       )}
 
-      {onGotIt && !item.is_pantry && !editing && (
+      {onGotIt && !item.isPantry && !editing && (
         <button
           type="button"
           onClick={onGotIt}

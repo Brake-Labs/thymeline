@@ -25,7 +25,7 @@ export default function ShareToggle({
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ is_shared: next }),
+        body: JSON.stringify({ isShared: next }),
       })
       if (res.ok) {
         setIsShared(next)

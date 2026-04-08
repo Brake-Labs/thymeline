@@ -149,16 +149,16 @@ export default function TagLibrarySection({
     setFirstClassTags((prev) => [...prev, { name: tagName, recipe_count: 0 }])
 
     try {
-      // Fetch current hidden_tags from preferences, then remove this one
+      // Fetch current hiddenTags from preferences, then remove this one
       const prefsRes = await fetch('/api/preferences')
-      const prefs: { hidden_tags?: string[] } = await prefsRes.json()
-      const updated = (prefs.hidden_tags ?? []).filter(
+      const prefs: { hiddenTags?: string[] } = await prefsRes.json()
+      const updated = (prefs.hiddenTags ?? []).filter(
         (t) => t.toLowerCase() !== tagName.toLowerCase()
       )
       const patchRes = await fetch('/api/preferences', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ hidden_tags: updated }),
+        body: JSON.stringify({ hiddenTags: updated }),
       })
       if (!patchRes.ok) {
         // Roll back

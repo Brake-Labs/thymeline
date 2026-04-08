@@ -13,7 +13,7 @@ export interface JobResult {
   status:     JobResultStatus
   recipe?:    ParsedRecipe
   error?:     string
-  duplicate?: { recipe_id: string; recipe_title: string }
+  duplicate?: { recipeId: string; recipeTitle: string }
 }
 
 export interface ImportJob {

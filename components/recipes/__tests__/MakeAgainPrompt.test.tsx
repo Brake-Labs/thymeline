@@ -33,8 +33,8 @@ describe('MakeAgainPrompt', () => {
     expect(screen.getByRole('button', { name: /skip/i })).toBeInTheDocument()
   })
 
-  // T02: Make again calls PATCH with make_again: true
-  it('T02: "Make again" calls PATCH with make_again: true', async () => {
+  // T02: Make again calls PATCH with makeAgain: true
+  it('T02: "Make again" calls PATCH with makeAgain: true', async () => {
     render(<MakeAgainPrompt {...defaultProps} />)
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /make again/i }))
@@ -43,13 +43,13 @@ describe('MakeAgainPrompt', () => {
       '/api/recipes/recipe-1/log/entry-1',
       expect.objectContaining({
         method: 'PATCH',
-        body: JSON.stringify({ make_again: true }),
+        body: JSON.stringify({ makeAgain: true }),
       }),
     )
   })
 
-  // T03: Not for us calls PATCH with make_again: false
-  it('T03: "Not for us" calls PATCH with make_again: false', async () => {
+  // T03: Not for us calls PATCH with makeAgain: false
+  it('T03: "Not for us" calls PATCH with makeAgain: false', async () => {
     render(<MakeAgainPrompt {...defaultProps} />)
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /not for us/i }))
@@ -58,7 +58,7 @@ describe('MakeAgainPrompt', () => {
       '/api/recipes/recipe-1/log/entry-1',
       expect.objectContaining({
         method: 'PATCH',
-        body: JSON.stringify({ make_again: false }),
+        body: JSON.stringify({ makeAgain: false }),
       }),
     )
   })

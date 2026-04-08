@@ -59,17 +59,17 @@ const BASE_RECIPE = {
   tags:                  ['Quick'],
   category:              'main_dish',
   servings:              4,
-  prep_time_minutes:     10,
-  cook_time_minutes:     20,
-  total_time_minutes:    30,
-  inactive_time_minutes: null,
+  prepTimeMinutes:     10,
+  cookTimeMinutes:     20,
+  totalTimeMinutes:    30,
+  inactiveTimeMinutes: null,
   notes:                 null,
 }
 
 const BASE_CONTEXT = {
-  meal_type:            'dinner',
-  style_hints:          'Italian',
-  dietary_restrictions: [],
+  mealType:            'dinner',
+  styleHints:          'Italian',
+  dietaryRestrictions: [],
 }
 
 const { POST } = await import('../route')
@@ -100,9 +100,9 @@ describe('T05 - 400 for empty message', () => {
   it('returns 400 when message is empty string', async () => {
     const req = makeRequest('POST', 'http://localhost/api/recipes/generate/refine', {
       message:              '',
-      current_recipe:       BASE_RECIPE,
-      conversation_history: [],
-      generation_context:   BASE_CONTEXT,
+      currentRecipe:       BASE_RECIPE,
+      conversationHistory: [],
+      generationContext:   BASE_CONTEXT,
     })
     const res = await POST(req, { params: {} })
     expect(res.status).toBe(400)
@@ -111,36 +111,36 @@ describe('T05 - 400 for empty message', () => {
   it('returns 400 when message is whitespace-only', async () => {
     const req = makeRequest('POST', 'http://localhost/api/recipes/generate/refine', {
       message:              '   ',
-      current_recipe:       BASE_RECIPE,
-      conversation_history: [],
-      generation_context:   BASE_CONTEXT,
+      currentRecipe:       BASE_RECIPE,
+      conversationHistory: [],
+      generationContext:   BASE_CONTEXT,
     })
     const res = await POST(req, { params: {} })
     expect(res.status).toBe(400)
   })
 })
 
-// ── T06: 400 for missing current_recipe.title ─────────────────────────────────
+// ── T06: 400 for missing currentRecipe.title ─────────────────────────────────
 
-describe('T06 - 400 for missing current_recipe.title', () => {
+describe('T06 - 400 for missing currentRecipe.title', () => {
   it('returns 400 when title is empty string', async () => {
     const req = makeRequest('POST', 'http://localhost/api/recipes/generate/refine', {
       message:              'make it dairy-free',
-      current_recipe:       { ...BASE_RECIPE, title: '' },
-      conversation_history: [],
-      generation_context:   BASE_CONTEXT,
+      currentRecipe:       { ...BASE_RECIPE, title: '' },
+      conversationHistory: [],
+      generationContext:   BASE_CONTEXT,
     })
     const res = await POST(req, { params: {} })
     expect(res.status).toBe(400)
   })
 
-  it('returns 400 when current_recipe is missing title field', async () => {
+  it('returns 400 when currentRecipe is missing title field', async () => {
     const { title: _t, ...noTitle } = BASE_RECIPE
     const req = makeRequest('POST', 'http://localhost/api/recipes/generate/refine', {
       message:              'make it dairy-free',
-      current_recipe:       noTitle,
-      conversation_history: [],
-      generation_context:   BASE_CONTEXT,
+      currentRecipe:       noTitle,
+      conversationHistory: [],
+      generationContext:   BASE_CONTEXT,
     })
     const res = await POST(req, { params: {} })
     expect(res.status).toBe(400)
@@ -154,9 +154,9 @@ describe('T07 - 401 for unauthenticated request', () => {
     mockState.user = null
     const req = makeRequest('POST', 'http://localhost/api/recipes/generate/refine', {
       message:              'make it dairy-free',
-      current_recipe:       BASE_RECIPE,
-      conversation_history: [],
-      generation_context:   BASE_CONTEXT,
+      currentRecipe:       BASE_RECIPE,
+      conversationHistory: [],
+      generationContext:   BASE_CONTEXT,
     })
     const res = await POST(req, { params: {} })
     expect(res.status).toBe(401)
@@ -170,24 +170,24 @@ describe('T08 - 500 on LLM failure', () => {
     mockLLMState.shouldThrow = true
     const req = makeRequest('POST', 'http://localhost/api/recipes/generate/refine', {
       message:              'make it dairy-free',
-      current_recipe:       BASE_RECIPE,
-      conversation_history: [],
-      generation_context:   BASE_CONTEXT,
+      currentRecipe:       BASE_RECIPE,
+      conversationHistory: [],
+      generationContext:   BASE_CONTEXT,
     })
     const res = await POST(req, { params: {} })
     expect(res.status).toBe(500)
   })
 })
 
-// ── T15: Multi-turn context — second turn sends full conversation_history ──────
+// ── T15: Multi-turn context — second turn sends full conversationHistory ──────
 
 describe('T15 - Multi-turn context', () => {
-  it('succeeds on first refinement turn (empty conversation_history)', async () => {
+  it('succeeds on first refinement turn (empty conversationHistory)', async () => {
     const req = makeRequest('POST', 'http://localhost/api/recipes/generate/refine', {
       message:              'make it dairy-free',
-      current_recipe:       BASE_RECIPE,
-      conversation_history: [],
-      generation_context:   BASE_CONTEXT,
+      currentRecipe:       BASE_RECIPE,
+      conversationHistory: [],
+      generationContext:   BASE_CONTEXT,
     })
     const res = await POST(req, { params: {} })
     expect(res.status).toBe(200)
@@ -197,15 +197,15 @@ describe('T15 - Multi-turn context', () => {
     expect(body.changes).toBeDefined()
   })
 
-  it('succeeds on subsequent turns with populated conversation_history', async () => {
+  it('succeeds on subsequent turns with populated conversationHistory', async () => {
     const req = makeRequest('POST', 'http://localhost/api/recipes/generate/refine', {
       message:              'now cut the servings to 2',
-      current_recipe:       { ...BASE_RECIPE, title: 'Dairy-Free Pasta', ingredients: 'pasta\ncoconut milk\ngarlic' },
-      conversation_history: [
+      currentRecipe:       { ...BASE_RECIPE, title: 'Dairy-Free Pasta', ingredients: 'pasta\ncoconut milk\ngarlic' },
+      conversationHistory: [
         { role: 'user',      content: 'make it dairy-free' },
         { role: 'assistant', content: 'I swapped heavy cream for coconut milk.' },
       ],
-      generation_context: BASE_CONTEXT,
+      generationContext: BASE_CONTEXT,
     })
     const res = await POST(req, { params: {} })
     expect(res.status).toBe(200)
@@ -233,9 +233,9 @@ describe('T23 - Tags filtered to FIRST_CLASS_TAGS', () => {
     })
     const req = makeRequest('POST', 'http://localhost/api/recipes/generate/refine', {
       message:              'make it quick',
-      current_recipe:       BASE_RECIPE,
-      conversation_history: [],
-      generation_context:   BASE_CONTEXT,
+      currentRecipe:       BASE_RECIPE,
+      conversationHistory: [],
+      generationContext:   BASE_CONTEXT,
     })
     const res = await POST(req, { params: {} })
     expect(res.status).toBe(200)
@@ -263,9 +263,9 @@ describe('T23 - Tags filtered to FIRST_CLASS_TAGS', () => {
     })
     const req = makeRequest('POST', 'http://localhost/api/recipes/generate/refine', {
       message:              'simplify it',
-      current_recipe:       BASE_RECIPE,
-      conversation_history: [],
-      generation_context:   BASE_CONTEXT,
+      currentRecipe:       BASE_RECIPE,
+      conversationHistory: [],
+      generationContext:   BASE_CONTEXT,
     })
     const res = await POST(req, { params: {} })
     expect(res.status).toBe(200)

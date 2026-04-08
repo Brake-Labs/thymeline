@@ -7,9 +7,9 @@ import SwapToast from './SwapToast'
 
 export interface WeekCalendarViewEntry {
   id: string
-  planned_date: string
-  recipe_title: string
-  meal_type: string
+  plannedDate: string
+  recipeTitle: string
+  mealType: string
   confirmed: boolean
 }
 
@@ -49,11 +49,11 @@ export default function WeekCalendarView({ entries, weekStart: _weekStart }: Wee
       const next = curr.map((e) => {
         if (e.id === idA) {
           const other = curr.find((x) => x.id === idB)
-          return other ? { ...e, planned_date: other.planned_date } : e
+          return other ? { ...e, plannedDate: other.plannedDate } : e
         }
         if (e.id === idB) {
           const other = curr.find((x) => x.id === idA)
-          return other ? { ...e, planned_date: other.planned_date } : e
+          return other ? { ...e, plannedDate: other.plannedDate } : e
         }
         return e
       })
@@ -66,7 +66,7 @@ export default function WeekCalendarView({ entries, weekStart: _weekStart }: Wee
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ entry_id_a: idA, entry_id_b: idB }),
+        body: JSON.stringify({ entryIdA: idA, entryIdB: idB }),
       })
 
       if (!res.ok) {
@@ -120,9 +120,9 @@ export default function WeekCalendarView({ entries, weekStart: _weekStart }: Wee
             <MealCard
               key={entry.id}
               id={entry.id}
-              planned_date={entry.planned_date}
-              recipe_title={entry.recipe_title}
-              meal_type={entry.meal_type}
+              plannedDate={entry.plannedDate}
+              recipeTitle={entry.recipeTitle}
+              mealType={entry.mealType}
               confirmed={entry.confirmed}
               isSwapMode={isSwapMode}
               isSelected={selectedEntryId === entry.id}

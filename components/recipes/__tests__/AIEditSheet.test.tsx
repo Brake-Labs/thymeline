@@ -13,7 +13,7 @@ vi.stubGlobal('fetch', mockFetch)
 
 const MOCK_RECIPE = {
   id: 'recipe-1',
-  user_id: 'user-1',
+  userId: 'user-1',
   title: 'Roast Chicken',
   category: 'main_dish' as const,
   tags: ['Chicken'],
@@ -21,16 +21,16 @@ const MOCK_RECIPE = {
   notes: 'Great dish',
   ingredients: '1 whole chicken\n2 cans chickpeas',
   steps: 'Roast the chicken.\nServe with chickpeas.',
-  image_url: null,
-  is_shared: false,
-  created_at: '2025-01-01T00:00:00Z',
-  prep_time_minutes: null,
-  cook_time_minutes: null,
-  total_time_minutes: null,
-  inactive_time_minutes: null,
+  imageUrl: null,
+  isShared: false,
+  createdAt: '2025-01-01T00:00:00Z',
+  prepTimeMinutes: null,
+  cookTimeMinutes: null,
+  totalTimeMinutes: null,
+  inactiveTimeMinutes: null,
   servings: 4,
   source: 'manual' as const,
-  step_photos: [],
+  stepPhotos: [],
 }
 
 const MOCK_AI_RESPONSE = {
@@ -183,7 +183,7 @@ describe('AIEditSheet', () => {
   })
 
   // T11: Second message builds on first modification (multi-turn)
-  it('T11 - second message includes first turn in conversation_history', async () => {
+  it('T11 - second message includes first turn in conversationHistory', async () => {
     mockFetch.mockImplementation(() => makeSuccessResponse())
 
     render(
@@ -218,10 +218,10 @@ describe('AIEditSheet', () => {
       const secondCall = calls[1]
       expect(secondCall).toBeDefined()
       const body = JSON.parse(secondCall![1].body)
-      expect(body.conversation_history.length).toBeGreaterThan(0)
+      expect(body.conversationHistory.length).toBeGreaterThan(0)
       // First turn user message should be in history
-      expect(body.conversation_history[0].role).toBe('user')
-      expect(body.conversation_history[0].content).toContain('no chickpeas')
+      expect(body.conversationHistory[0].role).toBe('user')
+      expect(body.conversationHistory[0].content).toContain('no chickpeas')
     })
   })
 

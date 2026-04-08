@@ -14,8 +14,8 @@ function makeSetup(activeDates: string[]) {
   return { weekStart: WEEK_START, activeDates, activeMealTypes: ['dinner'] as MealType[] }
 }
 
-const SEL_SUN: DaySelection = { date: SUN, meal_type: 'dinner', recipe_id: 'r1', recipe_title: 'Pasta', from_vault: false }
-const SEL_MON: DaySelection = { date: MON, meal_type: 'dinner', recipe_id: 'r2', recipe_title: 'Tacos', from_vault: false }
+const SEL_SUN: DaySelection = { date: SUN, mealType: 'dinner', recipeId: 'r1', recipeTitle: 'Pasta', fromVault: false }
+const SEL_MON: DaySelection = { date: MON, mealType: 'dinner', recipeId: 'r2', recipeTitle: 'Tacos', fromVault: false }
 
 // ── T26: Summary shows confirmed days ─────────────────────────────────────────
 
@@ -161,7 +161,7 @@ describe('SummaryStep - side dishes and desserts are shown (regression #244)', (
       <SummaryStep
         setup={makeSetup([SUN])}
         selections={{ [`${SUN}:dinner`]: SEL_SUN }}
-        sideDishSelections={{ [`${SUN}:dinner`]: { recipe_id: 'r5', recipe_title: 'Garlic Bread' } }}
+        sideDishSelections={{ [`${SUN}:dinner`]: { recipeId: 'r5', recipeTitle: 'Garlic Bread' } }}
         dessertSelections={{}}
         onSave={vi.fn()}
         isSaving={false}
@@ -178,7 +178,7 @@ describe('SummaryStep - side dishes and desserts are shown (regression #244)', (
         setup={makeSetup([SUN])}
         selections={{ [`${SUN}:dinner`]: SEL_SUN }}
         sideDishSelections={{}}
-        dessertSelections={{ [`${SUN}:dinner`]: { recipe_id: 'r6', recipe_title: 'Tiramisu' } }}
+        dessertSelections={{ [`${SUN}:dinner`]: { recipeId: 'r6', recipeTitle: 'Tiramisu' } }}
         onSave={vi.fn()}
         isSaving={false}
         onBack={vi.fn()}

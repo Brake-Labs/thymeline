@@ -15,9 +15,9 @@ export const POST = withAuth(async (req, { user, ctx }) => {
   const { data: body, error: parseError } = await parseBody(req, createPlanSchema)
   if (parseError) return parseError
 
-  const { week_start, entries } = body
+  const { weekStart, entries } = body
 
-  const planResult = await getOrCreateMealPlan(user.id, week_start, ctx)
+  const planResult = await getOrCreateMealPlan(user.id, weekStart, ctx)
   if ('error' in planResult) {
     console.error('meal_plans insert error:', planResult.error)
     return NextResponse.json({ error: `Failed to create plan: ${planResult.error}` }, { status: 500 })
@@ -29,13 +29,13 @@ export const POST = withAuth(async (req, { user, ctx }) => {
 
   const newEntries = entries.map((e) => ({
     mealPlanId:    planId,
-    recipeId:      e.recipe_id,
+    recipeId:      e.recipeId,
     plannedDate:   e.date,
     position:      1,
     confirmed:     true,
-    mealType:      e.meal_type ?? 'dinner',
-    isSideDish:    e.is_side_dish ?? false,
-    parentEntryId: e.parent_entry_id ?? null,
+    mealType:      e.mealType ?? 'dinner',
+    isSideDish:    e.isSideDish ?? false,
+    parentEntryId: e.parentEntryId ?? null,
   }))
 
   try {
@@ -54,14 +54,14 @@ export const POST = withAuth(async (req, { user, ctx }) => {
     // Map to snake_case for response
     const responseEntries: SavedPlanEntry[] = savedEntries.map((e) => ({
       id:              e.id,
-      meal_plan_id:    e.mealPlanId,
-      recipe_id:       e.recipeId,
-      planned_date:    e.plannedDate,
+      mealPlanId:    e.mealPlanId,
+      recipeId:       e.recipeId,
+      plannedDate:    e.plannedDate,
       position:        e.position,
       confirmed:       e.confirmed,
-      meal_type:       e.mealType as MealType,
-      is_side_dish:    e.isSideDish,
-      parent_entry_id: e.parentEntryId,
+      mealType:       e.mealType as MealType,
+      isSideDish:    e.isSideDish,
+      parentEntryId: e.parentEntryId,
     }))
 
     return NextResponse.json({ plan_id: planId, entries: responseEntries })
@@ -71,21 +71,21 @@ export const POST = withAuth(async (req, { user, ctx }) => {
   }
 })
 
-// ── GET /api/plan?week_start=YYYY-MM-DD — fetch existing plan ──────────────────
+// ── GET /api/plan?weekStart=YYYY-MM-DD — fetch existing plan ──────────────────
 
 export const GET = withAuth(async (req, { user, ctx }) => {
   const { searchParams } = new URL(req.url)
-  const week_start = searchParams.get('week_start')
+  const weekStart = searchParams.get('weekStart')
 
-  if (!week_start) {
-    return NextResponse.json({ error: 'week_start is required' }, { status: 400 })
+  if (!weekStart) {
+    return NextResponse.json({ error: 'weekStart is required' }, { status: 400 })
   }
 
   const planRows = await db
     .select({ id: mealPlans.id, weekStart: mealPlans.weekStart })
     .from(mealPlans)
     .where(and(
-      eq(mealPlans.weekStart, week_start),
+      eq(mealPlans.weekStart, weekStart),
       scopeCondition({ userId: mealPlans.userId, householdId: mealPlans.householdId }, user.id, ctx),
     ))
     .limit(1)
@@ -116,21 +116,21 @@ export const GET = withAuth(async (req, { user, ctx }) => {
 
   const enrichedEntries = entries.map((e) => ({
     id:              e.id,
-    planned_date:    e.plannedDate,
-    recipe_id:       e.recipeId,
-    recipe_title:    e.recipeTitle ?? '',
+    plannedDate:    e.plannedDate,
+    recipeId:       e.recipeId,
+    recipeTitle:    e.recipeTitle ?? '',
     position:        e.position,
     confirmed:       e.confirmed,
-    meal_type:       e.mealType,
-    is_side_dish:    e.isSideDish,
-    parent_entry_id:    e.parentEntryId,
-    total_time_minutes: e.totalTimeMinutes ?? null,
+    mealType:       e.mealType,
+    isSideDish:    e.isSideDish,
+    parentEntryId:    e.parentEntryId,
+    totalTimeMinutes: e.totalTimeMinutes ?? null,
   }))
 
   return NextResponse.json({
     plan: {
       id:         plan.id,
-      week_start: plan.weekStart,
+      weekStart: plan.weekStart,
       entries:    enrichedEntries,
     },
   })

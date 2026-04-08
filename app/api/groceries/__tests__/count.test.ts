@@ -67,8 +67,8 @@ async function setupMocks(plans: { id: string }[], entries: { recipeId: string }
 
 function makeReq(dateFrom?: string, dateTo?: string): NextRequest {
   const url = new URL('http://localhost/api/groceries/count')
-  if (dateFrom) url.searchParams.set('date_from', dateFrom)
-  if (dateTo) url.searchParams.set('date_to', dateTo)
+  if (dateFrom) url.searchParams.set('dateFrom', dateFrom)
+  if (dateTo) url.searchParams.set('dateTo', dateTo)
   return new NextRequest(url.toString())
 }
 
@@ -82,14 +82,14 @@ describe('T02 — GET /api/groceries/count', () => {
     } as any)
   })
 
-  it('returns 400 when date_from is missing', async () => {
+  it('returns 400 when dateFrom is missing', async () => {
     await setupMocks([], [])
     const { GET } = await import('@/app/api/groceries/count/route')
     const res = await GET(makeReq(undefined, '2026-03-22') as Parameters<typeof GET>[0])
     expect(res.status).toBe(400)
   })
 
-  it('returns 400 when date_to is missing', async () => {
+  it('returns 400 when dateTo is missing', async () => {
     await setupMocks([], [])
     const { GET } = await import('@/app/api/groceries/count/route')
     const res = await GET(makeReq('2026-03-15') as Parameters<typeof GET>[0])

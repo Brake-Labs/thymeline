@@ -171,7 +171,7 @@ describe('POST /api/recipes — T03: manual add with no URL', () => {
 describe('GET /api/recipes — T04: new recipe appears in table with correct fields', () => {
   beforeEach(() => { vi.resetModules() })
 
-  it('returns recipe list with last_made = null for a new recipe', async () => {
+  it('returns recipe list with lastMade = null for a new recipe', async () => {
     await setupMocks({
       selectResults: [
         [sampleRecipe],  // recipes query
@@ -188,8 +188,8 @@ describe('GET /api/recipes — T04: new recipe appears in table with correct fie
     expect(json).toHaveLength(1)
     expect(json[0].title).toBe('Pasta Carbonara')
     expect(json[0].category).toBe('main_dish')
-    expect(json[0].last_made).toBeNull()
-    expect(json[0].times_made).toBe(0)
+    expect(json[0].lastMade).toBeNull()
+    expect(json[0].timesMade).toBe(0)
   })
 })
 
@@ -266,7 +266,7 @@ describe('GET /api/recipes/[id] — T05, T13: detail and shared access', () => {
 
     expect(res.status).toBe(200)
     const json = await res.json()
-    expect(json.is_shared).toBe(true)
+    expect(json.isShared).toBe(true)
   })
 
   it('returns 403 for non-shared recipe accessed by non-owner (IDOR fix)', async () => {
@@ -360,7 +360,7 @@ describe('DELETE /api/recipes/[id] — T09, T12: delete and ownership', () => {
 describe('PATCH /api/recipes/[id]/share — T10: share toggle', () => {
   beforeEach(() => { vi.resetModules() })
 
-  it('T10: owner can set is_shared = true', async () => {
+  it('T10: owner can set isShared = true', async () => {
     const sharedResult = { ...sampleRecipe, isShared: true }
     await setupMocks({
       updateResult: [sharedResult],
@@ -370,7 +370,7 @@ describe('PATCH /api/recipes/[id]/share — T10: share toggle', () => {
     vi.mocked(checkOwnership).mockResolvedValue({ owned: true })
 
     const { PATCH } = await import('../[id]/share/route')
-    const req = makeRequest('PATCH', `http://localhost/api/recipes/${sampleRecipe.id}/share`, { is_shared: true })
+    const req = makeRequest('PATCH', `http://localhost/api/recipes/${sampleRecipe.id}/share`, { isShared: true })
     const res = await PATCH(req, { params: { id: sampleRecipe.id } })
 
     expect(res.status).toBe(200)
@@ -558,7 +558,7 @@ describe('T15 - solo GET returns only solo user recipes', () => {
   })
 })
 
-describe('T16 - household GET returns recipes scoped to household_id', () => {
+describe('T16 - household GET returns recipes scoped to householdId', () => {
   beforeEach(() => { vi.resetModules() })
 
   it('returns 200 when user has household scope (resolveHouseholdScope returns ctx)', async () => {
@@ -584,10 +584,10 @@ describe('T16 - household GET returns recipes scoped to household_id', () => {
   })
 })
 
-describe('T17 - household POST sets household_id in insert payload', () => {
+describe('T17 - household POST sets householdId in insert payload', () => {
   beforeEach(() => { vi.resetModules() })
 
-  it('includes household_id in the inserted recipe when user is in a household', async () => {
+  it('includes householdId in the inserted recipe when user is in a household', async () => {
     const { resolveHouseholdScope } = await import('@/lib/household')
     vi.mocked(resolveHouseholdScope).mockResolvedValueOnce({
       householdId: 'hh-1',
@@ -610,7 +610,7 @@ describe('T17 - household POST sets household_id in insert payload', () => {
     )
     expect(res.status).toBe(201)
     const json = await res.json()
-    expect(json.household_id).toBe('hh-1')
+    expect(json.householdId).toBe('hh-1')
   })
 })
 

@@ -1,6 +1,6 @@
 /**
  * Regression tests for GET /api/home (regression #324)
- * Verifies that the home API respects the user's week_start_day preference.
+ * Verifies that the home API respects the user's weekStartDay preference.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -62,14 +62,14 @@ function mockSession() {
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-describe('GET /api/home — week_start_day preference (regression #324)', () => {
+describe('GET /api/home — weekStartDay preference (regression #324)', () => {
   beforeEach(async () => {
     vi.resetModules()
     const { auth } = await import('@/lib/auth-server')
     vi.mocked(auth.api.getSession).mockResolvedValue(mockSession() as never)
   })
 
-  it('returns the Sunday-based week_start when preference is sunday', async () => {
+  it('returns the Sunday-based weekStart when preference is sunday', async () => {
     const { db } = await import('@/lib/db')
     let selectCall = 0
     vi.mocked(db.select).mockImplementation(() => {
@@ -84,14 +84,14 @@ describe('GET /api/home — week_start_day preference (regression #324)', () => 
 
     const expectedWeekStart = getMostRecentWeekStart(0)
     expect(body.currentWeekPlan).toBeNull()
-    // The route returns HomeData — week_start is embedded in currentWeekPlan or null
+    // The route returns HomeData — weekStart is embedded in currentWeekPlan or null
     // Key check: no error thrown and response is OK
     expect(res.status).toBe(200)
-    // If we had a plan, week_start would match Sunday
+    // If we had a plan, weekStart would match Sunday
     void expectedWeekStart
   })
 
-  it('returns the Tuesday-based week_start when preference is tuesday (regression #324)', async () => {
+  it('returns the Tuesday-based weekStart when preference is tuesday (regression #324)', async () => {
     const tuesdayWeekStart = getMostRecentWeekStart(dayNameToNumber('tuesday'))
 
     const { db } = await import('@/lib/db')
@@ -99,7 +99,7 @@ describe('GET /api/home — week_start_day preference (regression #324)', () => 
     vi.mocked(db.select).mockImplementation(() => {
       selectCall++
       if (selectCall === 1) return mockChain([{ weekStartDay: 'tuesday' }]) as never  // prefs
-      if (selectCall === 2) return mockChain([{ id: 'plan-1', week_start: tuesdayWeekStart }]) as never  // plan
+      if (selectCall === 2) return mockChain([{ id: 'plan-1', weekStart: tuesdayWeekStart }]) as never  // plan
       return mockChain([]) as never  // entries / history / count / groceries
     })
 
@@ -110,7 +110,7 @@ describe('GET /api/home — week_start_day preference (regression #324)', () => 
 
     // The plan was found using Tuesday's week start
     expect(body.currentWeekPlan).not.toBeNull()
-    expect(body.currentWeekPlan.week_start).toBe(tuesdayWeekStart)
+    expect(body.currentWeekPlan.weekStart).toBe(tuesdayWeekStart)
   })
 
   it('falls back to Sunday when user has no preferences row', async () => {

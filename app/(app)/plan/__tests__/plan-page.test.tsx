@@ -22,8 +22,8 @@ global.fetch = vi.fn(() =>
 // assert on "recipe removed from source, added to target" without needing the
 // full React render pipeline.
 
-type MealTypeState = { meal_type: MealType; options: RecipeSuggestion[]; isSwapping: boolean }
-type DayState = { date: string; meal_types: MealTypeState[] }
+type MealTypeState = { mealType: MealType; options: RecipeSuggestion[]; isSwapping: boolean }
+type DayState = { date: string; mealTypes: MealTypeState[] }
 
 function applyAssign(
   days: DayState[],
@@ -36,9 +36,9 @@ function applyAssign(
     if (day.date === sourceDate) {
       return {
         ...day,
-        meal_types: day.meal_types.map((mts) =>
-          mts.meal_type === mealType
-            ? { ...mts, options: mts.options.filter((o) => o.recipe_id !== recipe.recipe_id) }
+        mealTypes: day.mealTypes.map((mts) =>
+          mts.mealType === mealType
+            ? { ...mts, options: mts.options.filter((o) => o.recipeId !== recipe.recipeId) }
             : mts,
         ),
       }
@@ -46,11 +46,11 @@ function applyAssign(
     if (day.date === targetDate) {
       return {
         ...day,
-        meal_types: day.meal_types.map((mts) =>
-          mts.meal_type === mealType
+        mealTypes: day.mealTypes.map((mts) =>
+          mts.mealType === mealType
             ? {
                 ...mts,
-                options: mts.options.some((o) => o.recipe_id === recipe.recipe_id)
+                options: mts.options.some((o) => o.recipeId === recipe.recipeId)
                   ? mts.options
                   : [...mts.options, recipe],
               }
@@ -62,51 +62,51 @@ function applyAssign(
   })
 }
 
-const RECIPE_A: RecipeSuggestion = { recipe_id: 'r1', recipe_title: 'Pasta' }
-const RECIPE_B: RecipeSuggestion = { recipe_id: 'r2', recipe_title: 'Tacos' }
+const RECIPE_A: RecipeSuggestion = { recipeId: 'r1', recipeTitle: 'Pasta' }
+const RECIPE_B: RecipeSuggestion = { recipeId: 'r2', recipeTitle: 'Tacos' }
 
 describe('T_assign - Cross-day assignment state transformation', () => {
   it('removes the recipe from source day options', () => {
     const days: DayState[] = [
-      { date: '2026-03-01', meal_types: [{ meal_type: 'dinner', options: [RECIPE_A, RECIPE_B], isSwapping: false }] },
-      { date: '2026-03-02', meal_types: [{ meal_type: 'dinner', options: [], isSwapping: false }] },
+      { date: '2026-03-01', mealTypes: [{ mealType: 'dinner', options: [RECIPE_A, RECIPE_B], isSwapping: false }] },
+      { date: '2026-03-02', mealTypes: [{ mealType: 'dinner', options: [], isSwapping: false }] },
     ]
     const result = applyAssign(days, RECIPE_A, '2026-03-01', '2026-03-02', 'dinner')
-    expect(result[0]!.meal_types[0]!.options.map((o) => o.recipe_id)).toEqual(['r2'])
+    expect(result[0]!.mealTypes[0]!.options.map((o) => o.recipeId)).toEqual(['r2'])
   })
 
   it('adds the recipe to target day options', () => {
     const days: DayState[] = [
-      { date: '2026-03-01', meal_types: [{ meal_type: 'dinner', options: [RECIPE_A, RECIPE_B], isSwapping: false }] },
-      { date: '2026-03-02', meal_types: [{ meal_type: 'dinner', options: [], isSwapping: false }] },
+      { date: '2026-03-01', mealTypes: [{ mealType: 'dinner', options: [RECIPE_A, RECIPE_B], isSwapping: false }] },
+      { date: '2026-03-02', mealTypes: [{ mealType: 'dinner', options: [], isSwapping: false }] },
     ]
     const result = applyAssign(days, RECIPE_A, '2026-03-01', '2026-03-02', 'dinner')
-    expect(result[1]!.meal_types[0]!.options.map((o) => o.recipe_id)).toEqual(['r1'])
+    expect(result[1]!.mealTypes[0]!.options.map((o) => o.recipeId)).toEqual(['r1'])
   })
 
   it('does not duplicate the recipe if already present in target options', () => {
     const days: DayState[] = [
-      { date: '2026-03-01', meal_types: [{ meal_type: 'dinner', options: [RECIPE_A], isSwapping: false }] },
-      { date: '2026-03-02', meal_types: [{ meal_type: 'dinner', options: [RECIPE_A], isSwapping: false }] },
+      { date: '2026-03-01', mealTypes: [{ mealType: 'dinner', options: [RECIPE_A], isSwapping: false }] },
+      { date: '2026-03-02', mealTypes: [{ mealType: 'dinner', options: [RECIPE_A], isSwapping: false }] },
     ]
     const result = applyAssign(days, RECIPE_A, '2026-03-01', '2026-03-02', 'dinner')
-    expect(result[1]!.meal_types[0]!.options).toHaveLength(1)
+    expect(result[1]!.mealTypes[0]!.options).toHaveLength(1)
   })
 
   it('leaves other meal types untouched', () => {
     const days: DayState[] = [
       {
         date: '2026-03-01',
-        meal_types: [
-          { meal_type: 'dinner', options: [RECIPE_A], isSwapping: false },
-          { meal_type: 'lunch', options: [RECIPE_B], isSwapping: false },
+        mealTypes: [
+          { mealType: 'dinner', options: [RECIPE_A], isSwapping: false },
+          { mealType: 'lunch', options: [RECIPE_B], isSwapping: false },
         ],
       },
-      { date: '2026-03-02', meal_types: [{ meal_type: 'dinner', options: [], isSwapping: false }] },
+      { date: '2026-03-02', mealTypes: [{ mealType: 'dinner', options: [], isSwapping: false }] },
     ]
     const result = applyAssign(days, RECIPE_A, '2026-03-01', '2026-03-02', 'dinner')
-    const lunchSlot = result[0]!.meal_types.find((mts) => mts.meal_type === 'lunch')
-    expect(lunchSlot?.options.map((o) => o.recipe_id)).toEqual(['r2'])
+    const lunchSlot = result[0]!.mealTypes.find((mts) => mts.mealType === 'lunch')
+    expect(lunchSlot?.options.map((o) => o.recipeId)).toEqual(['r2'])
   })
 })
 

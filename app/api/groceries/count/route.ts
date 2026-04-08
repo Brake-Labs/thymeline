@@ -7,11 +7,11 @@ import { scopeCondition } from '@/lib/household'
 
 export const GET = withAuth(async (req: NextRequest, { user, ctx }) => {
   const url = new URL(req.url)
-  const date_from = url.searchParams.get('date_from')
-  const date_to   = url.searchParams.get('date_to')
+  const dateFrom = url.searchParams.get('dateFrom')
+  const dateTo   = url.searchParams.get('dateTo')
 
-  if (!date_from || !date_to) {
-    return NextResponse.json({ error: 'date_from and date_to are required' }, { status: 400 })
+  if (!dateFrom || !dateTo) {
+    return NextResponse.json({ error: 'dateFrom and dateTo are required' }, { status: 400 })
   }
 
   // Fetch all plan IDs scoped to this user/household
@@ -35,8 +35,8 @@ export const GET = withAuth(async (req: NextRequest, { user, ctx }) => {
     .from(mealPlanEntries)
     .where(and(
       inArray(mealPlanEntries.mealPlanId, planIds),
-      gte(mealPlanEntries.plannedDate, date_from),
-      lte(mealPlanEntries.plannedDate, date_to),
+      gte(mealPlanEntries.plannedDate, dateFrom),
+      lte(mealPlanEntries.plannedDate, dateTo),
     ))
 
   const recipe_count = new Set(entryRows.map((e) => e.recipeId)).size

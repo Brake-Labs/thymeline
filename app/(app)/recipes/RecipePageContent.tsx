@@ -38,13 +38,13 @@ function applyFiltersLocally(recipes: RecipeListItem[], f: RecipeFilters): Recip
     if (f.tags.length > 0 && !f.tags.every((t) => r.tags.includes(t))) return false
     if (f.categories.length > 0 && !f.categories.includes(r.category)) return false
     if (f.maxTotalMinutes !== null) {
-      if (r.total_time_minutes === null || r.total_time_minutes > f.maxTotalMinutes) return false
+      if (r.totalTimeMinutes === null || r.totalTimeMinutes > f.maxTotalMinutes) return false
     }
     if (f.neverMade) {
-      if (r.last_made !== null) return false
+      if (r.lastMade !== null) return false
     } else {
-      if (f.lastMadeFrom && (r.last_made === null || r.last_made < f.lastMadeFrom)) return false
-      if (f.lastMadeTo && (r.last_made === null || r.last_made > f.lastMadeTo)) return false
+      if (f.lastMadeFrom && (r.lastMade === null || r.lastMade < f.lastMadeFrom)) return false
+      if (f.lastMadeTo && (r.lastMade === null || r.lastMade > f.lastMadeTo)) return false
     }
     return true
   })
@@ -62,20 +62,20 @@ function sortListView(
       cmp = a.title.localeCompare(b.title)
     } else if (key === 'category') {
       cmp = a.category.localeCompare(b.category)
-    } else if (key === 'total_time_minutes') {
-      const aT = a.total_time_minutes ?? Infinity
-      const bT = b.total_time_minutes ?? Infinity
+    } else if (key === 'totalTimeMinutes') {
+      const aT = a.totalTimeMinutes ?? Infinity
+      const bT = b.totalTimeMinutes ?? Infinity
       cmp = aT - bT
-    } else if (key === 'last_made') {
-      const aD = a.last_made ?? ''
-      const bD = b.last_made ?? ''
+    } else if (key === 'lastMade') {
+      const aD = a.lastMade ?? ''
+      const bD = b.lastMade ?? ''
       cmp = aD.localeCompare(bD)
     }
     return dir === 'asc' ? cmp : -cmp
   })
 }
 
-const VALID_SORT_KEYS = new Set(['title', 'category', 'total_time_minutes', 'last_made'])
+const VALID_SORT_KEYS = new Set(['title', 'category', 'totalTimeMinutes', 'lastMade'])
 const VALID_SORT_DIRS = new Set(['asc', 'desc'])
 
 function parseSortParams(params: URLSearchParams): { key: ListSortKey; dir: 'asc' | 'desc' | null } {
@@ -105,7 +105,7 @@ export default function RecipePageContent() {
 
   // Search
   const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<{ recipe_id: string; recipe_title: string }[] | null>(null)
+  const [searchResults, setSearchResults] = useState<{ recipeId: string; recipeTitle: string }[] | null>(null)
   const [searchLoading, setSearchLoading] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const [searchError, setSearchError] = useState<string | null>(null)
@@ -200,7 +200,7 @@ export default function RecipePageContent() {
     if (searchResults !== null) {
       const idToRecipe = new Map(recipes.map((r) => [r.id, r]))
       base = searchResults
-        .map((sr) => idToRecipe.get(sr.recipe_id))
+        .map((sr) => idToRecipe.get(sr.recipeId))
         .filter((r): r is RecipeListItem => r !== undefined)
       base = applyFiltersLocally(base, filters)
     } else {
@@ -225,7 +225,7 @@ export default function RecipePageContent() {
         body: JSON.stringify({ query: q }),
       })
       if (res.ok) {
-        const data: { results: { recipe_id: string; recipe_title: string }[] } = await res.json()
+        const data: { results: { recipeId: string; recipeTitle: string }[] } = await res.json()
         setSearchResults(data.results)
       } else {
         setSearchError('Search failed. Please try again.')
@@ -302,7 +302,7 @@ export default function RecipePageContent() {
     const res = await fetch('/api/recipes/bulk', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ recipe_ids: Array.from(selectedIds), add_tags: tags }),
+      body: JSON.stringify({ recipeIds: Array.from(selectedIds), addTags: tags }),
     })
     if (!res.ok) {
       const err: { error?: string } = await res.json()

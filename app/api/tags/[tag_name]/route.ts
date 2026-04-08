@@ -153,7 +153,7 @@ export const DELETE = withAuth(async (req, { user, ctx }, params) => {
   }
 
   try {
-    // First-class tags: hide them (add to hidden_tags) rather than deleting
+    // First-class tags: hide them (add to hiddenTags) rather than deleting
     const isFirstClass = FIRST_CLASS_TAGS.some(
       (t) => t.toLowerCase() === tagName.toLowerCase()
     )

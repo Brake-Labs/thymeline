@@ -96,10 +96,10 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
-// ── T10: loved_recipe_ids includes make_again=true entries ──────────────────
+// ── T10: lovedRecipeIds includes makeAgain=true entries ──────────────────
 
 describe('deriveTasteProfile', () => {
-  it('T10: loved_recipe_ids includes make_again=true entries', async () => {
+  it('T10: lovedRecipeIds includes makeAgain=true entries', async () => {
     setupMockQueries({
       prefs: [{ avoidedTags: [], preferredTags: [], mealContext: null }],
       explicitLoved: [{ recipeId: 'r1' }],
@@ -108,13 +108,13 @@ describe('deriveTasteProfile', () => {
     })
 
     const profile = await deriveTasteProfile('user-1', null, null)
-    expect(profile.loved_recipe_ids).toContain('r1')
-    expect(profile.disliked_recipe_ids).toContain('r2')
+    expect(profile.lovedRecipeIds).toContain('r1')
+    expect(profile.dislikedRecipeIds).toContain('r2')
   })
 
   // ── T11: implicit love via 3+ cooks in 6 months ──────────────────────────
 
-  it('T11: loved_recipe_ids includes recipes made 3+ times in 6 months', async () => {
+  it('T11: lovedRecipeIds includes recipes made 3+ times in 6 months', async () => {
     const threshold = IMPLICIT_LOVE_THRESHOLD // 3
     setupMockQueries({
       prefs: [{ avoidedTags: [], preferredTags: [], mealContext: null }],
@@ -133,13 +133,13 @@ describe('deriveTasteProfile', () => {
     })
 
     const profile = await deriveTasteProfile('user-1', null, null)
-    expect(profile.loved_recipe_ids).toContain('r1')
-    expect(profile.loved_recipe_ids).not.toContain('r2')
+    expect(profile.lovedRecipeIds).toContain('r1')
+    expect(profile.lovedRecipeIds).not.toContain('r2')
   })
 
-  // ── T12: disliked_recipe_ids includes make_again=false entries ────────────
+  // ── T12: dislikedRecipeIds includes makeAgain=false entries ────────────
 
-  it('T12: disliked_recipe_ids includes make_again=false entries', async () => {
+  it('T12: dislikedRecipeIds includes makeAgain=false entries', async () => {
     setupMockQueries({
       prefs: [{ avoidedTags: [], preferredTags: [], mealContext: null }],
       explicitLoved: [],
@@ -148,12 +148,12 @@ describe('deriveTasteProfile', () => {
     })
 
     const profile = await deriveTasteProfile('user-1', null, null)
-    expect(profile.disliked_recipe_ids).toContain('r3')
+    expect(profile.dislikedRecipeIds).toContain('r3')
   })
 
-  // ── T13: top_tags weighted correctly (last 30d = 3x) ─────────────────────
+  // ── T13: topTags weighted correctly (last 30d = 3x) ─────────────────────
 
-  it('T13: top_tags -- last-30d entries get 3x weight vs older entries', async () => {
+  it('T13: topTags -- last-30d entries get 3x weight vs older entries', async () => {
     setupMockQueries({
       prefs: [{ avoidedTags: [], preferredTags: [], mealContext: null }],
       explicitLoved: [],
@@ -168,17 +168,17 @@ describe('deriveTasteProfile', () => {
     })
 
     const profile = await deriveTasteProfile('user-1', null, null)
-    const tagBIdx = profile.top_tags.indexOf('tagB')
-    const tagAIdx = profile.top_tags.indexOf('tagA')
+    const tagBIdx = profile.topTags.indexOf('tagB')
+    const tagAIdx = profile.topTags.indexOf('tagA')
     // tagB should rank higher than tagA because 3x > 1x
     expect(tagBIdx).toBeGreaterThanOrEqual(0)
     expect(tagAIdx).toBeGreaterThanOrEqual(0)
     expect(tagBIdx).toBeLessThan(tagAIdx)
   })
 
-  // ── T14: cooking_frequency buckets ────────────────────────────────────────
+  // ── T14: cookingFrequency buckets ────────────────────────────────────────
 
-  it('T14: cooking_frequency = light for 0-2 distinct recipes in last 30d', async () => {
+  it('T14: cookingFrequency = light for 0-2 distinct recipes in last 30d', async () => {
     setupMockQueries({
       prefs: [{ avoidedTags: [], preferredTags: [], mealContext: null }],
       explicitLoved: [],
@@ -189,10 +189,10 @@ describe('deriveTasteProfile', () => {
     })
 
     const profile = await deriveTasteProfile('user-1', null, null)
-    expect(profile.cooking_frequency).toBe('light')
+    expect(profile.cookingFrequency).toBe('light')
   })
 
-  it('T14: cooking_frequency = moderate for 3-6 distinct recipes in last 30d', async () => {
+  it('T14: cookingFrequency = moderate for 3-6 distinct recipes in last 30d', async () => {
     setupMockQueries({
       prefs: [{ avoidedTags: [], preferredTags: [], mealContext: null }],
       explicitLoved: [],
@@ -208,10 +208,10 @@ describe('deriveTasteProfile', () => {
     })
 
     const profile = await deriveTasteProfile('user-1', null, null)
-    expect(profile.cooking_frequency).toBe('moderate')
+    expect(profile.cookingFrequency).toBe('moderate')
   })
 
-  it('T14: cooking_frequency = frequent for 7+ distinct recipes in last 30d', async () => {
+  it('T14: cookingFrequency = frequent for 7+ distinct recipes in last 30d', async () => {
     setupMockQueries({
       prefs: [{ avoidedTags: [], preferredTags: [], mealContext: null }],
       explicitLoved: [],
@@ -222,12 +222,12 @@ describe('deriveTasteProfile', () => {
     })
 
     const profile = await deriveTasteProfile('user-1', null, null)
-    expect(profile.cooking_frequency).toBe('frequent')
+    expect(profile.cookingFrequency).toBe('frequent')
   })
 
-  // ── T15: recent_recipes ───────────────────────────────────────────────────
+  // ── T15: recentRecipes ───────────────────────────────────────────────────
 
-  it('T15: recent_recipes returns up to 10 entries', async () => {
+  it('T15: recentRecipes returns up to 10 entries', async () => {
     setupMockQueries({
       prefs: [{ avoidedTags: [], preferredTags: [], mealContext: null }],
       explicitLoved: [],
@@ -243,7 +243,7 @@ describe('deriveTasteProfile', () => {
     })
 
     const profile = await deriveTasteProfile('user-1', null, null)
-    expect(profile.recent_recipes.length).toBeLessThanOrEqual(10)
+    expect(profile.recentRecipes.length).toBeLessThanOrEqual(10)
   })
 
   // ── T16: empty history ────────────────────────────────────────────────────
@@ -260,11 +260,11 @@ describe('deriveTasteProfile', () => {
     })
 
     const profile = await deriveTasteProfile('user-1', null, null)
-    expect(profile.loved_recipe_ids).toEqual([])
-    expect(profile.disliked_recipe_ids).toEqual([])
-    expect(profile.top_tags).toEqual([])
-    expect(profile.recent_recipes).toEqual([])
-    expect(profile.cooking_frequency).toBe('light')
+    expect(profile.lovedRecipeIds).toEqual([])
+    expect(profile.dislikedRecipeIds).toEqual([])
+    expect(profile.topTags).toEqual([])
+    expect(profile.recentRecipes).toEqual([])
+    expect(profile.cookingFrequency).toBe('light')
   })
 
   // ── T22: household — aggregate history from all member user IDs ──────────
@@ -282,6 +282,6 @@ describe('deriveTasteProfile', () => {
     })
 
     const profile = await deriveTasteProfile('user-1', null, { householdId: 'hh-1', role: 'owner' })
-    expect(profile.loved_recipe_ids).toContain('r99')
+    expect(profile.lovedRecipeIds).toContain('r99')
   })
 })

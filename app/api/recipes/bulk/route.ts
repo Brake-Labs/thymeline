@@ -10,8 +10,8 @@ export const PATCH = withAuth(async (req: NextRequest, { user, ctx }) => {
   const { data: body, error: parseError } = await parseBody(req, bulkUpdateRecipesSchema)
   if (parseError) return parseError
 
-  const recipeIds = body.recipe_ids
-  const addTags = body.add_tags
+  const recipeIds = body.recipeIds
+  const addTags = body.addTags
 
   try {
     // Fetch all requested recipes

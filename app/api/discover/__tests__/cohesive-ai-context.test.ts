@@ -111,26 +111,26 @@ const sampleSearchResults = [
   {
     url:         'https://example.com/spinach-salad',
     title:       'Spinach Salad',
-    site_name:   'example.com',
+    siteName:   'example.com',
     description: 'Fresh spinach and feta.',
   },
   {
     url:         'https://example.com/chicken-soup',
     title:       'Chicken Soup',
-    site_name:   'example.com',
+    siteName:   'example.com',
     description: 'Classic chicken noodle soup.',
   },
 ]
 
 const defaultProfile = {
-  loved_recipe_ids:    [],
-  disliked_recipe_ids: [],
-  top_tags:            ['Quick', 'Healthy'],
-  avoided_tags:        [],
-  preferred_tags:      ['Healthy'],
-  meal_context:        null,
-  cooking_frequency:   'moderate' as const,
-  recent_recipes:      [],
+  lovedRecipeIds:    [],
+  dislikedRecipeIds: [],
+  topTags:            ['Quick', 'Healthy'],
+  avoidedTags:        [],
+  preferredTags:      ['Healthy'],
+  mealContext:        null,
+  cookingFrequency:   'moderate' as const,
+  recentRecipes:      [],
 }
 
 function setupSuccessfulLLMCalls(rankResults = sampleSearchResults) {
@@ -162,13 +162,13 @@ describe('POST /api/discover — spec-22 taste profile (T01–T03)', () => {
     expect(deriveTasteProfile).toHaveBeenCalledWith('user-1', expect.anything(), null)
   })
 
-  it('T03: ranking prompt includes top_tags from taste profile', async () => {
+  it('T03: ranking prompt includes topTags from taste profile', async () => {
     setupMocks()
 
     vi.mocked(deriveTasteProfile).mockResolvedValue({
       ...defaultProfile,
-      top_tags: ['Quick', 'Healthy'],
-      meal_context: 'Family of 4',
+      topTags: ['Quick', 'Healthy'],
+      mealContext: 'Family of 4',
     })
 
     setupSuccessfulLLMCalls()
@@ -210,23 +210,23 @@ describe('POST /api/discover — spec-22 avoided-tag filter (T02)', () => {
 
     vi.mocked(deriveTasteProfile).mockResolvedValue({
       ...defaultProfile,
-      avoided_tags: ['Spicy'],
+      avoidedTags: ['Spicy'],
     })
 
     const rankedWithAvoidedTag = [
       {
         url: 'https://example.com/spicy-curry',
         title: 'Spicy Curry',
-        site_name: 'example.com',
+        siteName: 'example.com',
         description: 'A hot curry.',
-        suggested_tags: ['Spicy', 'Comfort'],
+        suggestedTags: ['Spicy', 'Comfort'],
       },
       {
         url: 'https://example.com/mild-soup',
         title: 'Mild Soup',
-        site_name: 'example.com',
+        siteName: 'example.com',
         description: 'A gentle soup.',
-        suggested_tags: ['Comfort'],
+        suggestedTags: ['Comfort'],
       },
     ]
 
@@ -258,7 +258,7 @@ describe('POST /api/discover — spec-22 waste detection (T04–T07)', () => {
   it('T04: waste overlap detection runs against current week plan', async () => {
     setupMocks()
 
-    const currentPlan = [{ recipe_id: 'r1', title: 'Pasta', ingredients: '200g pasta, spinach' }]
+    const currentPlan = [{ recipeId: 'r1', title: 'Pasta', ingredients: '200g pasta, spinach' }]
     vi.mocked(fetchCurrentWeekPlan).mockResolvedValue(currentPlan)
     vi.mocked(detectWasteOverlap).mockResolvedValue(new Map())
 
@@ -268,21 +268,21 @@ describe('POST /api/discover — spec-22 waste detection (T04–T07)', () => {
     await POST(makeReq({ query: 'spinach salad' }) as Parameters<typeof POST>[0])
 
     expect(detectWasteOverlap).toHaveBeenCalledWith(
-      expect.arrayContaining([expect.objectContaining({ recipe_id: sampleSearchResults[0]!.url })]),
+      expect.arrayContaining([expect.objectContaining({ recipeId: sampleSearchResults[0]!.url })]),
       currentPlan,
       callLLM,
     )
   })
 
-  it('T05: result with waste match gets waste_badge_text', async () => {
+  it('T05: result with waste match gets wasteBadgeText', async () => {
     setupMocks()
 
     vi.mocked(fetchCurrentWeekPlan).mockResolvedValue([
-      { recipe_id: 'r1', title: 'Pasta', ingredients: 'spinach, pasta' },
+      { recipeId: 'r1', title: 'Pasta', ingredients: 'spinach, pasta' },
     ])
 
     const wasteMap = new Map([
-      [sampleSearchResults[0]!.url, [{ ingredient: 'spinach', waste_risk: 'high' as const, shared_with: ['r1'], has_next_week: false }]],
+      [sampleSearchResults[0]!.url, [{ ingredient: 'spinach', wasteRisk: 'high' as const, sharedWith: ['r1'], hasNextWeek: false }]],
     ])
     vi.mocked(detectWasteOverlap).mockResolvedValue(wasteMap)
 
@@ -292,15 +292,15 @@ describe('POST /api/discover — spec-22 waste detection (T04–T07)', () => {
     const res = await POST(makeReq({ query: 'spinach salad' }) as Parameters<typeof POST>[0])
     const body = await res.json()
     const matched = body.results.find((r: { url: string }) => r.url === sampleSearchResults[0]!.url)
-    expect(matched?.waste_badge_text).toBe('Uses up your spinach')
-    expect(matched?.waste_matches).toHaveLength(1)
+    expect(matched?.wasteBadgeText).toBe('Uses up your spinach')
+    expect(matched?.wasteMatches).toHaveLength(1)
   })
 
-  it('T06: result without waste match has no waste_badge_text', async () => {
+  it('T06: result without waste match has no wasteBadgeText', async () => {
     setupMocks()
 
     vi.mocked(fetchCurrentWeekPlan).mockResolvedValue([
-      { recipe_id: 'r1', title: 'Pasta', ingredients: 'pasta' },
+      { recipeId: 'r1', title: 'Pasta', ingredients: 'pasta' },
     ])
     vi.mocked(detectWasteOverlap).mockResolvedValue(new Map())
 
@@ -310,7 +310,7 @@ describe('POST /api/discover — spec-22 waste detection (T04–T07)', () => {
     const res = await POST(makeReq({ query: 'spinach salad' }) as Parameters<typeof POST>[0])
     const body = await res.json()
     for (const result of body.results) {
-      expect(result.waste_badge_text).toBeUndefined()
+      expect(result.wasteBadgeText).toBeUndefined()
     }
   })
 
@@ -318,7 +318,7 @@ describe('POST /api/discover — spec-22 waste detection (T04–T07)', () => {
     setupMocks()
 
     vi.mocked(fetchCurrentWeekPlan).mockResolvedValue([
-      { recipe_id: 'r1', title: 'Pasta', ingredients: 'spinach, pasta' },
+      { recipeId: 'r1', title: 'Pasta', ingredients: 'spinach, pasta' },
     ])
     // Simulate a timeout by having detectWasteOverlap never resolve
     vi.mocked(detectWasteOverlap).mockReturnValue(new Promise(() => {}))
@@ -340,7 +340,7 @@ describe('POST /api/discover — spec-22 waste detection (T04–T07)', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     for (const result of body.results) {
-      expect(result.waste_badge_text).toBeUndefined()
+      expect(result.wasteBadgeText).toBeUndefined()
     }
   })
 
@@ -362,7 +362,7 @@ describe('POST /api/discover — spec-22 waste detection (T04–T07)', () => {
     setupMocks()
 
     vi.mocked(fetchCurrentWeekPlan).mockResolvedValue([
-      { recipe_id: 'r1', title: 'Pasta', ingredients: 'pasta' },
+      { recipeId: 'r1', title: 'Pasta', ingredients: 'pasta' },
     ])
     vi.mocked(detectWasteOverlap).mockResolvedValue(new Map())
 

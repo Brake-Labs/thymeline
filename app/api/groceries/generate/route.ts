@@ -15,46 +15,18 @@ import { eq, and, gte, lte, inArray, asc } from 'drizzle-orm'
 import { mealPlans, mealPlanEntries, recipes, groceryLists, pantryItems } from '@/lib/db/schema'
 import { scopeCondition, scopeInsert } from '@/lib/household'
 import { toDateString } from '@/lib/date-utils'
-import { GroceryItem, GroceryList, GrocerySection, RecipeScale } from '@/types'
+import { GroceryItem, GrocerySection, RecipeScale } from '@/types'
 
 function uuidv4(): string {
   return crypto.randomUUID()
 }
 
-function toGroceryList(row: {
-  id: string
-  userId: string
-  mealPlanId: string | null
-  weekStart: string
-  dateFrom: string | null
-  dateTo: string | null
-  servings: number
-  recipeScales: unknown
-  items: unknown
-  createdAt: Date
-  updatedAt: Date
-}): GroceryList {
-  return {
-    id:            row.id,
-    user_id:       row.userId,
-    meal_plan_id:  row.mealPlanId ?? '',
-    week_start:    row.weekStart,
-    date_from:     row.dateFrom,
-    date_to:       row.dateTo,
-    servings:      row.servings,
-    recipe_scales: row.recipeScales as RecipeScale[],
-    items:         row.items as GroceryItem[],
-    created_at:    row.createdAt.toISOString(),
-    updated_at:    row.updatedAt.toISOString(),
-  }
-}
-
 interface RecipeEntry {
-  recipe_id:    string
-  recipe_title: string
+  recipeId:    string
+  recipeTitle: string
   ingredients:  string | null
   url:          string | null
-  planned_date: string
+  plannedDate: string
   servings:     number | null
 }
 
@@ -64,19 +36,19 @@ export const POST = withAuth(async (req, { user, ctx }) => {
   const { data: body, error: parseError } = await parseBody(req, generateGroceriesSchema)
   if (parseError) return parseError
 
-  // Resolve date range — accept date_from/date_to directly, or derive from week_start
-  let date_from: string
-  let date_to: string
-  if (body.week_start) {
-    date_from = body.week_start
-    const d = new Date(body.week_start + 'T12:00:00Z')
+  // Resolve date range — accept dateFrom/dateTo directly, or derive from weekStart
+  let dateFrom: string
+  let dateTo: string
+  if (body.weekStart) {
+    dateFrom = body.weekStart
+    const d = new Date(body.weekStart + 'T12:00:00Z')
     d.setDate(d.getDate() + 6)
-    date_to = toDateString(d)
-  } else if (body.date_from && body.date_to) {
-    date_from = body.date_from
-    date_to   = body.date_to
+    dateTo = toDateString(d)
+  } else if (body.dateFrom && body.dateTo) {
+    dateFrom = body.dateFrom
+    dateTo   = body.dateTo
   } else {
-    return NextResponse.json({ error: 'date_from and date_to are required' }, { status: 400 })
+    return NextResponse.json({ error: 'dateFrom and dateTo are required' }, { status: 400 })
   }
 
   // 1. Get all meal plan IDs for the user/household (ordered so primaryPlanId is deterministic)
@@ -96,7 +68,7 @@ export const POST = withAuth(async (req, { user, ctx }) => {
 
   const planIds = planRows.map((p) => p.id)
 
-  // Default plan-level servings; per-recipe override stored in recipe_scales
+  // Default plan-level servings; per-recipe override stored in recipeScales
   const planServings = 4
 
   // 2. Fetch entries within date range
@@ -114,8 +86,8 @@ export const POST = withAuth(async (req, { user, ctx }) => {
     .innerJoin(recipes, eq(mealPlanEntries.recipeId, recipes.id))
     .where(and(
       inArray(mealPlanEntries.mealPlanId, planIds),
-      gte(mealPlanEntries.plannedDate, date_from),
-      lte(mealPlanEntries.plannedDate, date_to),
+      gte(mealPlanEntries.plannedDate, dateFrom),
+      lte(mealPlanEntries.plannedDate, dateTo),
     ))
     .orderBy(asc(mealPlanEntries.plannedDate))
 
@@ -127,11 +99,11 @@ export const POST = withAuth(async (req, { user, ctx }) => {
     if (seenRecipeIds.has(entry.recipeDbId)) continue
     seenRecipeIds.add(entry.recipeDbId)
     recipeEntries.push({
-      recipe_id:    entry.recipeDbId,
-      recipe_title: entry.recipeTitle,
+      recipeId:    entry.recipeDbId,
+      recipeTitle: entry.recipeTitle,
       ingredients:  entry.recipeIngredients,
       url:          entry.recipeUrl,
-      planned_date: entry.plannedDate,
+      plannedDate: entry.plannedDate,
       servings:     entry.recipeServings,
     })
   }
@@ -145,7 +117,7 @@ export const POST = withAuth(async (req, { user, ctx }) => {
     const ingredientsText = await resolveRecipeIngredients(recipe, firecrawlKey)
 
     if (!ingredientsText) {
-      skipped_recipes.push(recipe.recipe_title)
+      skipped_recipes.push(recipe.recipeTitle)
       continue
     }
 
@@ -158,7 +130,7 @@ export const POST = withAuth(async (req, { user, ctx }) => {
       if (isWaterIngredient(parsed.name)) continue
       combineInputs.push({
         parsed,
-        recipeTitle: recipe.recipe_title,
+        recipeTitle: recipe.recipeTitle,
         scaleFactor: sf,
       })
     }
@@ -183,10 +155,10 @@ export const POST = withAuth(async (req, { user, ctx }) => {
 Return ONLY valid JSON — an array of resolved GroceryItem objects.
 Normalize names, reconcile units where possible, assign a section from:
 Produce, Proteins, Dairy & Eggs, Pantry, Canned & Jarred, Bakery, Frozen, Other.
-Mark is_pantry: true for common staples (salt, pepper, olive oil, garlic,
+Mark isPantry: true for common staples (salt, pepper, olive oil, garlic,
 onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
 
-      const userPrompt = `Resolve these ambiguous grocery items:\n${JSON.stringify(ambiguousPayload, null, 2)}\n\nReturn a JSON array with objects: { name, amount, unit, section, is_pantry, recipes }`
+      const userPrompt = `Resolve these ambiguous grocery items:\n${JSON.stringify(ambiguousPayload, null, 2)}\n\nReturn a JSON array with objects: { name, amount, unit, section, isPantry, recipes }`
 
       const rawText = await callLLM({
         model: LLM_MODEL_FAST,
@@ -207,7 +179,7 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
           amount:    typeof i.amount === 'number' ? i.amount : null,
           unit:      typeof i.unit === 'string' ? i.unit : null,
           section:   ['Produce','Proteins','Dairy & Eggs','Pantry','Canned & Jarred','Bakery','Frozen','Other'].includes(section) ? section : 'Other',
-          is_pantry: typeof i.is_pantry === 'boolean' ? i.is_pantry : isPantryStaple(typeof i.name === 'string' ? i.name : ''),
+          isPantry: typeof i.isPantry === 'boolean' ? i.isPantry : isPantryStaple(typeof i.name === 'string' ? i.name : ''),
           checked:   false,
           recipes:   Array.isArray(i.recipes) ? i.recipes.filter((r): r is string => typeof r === 'string') : [],
         })
@@ -223,7 +195,7 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
           amount:    scaled,
           unit:      parsed.unit,
           section:   assignSection(parsed.name),
-          is_pantry: isPantryStaple(parsed.name),
+          isPantry: isPantryStaple(parsed.name),
           checked:   false,
           recipes:   [recipeTitle],
         })
@@ -233,7 +205,7 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
 
   let allItems: GroceryItem[] = [...resolved, ...llmResolved]
 
-  // 5b. Cross-reference against pantry — flag matching items as is_pantry: true
+  // 5b. Cross-reference against pantry — flag matching items as isPantry: true
   try {
     const pantryRows = await db
       .select({ name: pantryItems.name })
@@ -251,15 +223,15 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
         const matched = pantryNames.some(
           (pName) => pName.includes(gName) || gName.includes(pName),
         )
-        return matched ? { ...item, is_pantry: true } : item
+        return matched ? { ...item, isPantry: true } : item
       })
     }
   } catch { /* non-fatal */ }
 
-  // 6. Build recipe_scales (all null → inherit plan default)
-  const recipe_scales: RecipeScale[] = recipeEntries.map((r) => ({
-    recipe_id:    r.recipe_id,
-    recipe_title: r.recipe_title,
+  // 6. Build recipeScales (all null → inherit plan default)
+  const recipeScales: RecipeScale[] = recipeEntries.map((r) => ({
+    recipeId:    r.recipeId,
+    recipeTitle: r.recipeTitle,
     servings:     r.servings ?? planServings,
   }))
 
@@ -268,22 +240,22 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
   const upsertPayload = {
     ...scopeInsert(user.id, ctx),
     mealPlanId:  planIds[0],
-    weekStart:   date_from,
-    dateFrom:    date_from,
-    dateTo:      date_to,
+    weekStart:   dateFrom,
+    dateFrom:    dateFrom,
+    dateTo:      dateTo,
     servings:    planServings,
-    recipeScales: recipe_scales,
+    recipeScales: recipeScales,
     items:       allItems,
     updatedAt:   now,
   }
 
   try {
-    // Check if a row exists for this scope + week_start
+    // Check if a row exists for this scope + weekStart
     const existingRows = await db
       .select({ id: groceryLists.id })
       .from(groceryLists)
       .where(and(
-        eq(groceryLists.weekStart, date_from),
+        eq(groceryLists.weekStart, dateFrom),
         scopeCondition({ userId: groceryLists.userId, householdId: groceryLists.householdId }, user.id, ctx),
       ))
       .limit(1)
@@ -310,7 +282,7 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
       return NextResponse.json({ error: 'Failed to save grocery list' }, { status: 500 })
     }
 
-    return NextResponse.json({ list: toGroceryList(upserted), skipped_recipes })
+    return NextResponse.json({ list: upserted, skipped_recipes })
   } catch (err) {
     console.error('Upsert error:', err)
     return NextResponse.json({ error: 'Failed to save grocery list' }, { status: 500 })

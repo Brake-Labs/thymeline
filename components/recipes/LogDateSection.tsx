@@ -39,12 +39,12 @@ export default function LogDateSection({
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ made_on: dateStr }),
+        body: JSON.stringify({ madeOn: dateStr }),
       })
       if (res.ok) {
-        const data: { made_on: string; already_logged: boolean } = await res.json()
+        const data: { madeOn: string; already_logged: boolean } = await res.json()
         setStatus(data.already_logged ? 'already_logged' : 'success')
-        if (!data.already_logged) onLogged?.(data.made_on)
+        if (!data.already_logged) onLogged?.(data.madeOn)
         setTimeout(() => setStatus('idle'), TOAST_DURATION_MS)
       } else {
         setStatus('idle')

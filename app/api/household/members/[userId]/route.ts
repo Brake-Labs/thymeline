@@ -7,7 +7,7 @@ import { householdMembers } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { dbFirst } from '@/lib/db/helpers'
 
-// ── DELETE /api/household/members/[user_id] — remove a member ────────────────
+// ── DELETE /api/household/members/[userId] — remove a member ────────────────
 
 export const DELETE = withAuth(async (req, { user, ctx }, params) => {
   if (!ctx) {
@@ -15,7 +15,7 @@ export const DELETE = withAuth(async (req, { user, ctx }, params) => {
   }
 
   // "me" is a convenience alias for the authenticated user's own ID
-  const targetUserId = params.user_id === 'me' ? user.id : params.user_id!
+  const targetUserId = params.userId === 'me' ? user.id : params.userId!
   const isSelf = targetUserId === user.id
 
   // Non-self removal requires canManage
@@ -66,7 +66,7 @@ export const DELETE = withAuth(async (req, { user, ctx }, params) => {
   }
 })
 
-// ── PATCH /api/household/members/[user_id] — change role (owner only) ─────────
+// ── PATCH /api/household/members/[userId] — change role (owner only) ─────────
 
 export const PATCH = withAuth(async (req, { ctx }, params) => {
   if (!ctx) {
@@ -85,10 +85,10 @@ export const PATCH = withAuth(async (req, { ctx }, params) => {
       .set({ role: body.role })
       .where(and(
         eq(householdMembers.householdId, ctx.householdId),
-        eq(householdMembers.userId, params.user_id!),
+        eq(householdMembers.userId, params.userId!),
       ))
 
-    return NextResponse.json({ user_id: params.user_id!, role: body.role })
+    return NextResponse.json({ userId: params.userId!, role: body.role })
   } catch (err) {
     console.error('[PATCH /api/household/members] error:', err)
     return NextResponse.json({ error: 'Failed to update role' }, { status: 500 })

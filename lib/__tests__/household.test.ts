@@ -36,10 +36,10 @@ import { scopeCondition, scopeInsert, checkOwnership } from '../household'
 // ── scopeCondition ─────────────────────────────────────────────────────────────
 
 describe('scopeCondition', () => {
-  it('returns a condition for user_id when ctx is null (solo user)', () => {
+  it('returns a condition for userId when ctx is null (solo user)', () => {
     const columns = {
-      userId: { name: 'user_id' },
-      householdId: { name: 'household_id' },
+      userId: { name: 'userId' },
+      householdId: { name: 'householdId' },
     }
     // scopeCondition returns a Drizzle SQL condition object
     const result = scopeCondition(columns as never, 'user-1', null)
@@ -47,10 +47,10 @@ describe('scopeCondition', () => {
     expect(result).toBeDefined()
   })
 
-  it('returns a condition for household_id when ctx is set', () => {
+  it('returns a condition for householdId when ctx is set', () => {
     const columns = {
-      userId: { name: 'user_id' },
-      householdId: { name: 'household_id' },
+      userId: { name: 'userId' },
+      householdId: { name: 'householdId' },
     }
     const ctx: HouseholdContext = { householdId: 'h1', role: 'owner' }
     const result = scopeCondition(columns as never, 'user-1', ctx)

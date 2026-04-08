@@ -34,15 +34,15 @@ function makeSlotRow(options: RecipeSuggestion[], selection?: DaySelection | nul
   )
 }
 
-// ── T06: Suggestion with waste_badge_text shows amber badge ───────────────────
+// ── T06: Suggestion with wasteBadgeText shows amber badge ───────────────────
 
-describe('T06 - Suggestion with waste_badge_text shows amber badge in UI', () => {
-  it('renders waste badge text when waste_badge_text is present', () => {
+describe('T06 - Suggestion with wasteBadgeText shows amber badge in UI', () => {
+  it('renders waste badge text when wasteBadgeText is present', () => {
     const opts: RecipeSuggestion[] = [
       {
-        recipe_id: 'r1',
-        recipe_title: 'Spinach Pasta',
-        waste_badge_text: 'Uses up your spinach',
+        recipeId: 'r1',
+        recipeTitle: 'Spinach Pasta',
+        wasteBadgeText: 'Uses up your spinach',
       },
     ]
     makeSlotRow(opts)
@@ -52,9 +52,9 @@ describe('T06 - Suggestion with waste_badge_text shows amber badge in UI', () =>
   it('renders "Pairs with next week\'s plan" badge text', () => {
     const opts: RecipeSuggestion[] = [
       {
-        recipe_id: 'r1',
-        recipe_title: 'Spinach Pasta',
-        waste_badge_text: "Pairs with next week's plan",
+        recipeId: 'r1',
+        recipeTitle: 'Spinach Pasta',
+        wasteBadgeText: "Pairs with next week's plan",
       },
     ]
     makeSlotRow(opts)
@@ -64,20 +64,20 @@ describe('T06 - Suggestion with waste_badge_text shows amber badge in UI', () =>
   it('renders "Uses up N ingredients" badge text for multiple matches', () => {
     const opts: RecipeSuggestion[] = [
       {
-        recipe_id: 'r1',
-        recipe_title: 'Spinach Pasta',
-        waste_badge_text: 'Uses up 3 ingredients',
+        recipeId: 'r1',
+        recipeTitle: 'Spinach Pasta',
+        wasteBadgeText: 'Uses up 3 ingredients',
       },
     ]
     makeSlotRow(opts)
     expect(screen.getByText('Uses up 3 ingredients')).toBeTruthy()
   })
 
-  it('does not render a waste badge when waste_badge_text is absent', () => {
+  it('does not render a waste badge when wasteBadgeText is absent', () => {
     const opts: RecipeSuggestion[] = [
       {
-        recipe_id: 'r1',
-        recipe_title: 'Beef Stew',
+        recipeId: 'r1',
+        recipeTitle: 'Beef Stew',
       },
     ]
     makeSlotRow(opts)

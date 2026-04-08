@@ -7,9 +7,9 @@ import type { GeneratedRecipe, GenerateRefinementMessage } from '@/types'
 interface GenerateRecipeChatPanelProps {
   initialRecipe:     GeneratedRecipe
   generationContext: {
-    meal_type:            string
-    style_hints:          string
-    dietary_restrictions: string[]
+    mealType:            string
+    styleHints:          string
+    dietaryRestrictions: string[]
   }
   onUseRecipe:  (recipe: GeneratedRecipe) => void
   onStartOver:  () => void
@@ -37,7 +37,7 @@ export default function GenerateRecipeChatPanel({
 
   const ingredientCount = currentRecipe.ingredients.split('\n').filter(Boolean).length
   const stepCount       = currentRecipe.steps.split('\n').filter(Boolean).length
-  const totalTime       = currentRecipe.total_time_minutes
+  const totalTime       = currentRecipe.totalTimeMinutes
 
   function abortInFlight() {
     if (abortControllerRef.current) {
@@ -78,9 +78,9 @@ export default function GenerateRecipeChatPanel({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message:              trimmed,
-          current_recipe:       currentRecipe,
-          conversation_history: historyForApi,
-          generation_context:   generationContext,
+          currentRecipe:       currentRecipe,
+          conversationHistory: historyForApi,
+          generationContext:   generationContext,
         }),
         signal: controller.signal,
       })

@@ -15,19 +15,19 @@ import type { UserPreferences, LimitedTag } from '@/types'
 function makePrefs(overrides: Partial<UserPreferences> = {}): UserPreferences {
   return {
     id: 'pref-1',
-    user_id: 'user-1',
-    options_per_day: 3,
-    cooldown_days: 28,
-    seasonal_mode: false,
-    preferred_tags: [],
-    avoided_tags: [],
-    limited_tags: [],
-    seasonal_rules: null,
-    onboarding_completed: true,
-    is_active: true,
-    meal_context: null,
-    hidden_tags: [],
-    created_at: '2026-01-01T00:00:00Z',
+    userId: 'user-1',
+    optionsPerDay: 3,
+    cooldownDays: 28,
+    seasonalMode: false,
+    preferredTags: [],
+    avoidedTags: [],
+    limitedTags: [],
+    seasonalRules: null,
+    onboardingCompleted: true,
+    isActive: true,
+    mealContext: null,
+    hiddenTags: [],
+    createdAt: '2026-01-01T00:00:00Z',
     ...overrides,
   }
 }
@@ -87,7 +87,7 @@ describe('buildSystemMessage', () => {
   // ── Avoided tags ────────────────────────────────────────────────────────
 
   it('includes avoided tags from user preferences', () => {
-    const prefs = makePrefs({ avoided_tags: ['Spicy', 'Grill'] })
+    const prefs = makePrefs({ avoidedTags: ['Spicy', 'Grill'] })
     const result = buildSystemMessage(prefs, [], [], 'summer')
 
     expect(result).toContain('avoided tags: Spicy, Grill')
@@ -100,7 +100,7 @@ describe('buildSystemMessage', () => {
   })
 
   it('merges preference and session avoided tags without duplicates', () => {
-    const prefs = makePrefs({ avoided_tags: ['Spicy', 'Grill'] })
+    const prefs = makePrefs({ avoidedTags: ['Spicy', 'Grill'] })
     const result = buildSystemMessage(prefs, [], ['Grill', 'Seafood'], 'summer')
 
     // Should contain all three unique tags
@@ -118,7 +118,7 @@ describe('buildSystemMessage', () => {
   // ── Preferred tags ──────────────────────────────────────────────────────
 
   it('includes preferred tags from user preferences', () => {
-    const prefs = makePrefs({ preferred_tags: ['Healthy', 'Quick'] })
+    const prefs = makePrefs({ preferredTags: ['Healthy', 'Quick'] })
     const result = buildSystemMessage(prefs, [], [], 'winter')
 
     expect(result).toContain('preferred tags: Healthy, Quick')
@@ -131,7 +131,7 @@ describe('buildSystemMessage', () => {
   })
 
   it('merges preference and session preferred tags without duplicates', () => {
-    const prefs = makePrefs({ preferred_tags: ['Healthy'] })
+    const prefs = makePrefs({ preferredTags: ['Healthy'] })
     const result = buildSystemMessage(prefs, ['Healthy', 'Grill'], [], 'summer')
 
     // "Healthy" appears in both pref and session — should be deduplicated
@@ -149,15 +149,15 @@ describe('buildSystemMessage', () => {
       { tag: 'Comfort', cap: 2 },
       { tag: 'Soup', cap: 3 },
     ]
-    const prefs = makePrefs({ limited_tags: limitedTags })
+    const prefs = makePrefs({ limitedTags: limitedTags })
     const result = buildSystemMessage(prefs, [], [], 'winter')
 
     expect(result).toContain('Comfort: max 2/week')
     expect(result).toContain('Soup: max 3/week')
   })
 
-  it('shows "none" when limited_tags is an empty array', () => {
-    const prefs = makePrefs({ limited_tags: [] })
+  it('shows "none" when limitedTags is an empty array', () => {
+    const prefs = makePrefs({ limitedTags: [] })
     const result = buildSystemMessage(prefs, [], [], 'winter')
 
     expect(result).toContain('weekly tag caps: none')
@@ -165,10 +165,10 @@ describe('buildSystemMessage', () => {
 
   // ── Seasonal instructions ───────────────────────────────────────────────
 
-  it('includes seasonal instructions when seasonal_mode is ON with winter rules', () => {
+  it('includes seasonal instructions when seasonalMode is ON with winter rules', () => {
     const prefs = makePrefs({
-      seasonal_mode: true,
-      seasonal_rules: {
+      seasonalMode: true,
+      seasonalRules: {
         winter: {
           favor: ['Soup', 'Sheet Pan'],
           cap: { Soup: 2, 'Sheet Pan': 2 },
@@ -184,10 +184,10 @@ describe('buildSystemMessage', () => {
     expect(result).toContain('Exclude Grill recipes')
   })
 
-  it('includes seasonal instructions when seasonal_mode is ON with summer rules', () => {
+  it('includes seasonal instructions when seasonalMode is ON with summer rules', () => {
     const prefs = makePrefs({
-      seasonal_mode: true,
-      seasonal_rules: {
+      seasonalMode: true,
+      seasonalRules: {
         summer: {
           favor: ['Grill'],
           cap: { Grill: 2 },
@@ -204,10 +204,10 @@ describe('buildSystemMessage', () => {
     expect(result).not.toContain('Exclude')
   })
 
-  it('ignores seasonal rules when seasonal_mode is OFF', () => {
+  it('ignores seasonal rules when seasonalMode is OFF', () => {
     const prefs = makePrefs({
-      seasonal_mode: false,
-      seasonal_rules: {
+      seasonalMode: false,
+      seasonalRules: {
         winter: {
           favor: ['Soup'],
           cap: { Soup: 2 },
@@ -225,10 +225,10 @@ describe('buildSystemMessage', () => {
     expect(result).not.toContain('Exclude Grill')
   })
 
-  it('handles seasonal_mode ON but no rules for the current season', () => {
+  it('handles seasonalMode ON but no rules for the current season', () => {
     const prefs = makePrefs({
-      seasonal_mode: true,
-      seasonal_rules: {
+      seasonalMode: true,
+      seasonalRules: {
         summer: { favor: ['Grill'], cap: {}, exclude: [] },
       },
     })
@@ -239,10 +239,10 @@ describe('buildSystemMessage', () => {
     expect(result).not.toContain('Favor')
   })
 
-  it('handles seasonal_mode ON with null seasonal_rules', () => {
+  it('handles seasonalMode ON with null seasonalRules', () => {
     const prefs = makePrefs({
-      seasonal_mode: true,
-      seasonal_rules: null,
+      seasonalMode: true,
+      seasonalRules: null,
     })
     const result = buildSystemMessage(prefs, [], [], 'autumn')
 
@@ -252,23 +252,23 @@ describe('buildSystemMessage', () => {
     expect(result).not.toContain('Exclude')
   })
 
-  // ── options_per_day ─────────────────────────────────────────────────────
+  // ── optionsPerDay ─────────────────────────────────────────────────────
 
-  it('uses custom options_per_day value', () => {
-    const prefs = makePrefs({ options_per_day: 5 })
+  it('uses custom optionsPerDay value', () => {
+    const prefs = makePrefs({ optionsPerDay: 5 })
     const result = buildSystemMessage(prefs, [], [], 'spring')
 
     expect(result).toContain('Return exactly 5 options per day')
   })
 
-  it('defaults to 3 options_per_day when prefs is null', () => {
+  it('defaults to 3 optionsPerDay when prefs is null', () => {
     const result = buildSystemMessage(null, [], [], 'spring')
 
     expect(result).toContain('Return exactly 3 options per day')
   })
 
-  it('uses options_per_day of 1', () => {
-    const prefs = makePrefs({ options_per_day: 1 })
+  it('uses optionsPerDay of 1', () => {
+    const prefs = makePrefs({ optionsPerDay: 1 })
     const result = buildSystemMessage(prefs, [], [], 'summer')
 
     expect(result).toContain('Return exactly 1 options per day')
@@ -278,12 +278,12 @@ describe('buildSystemMessage', () => {
 
   it('correctly combines all constraints in one prompt', () => {
     const prefs = makePrefs({
-      options_per_day: 4,
-      preferred_tags: ['Healthy'],
-      avoided_tags: ['Spicy'],
-      limited_tags: [{ tag: 'Comfort', cap: 2 }],
-      seasonal_mode: true,
-      seasonal_rules: {
+      optionsPerDay: 4,
+      preferredTags: ['Healthy'],
+      avoidedTags: ['Spicy'],
+      limitedTags: [{ tag: 'Comfort', cap: 2 }],
+      seasonalMode: true,
+      seasonalRules: {
         autumn: {
           favor: ['Soup'],
           cap: { Soup: 3 },
@@ -293,7 +293,7 @@ describe('buildSystemMessage', () => {
     })
     const result = buildSystemMessage(prefs, ['Quick'], ['Seafood'], 'autumn')
 
-    // options_per_day
+    // optionsPerDay
     expect(result).toContain('Return exactly 4 options per day')
     // avoided: pref "Spicy" + session "Seafood"
     expect(result).toContain('Spicy')
@@ -317,9 +317,9 @@ describe('buildSystemMessage', () => {
 
   it('shows "none" for all constraint types when all arrays are empty', () => {
     const prefs = makePrefs({
-      preferred_tags: [],
-      avoided_tags: [],
-      limited_tags: [],
+      preferredTags: [],
+      avoidedTags: [],
+      limitedTags: [],
     })
     const result = buildSystemMessage(prefs, [], [], 'spring')
 
@@ -334,11 +334,11 @@ describe('buildSystemMessage', () => {
     const result = buildSystemMessage(makePrefs(), [], [], 'winter')
 
     expect(result).toContain('Return ONLY valid JSON in this exact format')
-    expect(result).toContain('"recipe_id"')
-    expect(result).toContain('"recipe_title"')
+    expect(result).toContain('"recipeId"')
+    expect(result).toContain('"recipeTitle"')
     expect(result).toContain('"reason"')
     expect(result).toContain('"days"')
-    expect(result).toContain('"meal_types"')
+    expect(result).toContain('"mealTypes"')
   })
 
   // ── Variety instruction ─────────────────────────────────────────────────
@@ -360,23 +360,23 @@ describe('buildSystemMessage', () => {
     }
   })
 
-  // ── meal_context injection ──────────────────────────────────────────────
+  // ── mealContext injection ──────────────────────────────────────────────
 
-  it('includes meal_context in system message when set', () => {
-    const prefs = makePrefs({ meal_context: 'Two adults, one toddler, dad is allergic to shellfish.' })
+  it('includes mealContext in system message when set', () => {
+    const prefs = makePrefs({ mealContext: 'Two adults, one toddler, dad is allergic to shellfish.' })
     const result = buildSystemMessage(prefs, [], [], 'winter')
 
     expect(result).toContain('Household context: Two adults, one toddler, dad is allergic to shellfish.')
   })
 
-  it('does not include meal_context line when null', () => {
-    const prefs = makePrefs({ meal_context: null })
+  it('does not include mealContext line when null', () => {
+    const prefs = makePrefs({ mealContext: null })
     const result = buildSystemMessage(prefs, [], [], 'winter')
 
     expect(result).not.toContain('Household context:')
   })
 
-  it('does not include meal_context line when prefs is null', () => {
+  it('does not include mealContext line when prefs is null', () => {
     const result = buildSystemMessage(null, [], [], 'winter')
 
     expect(result).not.toContain('Household context:')

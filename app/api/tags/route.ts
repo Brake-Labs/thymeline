@@ -14,7 +14,7 @@ function toTitleCase(str: string): string {
 
 export const GET = withAuth(async (req, { user, ctx }) => {
   try {
-    // Fetch hidden_tags first — a new user has no preferences row, so use dbFirst
+    // Fetch hiddenTags first — a new user has no preferences row, so use dbFirst
     const prefsRows = await db
       .select({ hiddenTags: userPreferences.hiddenTags })
       .from(userPreferences)

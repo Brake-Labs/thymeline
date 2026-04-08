@@ -22,7 +22,7 @@ export const POST = withAuth(async (req, { user, ctx }) => {
     const inviteRows = await db
       .select({
         id: householdInvites.id,
-        household_id: householdInvites.householdId,
+        householdId: householdInvites.householdId,
         used_by: householdInvites.usedBy,
         expires_at: householdInvites.expiresAt,
       })
@@ -45,7 +45,7 @@ export const POST = withAuth(async (req, { user, ctx }) => {
     const householdRows = await db
       .select({ id: households.id, name: households.name })
       .from(households)
-      .where(eq(households.id, invite.household_id))
+      .where(eq(households.id, invite.householdId))
 
     const household = dbFirst(householdRows)
 
@@ -116,7 +116,7 @@ export const POST = withAuth(async (req, { user, ctx }) => {
       }
     }
 
-    return NextResponse.json({ household_id: household.id, household_name: household.name })
+    return NextResponse.json({ householdId: household.id, household_name: household.name })
   } catch (err) {
     console.error('[POST /api/household/join] error:', err)
     return NextResponse.json({ error: 'Failed to join household' }, { status: 500 })

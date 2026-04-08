@@ -19,17 +19,17 @@ const INITIAL_RECIPE: GeneratedRecipe = {
   tags:                  ['Quick'],
   category:              'main_dish',
   servings:              4,
-  prep_time_minutes:     10,
-  cook_time_minutes:     20,
-  total_time_minutes:    30,
-  inactive_time_minutes: null,
+  prepTimeMinutes:     10,
+  cookTimeMinutes:     20,
+  totalTimeMinutes:    30,
+  inactiveTimeMinutes: null,
   notes:                 null,
 }
 
 const GENERATION_CONTEXT = {
-  meal_type:            'dinner',
-  style_hints:          'Italian',
-  dietary_restrictions: [],
+  mealType:            'dinner',
+  styleHints:          'Italian',
+  dietaryRestrictions: [],
 }
 
 const MOCK_REFINE_RESPONSE = {
@@ -42,10 +42,10 @@ const MOCK_REFINE_RESPONSE = {
     tags:                  ['Quick'],
     category:              'main_dish',
     servings:              4,
-    prep_time_minutes:     10,
-    cook_time_minutes:     20,
-    total_time_minutes:    30,
-    inactive_time_minutes: null,
+    prepTimeMinutes:     10,
+    cookTimeMinutes:     20,
+    totalTimeMinutes:    30,
+    inactiveTimeMinutes: null,
     notes:                 null,
   },
 }

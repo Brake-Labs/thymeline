@@ -34,10 +34,10 @@ export const PATCH = withAuth(async (req: NextRequest, { user }, params) => {
 
     await db
       .update(recipeHistory)
-      .set({ makeAgain: body.make_again })
+      .set({ makeAgain: body.makeAgain })
       .where(eq(recipeHistory.id, entryId))
 
-    return NextResponse.json({ id: entryId, make_again: body.make_again })
+    return NextResponse.json({ id: entryId, makeAgain: body.makeAgain })
   } catch (err) {
     console.error('DB error:', err)
     return NextResponse.json({ error: 'Database query failed' }, { status: 500 })

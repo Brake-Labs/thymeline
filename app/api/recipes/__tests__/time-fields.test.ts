@@ -125,19 +125,19 @@ describe('POST /api/recipes — time fields', () => {
     const req = makeRequest('POST', 'http://localhost/api/recipes', {
       title: 'Braised Short Ribs',
       category: 'main_dish',
-      prep_time_minutes: 20,
-      cook_time_minutes: 180,
-      total_time_minutes: 200,
-      inactive_time_minutes: null,
+      prepTimeMinutes: 20,
+      cookTimeMinutes: 180,
+      totalTimeMinutes: 200,
+      inactiveTimeMinutes: null,
     })
     const res = await POST(req)
 
     expect(res.status).toBe(201)
     const json = await res.json()
-    expect(json.prep_time_minutes).toBe(20)
-    expect(json.cook_time_minutes).toBe(180)
-    expect(json.total_time_minutes).toBe(200)
-    expect(json.inactive_time_minutes).toBeNull()
+    expect(json.prepTimeMinutes).toBe(20)
+    expect(json.cookTimeMinutes).toBe(180)
+    expect(json.totalTimeMinutes).toBe(200)
+    expect(json.inactiveTimeMinutes).toBeNull()
   })
 
   it('saves null time fields when omitted', async () => {
@@ -159,8 +159,8 @@ describe('POST /api/recipes — time fields', () => {
 
     expect(res.status).toBe(201)
     const json = await res.json()
-    expect(json.prep_time_minutes).toBeNull()
-    expect(json.cook_time_minutes).toBeNull()
+    expect(json.prepTimeMinutes).toBeNull()
+    expect(json.cookTimeMinutes).toBeNull()
   })
 })
 
@@ -180,17 +180,17 @@ describe('PATCH /api/recipes/[id] — time fields', () => {
 
     const { PATCH } = await import('@/app/api/recipes/[id]/route')
     const req = makeRequest('PATCH', 'http://localhost/api/recipes/recipe-1', {
-      prep_time_minutes: 30,
-      cook_time_minutes: 60,
-      total_time_minutes: 90,
+      prepTimeMinutes: 30,
+      cookTimeMinutes: 60,
+      totalTimeMinutes: 90,
     })
     const res = await PATCH(req, { params: { id: 'recipe-1' } })
 
     expect(res.status).toBe(200)
     const json = await res.json()
-    expect(json.prep_time_minutes).toBe(30)
-    expect(json.cook_time_minutes).toBe(60)
-    expect(json.total_time_minutes).toBe(90)
+    expect(json.prepTimeMinutes).toBe(30)
+    expect(json.cookTimeMinutes).toBe(60)
+    expect(json.totalTimeMinutes).toBe(90)
   })
 })
 

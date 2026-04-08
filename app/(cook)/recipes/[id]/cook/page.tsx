@@ -15,7 +15,7 @@ import { type Recipe } from '@/types'
 import MakeAgainPrompt from '@/components/recipes/MakeAgainPrompt'
 import AddRecipeModal from '@/components/recipes/AddRecipeModal'
 
-type RecipeWithHistory = Recipe & { last_made: string | null; times_made: number }
+type RecipeWithHistory = Recipe & { lastMade: string | null; timesMade: number }
 
 interface Props {
   params: { id: string }
@@ -201,10 +201,10 @@ export default function CookModePage({ params }: Props) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ made_on: today }),
+        body: JSON.stringify({ madeOn: today }),
       })
       if (res.ok) {
-        const data: { made_on: string; already_logged: boolean; entry_id: string | null } = await res.json()
+        const data: { madeOn: string; already_logged: boolean; entry_id: string | null } = await res.json()
         setLogStatus(data.already_logged ? 'already_logged' : 'success')
         if (!data.already_logged && data.entry_id) setMakeAgainEntryId(data.entry_id)
         setTimeout(() => setLogStatus('idle'), TOAST_DURATION_LONG_MS)
@@ -319,7 +319,7 @@ export default function CookModePage({ params }: Props) {
       {activeTab === 'steps' ? (
         <StepView
           steps={steps}
-          stepPhotos={recipe.step_photos ?? []}
+          stepPhotos={recipe.stepPhotos ?? []}
           currentStep={currentStep}
           onCurrentStepChange={setCurrentStep}
           view={view}
@@ -452,9 +452,9 @@ export default function CookModePage({ params }: Props) {
             steps:       storedModified.steps,
             notes:       storedModified.notes ?? undefined,
             servings:    storedModified.servings !== null ? String(storedModified.servings) : '',
-            prep_time_minutes:  String(storedModified.prep_time_minutes ?? recipe.prep_time_minutes ?? ''),
-            cook_time_minutes:  String(storedModified.cook_time_minutes ?? recipe.cook_time_minutes ?? ''),
-            total_time_minutes: String(storedModified.total_time_minutes ?? recipe.total_time_minutes ?? ''),
+            prepTimeMinutes:  String(storedModified.prepTimeMinutes ?? recipe.prepTimeMinutes ?? ''),
+            cookTimeMinutes:  String(storedModified.cookTimeMinutes ?? recipe.cookTimeMinutes ?? ''),
+            totalTimeMinutes: String(storedModified.totalTimeMinutes ?? recipe.totalTimeMinutes ?? ''),
           }}
         />
       )}

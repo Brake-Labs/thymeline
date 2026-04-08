@@ -37,7 +37,7 @@ interface ScopeColumns {
 
 /**
  * Returns a Drizzle SQL condition for scoping queries.
- * Household members → filter by household_id; solo users → filter by user_id.
+ * Household members → filter by householdId; solo users → filter by userId.
  */
 export function scopeCondition(
   columns: ScopeColumns,

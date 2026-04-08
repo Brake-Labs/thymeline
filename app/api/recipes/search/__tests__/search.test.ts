@@ -129,8 +129,8 @@ describe('POST /api/recipes/search', () => {
     expect(res.status).toBe(200)
     const json = await res.json()
     expect(json.results).toHaveLength(2)
-    expect(json.results[0].recipe_id).toBe('recipe-1')
-    expect(json.results[1].recipe_id).toBe('recipe-3')
+    expect(json.results[0].recipeId).toBe('recipe-1')
+    expect(json.results[1].recipeId).toBe('recipe-3')
   })
 
   it('security: silently drops IDs not in the user recipe list', async () => {
@@ -140,7 +140,7 @@ describe('POST /api/recipes/search', () => {
     const req = makeRequest('POST', 'http://localhost/api/recipes/search', { query: 'anything' })
     const res = await POST(req)
     const json = await res.json()
-    const ids = json.results.map((r: { recipe_id: string }) => r.recipe_id)
+    const ids = json.results.map((r: { recipeId: string }) => r.recipeId)
     expect(ids).not.toContain('evil-injected-uuid')
     expect(ids).toContain('recipe-1')
   })
@@ -164,7 +164,7 @@ describe('POST /api/recipes/search', () => {
     const json = await res.json()
     // Only recipe-2 (15 min) passes the 30-min filter
     expect(json.results).toHaveLength(1)
-    expect(json.results[0].recipe_id).toBe('recipe-2')
+    expect(json.results[0].recipeId).toBe('recipe-2')
   })
 
   it('returns empty results for empty query', async () => {
@@ -185,8 +185,8 @@ describe('POST /api/recipes/search', () => {
     expect(res.status).toBe(200)
     const json = await res.json()
     expect(json.results).toHaveLength(2)
-    expect(json.results[0].recipe_id).toBe('recipe-1')
-    expect(json.results[1].recipe_id).toBe('recipe-3')
+    expect(json.results[0].recipeId).toBe('recipe-1')
+    expect(json.results[1].recipeId).toBe('recipe-3')
   })
 
   it('regression: parses LLM response with prose before the fence', async () => {
@@ -198,6 +198,6 @@ describe('POST /api/recipes/search', () => {
     expect(res.status).toBe(200)
     const json = await res.json()
     expect(json.results).toHaveLength(1)
-    expect(json.results[0].recipe_id).toBe('recipe-2')
+    expect(json.results[0].recipeId).toBe('recipe-2')
   })
 })

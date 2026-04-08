@@ -36,9 +36,9 @@ export const GET = withAuth(async (req, { user, ctx }) => {
       .where(and(...conditions))
       .orderBy(desc(recipes.createdAt))
 
-    // Attach last_made and times_made for each recipe
+    // Attach lastMade and timesMade for each recipe
     const recipeIds = recipeRows.map((r) => r.id)
-    const historyMap: Record<string, { last_made: string | null; times_made: number }> = {}
+    const historyMap: Record<string, { lastMade: string | null; timesMade: number }> = {}
 
     if (recipeIds.length > 0) {
       const history = await db
@@ -49,11 +49,11 @@ export const GET = withAuth(async (req, { user, ctx }) => {
       for (const row of history) {
         const existing = historyMap[row.recipeId]
         if (!existing) {
-          historyMap[row.recipeId] = { last_made: row.madeOn, times_made: 1 }
+          historyMap[row.recipeId] = { lastMade: row.madeOn, timesMade: 1 }
         } else {
-          existing.times_made += 1
-          if (row.madeOn > (existing.last_made ?? '')) {
-            existing.last_made = row.madeOn
+          existing.timesMade += 1
+          if (row.madeOn > (existing.lastMade ?? '')) {
+            existing.lastMade = row.madeOn
           }
         }
       }
@@ -61,8 +61,8 @@ export const GET = withAuth(async (req, { user, ctx }) => {
 
     const result = recipeRows.map((r) => recipeListItemToJson({
       ...r,
-      last_made: historyMap[r.id]?.last_made ?? null,
-      times_made: historyMap[r.id]?.times_made ?? 0,
+      lastMade: historyMap[r.id]?.lastMade ?? null,
+      timesMade: historyMap[r.id]?.timesMade ?? 0,
     }))
 
     return NextResponse.json(result)
@@ -92,13 +92,13 @@ export const POST = withAuth(async (req, { user, ctx }) => {
     steps: body.steps,
     notes: body.notes,
     url: body.url,
-    imageUrl: body.image_url,
+    imageUrl: body.imageUrl,
     isShared: false,
     source: body.source,
-    prepTimeMinutes: body.prep_time_minutes,
-    cookTimeMinutes: body.cook_time_minutes,
-    totalTimeMinutes: body.total_time_minutes,
-    inactiveTimeMinutes: body.inactive_time_minutes,
+    prepTimeMinutes: body.prepTimeMinutes,
+    cookTimeMinutes: body.cookTimeMinutes,
+    totalTimeMinutes: body.totalTimeMinutes,
+    inactiveTimeMinutes: body.inactiveTimeMinutes,
     servings: body.servings,
   }
 

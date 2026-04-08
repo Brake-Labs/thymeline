@@ -9,7 +9,7 @@ type ImportFileResult = {
   status:     'ready' | 'partial' | 'failed'
   recipe?:    ParsedRecipe
   error?:     string
-  duplicate?: { recipe_id: string; recipe_title: string }
+  duplicate?: { recipeId: string; recipeTitle: string }
 }
 
 function recipeToStatus(r: ParsedRecipe): 'ready' | 'partial' {
@@ -23,7 +23,7 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
 
   let parsedRecipes: ParsedRecipe[]
   try {
-    parsedRecipes = parseCsv(body.file_content, body.mapping)
+    parsedRecipes = parseCsv(body.fileContent, body.mapping)
   } catch (err) {
     console.error('[POST /api/import/confirm-notion-mapping] Parse failed:', err)
     return NextResponse.json({ error: 'Parse failed' }, { status: 500 })

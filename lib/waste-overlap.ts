@@ -5,7 +5,7 @@ import type { callLLM } from '@/lib/llm'
 import type { WasteMatch } from '@/types'
 
 export interface RecipeForOverlap {
-  recipe_id:   string
+  recipeId:   string
   title:       string
   ingredients: string
 }
@@ -17,7 +17,7 @@ function buildOverlapPrompt(
   nextWeek: RecipeForOverlap[],
 ): string {
   const formatRecipe = (r: RecipeForOverlap) =>
-    `${r.recipe_id}: ${r.title}\nIngredients: ${r.ingredients}`
+    `${r.recipeId}: ${r.title}\nIngredients: ${r.ingredients}`
 
   const thisSection = thisWeek.length
     ? `RECIPES THIS WEEK:\n${thisWeek.map(formatRecipe).join('\n\n')}`
@@ -34,8 +34,8 @@ Return ONLY valid JSON, no markdown:
 [
   {
     "ingredient": "ingredient name",
-    "recipe_ids": ["id1", "id2"],
-    "waste_risk": "high" | "medium"
+    "recipeIds": ["id1", "id2"],
+    "wasteRisk": "high" | "medium"
   }
 ]
 
@@ -44,8 +44,8 @@ Return [] if no meaningful overlap exists.`
 
 type RawOverlapEntry = {
   ingredient: string
-  recipe_ids: string[]
-  waste_risk: 'high' | 'medium'
+  recipeIds: string[]
+  wasteRisk: 'high' | 'medium'
 }
 
 export async function detectWasteOverlap(
@@ -67,20 +67,20 @@ export async function detectWasteOverlap(
   const entries = parseLLMJsonSafe<RawOverlapEntry[]>(raw)
   if (!entries || !Array.isArray(entries)) return new Map()
 
-  const nextWeekIds = new Set(nextWeekRecipes.map((r) => r.recipe_id))
+  const nextWeekIds = new Set(nextWeekRecipes.map((r) => r.recipeId))
   const result = new Map<string, WasteMatch[]>()
 
   for (const entry of entries) {
-    const { ingredient, recipe_ids, waste_risk } = entry
-    if (!ingredient || !Array.isArray(recipe_ids) || recipe_ids.length < 2) continue
+    const { ingredient, recipeIds, wasteRisk } = entry
+    if (!ingredient || !Array.isArray(recipeIds) || recipeIds.length < 2) continue
 
-    for (const id of recipe_ids) {
-      const others = recipe_ids.filter((r) => r !== id)
+    for (const id of recipeIds) {
+      const others = recipeIds.filter((r) => r !== id)
       const match: WasteMatch = {
         ingredient,
-        waste_risk,
-        shared_with:   others,
-        has_next_week: others.some((r) => nextWeekIds.has(r)),
+        wasteRisk,
+        sharedWith:   others,
+        hasNextWeek: others.some((r) => nextWeekIds.has(r)),
       }
       const existing = result.get(id) ?? []
       result.set(id, [...existing, match])
@@ -98,7 +98,7 @@ export function getPrimaryWasteBadgeText(matches: WasteMatch[]): string {
   }
 
   const match = matches[0]!
-  if (match.has_next_week) {
+  if (match.hasNextWeek) {
     return "Pairs with next week's plan"
   }
   return `Uses up your ${match.ingredient}`

@@ -29,24 +29,24 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
   const { data: body, error: parseError } = await parseBody(req, suggestSchema)
   if (parseError) return parseError
 
-  const { week_start, active_dates, prefer_this_week, avoid_this_week, free_text } = body
-  const active_meal_types: MealType[] = body.active_meal_types?.length ? body.active_meal_types : ['dinner']
+  const { weekStart, activeDates, preferThisWeek, avoidThisWeek, freeText } = body
+  const activeMealTypes: MealType[] = body.activeMealTypes?.length ? body.activeMealTypes : ['dinner']
 
   const [prefs, tasteProfile] = await Promise.all([
     fetchUserPreferences(user.id, ctx),
     deriveTasteProfile(user.id, null, ctx ?? null),
   ])
-  const cooldownDays = prefs?.cooldown_days ?? 28
-  const recipesByMealType = await fetchRecipesByMealTypes(user.id, cooldownDays, active_meal_types, ctx)
+  const cooldownDays = prefs?.cooldownDays ?? 28
+  const recipesByMealType = await fetchRecipesByMealTypes(user.id, cooldownDays, activeMealTypes, ctx)
   const recentHistory = await fetchRecentHistory(user.id)
 
   // Exclude recipes already planned within the cooldown window (past or future).
-  // Using the planning week_start as the anchor: any recipe whose planned_date
-  // falls within cooldownDays before week_start up to the end of that week is
+  // Using the planning weekStart as the anchor: any recipe whose plannedDate
+  // falls within cooldownDays before weekStart up to the end of that week is
   // treated as "recently planned" and excluded — matching the same logic that
   // recipe_history uses for "recently made".
   const alreadyPlannedIds = new Set<string>()
-  const cooldownCutoff = addDays(week_start, -cooldownDays)
+  const cooldownCutoff = addDays(weekStart, -cooldownDays)
 
   const allPlanRows = await db
     .select({ id: mealPlans.id, weekStart: mealPlans.weekStart })
@@ -78,8 +78,8 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
   }
 
   // Filter out disliked recipes; build loved set for prompt annotations
-  const dislikedSet = new Set(tasteProfile.disliked_recipe_ids)
-  const lovedSet = new Set(tasteProfile.loved_recipe_ids)
+  const dislikedSet = new Set(tasteProfile.dislikedRecipeIds)
+  const lovedSet = new Set(tasteProfile.lovedRecipeIds)
   if (dislikedSet.size > 0) {
     for (const mt of Object.keys(recipesByMealType) as MealType[]) {
       recipesByMealType[mt] = recipesByMealType[mt].filter((r) => !dislikedSet.has(r.id))
@@ -87,7 +87,7 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
   }
 
   const totalRecipes = Object.values(recipesByMealType).reduce((n, r) => n + r.length, 0)
-  console.warn(`[suggest] user=${user.id} total_recipes_after_cooldown=${totalRecipes} cooldown_days=${cooldownDays}`)
+  console.warn(`[suggest] user=${user.id} total_recipes_after_cooldown=${totalRecipes} cooldownDays=${cooldownDays}`)
   if (totalRecipes === 0) {
     console.warn(`[suggest] 0 recipes available — cooldown may be excluding all recipes`)
   }
@@ -95,14 +95,14 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
   const today = new Date()
   const season = getSeason(today.getMonth())
 
-  const systemMessage = buildSystemMessage(prefs, prefer_this_week ?? [], avoid_this_week ?? [], season, tasteProfile)
+  const systemMessage = buildSystemMessage(prefs, preferThisWeek ?? [], avoidThisWeek ?? [], season, tasteProfile)
   const pantryContext = await fetchPantryContext(user.id, ctx)
   const userMessage = buildFullWeekUserMessage(
-    active_dates,
+    activeDates,
     recipesByMealType,
     recentHistory,
-    free_text ?? '',
-    active_meal_types,
+    freeText ?? '',
+    activeMealTypes,
     pantryContext,
     lovedSet,
   )
@@ -125,8 +125,8 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
     // ── Step 1: Fetch next week's saved plan ──────────────────────────────────
     let nextWeekRecipes: RecipeForOverlap[] = []
 
-    if (body.include_next_week_plan) {
-      const nextWeekDate = new Date(week_start)
+    if (body.includeNextWeekPlan) {
+      const nextWeekDate = new Date(weekStart)
       nextWeekDate.setDate(nextWeekDate.getDate() + 7)
       const nextWeekStart = nextWeekDate.toISOString().slice(0, 10)
 
@@ -154,7 +154,7 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
 
         nextWeekRecipes = entryRows
           .map((e) => ({
-            recipe_id:   e.recipeId,
+            recipeId:   e.recipeId,
             title:       e.recipeTitle ?? '',
             ingredients: e.recipeIngredients ?? '',
           }))
@@ -165,9 +165,9 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
     // ── Step 2: Fetch ingredients for this week's suggestions ─────────────────
     const suggestedIds = new Set<string>()
     for (const day of validated) {
-      for (const mts of day.meal_types) {
+      for (const mts of day.mealTypes) {
         for (const opt of mts.options) {
-          suggestedIds.add(opt.recipe_id)
+          suggestedIds.add(opt.recipeId)
         }
       }
     }
@@ -182,7 +182,7 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
     const thisWeekRecipes: RecipeForOverlap[] = thisWeekData
       .filter((r) => r.ingredients)
       .map((r) => ({
-        recipe_id:   r.id,
+        recipeId:   r.id,
         title:       r.title,
         ingredients: r.ingredients!,
       }))
@@ -204,18 +204,18 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
     // ── Step 4: Re-rank and attach badge text ─────────────────────────────────
     if (wasteMap) {
       for (const day of validated) {
-        for (const mts of day.meal_types) {
+        for (const mts of day.mealTypes) {
           for (const opt of mts.options) {
-            const matches = wasteMap.get(opt.recipe_id)
+            const matches = wasteMap.get(opt.recipeId)
             if (matches?.length) {
-              opt.waste_matches    = matches
-              opt.waste_badge_text = getPrimaryWasteBadgeText(matches)
+              opt.wasteMatches    = matches
+              opt.wasteBadgeText = getPrimaryWasteBadgeText(matches)
             }
           }
 
           mts.options.sort((a, b) => {
-            const scoreA = a.waste_matches?.length ?? 0
-            const scoreB = b.waste_matches?.length ?? 0
+            const scoreA = a.wasteMatches?.length ?? 0
+            const scoreB = b.wasteMatches?.length ?? 0
             return scoreB - scoreA
           })
         }

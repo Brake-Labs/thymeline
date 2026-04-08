@@ -24,14 +24,14 @@ vi.mock('@/components/recipes/AddRecipeModal', () => ({
 
 // Single-step recipe — no navigation needed to reach the last-step footer
 const singleStepRecipe = {
-  id: 'recipe-1', user_id: 'user-1', title: 'Test Recipe',
-  category: 'main_dish' as const, tags: [], is_shared: false,
+  id: 'recipe-1', userId: 'user-1', title: 'Test Recipe',
+  category: 'main_dish' as const, tags: [], isShared: false,
   ingredients: '2 cups flour', steps: 'Only step',
-  notes: null, url: null, image_url: null, created_at: '2026-01-01T00:00:00Z',
-  source: 'manual' as const, servings: 4, prep_time_minutes: null,
-  cook_time_minutes: null, total_time_minutes: null, inactive_time_minutes: null,
-  step_photos: [] as { stepIndex: number; imageUrl: string }[],
-  last_made: null, times_made: 0, dates_made: [],
+  notes: null, url: null, imageUrl: null, createdAt: '2026-01-01T00:00:00Z',
+  source: 'manual' as const, servings: 4, prepTimeMinutes: null,
+  cookTimeMinutes: null, totalTimeMinutes: null, inactiveTimeMinutes: null,
+  stepPhotos: [] as { stepIndex: number; imageUrl: string }[],
+  lastMade: null, timesMade: 0, datesMade: [],
 }
 
 const storedModified = {

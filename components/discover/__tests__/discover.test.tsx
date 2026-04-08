@@ -31,23 +31,23 @@ vi.mock('next/link', () => ({
 const sampleResult: DiscoveryResult = {
   title:          'Easy Chicken Stir Fry',
   url:            'https://budgetbytes.com/recipes/chicken-stir-fry',
-  site_name:      'budgetbytes.com',
+  siteName:      'budgetbytes.com',
   description:    'A quick weeknight dinner.',
-  suggested_tags: ['Chicken', 'Quick'],
+  suggestedTags: ['Chicken', 'Quick'],
 }
 
 const resultWithExactMatch: DiscoveryResult = {
   ...sampleResult,
-  vault_match: {
-    similar_recipe_title: 'Chicken Stir Fry',
+  vaultMatch: {
+    similarRecipeTitle: 'Chicken Stir Fry',
     similarity: 'exact',
   },
 }
 
 const resultWithSimilarMatch: DiscoveryResult = {
   ...sampleResult,
-  vault_match: {
-    similar_recipe_title: 'My Stir Fry',
+  vaultMatch: {
+    similarRecipeTitle: 'My Stir Fry',
     similarity: 'similar',
   },
 }
@@ -171,7 +171,7 @@ describe('T09 — DiscoveryCard renders title, site name, description, tags', ()
   })
 })
 
-describe('T10 — "Already saved" badge when vault_match.similarity === "exact"', () => {
+describe('T10 — "Already saved" badge when vaultMatch.similarity === "exact"', () => {
   it('renders "Already saved" badge for exact match', async () => {
     const { default: DiscoveryCard } = await import('../DiscoveryCard')
     render(

@@ -326,7 +326,7 @@ describe('Spec-19 T10 - hiding a first-class tag moves it to Hidden', () => {
 describe('Spec-19 T11 - restoring a hidden tag moves it back to Built-in', () => {
   it('moves Keto from Hidden to Built-in on restore', async () => {
     mockFetch
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ hidden_tags: ['Keto'] }) }) // GET /api/preferences
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ hiddenTags: ['Keto'] }) }) // GET /api/preferences
       .mockResolvedValueOnce({ ok: true, json: async () => ({}) })                         // PATCH /api/preferences
 
     await act(async () => {

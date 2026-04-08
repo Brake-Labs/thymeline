@@ -18,7 +18,7 @@ export const GET = withAuth(async (req) => {
     const inviteRows = await db
       .select({
         id: householdInvites.id,
-        household_id: householdInvites.householdId,
+        householdId: householdInvites.householdId,
         used_by: householdInvites.usedBy,
         expires_at: householdInvites.expiresAt,
       })
@@ -42,7 +42,7 @@ export const GET = withAuth(async (req) => {
     const householdRows = await db
       .select({ name: households.name })
       .from(households)
-      .where(eq(households.id, invite.household_id))
+      .where(eq(households.id, invite.householdId))
 
     const household = dbFirst(householdRows)
 

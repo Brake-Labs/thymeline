@@ -8,17 +8,17 @@ import { getMostRecentSunday, formatWeekRange, addWeeks } from '@/lib/date-utils
 import WeekCalendarView from '@/components/plan/WeekCalendarView'
 
 interface Props {
-  params: { week_start: string }
+  params: { weekStart: string }
 }
 
 export default async function PlanWeekPage({ params }: Props) {
-  const { week_start } = params
+  const { weekStart } = params
   const user = await getSessionUser()
   if (!user) notFound()
 
   // Week navigation
-  const prevWeek     = addWeeks(week_start, -1)
-  const nextWeek     = addWeeks(week_start, 1)
+  const prevWeek     = addWeeks(weekStart, -1)
+  const nextWeek     = addWeeks(weekStart, 1)
   const maxWeek      = addWeeks(getMostRecentSunday(), 4)
   const nextDisabled = nextWeek > maxWeek
 
@@ -32,7 +32,7 @@ export default async function PlanWeekPage({ params }: Props) {
         ←
       </Link>
       <h1 className="font-display flex-1 text-xl font-bold text-stone-900 text-center">
-        {formatWeekRange(week_start)}
+        {formatWeekRange(weekStart)}
       </h1>
       {nextDisabled ? (
         <span
@@ -57,7 +57,7 @@ export default async function PlanWeekPage({ params }: Props) {
   const planRows = await db
     .select({ id: mealPlans.id, weekStart: mealPlans.weekStart })
     .from(mealPlans)
-    .where(and(eq(mealPlans.userId, user.id), eq(mealPlans.weekStart, week_start)))
+    .where(and(eq(mealPlans.userId, user.id), eq(mealPlans.weekStart, weekStart)))
     .limit(1)
   const plan = planRows[0] ?? null
 
@@ -68,7 +68,7 @@ export default async function PlanWeekPage({ params }: Props) {
         <div className="text-center space-y-4 py-8">
           <p className="text-stone-600 text-lg">No plan for this week.</p>
           <Link
-            href={`/plan?week_start=${week_start}`}
+            href={`/plan?weekStart=${weekStart}`}
             className="font-display inline-block rounded-lg bg-sage-500 px-5 py-2 text-sm font-semibold text-white hover:bg-sage-600"
           >
             Plan this week
@@ -95,9 +95,9 @@ export default async function PlanWeekPage({ params }: Props) {
 
   const enriched = entries.map((e) => ({
     id:            e.id,
-    planned_date:  e.plannedDate,
-    recipe_title:  e.recipeTitle ?? '',
-    meal_type:     e.mealType ?? 'dinner',
+    plannedDate:  e.plannedDate,
+    recipeTitle:  e.recipeTitle ?? '',
+    mealType:     e.mealType ?? 'dinner',
     confirmed:     e.confirmed,
   }))
 
@@ -105,17 +105,17 @@ export default async function PlanWeekPage({ params }: Props) {
     <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
       {weekNav}
 
-      <WeekCalendarView entries={enriched} weekStart={week_start} />
+      <WeekCalendarView entries={enriched} weekStart={weekStart} />
 
       <div className="flex flex-col sm:flex-row gap-3 pt-2">
         <Link
-          href={`/groceries?week_start=${week_start}`}
+          href={`/groceries?weekStart=${weekStart}`}
           className="font-display flex-1 text-center rounded-lg bg-sage-500 px-5 py-2 text-sm font-semibold text-white hover:bg-sage-600"
         >
           Make grocery list
         </Link>
         <Link
-          href={`/plan?week_start=${week_start}&replan=true`}
+          href={`/plan?weekStart=${weekStart}&replan=true`}
           className="font-display flex-1 text-center rounded-lg border border-stone-300 px-5 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50"
         >
           Re-plan this week

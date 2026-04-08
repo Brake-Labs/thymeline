@@ -74,8 +74,8 @@ export default function AIEditSheet({
         },
         body: JSON.stringify({
           message: trimmed,
-          current_recipe: currentRecipe,
-          conversation_history: historyForApi,
+          currentRecipe: currentRecipe,
+          conversationHistory: historyForApi,
         }),
       })
 

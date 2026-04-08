@@ -92,10 +92,10 @@ async function setupAuth() {
 }
 
 const defaultBody = {
-  specific_ingredients: 'chicken breast, spinach',
-  meal_type: 'dinner',
-  style_hints: '',
-  dietary_restrictions: [],
+  specificIngredients: 'chicken breast, spinach',
+  mealType: 'dinner',
+  styleHints: '',
+  dietaryRestrictions: [],
 }
 
 // ── T05: Returns 400 when no ingredients ──────────────────────────────────────
@@ -103,13 +103,13 @@ const defaultBody = {
 describe('T05 - POST /api/recipes/generate returns 400 when no ingredients', () => {
   beforeEach(async () => { vi.resetModules(); mockLLMState.shouldThrow = false; await setupAuth() })
 
-  it('returns 400 when specific_ingredients is blank', async () => {
+  it('returns 400 when specificIngredients is blank', async () => {
     const { POST } = await import('../route')
     const res = await POST(makeRequest('POST', 'http://localhost/api/recipes/generate', {
-      specific_ingredients: '',
-      meal_type: 'dinner',
-      style_hints: '',
-      dietary_restrictions: [],
+      specificIngredients: '',
+      mealType: 'dinner',
+      styleHints: '',
+      dietaryRestrictions: [],
     }))
 
     expect(res.status).toBe(400)
@@ -151,10 +151,10 @@ describe('T06 - POST /api/recipes/generate returns a valid GeneratedRecipe', () 
     expect(json.steps).toBe('Cook chicken\nAdd spinach')
     expect(json.category).toBe('main_dish')
     expect(json.servings).toBe(4)
-    expect(json.prep_time_minutes).toBe(10)
-    expect(json.cook_time_minutes).toBe(20)
-    expect(json.total_time_minutes).toBe(30)
-    expect(json.inactive_time_minutes).toBeNull()
+    expect(json.prepTimeMinutes).toBe(10)
+    expect(json.cookTimeMinutes).toBe(20)
+    expect(json.totalTimeMinutes).toBe(30)
+    expect(json.inactiveTimeMinutes).toBeNull()
     expect(json.notes).toBe('Great weeknight meal')
   })
 })
@@ -216,7 +216,7 @@ describe('T08 - Invalid LLM category falls back to mealTypeToCategory("dinner")'
     await setupAuth()
   })
 
-  it('returns main_dish when LLM category is invalid and meal_type is dinner', async () => {
+  it('returns main_dish when LLM category is invalid and mealType is dinner', async () => {
     const { POST } = await import('../route')
     const res = await POST(makeRequest('POST', 'http://localhost/api/recipes/generate', defaultBody))
 
@@ -251,7 +251,7 @@ describe('T09 - All mealType → category mappings are correct', () => {
       await setupAuth()
 
       const { POST } = await import('../route')
-      const res = await POST(makeRequest('POST', 'http://localhost/api/recipes/generate', { ...defaultBody, meal_type: mealType }))
+      const res = await POST(makeRequest('POST', 'http://localhost/api/recipes/generate', { ...defaultBody, mealType: mealType }))
 
       expect(res.status).toBe(200)
       const json = await res.json()
@@ -301,7 +301,7 @@ describe('T11 - POST /api/recipes/generate returns 500 when LLM returns unparsea
 
 // ── T12: Tweak request — user message references previous recipe ───────────────
 
-describe('T12 - POST /api/recipes/generate with tweak_request references previous recipe in LLM message', () => {
+describe('T12 - POST /api/recipes/generate with tweakRequest references previous recipe in LLM message', () => {
   beforeEach(async () => {
     vi.resetModules()
     vi.clearAllMocks()
@@ -322,12 +322,12 @@ describe('T12 - POST /api/recipes/generate with tweak_request references previou
     await setupAuth()
   })
 
-  it('passes tweak_request and previous_recipe in the LLM user message', async () => {
+  it('passes tweakRequest and previousRecipe in the LLM user message', async () => {
     const { POST } = await import('../route')
     await POST(makeRequest('POST', 'http://localhost/api/recipes/generate', {
       ...defaultBody,
-      tweak_request: 'remove the chickpeas',
-      previous_recipe: {
+      tweakRequest: 'remove the chickpeas',
+      previousRecipe: {
         title: 'Original Stir Fry',
         ingredients: 'chicken breast\nchickpeas\nspinach',
         steps: 'Cook chicken\nAdd chickpeas\nAdd spinach',
@@ -346,8 +346,8 @@ describe('T12 - POST /api/recipes/generate with tweak_request references previou
     const { POST } = await import('../route')
     const res = await POST(makeRequest('POST', 'http://localhost/api/recipes/generate', {
       ...defaultBody,
-      tweak_request: 'add more spice',
-      previous_recipe: {
+      tweakRequest: 'add more spice',
+      previousRecipe: {
         title: 'Original Stir Fry',
         ingredients: 'chicken breast\nspinach',
         steps: 'Cook chicken\nAdd spinach',

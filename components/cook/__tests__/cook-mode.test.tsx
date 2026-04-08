@@ -35,32 +35,32 @@ const mockWakeLockSentinel = {
 
 const sampleRecipe = {
   id: 'recipe-1',
-  user_id: 'user-1',
+  userId: 'user-1',
   title: 'Test Recipe',
   category: 'main_dish' as const,
   tags: [],
-  is_shared: false,
+  isShared: false,
   ingredients: '2 cups flour\n1/2 tsp salt\nSalt to taste',
   steps: 'Mix ingredients\nKnead dough\nBake for 30 minutes',
   notes: null,
   url: null,
-  image_url: null,
-  created_at: '2026-01-01T00:00:00Z',
+  imageUrl: null,
+  createdAt: '2026-01-01T00:00:00Z',
   source: 'manual' as const,
   servings: 4,
-  prep_time_minutes: null,
-  cook_time_minutes: null,
-  total_time_minutes: null,
-  inactive_time_minutes: null,
-  step_photos: [] as { stepIndex: number; imageUrl: string }[],
-  last_made: null,
-  times_made: 0,
-  dates_made: [],
+  prepTimeMinutes: null,
+  cookTimeMinutes: null,
+  totalTimeMinutes: null,
+  inactiveTimeMinutes: null,
+  stepPhotos: [] as { stepIndex: number; imageUrl: string }[],
+  lastMade: null,
+  timesMade: 0,
+  datesMade: [],
 }
 
 const recipeWithPhoto = {
   ...sampleRecipe,
-  step_photos: [{ stepIndex: 0, imageUrl: 'https://example.com/photo.jpg' }],
+  stepPhotos: [{ stepIndex: 0, imageUrl: 'https://example.com/photo.jpg' }],
 }
 
 // ── Test helpers ──────────────────────────────────────────────────────────────
@@ -398,7 +398,7 @@ describe('T26-T29 - Log Made Today', () => {
   it('T27 - Log button calls POST /api/recipes/[id]/log', async () => {
     global.fetch = vi.fn().mockImplementation((url: string) => {
       if ((url as string).includes('/log')) {
-        return Promise.resolve({ ok: true, json: async () => ({ made_on: '2026-03-28', already_logged: false }) })
+        return Promise.resolve({ ok: true, json: async () => ({ madeOn: '2026-03-28', already_logged: false }) })
       }
       return Promise.resolve({ ok: true, json: async () => sampleRecipe, status: 200 })
     })
@@ -423,7 +423,7 @@ describe('T26-T29 - Log Made Today', () => {
     // don't exhaust mockResolvedValueOnce before the log call fires.
     global.fetch = vi.fn().mockImplementation((url: string) => {
       if ((url as string).includes('/log')) {
-        return Promise.resolve({ ok: true, json: async () => ({ made_on: '2026-03-28', already_logged: false }) })
+        return Promise.resolve({ ok: true, json: async () => ({ madeOn: '2026-03-28', already_logged: false }) })
       }
       return Promise.resolve({ ok: true, json: async () => sampleRecipe, status: 200 })
     })
@@ -442,7 +442,7 @@ describe('T26-T29 - Log Made Today', () => {
   it('T29 - already_logged → "Already logged today"', async () => {
     global.fetch = vi.fn().mockImplementation((url: string) => {
       if ((url as string).includes('/log')) {
-        return Promise.resolve({ ok: true, json: async () => ({ made_on: '2026-03-28', already_logged: true }) })
+        return Promise.resolve({ ok: true, json: async () => ({ madeOn: '2026-03-28', already_logged: true }) })
       }
       return Promise.resolve({ ok: true, json: async () => sampleRecipe, status: 200 })
     })

@@ -19,7 +19,7 @@ export const GET = withAuth(async (req, { user, ctx }) => {
 
   // Find the current week's plan
   const planRows = await db
-    .select({ id: mealPlans.id, week_start: mealPlans.weekStart })
+    .select({ id: mealPlans.id, weekStart: mealPlans.weekStart })
     .from(mealPlans)
     .where(and(
       eq(mealPlans.weekStart, weekStart),
@@ -33,12 +33,12 @@ export const GET = withAuth(async (req, { user, ctx }) => {
   if (plan) {
     const entries = await db
       .select({
-        planned_date: mealPlanEntries.plannedDate,
-        recipe_id: mealPlanEntries.recipeId,
+        plannedDate: mealPlanEntries.plannedDate,
+        recipeId: mealPlanEntries.recipeId,
         position: mealPlanEntries.position,
         confirmed: mealPlanEntries.confirmed,
-        recipe_title: recipes.title,
-        total_time_minutes: recipes.totalTimeMinutes,
+        recipeTitle: recipes.title,
+        totalTimeMinutes: recipes.totalTimeMinutes,
       })
       .from(mealPlanEntries)
       .innerJoin(recipes, eq(mealPlanEntries.recipeId, recipes.id))
@@ -47,14 +47,14 @@ export const GET = withAuth(async (req, { user, ctx }) => {
 
     currentWeekPlan = {
       id: plan.id,
-      week_start: plan.week_start,
+      weekStart: plan.weekStart,
       entries: entries.map((e) => ({
-        planned_date:       e.planned_date,
-        recipe_id:          e.recipe_id,
-        recipe_title:       e.recipe_title ?? '',
+        plannedDate:       e.plannedDate,
+        recipeId:          e.recipeId,
+        recipeTitle:       e.recipeTitle ?? '',
         position:           e.position,
         confirmed:          e.confirmed,
-        total_time_minutes: e.total_time_minutes ?? null,
+        totalTimeMinutes: e.totalTimeMinutes ?? null,
       })),
     }
   }
@@ -63,9 +63,9 @@ export const GET = withAuth(async (req, { user, ctx }) => {
   const [historyRows, recipeCountRows, groceryRows] = await Promise.all([
     db
       .select({
-        recipe_id: recipeHistory.recipeId,
-        made_on: recipeHistory.madeOn,
-        recipe_title: recipes.title,
+        recipeId: recipeHistory.recipeId,
+        madeOn: recipeHistory.madeOn,
+        recipeTitle: recipes.title,
         tags: recipes.tags,
       })
       .from(recipeHistory)
@@ -78,7 +78,7 @@ export const GET = withAuth(async (req, { user, ctx }) => {
       .from(recipes)
       .where(scopeCondition({ userId: recipes.userId, householdId: recipes.householdId }, user.id, ctx)),
     db
-      .select({ week_start: groceryLists.weekStart })
+      .select({ weekStart: groceryLists.weekStart })
       .from(groceryLists)
       .where(scopeCondition({ userId: groceryLists.userId, householdId: groceryLists.householdId }, user.id, ctx))
       .orderBy(desc(groceryLists.weekStart))
@@ -86,15 +86,15 @@ export const GET = withAuth(async (req, { user, ctx }) => {
   ])
 
   const recentlyMade = historyRows.map((h) => ({
-    recipe_id:    h.recipe_id,
-    recipe_title: h.recipe_title ?? '',
-    made_on:      h.made_on,
+    recipeId:    h.recipeId,
+    recipeTitle: h.recipeTitle ?? '',
+    madeOn:      h.madeOn,
     tags:         h.tags ?? [],
   }))
 
   const userName = user.name ?? user.email ?? null
   const recipeCount = recipeCountRows[0]?.count ?? 0
-  const groceryListWeekStart = groceryRows[0]?.week_start ?? null
+  const groceryListWeekStart = groceryRows[0]?.weekStart ?? null
 
   const result: HomeData = {
     userName,

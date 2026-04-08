@@ -1,7 +1,6 @@
 /**
  * Regression tests for GET /api/groceries and PATCH /api/groceries
- * Verifies that responses use snake_case field names (GroceryList shape)
- * after the Supabase → Drizzle ORM migration (which returns camelCase).
+ * Verifies that responses use camelCase field names matching GroceryList type.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -31,8 +30,8 @@ const mockDrizzleRow = {
   dateFrom:     '2026-04-07',
   dateTo:       '2026-04-13',
   servings:     4,
-  recipeScales: [{ recipe_id: 'r1', recipe_title: 'Pasta', servings: 4 }],
-  items:        [{ id: 'i1', name: 'Pasta', amount: 200, unit: 'g', section: 'Pantry', is_pantry: false, checked: false, recipes: ['Pasta'] }],
+  recipeScales: [{ recipeId: 'r1', recipeTitle: 'Pasta', servings: 4 }],
+  items:        [{ id: 'i1', name: 'Pasta', amount: 200, unit: 'g', section: 'Pantry', isPantry: false, checked: false, recipes: ['Pasta'] }],
   createdAt:    new Date('2026-04-07T00:00:00Z'),
   updatedAt:    new Date('2026-04-07T00:00:00Z'),
 }
@@ -81,18 +80,18 @@ vi.mock('@/lib/household', () => ({
 vi.mock('@/lib/schemas', () => ({
   updateGroceryListSchema: {},
   parseBody: vi.fn().mockResolvedValue({
-    data: { week_start: '2026-04-07', items: [] },
+    data: { weekStart: '2026-04-07', items: [] },
     error: null,
   }),
 }))
 
 function makeGetReq(dateFrom?: string): NextRequest {
   const url = new URL('http://localhost/api/groceries')
-  if (dateFrom) url.searchParams.set('date_from', dateFrom)
+  if (dateFrom) url.searchParams.set('dateFrom', dateFrom)
   return new NextRequest(url.toString())
 }
 
-describe('GET /api/groceries — snake_case response shape', () => {
+describe('GET /api/groceries — camelCase response shape', () => {
   beforeEach(async () => {
     vi.resetModules()
     const { auth } = await import('@/lib/auth-server')
@@ -102,7 +101,7 @@ describe('GET /api/groceries — snake_case response shape', () => {
     } as any)
   })
 
-  it('returns 400 when date_from is missing', async () => {
+  it('returns 400 when dateFrom is missing', async () => {
     const { GET } = await import('@/app/api/groceries/route')
     const res = await GET(makeGetReq() as Parameters<typeof GET>[0])
     expect(res.status).toBe(400)
@@ -120,7 +119,7 @@ describe('GET /api/groceries — snake_case response shape', () => {
     expect(json.list).toBeNull()
   })
 
-  it('returns snake_case fields (not camelCase) from Drizzle row', async () => {
+  it('returns camelCase fields matching Drizzle output directly', async () => {
     const { db } = await import('@/lib/db')
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(db.select).mockReturnValue(mockChain([mockDrizzleRow]) as any)
@@ -131,18 +130,21 @@ describe('GET /api/groceries — snake_case response shape', () => {
     const json = await res.json()
     const list = json.list
 
-    // Must use snake_case keys
-    expect(list.week_start).toBe('2026-04-07')
-    expect(list.meal_plan_id).toBe('plan-1')
-    expect(list.user_id).toBe('user-1')
-    expect(list.recipe_scales).toBeDefined()
-    expect(list.created_at).toBeDefined()
-    expect(list.updated_at).toBeDefined()
+    // camelCase keys from Drizzle pass through directly
+    expect(list.weekStart).toBe('2026-04-07')
+    expect(list.mealPlanId).toBe('plan-1')
+    expect(list.userId).toBe('user-1')
+    expect(list.recipeScales).toBeDefined()
+    expect(list.createdAt).toBeDefined()
+    expect(list.updatedAt).toBeDefined()
+    expect(list.dateFrom).toBe('2026-04-07')
+    expect(list.dateTo).toBe('2026-04-13')
+    expect(list.servings).toBe(4)
 
-    // Must NOT expose raw camelCase keys
-    expect(list.weekStart).toBeUndefined()
-    expect(list.mealPlanId).toBeUndefined()
-    expect(list.userId).toBeUndefined()
-    expect(list.recipeScales).toBeUndefined()
+    // No snake_case keys
+    expect(list.week_start).toBeUndefined()
+    expect(list.meal_plan_id).toBeUndefined()
+    expect(list.user_id).toBeUndefined()
+    expect(list.recipe_scales).toBeUndefined()
   })
 })

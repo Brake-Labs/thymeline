@@ -36,7 +36,7 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
   const { data: body, error: parseError } = await parseBody(req, generateRecipeSchema)
   if (parseError) return parseError
 
-  const { specific_ingredients, meal_type, style_hints, dietary_restrictions, tweak_request, previous_recipe } = body
+  const { specificIngredients, mealType, styleHints, dietaryRestrictions, tweakRequest, previousRecipe } = body
 
   // Fetch taste profile + current plan in parallel
   const [tasteProfile, currentPlanRecipes] = await Promise.all([
@@ -44,8 +44,8 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
     fetchCurrentWeekPlan(user.id, null, ctx ?? null).catch(() => [] as RecipeForOverlap[]),
   ])
 
-  // Parse specific_ingredients
-  const combined = (specific_ingredients ?? '')
+  // Parse specificIngredients
+  const combined = (specificIngredients ?? '')
     .split(/[,\n]/)
     .map((s: string) => s.trim())
     .filter(Boolean)
@@ -57,10 +57,10 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
   const combinedIngredientList = combined.map((l: string) => `- ${l}`).join('\n')
 
   const tasteLines: string[] = []
-  if (tasteProfile?.meal_context) tasteLines.push(`Household context: ${tasteProfile.meal_context}`)
-  if (tasteProfile?.top_tags?.length) tasteLines.push(`Favourite styles: ${tasteProfile.top_tags.slice(0, 5).join(', ')}`)
-  if (tasteProfile?.avoided_tags?.length) tasteLines.push(`Avoid: ${tasteProfile.avoided_tags.join(', ')}`)
-  if (tasteProfile?.cooking_frequency) tasteLines.push(`Cooking frequency: ${tasteProfile.cooking_frequency}`)
+  if (tasteProfile?.mealContext) tasteLines.push(`Household context: ${tasteProfile.mealContext}`)
+  if (tasteProfile?.topTags?.length) tasteLines.push(`Favourite styles: ${tasteProfile.topTags.slice(0, 5).join(', ')}`)
+  if (tasteProfile?.avoidedTags?.length) tasteLines.push(`Avoid: ${tasteProfile.avoidedTags.join(', ')}`)
+  if (tasteProfile?.cookingFrequency) tasteLines.push(`Cooking frequency: ${tasteProfile.cookingFrequency}`)
   const tasteSection = tasteLines.length > 0 ? `\n\n${tasteLines.join('\n')}` : ''
 
   const systemMessage = `You are a creative recipe developer. Generate a complete, practical recipe based on the ingredients and preferences provided. The recipe should be realistic, delicious, and something a home cook can make.${tasteSection}
@@ -88,18 +88,18 @@ Return ONLY valid JSON with no prose or markdown:
   "notes": "Optional note about the recipe"
 }`
 
-  const userMessage = tweak_request && previous_recipe
+  const userMessage = tweakRequest && previousRecipe
     ? `You previously generated this recipe:
 
-Title: ${previous_recipe.title}
+Title: ${previousRecipe.title}
 
 Ingredients:
-${previous_recipe.ingredients}
+${previousRecipe.ingredients}
 
 Steps:
-${previous_recipe.steps}
+${previousRecipe.steps}
 
-The user wants this adjustment: "${tweak_request}"
+The user wants this adjustment: "${tweakRequest}"
 
 Generate a revised version of the recipe that incorporates this adjustment. Keep everything else the same unless the change requires it.
 
@@ -107,17 +107,17 @@ Original context:
 Ingredients to use:
 ${combinedIngredientList}
 
-Style / cuisine hints: ${style_hints || 'none'}
+Style / cuisine hints: ${styleHints || 'none'}
 
-Dietary restrictions: ${dietary_restrictions.length > 0 ? dietary_restrictions.join(', ') : 'none'}`
-    : `Generate a ${meal_type} recipe.
+Dietary restrictions: ${dietaryRestrictions.length > 0 ? dietaryRestrictions.join(', ') : 'none'}`
+    : `Generate a ${mealType} recipe.
 
 Ingredients to use:
 ${combinedIngredientList}
 
-Style / cuisine hints: ${style_hints || 'none'}
+Style / cuisine hints: ${styleHints || 'none'}
 
-Dietary restrictions: ${dietary_restrictions.length > 0 ? dietary_restrictions.join(', ') : 'none'}
+Dietary restrictions: ${dietaryRestrictions.length > 0 ? dietaryRestrictions.join(', ') : 'none'}
 
 Make it practical and delicious.`
 
@@ -165,7 +165,7 @@ Make it practical and delicious.`
   const llmCategory = typeof parsed.category === 'string' ? parsed.category : ''
   const category: RecipeCategory = (RECIPE_CATEGORIES as readonly string[]).includes(llmCategory)
     ? (llmCategory as RecipeCategory)
-    : mealTypeToCategory(meal_type)
+    : mealTypeToCategory(mealType)
 
   const result: GeneratedRecipe = {
     title,
@@ -178,10 +178,10 @@ Make it practical and delicious.`
     tags,
     category,
     servings: parsePositiveInt(parsed.servings),
-    prep_time_minutes: parseNonNegativeInt(parsed.prepTimeMinutes),
-    cook_time_minutes: parseNonNegativeInt(parsed.cookTimeMinutes),
-    total_time_minutes: parseNonNegativeInt(parsed.totalTimeMinutes),
-    inactive_time_minutes: parseNonNegativeInt(parsed.inactiveTimeMinutes),
+    prepTimeMinutes: parseNonNegativeInt(parsed.prepTimeMinutes),
+    cookTimeMinutes: parseNonNegativeInt(parsed.cookTimeMinutes),
+    totalTimeMinutes: parseNonNegativeInt(parsed.totalTimeMinutes),
+    inactiveTimeMinutes: parseNonNegativeInt(parsed.inactiveTimeMinutes),
     notes: typeof parsed.notes === 'string' ? parsed.notes : null,
   }
 
@@ -189,7 +189,7 @@ Make it practical and delicious.`
   if (currentPlanRecipes.length > 0 && result.ingredients) {
     try {
       const candidateRecipes: RecipeForOverlap[] = [{
-        recipe_id: '__generated__',
+        recipeId: '__generated__',
         title: result.title,
         ingredients: result.ingredients,
       }]
@@ -201,8 +201,8 @@ Make it practical and delicious.`
       ])
       const matches = wasteMap.get('__generated__')
       if (matches && matches.length > 0) {
-        result.waste_matches = matches.map((m) => ({ ingredient: m.ingredient, waste_risk: m.waste_risk }))
-        result.waste_badge_text = getPlanWasteBadgeText(matches)
+        result.wasteMatches = matches.map((m) => ({ ingredient: m.ingredient, wasteRisk: m.wasteRisk }))
+        result.wasteBadgeText = getPlanWasteBadgeText(matches)
       }
     } catch (err) {
       console.warn('[generate] waste detection skipped:', err)

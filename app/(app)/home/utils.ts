@@ -1,29 +1,29 @@
 export { getMostRecentSunday, getMostRecentWeekStart, dayNameToNumber, getTodayISO } from '@/lib/date-utils'
 
 export type DayEntry = {
-  recipe_id: string
-  recipe_title: string
-  total_time_minutes: number | null
+  recipeId: string
+  recipeTitle: string
+  totalTimeMinutes: number | null
 }
 
 /**
- * Group plan entries by planned_date, deduplicating by recipe_id within each day.
- * Only entries whose planned_date is in `weekDays` will appear in the grid.
+ * Group plan entries by plannedDate, deduplicating by recipeId within each day.
+ * Only entries whose plannedDate is in `weekDays` will appear in the grid.
  */
 export function buildEntriesByDay(
-  entries: { planned_date: string; recipe_id: string; recipe_title: string; total_time_minutes: number | null }[],
+  entries: { plannedDate: string; recipeId: string; recipeTitle: string; totalTimeMinutes: number | null }[],
 ): Map<string, DayEntry[]> {
   const map = new Map<string, DayEntry[]>()
   for (const entry of entries) {
-    const list = map.get(entry.planned_date) ?? []
-    if (!list.find((e) => e.recipe_id === entry.recipe_id)) {
+    const list = map.get(entry.plannedDate) ?? []
+    if (!list.find((e) => e.recipeId === entry.recipeId)) {
       list.push({
-        recipe_id:          entry.recipe_id,
-        recipe_title:       entry.recipe_title,
-        total_time_minutes: entry.total_time_minutes,
+        recipeId:          entry.recipeId,
+        recipeTitle:       entry.recipeTitle,
+        totalTimeMinutes: entry.totalTimeMinutes,
       })
     }
-    map.set(entry.planned_date, list)
+    map.set(entry.plannedDate, list)
   }
   return map
 }

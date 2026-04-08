@@ -204,9 +204,9 @@ describe('duplicate detection in file import', () => {
     const res = await POST(req as never, undefined as never)
     expect(res.status).toBe(200)
 
-    const data = await res.json() as { results: { duplicate?: { recipe_id: string } }[] }
+    const data = await res.json() as { results: { duplicate?: { recipeId: string } }[] }
     expect(data.results[0]!.duplicate).toBeDefined()
-    expect(data.results[0]!.duplicate?.recipe_id).toBe('existing-1')
+    expect(data.results[0]!.duplicate?.recipeId).toBe('existing-1')
   })
 })
 
@@ -220,11 +220,11 @@ describe('POST /api/import/save', () => {
     steps:                 'Mix and bake',
     notes:                 null,
     url:                   null,
-    image_url:             null,
-    prep_time_minutes:     null,
-    cook_time_minutes:     null,
-    total_time_minutes:    null,
-    inactive_time_minutes: null,
+    imageUrl:             null,
+    prepTimeMinutes:     null,
+    cookTimeMinutes:     null,
+    totalTimeMinutes:    null,
+    inactiveTimeMinutes: null,
     servings:              null,
     tags:                  ['Quick'],
     source:                'manual' as const,
@@ -239,7 +239,7 @@ describe('POST /api/import/save', () => {
       body:    JSON.stringify({
         recipes: [
           { data: sampleRecipe },
-          { data: { ...sampleRecipe, title: 'Skipped Recipe' }, duplicate_action: 'skip', existing_id: undefined },
+          { data: { ...sampleRecipe, title: 'Skipped Recipe' }, duplicateAction: 'skip', existingId: undefined },
         ],
       }),
     })
@@ -254,14 +254,14 @@ describe('POST /api/import/save', () => {
     expect(data.failed).toHaveLength(0)
   })
 
-  it('T22: skip duplicate_action excludes from save', async () => {
+  it('T22: skip duplicateAction excludes from save', async () => {
 
     const { POST } = await import('../save/route')
     const req = new Request('http://localhost/api/import/save', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({
-        recipes: [{ data: sampleRecipe, duplicate_action: 'skip' }],
+        recipes: [{ data: sampleRecipe, duplicateAction: 'skip' }],
       }),
     })
 
@@ -283,8 +283,8 @@ describe('POST /api/import/save', () => {
       body:    JSON.stringify({
         recipes: [{
           data:             sampleRecipe,
-          duplicate_action: 'replace',
-          existing_id:      '550e8400-e29b-41d4-a716-446655440000',
+          duplicateAction: 'replace',
+          existingId:      '550e8400-e29b-41d4-a716-446655440000',
         }],
       }),
     })
@@ -305,7 +305,7 @@ describe('POST /api/import/save', () => {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({
-        recipes: [{ data: sampleRecipe, duplicate_action: 'keep_both' }],
+        recipes: [{ data: sampleRecipe, duplicateAction: 'keep_both' }],
       }),
     })
 

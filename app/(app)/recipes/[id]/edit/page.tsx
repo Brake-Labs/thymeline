@@ -34,7 +34,7 @@ export default function EditRecipePage({ params }: Props) {
         const data: Recipe = await r.json()
         if (data) {
           setRecipe(data)
-          setDatesMade(data.dates_made ?? [])
+          setDatesMade(data.datesMade ?? [])
         }
         setFetchError(null)
         setLoading(false)
@@ -64,11 +64,11 @@ export default function EditRecipePage({ params }: Props) {
           steps: values.steps || null,
           notes: values.notes || null,
           url: values.url || null,
-          image_url: values.image_url || null,
-          prep_time_minutes: values.prep_time_minutes !== '' ? Number(values.prep_time_minutes) : null,
-          cook_time_minutes: values.cook_time_minutes !== '' ? Number(values.cook_time_minutes) : null,
-          total_time_minutes: values.total_time_minutes !== '' ? Number(values.total_time_minutes) : null,
-          inactive_time_minutes: values.inactive_time_minutes !== '' ? Number(values.inactive_time_minutes) : null,
+          imageUrl: values.imageUrl || null,
+          prepTimeMinutes: values.prepTimeMinutes !== '' ? Number(values.prepTimeMinutes) : null,
+          cookTimeMinutes: values.cookTimeMinutes !== '' ? Number(values.cookTimeMinutes) : null,
+          totalTimeMinutes: values.totalTimeMinutes !== '' ? Number(values.totalTimeMinutes) : null,
+          inactiveTimeMinutes: values.inactiveTimeMinutes !== '' ? Number(values.inactiveTimeMinutes) : null,
           servings: values.servings !== '' ? Number(values.servings) : null,
         }),
       })
@@ -77,12 +77,12 @@ export default function EditRecipePage({ params }: Props) {
           const logRes = await fetch(`/api/recipes/${params.id}/log`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ made_on: values.lastMade }),
+            body: JSON.stringify({ madeOn: values.lastMade }),
           })
           if (logRes.ok) {
-            const logData: { made_on: string; already_logged: boolean } = await logRes.json()
+            const logData: { madeOn: string; already_logged: boolean } = await logRes.json()
             if (!logData.already_logged) {
-              setDatesMade((prev) => [...prev, logData.made_on].sort().reverse())
+              setDatesMade((prev) => [...prev, logData.madeOn].sort().reverse())
             }
           }
         }
@@ -102,14 +102,14 @@ export default function EditRecipePage({ params }: Props) {
     const res = await fetch(`/api/recipes/${params.id}/log`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ made_on: addDateValue }),
+      body: JSON.stringify({ madeOn: addDateValue }),
     })
     if (res.ok) {
-      const data: { made_on: string; already_logged: boolean } = await res.json()
+      const data: { madeOn: string; already_logged: boolean } = await res.json()
       if (data.already_logged) {
         setDateError('Already logged for that day')
       } else {
-        setDatesMade((prev) => [...prev, data.made_on].sort().reverse())
+        setDatesMade((prev) => [...prev, data.madeOn].sort().reverse())
         setAddDateValue('')
       }
     }
@@ -119,7 +119,7 @@ export default function EditRecipePage({ params }: Props) {
     await fetch(`/api/recipes/${params.id}/log`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ made_on: date }),
+      body: JSON.stringify({ madeOn: date }),
     })
     setDatesMade((prev) => prev.filter((d) => d !== date))
   }
@@ -173,12 +173,12 @@ export default function EditRecipePage({ params }: Props) {
           steps: recipe.steps ?? '',
           notes: recipe.notes ?? '',
           url: recipe.url ?? '',
-          image_url: recipe.image_url ?? '',
+          imageUrl: recipe.imageUrl ?? '',
           lastMade: '',
-          prep_time_minutes: recipe.prep_time_minutes !== null && recipe.prep_time_minutes !== undefined ? String(recipe.prep_time_minutes) : '',
-          cook_time_minutes: recipe.cook_time_minutes !== null && recipe.cook_time_minutes !== undefined ? String(recipe.cook_time_minutes) : '',
-          total_time_minutes: recipe.total_time_minutes !== null && recipe.total_time_minutes !== undefined ? String(recipe.total_time_minutes) : '',
-          inactive_time_minutes: recipe.inactive_time_minutes !== null && recipe.inactive_time_minutes !== undefined ? String(recipe.inactive_time_minutes) : '',
+          prepTimeMinutes: recipe.prepTimeMinutes !== null && recipe.prepTimeMinutes !== undefined ? String(recipe.prepTimeMinutes) : '',
+          cookTimeMinutes: recipe.cookTimeMinutes !== null && recipe.cookTimeMinutes !== undefined ? String(recipe.cookTimeMinutes) : '',
+          totalTimeMinutes: recipe.totalTimeMinutes !== null && recipe.totalTimeMinutes !== undefined ? String(recipe.totalTimeMinutes) : '',
+          inactiveTimeMinutes: recipe.inactiveTimeMinutes !== null && recipe.inactiveTimeMinutes !== undefined ? String(recipe.inactiveTimeMinutes) : '',
           servings: recipe.servings !== null && recipe.servings !== undefined ? String(recipe.servings) : '',
         }}
         onSubmit={handleSubmit}

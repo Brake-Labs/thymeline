@@ -19,10 +19,10 @@ const defaultProps = {
   onGenerated: vi.fn(),
 }
 
-function mockPreferences(avoided_tags: string[] = []) {
+function mockPreferences(avoidedTags: string[] = []) {
   mockFetch.mockImplementation(async (url: string) => {
     if (String(url).includes('/api/preferences')) {
-      return { ok: true, json: async () => ({ avoided_tags }) } as Response
+      return { ok: true, json: async () => ({ avoidedTags }) } as Response
     }
     return { ok: true, json: async () => ({}) } as Response
   })
@@ -67,10 +67,10 @@ describe('T04 - Generate button enabled when specificIngredients is non-empty', 
   })
 })
 
-// ── T25: Dietary restrictions pre-populated from avoided_tags ─────────────────
+// ── T25: Dietary restrictions pre-populated from avoidedTags ─────────────────
 
-describe('T25 - Dietary restrictions from avoided_tags ∩ DIETARY_TAGS are pre-checked', () => {
-  it('pre-checks dietary tags that match the user avoided_tags', async () => {
+describe('T25 - Dietary restrictions from avoidedTags ∩ DIETARY_TAGS are pre-checked', () => {
+  it('pre-checks dietary tags that match the user avoidedTags', async () => {
     mockPreferences(['Gluten-Free', 'Vegan', 'Quick'])
     render(<GenerateRecipeTab {...defaultProps} />)
 
@@ -84,7 +84,7 @@ describe('T25 - Dietary restrictions from avoided_tags ∩ DIETARY_TAGS are pre-
     })
   })
 
-  it('does NOT pre-check non-dietary avoided_tags (like "Quick")', async () => {
+  it('does NOT pre-check non-dietary avoidedTags (like "Quick")', async () => {
     mockPreferences(['Quick', 'Vegan'])
     render(<GenerateRecipeTab {...defaultProps} />)
 
@@ -100,7 +100,7 @@ describe('T25 - Dietary restrictions from avoided_tags ∩ DIETARY_TAGS are pre-
     expect(quickBtn).toBeUndefined()
   })
 
-  it('leaves all dietary tags unchecked when avoided_tags is empty', async () => {
+  it('leaves all dietary tags unchecked when avoidedTags is empty', async () => {
     mockPreferences([])
     render(<GenerateRecipeTab {...defaultProps} />)
 

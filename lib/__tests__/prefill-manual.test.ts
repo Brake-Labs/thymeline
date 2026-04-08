@@ -14,15 +14,15 @@ interface ModifiedRecipe {
   steps: string
   notes: string | null
   servings: number | null
-  prep_time_minutes?: number | null
-  cook_time_minutes?: number | null
-  total_time_minutes?: number | null
+  prepTimeMinutes?: number | null
+  cookTimeMinutes?: number | null
+  totalTimeMinutes?: number | null
 }
 
 interface RecipePartial {
-  prep_time_minutes: number | null
-  cook_time_minutes: number | null
-  total_time_minutes: number | null
+  prepTimeMinutes: number | null
+  cookTimeMinutes: number | null
+  totalTimeMinutes: number | null
 }
 
 function buildSaveAsNewPrefill(modified: ModifiedRecipe, recipe: RecipePartial) {
@@ -32,13 +32,13 @@ function buildSaveAsNewPrefill(modified: ModifiedRecipe, recipe: RecipePartial) 
     steps:              modified.steps,
     notes:              modified.notes ?? undefined,
     servings:           modified.servings !== null ? String(modified.servings) : '',
-    prep_time_minutes:  String(modified.prep_time_minutes ?? recipe.prep_time_minutes ?? ''),
-    cook_time_minutes:  String(modified.cook_time_minutes ?? recipe.cook_time_minutes ?? ''),
-    total_time_minutes: String(modified.total_time_minutes ?? recipe.total_time_minutes ?? ''),
+    prepTimeMinutes:  String(modified.prepTimeMinutes ?? recipe.prepTimeMinutes ?? ''),
+    cookTimeMinutes:  String(modified.cookTimeMinutes ?? recipe.cookTimeMinutes ?? ''),
+    totalTimeMinutes: String(modified.totalTimeMinutes ?? recipe.totalTimeMinutes ?? ''),
   }
 }
 
-const baseRecipe: RecipePartial = { prep_time_minutes: 15, cook_time_minutes: 30, total_time_minutes: 45 }
+const baseRecipe: RecipePartial = { prepTimeMinutes: 15, cookTimeMinutes: 30, totalTimeMinutes: 45 }
 const baseModified: ModifiedRecipe = {
   title: 'Pasta', ingredients: '250g pasta', steps: 'Boil salted water', notes: null, servings: 4,
 }
@@ -46,25 +46,25 @@ const baseModified: ModifiedRecipe = {
 describe('T17 - buildSaveAsNewPrefill time fields (regression for #305)', () => {
   it('falls back to original recipe times when AI modifications do not include times', () => {
     const prefill = buildSaveAsNewPrefill(baseModified, baseRecipe)
-    expect(prefill.prep_time_minutes).toBe('15')
-    expect(prefill.cook_time_minutes).toBe('30')
-    expect(prefill.total_time_minutes).toBe('45')
+    expect(prefill.prepTimeMinutes).toBe('15')
+    expect(prefill.cookTimeMinutes).toBe('30')
+    expect(prefill.totalTimeMinutes).toBe('45')
   })
 
   it('overrides time fields with AI-modified values when provided', () => {
-    const modified: ModifiedRecipe = { ...baseModified, prep_time_minutes: 5, cook_time_minutes: 20, total_time_minutes: 25 }
+    const modified: ModifiedRecipe = { ...baseModified, prepTimeMinutes: 5, cookTimeMinutes: 20, totalTimeMinutes: 25 }
     const prefill = buildSaveAsNewPrefill(modified, baseRecipe)
-    expect(prefill.prep_time_minutes).toBe('5')
-    expect(prefill.cook_time_minutes).toBe('20')
-    expect(prefill.total_time_minutes).toBe('25')
+    expect(prefill.prepTimeMinutes).toBe('5')
+    expect(prefill.cookTimeMinutes).toBe('20')
+    expect(prefill.totalTimeMinutes).toBe('25')
   })
 
   it('produces empty string when original recipe has null times and modifications omit them', () => {
-    const recipe = { prep_time_minutes: null, cook_time_minutes: null, total_time_minutes: null }
+    const recipe = { prepTimeMinutes: null, cookTimeMinutes: null, totalTimeMinutes: null }
     const prefill = buildSaveAsNewPrefill(baseModified, recipe)
-    expect(prefill.prep_time_minutes).toBe('')
-    expect(prefill.cook_time_minutes).toBe('')
-    expect(prefill.total_time_minutes).toBe('')
+    expect(prefill.prepTimeMinutes).toBe('')
+    expect(prefill.cookTimeMinutes).toBe('')
+    expect(prefill.totalTimeMinutes).toBe('')
   })
 
   it('title is suffixed with (modified)', () => {

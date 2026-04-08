@@ -35,7 +35,7 @@ beforeEach(() => {
 
 // ── T06: Returning user lands on /home after auth ─────────────────────────────
 describe('T06 - Returning user redirects to /home', () => {
-  it('redirects to /home when onboarding_completed=true', async () => {
+  it('redirects to /home when onboardingCompleted=true', async () => {
     mockGetSession.mockResolvedValue({ data: { user: { id: 'user-1', email: 'test@test.com' } } })
 
     // check-email response
@@ -46,7 +46,7 @@ describe('T06 - Returning user redirects to /home', () => {
     // preferences response
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ onboarding_completed: true, is_active: true }),
+      json: async () => ({ onboardingCompleted: true, isActive: true }),
     })
 
     await act(async () => {
@@ -58,7 +58,7 @@ describe('T06 - Returning user redirects to /home', () => {
     })
   })
 
-  it('redirects to /home when is_active=true even if onboarding_completed=false', async () => {
+  it('redirects to /home when isActive=true even if onboardingCompleted=false', async () => {
     mockGetSession.mockResolvedValue({ data: { user: { id: 'user-1', email: 'test@test.com' } } })
 
     // check-email response
@@ -69,7 +69,7 @@ describe('T06 - Returning user redirects to /home', () => {
     // preferences response
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ onboarding_completed: false, is_active: true }),
+      json: async () => ({ onboardingCompleted: false, isActive: true }),
     })
 
     await act(async () => {
@@ -95,7 +95,7 @@ describe('T05 - New user redirects to /onboarding', () => {
     // preferences response
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ onboarding_completed: false, is_active: false }),
+      json: async () => ({ onboardingCompleted: false, isActive: false }),
     })
 
     await act(async () => {

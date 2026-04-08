@@ -58,11 +58,11 @@ export default function GenerateRecipeModal({
           steps:                 values.steps || null,
           notes:                 values.notes || null,
           url:                   values.url || null,
-          image_url:             values.image_url || null,
-          prep_time_minutes:     values.prep_time_minutes !== '' ? Number(values.prep_time_minutes) : null,
-          cook_time_minutes:     values.cook_time_minutes !== '' ? Number(values.cook_time_minutes) : null,
-          total_time_minutes:    values.total_time_minutes !== '' ? Number(values.total_time_minutes) : null,
-          inactive_time_minutes: values.inactive_time_minutes !== '' ? Number(values.inactive_time_minutes) : null,
+          imageUrl:             values.imageUrl || null,
+          prepTimeMinutes:     values.prepTimeMinutes !== '' ? Number(values.prepTimeMinutes) : null,
+          cookTimeMinutes:     values.cookTimeMinutes !== '' ? Number(values.cookTimeMinutes) : null,
+          totalTimeMinutes:    values.totalTimeMinutes !== '' ? Number(values.totalTimeMinutes) : null,
+          inactiveTimeMinutes: values.inactiveTimeMinutes !== '' ? Number(values.inactiveTimeMinutes) : null,
           servings:              values.servings !== '' ? Number(values.servings) : null,
           source:                'generated',
         }),
@@ -76,7 +76,7 @@ export default function GenerateRecipeModal({
         await fetch(`/api/recipes/${created.id}/log`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ made_on: values.lastMade }),
+          body: JSON.stringify({ madeOn: values.lastMade }),
         })
       }
       onSaved()
@@ -96,10 +96,10 @@ export default function GenerateRecipeModal({
         ingredients:           draftRecipe.ingredients ?? '',
         steps:                 draftRecipe.steps ?? '',
         notes:                 draftRecipe.notes ?? '',
-        prep_time_minutes:     draftRecipe.prep_time_minutes  != null ? String(draftRecipe.prep_time_minutes)  : '',
-        cook_time_minutes:     draftRecipe.cook_time_minutes  != null ? String(draftRecipe.cook_time_minutes)  : '',
-        total_time_minutes:    draftRecipe.total_time_minutes != null ? String(draftRecipe.total_time_minutes) : '',
-        inactive_time_minutes: draftRecipe.inactive_time_minutes != null ? String(draftRecipe.inactive_time_minutes) : '',
+        prepTimeMinutes:     draftRecipe.prepTimeMinutes  != null ? String(draftRecipe.prepTimeMinutes)  : '',
+        cookTimeMinutes:     draftRecipe.cookTimeMinutes  != null ? String(draftRecipe.cookTimeMinutes)  : '',
+        totalTimeMinutes:    draftRecipe.totalTimeMinutes != null ? String(draftRecipe.totalTimeMinutes) : '',
+        inactiveTimeMinutes: draftRecipe.inactiveTimeMinutes != null ? String(draftRecipe.inactiveTimeMinutes) : '',
         servings:              draftRecipe.servings != null ? String(draftRecipe.servings) : '',
       }
     : {}

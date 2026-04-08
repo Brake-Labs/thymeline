@@ -22,25 +22,25 @@ vi.mock('next/navigation', () => ({
 
 const baseRecipe: RecipeListItem = {
   id: '1',
-  user_id: 'u1',
+  userId: 'u1',
   title: 'Pasta',
   category: 'main_dish',
   tags: [],
-  is_shared: false,
-  last_made: null,
-  times_made: 0,
-  created_at: '2026-01-01T00:00:00Z',
-  total_time_minutes: null,
+  isShared: false,
+  lastMade: null,
+  timesMade: 0,
+  createdAt: '2026-01-01T00:00:00Z',
+  totalTimeMinutes: null,
 }
 
 const recipes: RecipeListItem[] = [
-  { ...baseRecipe, id: '1', title: 'Zucchini Soup', category: 'side_dish', last_made: '2026-01-10', tags: ['Healthy', 'Quick', 'Vegetarian', 'Soup'] },
-  { ...baseRecipe, id: '2', title: 'Apple Pie', category: 'dessert', last_made: '2026-01-05', tags: ['Favorite'] },
-  { ...baseRecipe, id: '3', title: 'Bacon Eggs', category: 'breakfast', last_made: null, tags: [] },
+  { ...baseRecipe, id: '1', title: 'Zucchini Soup', category: 'side_dish', lastMade: '2026-01-10', tags: ['Healthy', 'Quick', 'Vegetarian', 'Soup'] },
+  { ...baseRecipe, id: '2', title: 'Apple Pie', category: 'dessert', lastMade: '2026-01-05', tags: ['Favorite'] },
+  { ...baseRecipe, id: '3', title: 'Bacon Eggs', category: 'breakfast', lastMade: null, tags: [] },
 ]
 
 describe('RecipeTable', () => {
-  it('T04: shows "Never" for last_made = null', () => {
+  it('T04: shows "Never" for lastMade = null', () => {
     render(
       <RecipeTable
         recipes={recipes}
@@ -117,7 +117,7 @@ describe('RecipeTable', () => {
     expect(onSort).toHaveBeenCalledWith('category')
   })
 
-  it('T14: clicking Last Made header calls onSort with "last_made"', () => {
+  it('T14: clicking Last Made header calls onSort with "lastMade"', () => {
     const onSort = vi.fn()
     render(
       <RecipeTable
@@ -128,7 +128,7 @@ describe('RecipeTable', () => {
       />
     )
     fireEvent.click(screen.getByText(/Last Made/))
-    expect(onSort).toHaveBeenCalledWith('last_made')
+    expect(onSort).toHaveBeenCalledWith('lastMade')
   })
 
   it('T14: recipes render in the order they are passed (sort is caller responsibility)', () => {
@@ -151,8 +151,8 @@ describe('RecipeTable', () => {
 // ── Owner actions (Edit / Delete per row) ─────────────────────────────────────
 
 const ownedRecipes: RecipeListItem[] = [
-  { ...baseRecipe, id: 'r1', user_id: 'me', title: 'My Pasta' },
-  { ...baseRecipe, id: 'r2', user_id: 'other', title: 'Their Soup' },
+  { ...baseRecipe, id: 'r1', userId: 'me', title: 'My Pasta' },
+  { ...baseRecipe, id: 'r2', userId: 'other', title: 'Their Soup' },
 ]
 
 describe('RecipeTable — owner actions', () => {

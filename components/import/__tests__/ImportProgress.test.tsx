@@ -124,9 +124,9 @@ describe('onComplete callback', () => {
     await act(async () => { await renderProgress(onComplete) })
 
     expect(onComplete).toHaveBeenCalledTimes(1)
-    const [results] = onComplete.mock.calls[0] as [{ status: string; source_url: string }[]]
+    const [results] = onComplete.mock.calls[0] as [{ status: string; sourceUrl: string }[]]
     expect(results[0]!.status).toBe('ready')
-    expect(results[0]!.source_url).toBe('https://example.com/1')
+    expect(results[0]!.sourceUrl).toBe('https://example.com/1')
   })
 
   it('does not call onComplete prematurely while still in progress', async () => {

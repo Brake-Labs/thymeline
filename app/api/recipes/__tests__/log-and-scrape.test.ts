@@ -160,7 +160,7 @@ describe('POST /api/recipes/[id]/log', () => {
     expect(res.status).toBe(200)
     const json = await res.json()
     expect(json.already_logged).toBe(false)
-    expect(json.made_on).toBeDefined()
+    expect(json.madeOn).toBeDefined()
   })
 
   it('T07: duplicate log returns already_logged = true and no 500', async () => {
@@ -180,35 +180,35 @@ describe('POST /api/recipes/[id]/log', () => {
     expect(json.already_logged).toBe(true)
   })
 
-  it('logs a specific date when made_on is provided in body', async () => {
+  it('logs a specific date when madeOn is provided in body', async () => {
     const { POST } = await import('@/app/api/recipes/[id]/log/route')
-    const req = makeRequest('POST', `http://localhost/api/recipes/${sampleRecipe.id}/log`, { made_on: '2025-12-25' })
+    const req = makeRequest('POST', `http://localhost/api/recipes/${sampleRecipe.id}/log`, { madeOn: '2025-12-25' })
     const res = await POST(req, { params: { id: sampleRecipe.id } })
 
     expect(res.status).toBe(200)
     const json = await res.json()
-    expect(json.made_on).toBe('2025-12-25')
+    expect(json.madeOn).toBe('2025-12-25')
     expect(json.already_logged).toBe(false)
   })
 
-  it('defaults to today when made_on body is absent', async () => {
+  it('defaults to today when madeOn body is absent', async () => {
     const { POST } = await import('@/app/api/recipes/[id]/log/route')
     const req = makeRequest('POST', `http://localhost/api/recipes/${sampleRecipe.id}/log`)
     const res = await POST(req, { params: { id: sampleRecipe.id } })
 
     const json = await res.json()
     const today = new Date().toISOString().split('T')[0]
-    expect(json.made_on).toBe(today)
+    expect(json.madeOn).toBe(today)
   })
 
-  it('ignores invalid made_on format and defaults to today', async () => {
+  it('ignores invalid madeOn format and defaults to today', async () => {
     const { POST } = await import('@/app/api/recipes/[id]/log/route')
-    const req = makeRequest('POST', `http://localhost/api/recipes/${sampleRecipe.id}/log`, { made_on: 'not-a-date' })
+    const req = makeRequest('POST', `http://localhost/api/recipes/${sampleRecipe.id}/log`, { madeOn: 'not-a-date' })
     const res = await POST(req, { params: { id: sampleRecipe.id } })
 
     const json = await res.json()
     const today = new Date().toISOString().split('T')[0]
-    expect(json.made_on).toBe(today)
+    expect(json.madeOn).toBe(today)
   })
 })
 
