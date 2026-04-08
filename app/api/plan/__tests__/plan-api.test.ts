@@ -1096,6 +1096,56 @@ describe('T34 - Intermediate-week cooldown: recipe in a skipped week is excluded
   })
 })
 
+// ── T35: Cooldown applies to planned (not just made) recipes (#326) ───────────
+// Regression for #326: a recipe in the plan for an earlier week was still
+// appearing as a suggestion for a later week even though the gap was less than
+// cooldown_days. The root cause: alreadyPlannedIds used `>= today` as the
+// cutoff, so entries whose plannedDate was in the past (but within the cooldown
+// window) were not fetched and not excluded. Fix: use week_start − cooldownDays
+// as the cutoff so the full cooldown lookback is applied.
+
+describe('T35 - Cooldown applies to recently-planned recipes, not just recently-made (#326)', () => {
+  it('excludes a recipe planned for the current week from a future week\'s suggestions when within cooldown', async () => {
+    mockState.prefs.cooldown_days = 28
+
+    // r1 (Pasta) is in the plan for week of April 5 (current week).
+    // User is planning for week of April 20 — only 15 days apart, inside the 28-day cooldown.
+    mockState.plansByWeekStart = {
+      '2026-04-05': [{ id: 'plan-current', week_start: '2026-04-05' }],
+    }
+    mockState.entriesByPlanId = {
+      'plan-current': [{ recipe_id: 'r1' }],
+    }
+
+    mockState.llmResponse = JSON.stringify({
+      days: [{
+        date: '2026-04-21',
+        meal_types: [{ meal_type: 'dinner', options: [
+          { recipe_id: 'r1', recipe_title: 'Pasta', reason: 'Quick' },
+          { recipe_id: 'r2', recipe_title: 'Tacos', reason: 'Healthy' },
+        ]}],
+      }],
+    })
+
+    const res = await suggestPOST(makeReq('POST', 'http://localhost/api/plan/suggest', {
+      week_start:       '2026-04-20',
+      active_dates:     ['2026-04-21'],
+      prefer_this_week: [],
+      avoid_this_week:  [],
+      free_text:        '',
+    }))
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    const options = body.days[0].meal_types[0].options
+    // r1 must be excluded (15 days < 28-day cooldown)
+    expect(options.find((o: { recipe_id: string }) => o.recipe_id === 'r1')).toBeUndefined()
+    // r2 is unrelated and must still appear
+    expect(options.find((o: { recipe_id: string }) => o.recipe_id === 'r2')).toBeDefined()
+  })
+
+})
+
 // ── Swap-entries route tests ──────────────────────────────────────────────────
 
 function makeSwapEntry(id: string, planned_date: string) {

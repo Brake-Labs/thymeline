@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { suggestSchema, parseBody } from '@/lib/schemas'
-import { getTodayISO } from '@/lib/date-utils'
+import { getTodayISO, addDays } from '@/lib/date-utils'
 import { parseLLMJsonSafe, callLLM } from '@/lib/llm'
 import {
   getSeason,
@@ -42,9 +42,13 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
   const recipesByMealType = await fetchRecipesByMealTypes(user.id, cooldownDays, active_meal_types, ctx)
   const recentHistory = await fetchRecentHistory(user.id)
 
-  // Exclude recipes already planned for any future date across ALL of the user's
-  // meal plans.
+  // Exclude recipes already planned within the cooldown window (past or future).
+  // Using the planning week_start as the anchor: any recipe whose planned_date
+  // falls within cooldownDays before week_start up to the end of that week is
+  // treated as "recently planned" and excluded — matching the same logic that
+  // recipe_history uses for "recently made".
   const alreadyPlannedIds = new Set<string>()
+  const cooldownCutoff = addDays(week_start, -cooldownDays)
 
   const allPlanRows = await db
     .select({ id: mealPlans.id, weekStart: mealPlans.weekStart })
@@ -61,7 +65,7 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
       .from(mealPlanEntries)
       .where(and(
         eq(mealPlanEntries.mealPlanId, plan.id),
-        gte(mealPlanEntries.plannedDate, todayISO),
+        gte(mealPlanEntries.plannedDate, cooldownCutoff),
       ))
 
     for (const entry of entryRows) {
