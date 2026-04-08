@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { callLLM, LLM_MODEL_FAST } from './llm'
+import { isBlockedUrl } from './url-validation'
 
 interface RecipeForIngredients {
   recipe_id: string
@@ -21,6 +22,7 @@ export async function resolveRecipeIngredients(
   if (recipe.ingredients) return recipe.ingredients
 
   if (!recipe.url || !firecrawlKey) return null
+  if (isBlockedUrl(recipe.url)) return null
 
   try {
     const { default: FirecrawlApp } = await import('firecrawl')

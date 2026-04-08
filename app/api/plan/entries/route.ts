@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { createPlanEntrySchema, parseBody } from '@/lib/schemas'
 import { getOrCreateMealPlan } from '../helpers'
+import { checkOwnership } from '@/lib/household'
 import { db } from '@/lib/db'
 import { eq } from 'drizzle-orm'
 import { mealPlanEntries, recipes } from '@/lib/db/schema'
@@ -49,6 +50,12 @@ export const POST = withAuth(async (req, { user, ctx }) => {
     if (!parentEntry || (parentEntry.mealType !== 'dinner' && parentEntry.mealType !== 'lunch')) {
       return NextResponse.json({ error: 'Dessert entries are only allowed for Dinner and Lunch slots.' }, { status: 400 })
     }
+  }
+
+  // Verify the recipe belongs to this user/household
+  const ownership = await checkOwnership('recipes', recipe_id, user.id, ctx)
+  if (!ownership.owned) {
+    return NextResponse.json({ error: 'Recipe not found' }, { status: ownership.status })
   }
 
   const planResult = await getOrCreateMealPlan(user.id, week_start, ctx)

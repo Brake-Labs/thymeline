@@ -6,6 +6,7 @@ import { db } from '@/lib/db'
 import { customTags } from '@/lib/db/schema'
 import { scopeCondition } from '@/lib/household'
 import { FIRST_CLASS_TAGS } from '@/lib/tags'
+import { isBlockedUrl } from '@/lib/url-validation'
 import type { HouseholdContext } from '@/types'
 
 type RawNewTag = { name: string; section: string }
@@ -47,6 +48,10 @@ export async function scrapeRecipe(
   _db:      unknown,
   ctx:      HouseholdContext | null,
 ): Promise<ScrapeRecipeResult | ScrapeRecipeError> {
+  if (isBlockedUrl(rawUrl)) {
+    return { error: 'URL is not allowed' }
+  }
+
   const firecrawlKey = process.env.FIRECRAWL_API_KEY
   if (!firecrawlKey) {
     return { error: 'Scraping service not configured' }

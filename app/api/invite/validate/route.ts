@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   const token = new URL(req.url).searchParams.get('token')
 
   if (!token) {
-    return NextResponse.json({ valid: false, reason: 'Token not found' })
+    return NextResponse.json({ valid: false })
   }
 
   try {
@@ -20,21 +20,21 @@ export async function GET(req: NextRequest) {
 
     const data = dbFirst(rows)
 
-    // Always return 200 — never 404 for missing tokens (avoids enumeration)
+    // Always return 200 with no reason — prevents token state enumeration
     if (!data) {
-      return NextResponse.json({ valid: false, reason: 'Token not found' })
+      return NextResponse.json({ valid: false })
     }
 
     if (data.usedBy) {
-      return NextResponse.json({ valid: false, reason: 'Already used' })
+      return NextResponse.json({ valid: false })
     }
 
     if (new Date(data.expiresAt) <= new Date()) {
-      return NextResponse.json({ valid: false, reason: 'Expired' })
+      return NextResponse.json({ valid: false })
     }
 
     return NextResponse.json({ valid: true })
   } catch {
-    return NextResponse.json({ valid: false, reason: 'Token not found' })
+    return NextResponse.json({ valid: false })
   }
 }

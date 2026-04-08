@@ -8,6 +8,13 @@
       "when": 1775603729464,
       "tag": "0000_smart_lady_vermin",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1775643242482,
+      "tag": "0001_condemned_mindworm",
+      "breakpoints": true
     }
   ]
 }

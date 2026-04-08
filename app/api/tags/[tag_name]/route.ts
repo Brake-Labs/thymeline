@@ -9,6 +9,18 @@ import { eq, and, arrayContains, sql } from 'drizzle-orm'
 import { recipes, customTags, userPreferences } from '@/lib/db/schema'
 import { dbFirst } from '@/lib/db/helpers'
 
+const MAX_TAG_LENGTH = 100
+
+function parseTagParam(raw: string | undefined): string | null {
+  try {
+    const decoded = decodeURIComponent((raw as string) ?? '')
+    if (!decoded || decoded.length > MAX_TAG_LENGTH) return null
+    return decoded
+  } catch {
+    return null
+  }
+}
+
 function toTitleCase(str: string): string {
   return str.replace(/\b\w/g, (c) => c.toUpperCase())
 }
@@ -18,9 +30,9 @@ const renameTagSchema = z.object({
 })
 
 export const GET = withAuth(async (req, { user, ctx }, params) => {
-  const tagName = decodeURIComponent((params?.tag_name as string) ?? '')
+  const tagName = parseTagParam(params?.tag_name)
   if (!tagName) {
-    return NextResponse.json({ error: 'tag_name is required' }, { status: 400 })
+    return NextResponse.json({ error: 'Invalid tag name' }, { status: 400 })
   }
 
   try {
@@ -44,9 +56,9 @@ export const GET = withAuth(async (req, { user, ctx }, params) => {
 })
 
 export const PATCH = withAuth(async (req, { user, ctx }, params) => {
-  const tagName = decodeURIComponent((params?.tag_name as string) ?? '')
+  const tagName = parseTagParam(params?.tag_name)
   if (!tagName) {
-    return NextResponse.json({ error: 'tag_name is required' }, { status: 400 })
+    return NextResponse.json({ error: 'Invalid tag name' }, { status: 400 })
   }
 
   // Household members cannot rename tags
@@ -130,9 +142,9 @@ export const PATCH = withAuth(async (req, { user, ctx }, params) => {
 })
 
 export const DELETE = withAuth(async (req, { user, ctx }, params) => {
-  const tagName = decodeURIComponent((params?.tag_name as string) ?? '')
+  const tagName = parseTagParam(params?.tag_name)
   if (!tagName) {
-    return NextResponse.json({ error: 'tag_name is required' }, { status: 400 })
+    return NextResponse.json({ error: 'Invalid tag name' }, { status: 400 })
   }
 
   // Household members cannot delete or hide tags
