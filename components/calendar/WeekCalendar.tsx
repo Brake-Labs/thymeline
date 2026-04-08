@@ -165,18 +165,16 @@ export default function WeekCalendar() {
 
     const prev = [...entries]
 
-    // Optimistic update — swap planned_dates
-    setEntries((curr) => curr.map((e) => {
-      if (e.id === idA) {
-        const other = curr.find((x) => x.id === idB)
-        return other ? { ...e, planned_date: other.planned_date } : e
-      }
-      if (e.id === idB) {
-        const other = curr.find((x) => x.id === idA)
-        return other ? { ...e, planned_date: other.planned_date } : e
-      }
-      return e
-    }))
+    // Optimistic update — swap planned_dates for both main entries and their side dishes
+    setEntries((curr) => {
+      const dateA = curr.find((x) => x.id === idA)?.planned_date
+      const dateB = curr.find((x) => x.id === idB)?.planned_date
+      return curr.map((e) => {
+        if (e.id === idA || e.parent_entry_id === idA) return dateB ? { ...e, planned_date: dateB } : e
+        if (e.id === idB || e.parent_entry_id === idB) return dateA ? { ...e, planned_date: dateA } : e
+        return e
+      })
+    })
 
     try {
       const res = await fetch('/api/plan/swap', {

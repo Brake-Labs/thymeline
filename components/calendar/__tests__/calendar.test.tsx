@@ -540,4 +540,43 @@ describe('WeekCalendar - swap meals (regression #303)', () => {
 
     await waitFor(() => expect(screen.getByText('Swap failed. Please try again.')).toBeInTheDocument())
   })
+
+  // Regression #318 (part 2): side dish must follow its parent in the optimistic UI update.
+  // Before the fix the optimistic setEntries only moved the two tapped entries.
+  // DayCard filters side dishes by checking whether their parent is present in
+  // the same day's entries — so an unmoved side dish disappeared from both days.
+  it('side dish moves with its parent in the optimistic update', async () => {
+    const thursday = addDays(weekStart, 4)
+    const entriesWithSide = [
+      { id: 'e1', recipe_id: 'r1', recipe_title: 'Chicken', planned_date: monday,   meal_type: 'dinner', is_side_dish: false, parent_entry_id: null, confirmed: true, position: 1, total_time_minutes: null },
+      { id: 'e3', recipe_id: 'r3', recipe_title: 'Broccoli', planned_date: monday,  meal_type: 'dinner', is_side_dish: true,  parent_entry_id: 'e1', confirmed: true, position: 1, total_time_minutes: null },
+      { id: 'e2', recipe_id: 'r2', recipe_title: 'Tacos',   planned_date: thursday, meal_type: 'dinner', is_side_dish: false, parent_entry_id: null, confirmed: true, position: 1, total_time_minutes: null },
+    ]
+
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) })           // prefs
+      .mockResolvedValueOnce({ ok: true, json: async () => ({              // plan
+        plan: { id: 'plan-1', week_start: weekStart, entries: entriesWithSide },
+      }) })
+      .mockResolvedValue({ ok: true, json: async () => ({                  // swap
+        entry_a: { id: 'e1', planned_date: thursday, recipe_id: 'r1' },
+        entry_b: { id: 'e2', planned_date: monday,   recipe_id: 'r2' },
+      }) })
+
+    render(<WeekCalendar />)
+    // All DayCards start expanded; wait for entries to load
+    await waitFor(() => expect(screen.getByText('Chicken')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Broccoli')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Swap meals')).toBeInTheDocument())
+
+    // Swap Chicken (Monday) with Tacos (Thursday)
+    fireEvent.click(screen.getByText('Swap meals'))
+    fireEvent.click(screen.getByText('Chicken').closest('div[class*="rounded-r"]')!)
+    await act(async () => {
+      fireEvent.click(screen.getByText('Tacos').closest('div[class*="rounded-r"]')!)
+    })
+
+    // After the optimistic update Broccoli must still be visible (it moved to Thursday with Chicken)
+    await waitFor(() => expect(screen.getByText('Broccoli')).toBeInTheDocument())
+  })
 })
