@@ -353,3 +353,9 @@ export interface ImportResult {
   }
   duplicate_action?: 'skip' | 'keep_both' | 'replace'
 }
+
+export interface GenerateRefinementMessage {
+  role:     'user' | 'assistant'
+  content:  string
+  changes?: string[]   // populated on assistant turns; bullet list of what changed
+}
