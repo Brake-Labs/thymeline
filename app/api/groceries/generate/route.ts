@@ -6,6 +6,7 @@ import { logger } from '@/lib/logger'
 import {
   parseIngredientLine,
   combineIngredients,
+  deduplicateItems,
   assignSection,
   isPantryStaple,
   isWaterIngredient,
@@ -16,7 +17,7 @@ import { eq, and, gte, lte, inArray, asc } from 'drizzle-orm'
 import { mealPlans, mealPlanEntries, recipes, groceryLists, pantryItems } from '@/lib/db/schema'
 import { scopeCondition, scopeInsert } from '@/lib/household'
 import { toDateString } from '@/lib/date-utils'
-import { GroceryItem, GrocerySection, RecipeScale } from '@/types'
+import { GroceryItem, RecipeScale } from '@/types'
 
 function uuidv4(): string {
   return crypto.randomUUID()
@@ -177,14 +178,16 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
       for (const item of parsed) {
         if (typeof item !== 'object' || item === null) continue
         const i = item as Record<string, unknown>
-        const section = (typeof i.section === 'string' ? i.section : 'Other') as GrocerySection
+        const itemName = typeof i.name === 'string' ? i.name : 'Unknown'
         llmResolved.push({
           id:        uuidv4(),
-          name:      typeof i.name === 'string' ? i.name : 'Unknown',
+          name:      itemName,
           amount:    typeof i.amount === 'number' ? i.amount : null,
           unit:      typeof i.unit === 'string' ? i.unit : null,
-          section:   ['Produce','Proteins','Dairy & Eggs','Pantry','Canned & Jarred','Bakery','Frozen','Other'].includes(section) ? section : 'Other',
-          isPantry: typeof i.isPantry === 'boolean' ? i.isPantry : isPantryStaple(typeof i.name === 'string' ? i.name : ''),
+          // Always use rule-based section assignment — LLM assignments are unreliable
+          // (e.g. bratwurst → Other, cheddar → Pantry instead of correct sections).
+          section:   assignSection(itemName),
+          isPantry: isPantryStaple(itemName),
           checked:   false,
           recipes:   Array.isArray(i.recipes) ? i.recipes.filter((r): r is string => typeof r === 'string') : [],
         })
@@ -208,7 +211,10 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
     }
   }
 
-  let allItems: GroceryItem[] = [...resolved, ...llmResolved]
+  // Final dedup pass: resolved + llmResolved can still contain same-name items
+  // when some occurrences of an ingredient merged in the rule pass (same unit)
+  // and another occurrence came back from the LLM as a separate entry.
+  let allItems: GroceryItem[] = deduplicateItems([...resolved, ...llmResolved])
 
   // 5b. Cross-reference against pantry — flag matching items as isPantry: true
   try {
