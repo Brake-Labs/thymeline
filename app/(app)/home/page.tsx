@@ -2,10 +2,10 @@ import Link from 'next/link'
 import { Sparkles, Archive, ClipboardList } from 'lucide-react'
 import { getSessionUser } from '@/lib/auth-helpers'
 import { db } from '@/lib/db'
-import { eq, desc, sql } from 'drizzle-orm'
+import { and, eq, desc, sql } from 'drizzle-orm'
 import { recipes, mealPlans, mealPlanEntries, recipeHistory, groceryLists } from '@/lib/db/schema'
 import { HomeData } from '@/types'
-import { getMostRecentSunday, getTodayISO, isToday } from './utils'
+import { getMostRecentSunday, getTodayISO, isToday, buildEntriesByDay } from './utils'
 import GreetingHeading from './GreetingHeading'
 
 import { getDayAbbrev, getDayNum, formatShortDate, formatWeekRange, getWeekDates } from '@/lib/date-utils'
@@ -42,7 +42,7 @@ async function getHomeData(): Promise<HomeData & { weekStart: string }> {
   const [planRows, historyRows, countRows, groceryRows] = await Promise.all([
     db.select({ id: mealPlans.id, weekStart: mealPlans.weekStart })
       .from(mealPlans)
-      .where(eq(mealPlans.userId, user.id))
+      .where(and(eq(mealPlans.userId, user.id), eq(mealPlans.weekStart, weekStart)))
       .limit(1),
     db.select({
         recipeId: recipeHistory.recipeId,
@@ -122,23 +122,7 @@ export default async function HomePage() {
   const today    = getTodayISO()
   const weekDays = getWeekDates(weekStart)
 
-  const entriesByDay = new Map<
-    string,
-    { recipe_id: string; recipe_title: string; total_time_minutes: number | null }[]
-  >()
-  if (currentWeekPlan) {
-    for (const entry of currentWeekPlan.entries) {
-      const list = entriesByDay.get(entry.planned_date) ?? []
-      if (!list.find((e) => e.recipe_id === entry.recipe_id)) {
-        list.push({
-          recipe_id:          entry.recipe_id,
-          recipe_title:       entry.recipe_title,
-          total_time_minutes: entry.total_time_minutes,
-        })
-      }
-      entriesByDay.set(entry.planned_date, list)
-    }
-  }
+  const entriesByDay = buildEntriesByDay(currentWeekPlan?.entries ?? [])
 
   const daysPlanned = entriesByDay.size
 
