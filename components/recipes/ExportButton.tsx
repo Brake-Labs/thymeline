@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { slugify, triggerDownloadOrShare } from '@/lib/recipe-export'
+import { slugify, triggerDownload } from '@/lib/recipe-export'
 import ExportProgress from './ExportProgress'
 
 interface Props {
@@ -27,7 +27,7 @@ export default function ExportButton({ recipeId, recipeTitle }: Props) {
         return
       }
       const blob = await res.blob()
-      triggerDownloadOrShare(blob, `${slugify(recipeTitle)}.pdf`, 'application/pdf')
+      triggerDownload(blob, `${slugify(recipeTitle)}.pdf`)
     } catch {
       setError("Couldn't generate PDF — please try again.")
     } finally {

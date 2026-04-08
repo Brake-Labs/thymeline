@@ -17,6 +17,16 @@ export function triggerDownloadOrShare(blob: Blob, filename: string, mimeType: s
     return
   }
 
+  triggerDownload(blob, filename)
+}
+
+/**
+ * Force a direct download to the user's Downloads folder.
+ * Use this for export flows where the user expects a file save,
+ * not a share sheet. Revokes the object URL after a short delay
+ * to ensure the browser has time to start the download.
+ */
+export function triggerDownload(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
@@ -24,5 +34,5 @@ export function triggerDownloadOrShare(blob: Blob, filename: string, mimeType: s
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
-  URL.revokeObjectURL(url)
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
