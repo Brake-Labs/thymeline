@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import type { RecipeListItem } from '@/types'
-import { triggerDownloadOrShare } from '@/lib/recipe-export'
+import { triggerDownload } from '@/lib/recipe-export'
 import ExportProgress from './ExportProgress'
 
 interface Props {
@@ -54,7 +54,7 @@ export default function BatchExportModal({ recipes, onClose }: Props) {
         }
         const blob = await res.blob()
         const filename = `thymeline-recipes-${new Date().toISOString().slice(0, 10)}.pdf`
-        triggerDownloadOrShare(blob, filename, 'application/pdf')
+        triggerDownload(blob, filename)
       } else {
         const ids = filtered.map((r) => r.id)
         const idsParam = ids.join(',')
@@ -65,7 +65,7 @@ export default function BatchExportModal({ recipes, onClose }: Props) {
         }
         const blob = await res.blob()
         const filename = `thymeline-recipes-${new Date().toISOString().slice(0, 10)}.json`
-        triggerDownloadOrShare(blob, filename, 'application/json')
+        triggerDownload(blob, filename)
       }
       onClose()
     } catch {
