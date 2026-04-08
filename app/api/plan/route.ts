@@ -64,7 +64,7 @@ export const POST = withAuth(async (req, { user, ctx }) => {
       parentEntryId: e.parentEntryId,
     }))
 
-    return NextResponse.json({ plan_id: planId, entries: responseEntries })
+    return NextResponse.json({ planId, entries: responseEntries })
   } catch (err) {
     console.error('meal_plan_entries insert error:', err)
     return NextResponse.json({ error: `Failed to save entries: ${err instanceof Error ? err.message : 'unknown'}` }, { status: 500 })

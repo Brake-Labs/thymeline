@@ -25,7 +25,7 @@ export const GET = withAuth(async (req: NextRequest, { user, ctx }) => {
     ))
 
   if (planRows.length === 0) {
-    return NextResponse.json({ recipe_count: 0 })
+    return NextResponse.json({ recipeCount: 0 })
   }
 
   const planIds = planRows.map((p) => p.id)
@@ -39,7 +39,7 @@ export const GET = withAuth(async (req: NextRequest, { user, ctx }) => {
       lte(mealPlanEntries.plannedDate, dateTo),
     ))
 
-  const recipe_count = new Set(entryRows.map((e) => e.recipeId)).size
+  const recipeCount = new Set(entryRows.map((e) => e.recipeId)).size
 
-  return NextResponse.json({ recipe_count })
+  return NextResponse.json({ recipeCount })
 })

@@ -5,13 +5,13 @@ import TagRow from './TagRow'
 
 interface FirstClassTag {
   name: string
-  recipe_count: number
+  recipeCount: number
 }
 
 interface CustomTag {
   name: string
   section: string
-  recipe_count: number
+  recipeCount: number
 }
 
 interface HiddenTag {
@@ -74,7 +74,7 @@ export default function TagLibrarySection({
   const [addError, setAddError]   = useState<string | null>(null)
   const [addLoading, setAddLoading] = useState(false)
 
-  // deleteConfirm: tagName → recipe_count (null = loading)
+  // deleteConfirm: tagName → recipeCount (null = loading)
   const [deleteConfirm, setDeleteConfirm] = useState<{ name: string; count: number | null } | null>(null)
   const [deleteError, setDeleteError]     = useState<string | null>(null)
 
@@ -105,7 +105,7 @@ export default function TagLibrarySection({
       })
       if (res.ok || res.status === 201) {
         const created: { name: string; section: string } = await res.json()
-        setCustomTags((prev) => [...prev, { name: created.name, section: created.section, recipe_count: 0 }])
+        setCustomTags((prev) => [...prev, { name: created.name, section: created.section, recipeCount: 0 }])
         setAddInput('')
       } else {
         const body: { error?: string } = await res.json()
@@ -146,7 +146,7 @@ export default function TagLibrarySection({
   async function handleRestore(tagName: string) {
     // Optimistic update
     setHiddenTags((prev) => prev.filter((t) => t.name !== tagName))
-    setFirstClassTags((prev) => [...prev, { name: tagName, recipe_count: 0 }])
+    setFirstClassTags((prev) => [...prev, { name: tagName, recipeCount: 0 }])
 
     try {
       // Fetch current hiddenTags from preferences, then remove this one
@@ -197,8 +197,8 @@ export default function TagLibrarySection({
     try {
       const res = await fetch(`/api/tags/${encodeURIComponent(tagName)}`)
       if (res.ok) {
-        const data: { recipe_count: number } = await res.json()
-        setDeleteConfirm({ name: tagName, count: data.recipe_count })
+        const data: { recipeCount: number } = await res.json()
+        setDeleteConfirm({ name: tagName, count: data.recipeCount })
       } else {
         setDeleteConfirm(null)
         setDeleteError('Could not check tag usage. Please try again.')
@@ -265,7 +265,7 @@ export default function TagLibrarySection({
               <TagRow
                 key={tag.name}
                 name={tag.name}
-                recipeCount={tag.recipe_count}
+                recipeCount={tag.recipeCount}
                 variant="firstClass"
                 readOnly={readOnly}
                 onHide={() => void handleHide(tag.name)}
@@ -285,7 +285,7 @@ export default function TagLibrarySection({
               <TagRow
                 key={tag.name}
                 name={tag.name}
-                recipeCount={tag.recipe_count}
+                recipeCount={tag.recipeCount}
                 variant="custom"
                 readOnly={readOnly}
                 onRename={(newName) => handleRename(tag.name, newName)}

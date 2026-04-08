@@ -47,7 +47,7 @@ export default function CookModePage({ params }: Props) {
   const [activeTab, setActiveTab] = useState<'steps' | 'ingredients'>('steps')
   const [checked, setChecked] = useState<Set<number>>(new Set())
   const [timers, setTimers] = useState<Map<number, TimerState>>(new Map())
-  const [logStatus, setLogStatus] = useState<'idle' | 'loading' | 'success' | 'already_logged'>('idle')
+  const [logStatus, setLogStatus] = useState<'idle' | 'loading' | 'success' | 'alreadyLogged'>('idle')
   const [makeAgainEntryId, setMakeAgainEntryId] = useState<string | null>(null)
   const [wakeLockActive, setWakeLockActive] = useState(false)
   const [unitSystem, setUnitSystem] = useState<'imperial' | 'metric'>('imperial')
@@ -204,9 +204,9 @@ export default function CookModePage({ params }: Props) {
         body: JSON.stringify({ madeOn: today }),
       })
       if (res.ok) {
-        const data: { madeOn: string; already_logged: boolean; entry_id: string | null } = await res.json()
-        setLogStatus(data.already_logged ? 'already_logged' : 'success')
-        if (!data.already_logged && data.entry_id) setMakeAgainEntryId(data.entry_id)
+        const data: { madeOn: string; alreadyLogged: boolean; entryId: string | null } = await res.json()
+        setLogStatus(data.alreadyLogged ? 'alreadyLogged' : 'success')
+        if (!data.alreadyLogged && data.entryId) setMakeAgainEntryId(data.entryId)
         setTimeout(() => setLogStatus('idle'), TOAST_DURATION_LONG_MS)
       } else {
         setLogStatus('idle')
@@ -405,7 +405,7 @@ export default function CookModePage({ params }: Props) {
                   disabled={logStatus === 'loading'}
                   className="font-medium text-sm bg-white text-stone-800 rounded-xl py-2 px-4 min-h-[44px] disabled:opacity-50"
                 >
-                  {logStatus === 'success' ? '✓ Logged!' : logStatus === 'already_logged' ? 'Already logged today' : 'Log Made Today'}
+                  {logStatus === 'success' ? '✓ Logged!' : logStatus === 'alreadyLogged' ? 'Already logged today' : 'Log Made Today'}
                 </button>
               </div>
             ) : (
@@ -436,7 +436,7 @@ export default function CookModePage({ params }: Props) {
               disabled={logStatus === 'loading'}
               className="w-full font-medium text-sm bg-white text-stone-800 rounded-xl py-3 disabled:opacity-50"
             >
-              {logStatus === 'success' ? '✓ Logged!' : logStatus === 'already_logged' ? 'Already logged today' : 'Log Made Today'}
+              {logStatus === 'success' ? '✓ Logged!' : logStatus === 'alreadyLogged' ? 'Already logged today' : 'Log Made Today'}
             </button>
           </div>
         )}

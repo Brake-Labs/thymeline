@@ -116,7 +116,7 @@ export const POST = withAuth(async (req, { user, ctx }) => {
       }
     }
 
-    return NextResponse.json({ householdId: household.id, household_name: household.name })
+    return NextResponse.json({ householdId: household.id, householdName: household.name })
   } catch (err) {
     console.error('[POST /api/household/join] error:', err)
     return NextResponse.json({ error: 'Failed to join household' }, { status: 500 })

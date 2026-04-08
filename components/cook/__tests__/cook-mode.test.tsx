@@ -398,7 +398,7 @@ describe('T26-T29 - Log Made Today', () => {
   it('T27 - Log button calls POST /api/recipes/[id]/log', async () => {
     global.fetch = vi.fn().mockImplementation((url: string) => {
       if ((url as string).includes('/log')) {
-        return Promise.resolve({ ok: true, json: async () => ({ madeOn: '2026-03-28', already_logged: false }) })
+        return Promise.resolve({ ok: true, json: async () => ({ madeOn: '2026-03-28', alreadyLogged: false }) })
       }
       return Promise.resolve({ ok: true, json: async () => sampleRecipe, status: 200 })
     })
@@ -423,7 +423,7 @@ describe('T26-T29 - Log Made Today', () => {
     // don't exhaust mockResolvedValueOnce before the log call fires.
     global.fetch = vi.fn().mockImplementation((url: string) => {
       if ((url as string).includes('/log')) {
-        return Promise.resolve({ ok: true, json: async () => ({ madeOn: '2026-03-28', already_logged: false }) })
+        return Promise.resolve({ ok: true, json: async () => ({ madeOn: '2026-03-28', alreadyLogged: false }) })
       }
       return Promise.resolve({ ok: true, json: async () => sampleRecipe, status: 200 })
     })
@@ -439,10 +439,10 @@ describe('T26-T29 - Log Made Today', () => {
     await waitFor(() => expect(screen.getByText(/✓ Logged!/)).toBeDefined())
   })
 
-  it('T29 - already_logged → "Already logged today"', async () => {
+  it('T29 - alreadyLogged → "Already logged today"', async () => {
     global.fetch = vi.fn().mockImplementation((url: string) => {
       if ((url as string).includes('/log')) {
-        return Promise.resolve({ ok: true, json: async () => ({ madeOn: '2026-03-28', already_logged: true }) })
+        return Promise.resolve({ ok: true, json: async () => ({ madeOn: '2026-03-28', alreadyLogged: true }) })
       }
       return Promise.resolve({ ok: true, json: async () => sampleRecipe, status: 200 })
     })

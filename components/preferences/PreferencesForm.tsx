@@ -53,8 +53,8 @@ function SectionSaveButton({ onSave }: SectionSaveButtonProps) {
 }
 
 interface PreferencesFormProps {
-  firstClassTags: { name: string; recipe_count: number }[]
-  customTags:     { name: string; section: string; recipe_count: number }[]
+  firstClassTags: { name: string; recipeCount: number }[]
+  customTags:     { name: string; section: string; recipeCount: number }[]
   hiddenTags:     { name: string }[]
   readOnly?:      boolean
 }

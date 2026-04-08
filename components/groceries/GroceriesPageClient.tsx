@@ -70,7 +70,7 @@ export default function GroceriesPageClient({ initialDateFrom, initialDateTo }: 
       const res = await fetch(`/api/groceries/count?dateFrom=${from}&dateTo=${to}`)
       if (res.ok) {
         const json = await res.json()
-        setRecipeCount(json.recipe_count ?? 0)
+        setRecipeCount(json.recipeCount ?? 0)
       }
     } catch {
       setRecipeCount(0)

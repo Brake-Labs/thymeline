@@ -96,13 +96,13 @@ describe('T02 — GET /api/groceries/count', () => {
     expect(res.status).toBe(400)
   })
 
-  it('returns { recipe_count: 0 } when no meal plans exist', async () => {
+  it('returns { recipeCount: 0 } when no meal plans exist', async () => {
     await setupMocks([], [])
     const { GET } = await import('@/app/api/groceries/count/route')
     const res = await GET(makeReq('2026-03-15', '2026-03-21') as Parameters<typeof GET>[0])
     expect(res.status).toBe(200)
     const json = await res.json()
-    expect(json.recipe_count).toBe(0)
+    expect(json.recipeCount).toBe(0)
   })
 
   it('returns correct distinct recipe count with entries in range', async () => {
@@ -118,15 +118,15 @@ describe('T02 — GET /api/groceries/count', () => {
     const res = await GET(makeReq('2026-03-15', '2026-03-21') as Parameters<typeof GET>[0])
     expect(res.status).toBe(200)
     const json = await res.json()
-    expect(json.recipe_count).toBe(2)
+    expect(json.recipeCount).toBe(2)
   })
 
-  it('returns { recipe_count: 0 } when plan has no entries in range', async () => {
+  it('returns { recipeCount: 0 } when plan has no entries in range', async () => {
     await setupMocks([{ id: 'plan-1' }], [])
     const { GET } = await import('@/app/api/groceries/count/route')
     const res = await GET(makeReq('2026-03-15', '2026-03-21') as Parameters<typeof GET>[0])
     expect(res.status).toBe(200)
     const json = await res.json()
-    expect(json.recipe_count).toBe(0)
+    expect(json.recipeCount).toBe(0)
   })
 })

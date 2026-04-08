@@ -17,7 +17,7 @@ interface Props {
 }
 
 interface EntryState {
-  status: 'idle' | 'loading' | 'success' | 'already_logged'
+  status: 'idle' | 'loading' | 'success' | 'alreadyLogged'
   makeAgainEntryId: string | null
 }
 
@@ -42,12 +42,12 @@ export default function PlanEntriesList({ entries }: Props) {
         body: JSON.stringify({ madeOn: entry.plannedDate }),
       })
       if (res.ok) {
-        const data: { madeOn: string; already_logged: boolean; entry_id: string | null } = await res.json()
+        const data: { madeOn: string; alreadyLogged: boolean; entryId: string | null } = await res.json()
         setEntryStates((prev) => ({
           ...prev,
           [key]: {
-            status: data.already_logged ? 'already_logged' : 'success',
-            makeAgainEntryId: !data.already_logged ? (data.entry_id ?? null) : null,
+            status: data.alreadyLogged ? 'alreadyLogged' : 'success',
+            makeAgainEntryId: !data.alreadyLogged ? (data.entryId ?? null) : null,
           },
         }))
         setTimeout(() => {
@@ -86,7 +86,7 @@ export default function PlanEntriesList({ entries }: Props) {
                   className="text-xs px-3 py-1.5 rounded-full border border-stone-200 text-stone-600 bg-white hover:bg-stone-50 disabled:opacity-50"
                 >
                   {state.status === 'success' ? '✓ Logged!'
-                    : state.status === 'already_logged' ? 'Already logged'
+                    : state.status === 'alreadyLogged' ? 'Already logged'
                     : 'Log made'}
                 </button>
               </div>

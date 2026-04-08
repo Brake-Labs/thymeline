@@ -121,7 +121,7 @@ export const POST = withAuth(async (req, { user, ctx }) => {
   const resultB = dbFirst(updatedRowsB)
 
   return NextResponse.json({
-    entry_a: resultA ? { id: resultA.id, plannedDate: resultA.plannedDate, recipeId: resultA.recipeId } : null,
-    entry_b: resultB ? { id: resultB.id, plannedDate: resultB.plannedDate, recipeId: resultB.recipeId } : null,
+    entryA: resultA ? { id: resultA.id, plannedDate: resultA.plannedDate, recipeId: resultA.recipeId } : null,
+    entryB: resultB ? { id: resultB.id, plannedDate: resultB.plannedDate, recipeId: resultB.recipeId } : null,
   })
 })

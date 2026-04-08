@@ -110,14 +110,14 @@ export const POST = withAuth(async (req, { user, ctx }) => {
 
   // 3. Resolve ingredients per recipe (vault first, then scrape, else skip)
   const firecrawlKey = process.env.FIRECRAWL_API_KEY
-  const skipped_recipes: string[] = []
+  const skippedRecipes: string[] = []
   const combineInputs: Parameters<typeof combineIngredients>[0] = []
 
   for (const recipe of recipeEntries) {
     const ingredientsText = await resolveRecipeIngredients(recipe, firecrawlKey)
 
     if (!ingredientsText) {
-      skipped_recipes.push(recipe.recipeTitle)
+      skippedRecipes.push(recipe.recipeTitle)
       continue
     }
 
@@ -282,7 +282,7 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
       return NextResponse.json({ error: 'Failed to save grocery list' }, { status: 500 })
     }
 
-    return NextResponse.json({ list: upserted, skipped_recipes })
+    return NextResponse.json({ list: upserted, skippedRecipes })
   } catch (err) {
     console.error('Upsert error:', err)
     return NextResponse.json({ error: 'Failed to save grocery list' }, { status: 500 })

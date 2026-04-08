@@ -90,7 +90,7 @@ describe('MakeAgainPrompt', () => {
   })
 
   // T24: Prompt appears on Cook Mode final step after log
-  it('T24: renders correctly when supplied with a cook-mode entry_id', () => {
+  it('T24: renders correctly when supplied with a cook-mode entryId', () => {
     render(
       <MakeAgainPrompt
         entryId="cook-entry-42"

@@ -273,10 +273,10 @@ describe('POST /api/discover — T06: vaultMatch populated when similar recipe i
   })
 })
 
-describe('POST /api/discover — T07: site_filter appends site: operator', () => {
+describe('POST /api/discover — T07: siteFilter appends site: operator', () => {
   beforeEach(() => { vi.resetModules() })
 
-  it('includes site: operator in search query when site_filter is set', async () => {
+  it('includes site: operator in search query when siteFilter is set', async () => {
     setupMocks()
 
     mockAnthropicCreate
@@ -286,7 +286,7 @@ describe('POST /api/discover — T07: site_filter appends site: operator', () =>
 
     const { POST } = await import('../route')
     const res = await POST(
-      makeReq({ query: 'chicken stir fry', site_filter: 'budgetbytes.com' }) as Parameters<typeof POST>[0]
+      makeReq({ query: 'chicken stir fry', siteFilter: 'budgetbytes.com' }) as Parameters<typeof POST>[0]
     )
     expect(res.status).toBe(200)
 

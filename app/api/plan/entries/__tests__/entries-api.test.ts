@@ -177,10 +177,10 @@ function makeReq(method: string, url: string, body?: unknown): NextRequest {
   return new NextRequest(url, opts)
 }
 
-function makeDeleteReq(entryId: string): [NextRequest, { params: { entry_id: string } }] {
+function makeDeleteReq(entryId: string): [NextRequest, { params: { entryId: string } }] {
   return [
     makeReq('DELETE', `http://localhost/api/plan/entries/${entryId}`),
-    { params: { entry_id: entryId } },
+    { params: { entryId: entryId } },
   ]
 }
 

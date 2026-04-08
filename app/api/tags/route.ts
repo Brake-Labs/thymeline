@@ -46,11 +46,11 @@ export const GET = withAuth(async (req, { user, ctx }) => {
     const firstClassLower = new Set(FIRST_CLASS_TAGS.map((t) => t.toLowerCase()))
     const custom = customData
       .filter((t) => !firstClassLower.has(t.name.toLowerCase()))
-      .map((t) => ({ name: t.name, section: t.section, recipe_count: counts.get(t.name) ?? 0 }))
+      .map((t) => ({ name: t.name, section: t.section, recipeCount: counts.get(t.name) ?? 0 }))
 
     const firstClass = FIRST_CLASS_TAGS
       .filter((t) => !hiddenSet.has(t.toLowerCase()))
-      .map((name) => ({ name, recipe_count: counts.get(name) ?? 0 }))
+      .map((name) => ({ name, recipeCount: counts.get(name) ?? 0 }))
 
     const hidden = FIRST_CLASS_TAGS
       .filter((t) => hiddenSet.has(t.toLowerCase()))

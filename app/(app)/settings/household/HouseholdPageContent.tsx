@@ -129,7 +129,7 @@ export function HouseholdPageContent() {
                   const res = await fetch('/api/household/invite', { method: 'POST' })
                   if (res.ok) {
                     const d = await res.json()
-                    setInviteUrl(d.invite_url)
+                    setInviteUrl(d.inviteUrl)
                   } else {
                     const d = await res.json()
                     setError(d.error ?? 'Failed to generate invite')

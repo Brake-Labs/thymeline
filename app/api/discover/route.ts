@@ -16,7 +16,7 @@ const DISCOVER_WASTE_TIMEOUT_MS = 5000
 // Web search requires a model that supports the web_search_20250305 tool — haiku does not.
 
 export const POST = withAuth(async (req: NextRequest, { user, db: _db, ctx }) => {
-  let body: { query?: string; site_filter?: string }
+  let body: { query?: string; siteFilter?: string }
   try {
     body = await req.json()
   } catch {
@@ -30,7 +30,7 @@ export const POST = withAuth(async (req: NextRequest, { user, db: _db, ctx }) =>
 
   console.log('[discover] query:', query)
 
-  const siteFilter = (body.site_filter ?? '').trim()
+  const siteFilter = (body.siteFilter ?? '').trim()
 
   try {
     // ── Step 1: Fetch vault context + taste profile + current plan ────────────

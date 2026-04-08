@@ -45,7 +45,7 @@ describe('T09 - PreferencesForm loads with current saved values', () => {
     })
 
     await act(async () => {
-      render(<PreferencesForm firstClassTags={[{ name: 'Healthy', recipe_count: 0 }]} customTags={[]} hiddenTags={[]} />)
+      render(<PreferencesForm firstClassTags={[{ name: 'Healthy', recipeCount: 0 }]} customTags={[]} hiddenTags={[]} />)
     })
 
     await waitFor(() => {
@@ -60,7 +60,7 @@ describe('T09 - PreferencesForm loads with current saved values', () => {
     })
 
     await act(async () => {
-      render(<PreferencesForm firstClassTags={[{ name: 'Healthy', recipe_count: 0 }, { name: 'Quick', recipe_count: 0 }]} customTags={[]} hiddenTags={[]} />)
+      render(<PreferencesForm firstClassTags={[{ name: 'Healthy', recipeCount: 0 }, { name: 'Quick', recipeCount: 0 }]} customTags={[]} hiddenTags={[]} />)
     })
 
     await waitFor(() => {

@@ -8,7 +8,7 @@ const mockState = {
   user: { id: 'user-1', email: 'test@example.com', name: 'Test', image: null } as { id: string; email: string; name: string; image: null } | null,
   recipes: [] as { id: string; title: string; tags: string[]; category: string }[],
   recentHistory: [] as { recipeId: string; madeOn: string; recipes: { title: string } }[],
-  pantryItems: [] as { name: string; expiry_date: string | null }[],
+  pantryItems: [] as { name: string; expiryDate: string | null }[],
   prefs: {
     userId: 'user-1',
     optionsPerDay: 3,
@@ -520,7 +520,7 @@ describe('T22b - POST /api/plan/match handles fenced JSON from LLM', () => {
 // ── T30: Save plan — creates new plan when none exists ────────────────────────
 
 describe('T30 - POST /api/plan creates plan and saves entries via admin client', () => {
-  it('creates a new plan and returns plan_id + entries when no existing plan', async () => {
+  it('creates a new plan and returns planId + entries when no existing plan', async () => {
     mockState.plan = null
     mockState.entries = [
       { plannedDate: '2026-03-01', recipeId: 'r1', position: 1, confirmed: true, recipes: { title: 'Pasta' } },
@@ -535,13 +535,13 @@ describe('T30 - POST /api/plan creates plan and saves entries via admin client',
     }))
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.plan_id).toBe('plan-1')
+    expect(body.planId).toBe('plan-1')
     expect(body.entries).toHaveLength(2)
     expect(body.entries[0].recipeId).toBe('r1')
     expect(body.entries[1].recipeId).toBe('r2')
   })
 
-  it('reuses existing plan_id when a plan already exists for the week', async () => {
+  it('reuses existing planId when a plan already exists for the week', async () => {
     mockState.plan = { id: 'existing-plan-99', weekStart: '2026-03-01' }
     mockState.entries = [
       { plannedDate: '2026-03-01', recipeId: 'r3', position: 1, confirmed: true, recipes: { title: 'Soup' } },
@@ -552,7 +552,7 @@ describe('T30 - POST /api/plan creates plan and saves entries via admin client',
     }))
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.plan_id).toBe('existing-plan-99')
+    expect(body.planId).toBe('existing-plan-99')
     expect(body.entries[0].recipeId).toBe('r3')
   })
 
@@ -713,8 +713,8 @@ describe('T30 - Snack suggestions use only side_dish recipes', () => {
 describe('T20 - POST /api/plan/suggest includes pantry context in LLM prompt', () => {
   it('calls LLM with pantry context when pantry has items', async () => {
     mockState.pantryItems = [
-      { name: 'chicken breast', expiry_date: '2026-03-30' },
-      { name: 'spinach', expiry_date: null },
+      { name: 'chicken breast', expiryDate: '2026-03-30' },
+      { name: 'spinach', expiryDate: null },
     ]
 
     const anthropicMod = await import('@anthropic-ai/sdk')
@@ -1272,8 +1272,8 @@ describe('SWAP-T07 - falls back to direct UPDATEs when RPC unavailable', () => {
     }))
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.entry_a.plannedDate).toBe('2026-03-03')
-    expect(body.entry_b.plannedDate).toBe('2026-03-01')
+    expect(body.entryA.plannedDate).toBe('2026-03-03')
+    expect(body.entryB.plannedDate).toBe('2026-03-01')
   })
 })
 
@@ -1291,10 +1291,10 @@ describe('SWAP-T08 - 200 success returns swapped planned_dates', () => {
     }))
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.entry_a).toBeDefined()
-    expect(body.entry_b).toBeDefined()
-    expect(body.entry_a.plannedDate).toBe('2026-03-03')
-    expect(body.entry_b.plannedDate).toBe('2026-03-01')
+    expect(body.entryA).toBeDefined()
+    expect(body.entryB).toBeDefined()
+    expect(body.entryA.plannedDate).toBe('2026-03-03')
+    expect(body.entryB.plannedDate).toBe('2026-03-01')
     expect(mockState.rpcCallCount).toBe(1)
   })
 })
@@ -1323,8 +1323,8 @@ describe('SWAP-T20 - 200 for household member swapping entries in their househol
     }))
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.entry_a.plannedDate).toBe('2026-03-03')
-    expect(body.entry_b.plannedDate).toBe('2026-03-01')
+    expect(body.entryA.plannedDate).toBe('2026-03-03')
+    expect(body.entryB.plannedDate).toBe('2026-03-01')
   })
 })
 

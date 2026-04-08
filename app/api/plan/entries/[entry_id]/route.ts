@@ -6,7 +6,7 @@ import { mealPlanEntries, mealPlans } from '@/lib/db/schema'
 import { dbFirst } from '@/lib/db/helpers'
 
 export const DELETE = withAuth(async (req, { user, ctx }, params) => {
-  const entryId = params.entry_id!
+  const entryId = params.entryId!
 
   try {
     // Look up the entry and verify ownership via join on meal_plans

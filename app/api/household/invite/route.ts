@@ -30,7 +30,7 @@ export const POST = withAuth(async (req, { user, ctx }) => {
       })
       .returning({
         token: householdInvites.token,
-        expires_at: householdInvites.expiresAt,
+        expiresAt: householdInvites.expiresAt,
       })
 
     const invite = dbFirst(rows)
@@ -39,9 +39,9 @@ export const POST = withAuth(async (req, { user, ctx }) => {
     }
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
-    const invite_url = `${siteUrl}/household/join?token=${invite.token}`
+    const inviteUrl = `${siteUrl}/household/join?token=${invite.token}`
 
-    return NextResponse.json({ invite_url, expires_at: invite.expires_at }, { status: 201 })
+    return NextResponse.json({ inviteUrl, expiresAt: invite.expiresAt }, { status: 201 })
   } catch (err) {
     console.error('[POST /api/household/invite] error:', err)
     return NextResponse.json({ error: 'Failed to create invite' }, { status: 500 })

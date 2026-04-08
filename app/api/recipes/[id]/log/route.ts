@@ -36,7 +36,7 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }, params) => 
     // Silent pantry deduction — fire and forget, never affects the HTTP response
     if (id) void deductPantryIngredients(id, user.id).catch(() => {})
 
-    return NextResponse.json({ madeOn: madeOn, already_logged: false, entry_id: inserted?.id ?? null })
+    return NextResponse.json({ madeOn: madeOn, alreadyLogged: false, entryId: inserted?.id ?? null })
   } catch (err) {
     // Unique constraint violation = already logged today — treat as idempotent
     const errMsg = err instanceof Error ? err.message : String(err)
@@ -65,7 +65,7 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }, params) => 
     // Silent pantry deduction — fire and forget, never affects the HTTP response
     if (id) void deductPantryIngredients(id, user.id).catch(() => {})
 
-    return NextResponse.json({ madeOn: madeOn, already_logged: true, entry_id: entryId })
+    return NextResponse.json({ madeOn: madeOn, alreadyLogged: true, entryId: entryId })
   }
 })
 

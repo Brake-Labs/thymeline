@@ -80,8 +80,8 @@ export default function EditRecipePage({ params }: Props) {
             body: JSON.stringify({ madeOn: values.lastMade }),
           })
           if (logRes.ok) {
-            const logData: { madeOn: string; already_logged: boolean } = await logRes.json()
-            if (!logData.already_logged) {
+            const logData: { madeOn: string; alreadyLogged: boolean } = await logRes.json()
+            if (!logData.alreadyLogged) {
               setDatesMade((prev) => [...prev, logData.madeOn].sort().reverse())
             }
           }
@@ -105,8 +105,8 @@ export default function EditRecipePage({ params }: Props) {
       body: JSON.stringify({ madeOn: addDateValue }),
     })
     if (res.ok) {
-      const data: { madeOn: string; already_logged: boolean } = await res.json()
-      if (data.already_logged) {
+      const data: { madeOn: string; alreadyLogged: boolean } = await res.json()
+      if (data.alreadyLogged) {
         setDateError('Already logged for that day')
       } else {
         setDatesMade((prev) => [...prev, data.madeOn].sort().reverse())

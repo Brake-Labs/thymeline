@@ -8,7 +8,7 @@ import { dbFirst } from '@/lib/db/helpers'
 
 export const PATCH = withAuth(async (req: NextRequest, { user }, params) => {
   const recipeId = params.id!
-  const entryId = params.entry_id!
+  const entryId = params.entryId!
 
   const { data: body, error } = await parseBody(req, patchLogSchema)
   if (error) return error

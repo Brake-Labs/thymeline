@@ -96,15 +96,15 @@ describe('POST /api/recipes/[id]/log', () => {
     await setupAuth()
   })
 
-  it('T06: returns entry_id in response body', async () => {
+  it('T06: returns entryId in response body', async () => {
     const { POST } = await import('@/app/api/recipes/[id]/log/route')
     const res = await POST(
       makeRequest('POST', 'http://localhost/api/recipes/recipe-1/log'),
       { params: { id: 'recipe-1' } },
     )
     const json = await res.json()
-    expect(json.entry_id).toBe('entry-abc')
-    expect(json.already_logged).toBe(false)
+    expect(json.entryId).toBe('entry-abc')
+    expect(json.alreadyLogged).toBe(false)
   })
 
   it('T07: accepts makeAgain in body and includes it in insert', async () => {
@@ -116,7 +116,7 @@ describe('POST /api/recipes/[id]/log', () => {
     )
     expect(res.status).toBe(200)
     const json = await res.json()
-    expect(json.entry_id).toBeDefined()
+    expect(json.entryId).toBeDefined()
   })
 })
 
@@ -139,7 +139,7 @@ describe('PATCH /api/recipes/[id]/log/[entry_id]', () => {
     const { PATCH } = await import('@/app/api/recipes/[id]/log/[entry_id]/route')
     const res = await PATCH(
       makeRequest('PATCH', 'http://localhost/api/recipes/recipe-1/log/entry-abc', { makeAgain: true }),
-      { params: { id: 'recipe-1', entry_id: 'entry-abc' } },
+      { params: { id: 'recipe-1', entryId: 'entry-abc' } },
     )
     expect(res.status).toBe(200)
     const json = await res.json()
@@ -153,7 +153,7 @@ describe('PATCH /api/recipes/[id]/log/[entry_id]', () => {
     const { PATCH } = await import('@/app/api/recipes/[id]/log/[entry_id]/route')
     const res = await PATCH(
       makeRequest('PATCH', 'http://localhost/api/recipes/recipe-1/log/entry-not-mine', { makeAgain: false }),
-      { params: { id: 'recipe-1', entry_id: 'entry-not-mine' } },
+      { params: { id: 'recipe-1', entryId: 'entry-not-mine' } },
     )
     expect(res.status).toBe(404)
   })

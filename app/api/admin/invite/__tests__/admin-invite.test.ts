@@ -79,14 +79,14 @@ beforeEach(() => {
 
 // ── T18: POST /api/admin/invite returns invite URL for admin ──────────────────
 describe('T18 - POST /api/admin/invite returns invite URL for admin', () => {
-  it('returns 200 with invite_url and expires_at for admin user', async () => {
+  it('returns 200 with inviteUrl and expiresAt for admin user', async () => {
     const res = await POST(makeRequest())
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.invite_url).toMatch(/^https:\/\/example\.com\/invite\?token=/)
-    expect(body.expires_at).toBeDefined()
-    // expires_at should be ~7 days in the future
-    const diff = new Date(body.expires_at).getTime() - Date.now()
+    expect(body.inviteUrl).toMatch(/^https:\/\/example\.com\/invite\?token=/)
+    expect(body.expiresAt).toBeDefined()
+    // expiresAt should be ~7 days in the future
+    const diff = new Date(body.expiresAt).getTime() - Date.now()
     expect(diff).toBeGreaterThan(6 * 24 * 60 * 60 * 1000)
     expect(diff).toBeLessThan(8 * 24 * 60 * 60 * 1000)
   })
@@ -108,7 +108,7 @@ describe('Multi-admin support', () => {
     const res = await POST(makeRequest())
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.invite_url).toMatch(/^https:\/\/example\.com\/invite\?token=/)
+    expect(body.inviteUrl).toMatch(/^https:\/\/example\.com\/invite\?token=/)
   })
 })
 

@@ -35,7 +35,7 @@ export default function RecipeDetailPage({ params }: Props) {
   const [showRegenerate, setShowRegenerate] = useState(false)
   const [currentUserId, setCurrentUserId] = useState('')
   const [datesMade, setDatesMade] = useState<string[]>([])
-  const [logStatus, setLogStatus] = useState<'idle' | 'loading' | 'success' | 'already_logged'>('idle')
+  const [logStatus, setLogStatus] = useState<'idle' | 'loading' | 'success' | 'alreadyLogged'>('idle')
   const [showLogModal, setShowLogModal] = useState(false)
   const [logDate, setLogDate] = useState('')
   const [fetchError, setFetchError] = useState<string | null>(null)
@@ -102,15 +102,15 @@ export default function RecipeDetailPage({ params }: Props) {
         body: JSON.stringify({ madeOn: logDate }),
       })
       if (res.ok) {
-        const data: { madeOn: string; already_logged: boolean; entry_id: string | null } = await res.json()
-        if (data.already_logged) {
-          setLogStatus('already_logged')
+        const data: { madeOn: string; alreadyLogged: boolean; entryId: string | null } = await res.json()
+        if (data.alreadyLogged) {
+          setLogStatus('alreadyLogged')
         } else {
           setLogStatus('success')
           setDatesMade((prev) =>
             prev.includes(data.madeOn) ? prev : [data.madeOn, ...prev].sort().reverse()
           )
-          if (data.entry_id) setMakeAgainEntryId(data.entry_id)
+          if (data.entryId) setMakeAgainEntryId(data.entryId)
         }
         setTimeout(() => setLogStatus('idle'), TOAST_DURATION_MS)
       } else {
@@ -398,7 +398,7 @@ export default function RecipeDetailPage({ params }: Props) {
               disabled={logStatus === 'loading'}
               className="font-display font-medium text-[13px] text-stone-700 border border-stone-200 rounded-xl py-2 px-4 bg-white hover:bg-stone-50 disabled:opacity-50"
             >
-              {logStatus === 'success' ? '✓ Logged!' : logStatus === 'already_logged' ? 'Already logged' : 'Log made'}
+              {logStatus === 'success' ? '✓ Logged!' : logStatus === 'alreadyLogged' ? 'Already logged' : 'Log made'}
             </button>
             {isOwner && recipe.source === 'generated' && (
               <button

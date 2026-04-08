@@ -166,7 +166,7 @@ describe('T18 - Confirming regenerate replaces items and resets recipeScales', (
     }
     mockFetch.mockImplementation((url: string) => {
       if (url.includes('generate')) {
-        return Promise.resolve({ ok: true, json: async () => ({ list: regeneratedList, skipped_recipes: [] }) })
+        return Promise.resolve({ ok: true, json: async () => ({ list: regeneratedList, skippedRecipes: [] }) })
       }
       return Promise.resolve({ ok: true, json: async () => ({}) })
     })

@@ -407,7 +407,7 @@ function PlanPageInner() {
         throw new Error(msg)
       }
 
-      const savedData = await res.json() as { plan_id: string; entries: SavedPlanEntry[] }
+      const savedData = await res.json() as { planId: string; entries: SavedPlanEntry[] }
 
       // Save side dishes: match each side dish to its parent entry by date + mealType
       for (const [key, sideDish] of Object.entries(sideDishSelections)) {

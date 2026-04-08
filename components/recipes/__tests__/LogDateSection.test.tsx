@@ -10,7 +10,7 @@ vi.stubGlobal('fetch', mockFetch)
 function makeLogResponse(alreadyLogged = false, madeOn = '2026-03-13') {
   return Promise.resolve({
     ok: true,
-    json: async () => ({ madeOn: madeOn, already_logged: alreadyLogged }),
+    json: async () => ({ madeOn: madeOn, alreadyLogged: alreadyLogged }),
   })
 }
 
@@ -95,7 +95,7 @@ describe('LogDateSection - Today button', () => {
     })
   })
 
-  it('does not call onLogged when already_logged=true', async () => {
+  it('does not call onLogged when alreadyLogged=true', async () => {
     const onLogged = vi.fn()
     mockFetch.mockResolvedValueOnce(makeLogResponse(true))
 

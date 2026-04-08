@@ -7,12 +7,12 @@ const mockFetch = vi.fn()
 global.fetch = mockFetch
 
 const sampleFirstClass = [
-  { name: 'Quick', recipe_count: 12 },
-  { name: 'Gluten-Free', recipe_count: 4 },
+  { name: 'Quick', recipeCount: 12 },
+  { name: 'Gluten-Free', recipeCount: 4 },
 ]
 const sampleCustom = [
-  { name: 'Weeknight', section: 'style', recipe_count: 8 },
-  { name: 'Date Night', section: 'style', recipe_count: 2 },
+  { name: 'Weeknight', section: 'style', recipeCount: 8 },
+  { name: 'Date Night', section: 'style', recipeCount: 2 },
 ]
 const sampleHidden = [{ name: 'Keto' }]
 
@@ -149,7 +149,7 @@ describe('Spec-19 T5 - renaming a custom tag updates in place', () => {
       render(
         <TagLibrarySection
           firstClassTags={[]}
-          customTags={[{ name: 'Date Night', section: 'style', recipe_count: 2 }]}
+          customTags={[{ name: 'Date Night', section: 'style', recipeCount: 2 }]}
           hiddenTags={[]}
         />
       )
@@ -184,8 +184,8 @@ describe('Spec-19 T6 - renaming to an already-existing name is rejected', () => 
         <TagLibrarySection
           firstClassTags={[]}
           customTags={[
-            { name: 'Date Night', section: 'style', recipe_count: 2 },
-            { name: 'Weeknight', section: 'style', recipe_count: 8 },
+            { name: 'Date Night', section: 'style', recipeCount: 2 },
+            { name: 'Weeknight', section: 'style', recipeCount: 8 },
           ]}
           hiddenTags={[]}
         />
@@ -219,8 +219,8 @@ describe('Spec-19 T7 - renaming to a first-class tag name is rejected', () => {
     await act(async () => {
       render(
         <TagLibrarySection
-          firstClassTags={[{ name: 'Quick', recipe_count: 5 }]}
-          customTags={[{ name: 'Date Night', section: 'style', recipe_count: 2 }]}
+          firstClassTags={[{ name: 'Quick', recipeCount: 5 }]}
+          customTags={[{ name: 'Date Night', section: 'style', recipeCount: 2 }]}
           hiddenTags={[]}
         />
       )
@@ -244,14 +244,14 @@ describe('Spec-19 T8 - delete confirmation shows recipe count', () => {
   it('shows recipe count in delete confirmation', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ name: 'Weeknight', recipe_count: 8 }),
+      json: async () => ({ name: 'Weeknight', recipeCount: 8 }),
     })
 
     await act(async () => {
       render(
         <TagLibrarySection
           firstClassTags={[]}
-          customTags={[{ name: 'Weeknight', section: 'style', recipe_count: 8 }]}
+          customTags={[{ name: 'Weeknight', section: 'style', recipeCount: 8 }]}
           hiddenTags={[]}
         />
       )
@@ -270,14 +270,14 @@ describe('Spec-19 T8 - delete confirmation shows recipe count', () => {
 describe('Spec-19 T9 - deleting a custom tag removes it from the list', () => {
   it('removes tag after confirmed delete', async () => {
     mockFetch
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ name: 'Weeknight', recipe_count: 0 }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ name: 'Weeknight', recipeCount: 0 }) })
       .mockResolvedValueOnce({ ok: true, status: 204, json: async () => ({}) })
 
     await act(async () => {
       render(
         <TagLibrarySection
           firstClassTags={[]}
-          customTags={[{ name: 'Weeknight', section: 'style', recipe_count: 0 }]}
+          customTags={[{ name: 'Weeknight', section: 'style', recipeCount: 0 }]}
           hiddenTags={[]}
         />
       )
@@ -303,7 +303,7 @@ describe('Spec-19 T10 - hiding a first-class tag moves it to Hidden', () => {
     await act(async () => {
       render(
         <TagLibrarySection
-          firstClassTags={[{ name: 'Keto', recipe_count: 0 }]}
+          firstClassTags={[{ name: 'Keto', recipeCount: 0 }]}
           customTags={[]}
           hiddenTags={[]}
         />
