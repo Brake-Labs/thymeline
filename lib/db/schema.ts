@@ -205,7 +205,7 @@ export const householdInvites = pgTable('household_invites', {
   id: uuid('id').defaultRandom().primaryKey(),
   householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
   invitedBy: text('invited_by').notNull(),
-  token: text('token').notNull(),
+  token: text('token').notNull().unique(),
   usedBy: text('used_by'),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

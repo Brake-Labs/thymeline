@@ -51,7 +51,7 @@ export function withAuth(
   ): Promise<NextResponse> => {
     let user: AuthUser
 
-    if (process.env.DEV_BYPASS_AUTH === 'true') {
+    if (process.env.DEV_BYPASS_AUTH === 'true' && process.env.NODE_ENV !== 'production') {
       user = DEV_USER
     } else {
       const session = await auth.api.getSession({ headers: req.headers })

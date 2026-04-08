@@ -17,7 +17,7 @@ export interface SessionUser {
  * When DEV_BYPASS_AUTH=true, returns a dev user without checking the session.
  */
 export async function getSessionUser(): Promise<SessionUser | null> {
-  if (process.env.DEV_BYPASS_AUTH === 'true') {
+  if (process.env.DEV_BYPASS_AUTH === 'true' && process.env.NODE_ENV !== 'production') {
     return {
       id: process.env.DEV_BYPASS_AUTH_USER_ID ?? 'dev-user',
       email: process.env.DEV_BYPASS_AUTH_EMAIL ?? 'dev@localhost',
