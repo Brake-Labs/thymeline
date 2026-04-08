@@ -654,7 +654,8 @@ describe('T51 - Scroll view also injects quantities inline', () => {
     await renderCookPage(recipe)
     // Switch to all-steps view
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /all steps/i })) })
-    expect(screen.getByText(/2 cups/)).toBeDefined()
+    // "2 cups" appears at least once (inline injection + possibly in the step ingredient panel)
+    expect(screen.getAllByText(/2 cups/).length).toBeGreaterThan(0)
   })
 })
 
@@ -667,9 +668,10 @@ describe('T52 - Injected quantity is wrapped in a highlighted span', () => {
       servings: 4,
     }
     await renderCookPage(recipe)
-    // "2 cups" appears inside a <span>, not as a bare text node
-    const quantityEl = screen.getByText(/2 cups/)
-    expect(quantityEl.tagName).toBe('SPAN')
+    // "2 cups" must appear inside a highlighted <span> (inline injection)
+    const allMatches = screen.getAllByText(/2 cups/)
+    const spanEl = allMatches.find((el) => el.tagName === 'SPAN')
+    expect(spanEl).toBeDefined()
   })
 })
 
@@ -697,8 +699,8 @@ describe('T54 - cook page renders step text with injected inline quantity', () =
       servings: 4,
     }
     await renderCookPage(recipe)
-    // "2 cups" is injected inline before "flour" — confirm it renders in the DOM
-    expect(screen.getByText(/2 cups/)).toBeDefined()
+    // "2 cups" is injected inline before "flour" — at least one match in the DOM
+    expect(screen.getAllByText(/2 cups/).length).toBeGreaterThan(0)
   })
 })
 
@@ -832,5 +834,37 @@ describe('T60-T62 - Tab bar: Steps / Ingredients switching', () => {
     })
     expect(screen.getByText('Mix ingredients')).toBeDefined()
     expect(screen.queryByText(/2 cups flour/i)).toBeNull()
+  })
+})
+
+// ── T63-T64: StepIngredientPanel shown in single-step view (regression #319) ──
+
+describe('T63 - StepIngredientPanel renders "Ingredients for this step" label when step mentions an ingredient', () => {
+  it('shows "Ingredients for this step" panel for step that references avocado', async () => {
+    const recipe = {
+      ...sampleRecipe,
+      ingredients: '1 avocado\n2 limes',
+      steps: 'Mash the avocado with lime juice\nServe immediately',
+    }
+    await renderCookPage(recipe)
+    expect(screen.getByText(/ingredients for this step/i)).toBeDefined()
+  })
+})
+
+describe('T64 - StepIngredientPanel shows correct quantity (not zero or garbled) for count-only ingredient', () => {
+  it('shows "1 avocado" in the panel — quantity before name, not after', async () => {
+    const recipe = {
+      ...sampleRecipe,
+      ingredients: '1 avocado\n2 limes',
+      steps: 'Mash the avocado with lime juice\nServe immediately',
+    }
+    await renderCookPage(recipe)
+    // The panel must list "1 avocado" — quantity ("1") must precede the name
+    const panelItems = screen.getAllByRole('listitem')
+    const avocadoItem = panelItems.find((el) => /avocado/i.test(el.textContent ?? ''))
+    expect(avocadoItem).toBeDefined()
+    // quantity "1" must come before "avocado" in the rendered text
+    const text = avocadoItem!.textContent ?? ''
+    expect(text.indexOf('1')).toBeLessThan(text.indexOf('avocado'))
   })
 })
