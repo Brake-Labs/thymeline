@@ -148,3 +148,80 @@ describe('GET /api/groceries — camelCase response shape', () => {
     expect(list.recipe_scales).toBeUndefined()
   })
 })
+
+describe('GET /api/groceries — backward-compat: snake_case JSONB normalization (regression #358)', () => {
+  beforeEach(async () => {
+    vi.resetModules()
+    const { auth } = await import('@/lib/auth-server')
+    vi.mocked(auth.api.getSession).mockResolvedValue({
+      user: { id: 'user-1', email: 'test@example.com', name: 'Test' },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
+  })
+
+  it('normalizes snake_case recipeScales JSONB keys to camelCase', async () => {
+    const { db } = await import('@/lib/db')
+    // Simulate a row stored before the camelCase refactor (#351)
+    const oldFormatRow = {
+      id:           'list-1',
+      userId:       'user-1',
+      householdId:  null,
+      mealPlanId:   'plan-1',
+      weekStart:    '2025-10-01',
+      dateFrom:     '2025-10-01',
+      dateTo:       '2025-10-07',
+      servings:     4,
+      recipeScales: [{ recipe_id: 'r1', recipe_title: 'Pasta', servings: 4 }],
+      items:        [{ id: 'i1', name: 'Pasta', amount: 200, unit: 'g', section: 'Pantry', is_pantry: false, checked: false, recipes: ['Pasta'] }],
+      createdAt:    new Date('2025-10-01T00:00:00Z'),
+      updatedAt:    new Date('2025-10-01T00:00:00Z'),
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(db.select).mockReturnValue(mockChain([oldFormatRow]) as any)
+
+    const { GET } = await import('@/app/api/groceries/route')
+    const res = await GET(makeGetReq('2025-10-01') as Parameters<typeof GET>[0])
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    const list = json.list
+
+    // recipeScales must have camelCase keys
+    expect(list.recipeScales[0].recipeId).toBe('r1')
+    expect(list.recipeScales[0].recipeTitle).toBe('Pasta')
+    expect(list.recipeScales[0].recipe_id).toBeUndefined()
+    expect(list.recipeScales[0].recipe_title).toBeUndefined()
+
+    // items must have camelCase isPantry
+    expect(list.items[0].isPantry).toBe(false)
+    expect(list.items[0].is_pantry).toBeUndefined()
+  })
+
+  it('passes through already-normalized camelCase JSONB unchanged', async () => {
+    const { db } = await import('@/lib/db')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(db.select).mockReturnValue(mockChain([{
+      id:           'list-2',
+      userId:       'user-1',
+      householdId:  null,
+      mealPlanId:   'plan-2',
+      weekStart:    '2026-04-07',
+      dateFrom:     '2026-04-07',
+      dateTo:       '2026-04-13',
+      servings:     4,
+      recipeScales: [{ recipeId: 'r2', recipeTitle: 'Salad', servings: null }],
+      items:        [{ id: 'i2', name: 'Lettuce', amount: 1, unit: 'head', section: 'Produce', isPantry: false, checked: false, recipes: ['Salad'] }],
+      createdAt:    new Date('2026-04-07T00:00:00Z'),
+      updatedAt:    new Date('2026-04-07T00:00:00Z'),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    }]) as any)
+
+    const { GET } = await import('@/app/api/groceries/route')
+    const res = await GET(makeGetReq('2026-04-07') as Parameters<typeof GET>[0])
+    expect(res.status).toBe(200)
+    const json = await res.json()
+
+    expect(json.list.recipeScales[0].recipeId).toBe('r2')
+    expect(json.list.recipeScales[0].recipeTitle).toBe('Salad')
+    expect(json.list.items[0].isPantry).toBe(false)
+  })
+})

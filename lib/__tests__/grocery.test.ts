@@ -229,6 +229,81 @@ describe('regression #274 - ingredient deduplication', () => {
   })
 })
 
+// ── regression #358: full unit name parsing ───────────────────────────────────
+
+describe('regression #358 - full-form unit names are recognized', () => {
+  it('parses "2 tablespoons olive oil" with unit=tbsp', () => {
+    const r = parseIngredientLine('2 tablespoons olive oil')
+    expect(r.amount).toBe(2)
+    expect(r.unit).toBe('tbsp')
+    expect(r.name).toContain('olive oil')
+  })
+
+  it('parses "1 teaspoon salt" with unit=tsp', () => {
+    const r = parseIngredientLine('1 teaspoon salt')
+    expect(r.amount).toBe(1)
+    expect(r.unit).toBe('tsp')
+    expect(r.name).toContain('salt')
+  })
+
+  it('parses "8 ounces cream cheese" with unit=oz', () => {
+    const r = parseIngredientLine('8 ounces cream cheese')
+    expect(r.amount).toBe(8)
+    expect(r.unit).toBe('oz')
+    expect(r.name).toContain('cream cheese')
+  })
+
+  it('parses "1 pound chicken breast" with unit=lb', () => {
+    const r = parseIngredientLine('1 pound chicken breast')
+    expect(r.amount).toBe(1)
+    expect(r.unit).toBe('lb')
+    expect(r.name).toContain('chicken breast')
+  })
+
+  it('combines "2 tablespoons cilantro" and "1 tbsp cilantro" (same canonical unit)', () => {
+    const inputs = [
+      { parsed: parseIngredientLine('2 tablespoons fresh cilantro'), recipeTitle: 'A', scaleFactor: 1 },
+      { parsed: parseIngredientLine('1 tbsp cilantro'), recipeTitle: 'B', scaleFactor: 1 },
+    ]
+    const { resolved, ambiguous } = combineIngredients(inputs)
+    expect(ambiguous).toHaveLength(0)
+    const cilantro = resolved.find((i) => i.name.toLowerCase().includes('cilantro'))!
+    expect(cilantro).toBeDefined()
+    expect(cilantro.amount).toBe(3)
+    expect(cilantro.unit).toBe('tbsp')
+    expect(cilantro.recipes).toContain('A')
+    expect(cilantro.recipes).toContain('B')
+  })
+
+  it('combines "1/4 cup parmesan" and "1 cup parmesan" into one item with summed amount', () => {
+    const inputs = [
+      { parsed: parseIngredientLine('1/4 cup parmesan'), recipeTitle: 'A', scaleFactor: 1 },
+      { parsed: parseIngredientLine('1 cup parmesan'), recipeTitle: 'B', scaleFactor: 1 },
+    ]
+    const { resolved, ambiguous } = combineIngredients(inputs)
+    expect(ambiguous).toHaveLength(0)
+    const parmesan = resolved.find((i) => i.name.toLowerCase().includes('parmesan'))!
+    expect(parmesan).toBeDefined()
+    expect(parmesan.amount).toBeCloseTo(1.25)
+    expect(parmesan.unit).toBe('cup')
+  })
+
+  it('combines "1 lb chicken breast" and "chicken breast" (no amount) into one item', () => {
+    const inputs = [
+      { parsed: parseIngredientLine('1 lb chicken breast'), recipeTitle: 'A', scaleFactor: 1 },
+      { parsed: parseIngredientLine('chicken breast'), recipeTitle: 'B', scaleFactor: 1 },
+    ]
+    const { resolved, ambiguous } = combineIngredients(inputs)
+    expect(ambiguous).toHaveLength(0)
+    const chicken = resolved.find((i) => i.name.toLowerCase().includes('chicken'))!
+    expect(chicken).toBeDefined()
+    expect(chicken.amount).toBe(1)
+    expect(chicken.unit).toBe('lb')
+    expect(chicken.recipes).toContain('A')
+    expect(chicken.recipes).toContain('B')
+  })
+})
+
 // ── T10: Scaling ──────────────────────────────────────────────────────────────
 
 describe('T10 - Scale factor doubles amounts at 4 people (base 2)', () => {
