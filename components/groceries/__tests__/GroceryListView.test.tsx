@@ -242,7 +242,7 @@ describe('T33 - Got it button marks item as bought', () => {
 // ── T22: Share invokes Web Share API ─────────────────────────────────────────
 
 describe('T22 - Share invokes Web Share API with correct format', () => {
-  it('calls navigator.share when available', async () => {
+  it('calls navigator.share with text when canShare is unavailable', async () => {
     const shareMock = vi.fn().mockResolvedValue(undefined)
     vi.stubGlobal('navigator', { ...navigator, share: shareMock })
 
@@ -331,6 +331,7 @@ describe('T23 - Share falls back to clipboard when Web Share unavailable', () =>
     const writeTextMock = vi.fn().mockResolvedValue(undefined)
     vi.stubGlobal('navigator', {
       share: undefined,
+      canShare: undefined,
       clipboard: { writeText: writeTextMock },
     })
 
@@ -341,6 +342,47 @@ describe('T23 - Share falls back to clipboard when Web Share unavailable', () =>
       expect(writeTextMock).toHaveBeenCalled()
       expect(screen.getByText('Copied to clipboard!')).toBeInTheDocument()
     })
+  })
+})
+
+// ── Add to Reminders button (macOS only) ────────────────────────────────────
+
+describe('Add to Reminders button', () => {
+  it('renders on macOS user agents', async () => {
+    vi.stubGlobal('navigator', { ...navigator, userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)' })
+    render(<GroceryListView initialList={sampleList} />)
+    await waitFor(() => {
+      expect(screen.getByText('Add to Reminders')).toBeInTheDocument()
+    })
+  })
+
+  it('does not render on non-Apple user agents', () => {
+    vi.stubGlobal('navigator', { ...navigator, userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' })
+    render(<GroceryListView initialList={sampleList} />)
+    expect(screen.queryByText('Add to Reminders')).not.toBeInTheDocument()
+  })
+
+  it('shows setup dialog on first click', async () => {
+    vi.stubGlobal('navigator', { ...navigator, userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)' })
+    localStorage.removeItem('thymeline-shortcut-installed')
+    render(<GroceryListView initialList={sampleList} />)
+    await waitFor(() => expect(screen.getByText('Add to Reminders')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Add to Reminders'))
+    await waitFor(() => {
+      expect(screen.getByText('Set up Reminders')).toBeInTheDocument()
+      expect(screen.getByText('Send to Reminders')).toBeInTheDocument()
+    })
+  })
+
+  it('dismisses dialog on Cancel', async () => {
+    vi.stubGlobal('navigator', { ...navigator, userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)' })
+    localStorage.removeItem('thymeline-shortcut-installed')
+    render(<GroceryListView initialList={sampleList} />)
+    await waitFor(() => expect(screen.getByText('Add to Reminders')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Add to Reminders'))
+    await waitFor(() => expect(screen.getByText('Set up Reminders')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Cancel'))
+    await waitFor(() => expect(screen.queryByText('Set up Reminders')).not.toBeInTheDocument())
   })
 })
 

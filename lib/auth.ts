@@ -3,6 +3,7 @@ import { auth } from './auth-server'
 import { db } from './db'
 import { config } from './config'
 import { resolveHouseholdScope } from './household'
+import { logger } from './logger'
 import type { HouseholdContext } from '@/types'
 
 export interface AuthUser {
@@ -49,6 +50,7 @@ export function withAuth(
     req: NextRequest,
     routeContext?: { params: Record<string, string> },
   ): Promise<NextResponse> => {
+    const route = req.nextUrl?.pathname ?? new URL(req.url).pathname
     let user: AuthUser
 
     if (process.env.DEV_BYPASS_AUTH === 'true' && process.env.NODE_ENV !== 'production') {
@@ -56,6 +58,7 @@ export function withAuth(
     } else {
       const session = await auth.api.getSession({ headers: req.headers })
       if (!session?.user) {
+        logger.debug({ route }, 'auth failed — 401')
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
       }
       user = {
@@ -73,6 +76,7 @@ export function withAuth(
     }
 
     const ctx = await resolveHouseholdScope(user.id)
+    logger.debug({ userId: user.id, household: ctx?.householdId ?? null, route }, 'auth ok')
     return handler(req, { user, db, ctx }, routeContext?.params ?? {})
   }
 }

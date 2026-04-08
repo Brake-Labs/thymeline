@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { suggestSchema, parseBody } from '@/lib/schemas'
+import { logger } from '@/lib/logger'
 import { addDays } from '@/lib/date-utils'
 import { parseLLMJsonSafe, callLLM } from '@/lib/llm'
 import {
@@ -87,9 +88,9 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
   }
 
   const totalRecipes = Object.values(recipesByMealType).reduce((n, r) => n + r.length, 0)
-  console.warn(`[suggest] user=${user.id} total_recipes_after_cooldown=${totalRecipes} cooldownDays=${cooldownDays}`)
+  logger.info({ userId: user.id, totalRecipes, cooldownDays, mealTypes: activeMealTypes }, 'suggest: recipes after cooldown filter')
   if (totalRecipes === 0) {
-    console.warn(`[suggest] 0 recipes available — cooldown may be excluding all recipes`)
+    logger.warn({ userId: user.id, cooldownDays }, 'suggest: 0 recipes available — cooldown may be excluding all recipes')
   }
 
   const today = new Date()
@@ -114,10 +115,10 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
 
   try {
     const raw = await callLLMNonStreaming(systemMessage, userMessage)
-    console.warn(`[suggest] raw_llm_response=${raw.slice(0, 500)}${raw.length > 500 ? '…' : ''}`)
+    logger.debug({ responseLength: raw.length, preview: raw.slice(0, 200) }, 'suggest: LLM response received')
     const parsed = parseLLMJsonSafe<{ days: DaySuggestions[] }>(raw)
     if (!parsed || !Array.isArray(parsed.days)) {
-      console.error('[suggest] Invalid LLM response structure')
+      logger.error({ responsePreview: raw.slice(0, 500) }, 'suggest: invalid LLM response structure')
       return NextResponse.json({ error: 'Suggestion failed. Please try again.' }, { status: 500 })
     }
     const validated = validateSuggestions(parsed.days, validIdsByMealType)
@@ -224,7 +225,7 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
 
     return NextResponse.json({ days: validated })
   } catch (err) {
-    console.error('LLM suggest error:', err)
+    logger.error({ error: err instanceof Error ? err.message : String(err) }, 'suggest: LLM call failed')
     return NextResponse.json({ error: 'Suggestion failed. Please try again.' }, { status: 500 })
   }
 })

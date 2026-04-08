@@ -7,6 +7,7 @@ import { groceryLists, mealPlans } from '@/lib/db/schema'
 import { scopeCondition } from '@/lib/household'
 import { dbFirst, dbSingle } from '@/lib/db/helpers'
 import { updateGroceryListSchema, parseBody } from '@/lib/schemas'
+import { logger } from '@/lib/logger'
 
 // ── GET /api/groceries?weekStart=YYYY-MM-DD  (or ?dateFrom=YYYY-MM-DD) ─────
 
@@ -18,6 +19,7 @@ export const GET = withAuth(async (req, { user, ctx }) => {
     return NextResponse.json({ error: 'weekStart or dateFrom is required' }, { status: 400 })
   }
 
+  logger.debug({ weekStart, userId: user.id }, 'fetching grocery list')
   const rows = await db
     .select()
     .from(groceryLists)
@@ -29,6 +31,7 @@ export const GET = withAuth(async (req, { user, ctx }) => {
 
   const list = dbFirst(rows)
 
+  logger.debug({ weekStart, found: !!list }, 'grocery list fetched')
   return NextResponse.json({ list: list ?? null })
 })
 
@@ -95,6 +98,7 @@ export const PATCH = withAuth(async (req, { user, ctx }) => {
       .returning()
 
     if (!updated) {
+      logger.error({ listId: existing.id }, 'failed to update grocery list')
       return NextResponse.json({ error: 'Failed to update grocery list' }, { status: 500 })
     }
 
@@ -108,7 +112,7 @@ export const PATCH = withAuth(async (req, { user, ctx }) => {
 
     return NextResponse.json(updated)
   } catch (err) {
-    console.error('Grocery list update error:', err)
+    logger.error({ error: err instanceof Error ? err.message : String(err), listId: existing.id }, 'failed to update grocery list')
     return NextResponse.json({ error: 'Failed to update grocery list' }, { status: 500 })
   }
 })

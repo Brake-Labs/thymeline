@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { callLLM, LLM_MODEL_FAST } from './llm'
+import { logger } from './logger'
 import { isBlockedUrl } from './url-validation'
 
 interface RecipeForIngredients {
@@ -19,7 +20,10 @@ export async function resolveRecipeIngredients(
   recipe: RecipeForIngredients,
   firecrawlKey?: string,
 ): Promise<string | null> {
-  if (recipe.ingredients) return recipe.ingredients
+  if (recipe.ingredients) {
+    logger.debug({ recipeId: recipe.recipeId }, 'using stored ingredients')
+    return recipe.ingredients
+  }
 
   if (!recipe.url || !firecrawlKey) return null
   if (isBlockedUrl(recipe.url)) return null
@@ -44,7 +48,7 @@ export async function resolveRecipeIngredients(
       return parsed.ingredients
     }
   } catch (err) {
-    console.warn(`Failed to scrape/extract ingredients for "${recipe.recipeTitle}":`, err)
+    logger.error({ recipeId: recipe.recipeId, recipeTitle: recipe.recipeTitle, error: err instanceof Error ? err.message : String(err) }, 'failed to scrape/extract ingredients')
   }
 
   return null

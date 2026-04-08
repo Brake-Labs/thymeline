@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { callLLM, LLM_MODEL_FAST } from '@/lib/llm'
 import { generateGroceriesSchema, parseBody } from '@/lib/schemas'
+import { logger } from '@/lib/logger'
 import {
   parseIngredientLine,
   combineIngredients,
@@ -63,6 +64,7 @@ export const POST = withAuth(async (req, { user, ctx }) => {
     .orderBy(asc(mealPlans.weekStart))
 
   if (planRows.length === 0) {
+    logger.warn({ userId: user.id, dateFrom, dateTo }, 'no meal plans found for grocery generation')
     return NextResponse.json({ error: 'No meal plans found for this date range' }, { status: 404 })
   }
 
@@ -108,6 +110,8 @@ export const POST = withAuth(async (req, { user, ctx }) => {
     })
   }
 
+  logger.debug({ recipeCount: recipeEntries.length, dateFrom, dateTo }, 'grocery generation: entries fetched')
+
   // 3. Resolve ingredients per recipe (vault first, then scrape, else skip)
   const firecrawlKey = process.env.FIRECRAWL_API_KEY
   const skippedRecipes: string[] = []
@@ -117,6 +121,7 @@ export const POST = withAuth(async (req, { user, ctx }) => {
     const ingredientsText = await resolveRecipeIngredients(recipe, firecrawlKey)
 
     if (!ingredientsText) {
+      logger.debug({ recipeTitle: recipe.recipeTitle, recipeId: recipe.recipeId }, 'recipe skipped — no ingredients resolved')
       skippedRecipes.push(recipe.recipeTitle)
       continue
     }
@@ -185,7 +190,7 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
         })
       }
     } catch (err) {
-      console.warn('LLM ambiguous resolution failed, using rule-based fallback:', err)
+      logger.warn({ error: err instanceof Error ? err.message : String(err), ambiguousCount: ambiguous.length }, 'LLM ambiguous resolution failed, using rule-based fallback')
       // Fallback: add ambiguous items as-is
       for (const { parsed, recipeTitle, scaleFactor } of ambiguous) {
         const scaled = parsed.amount !== null ? Math.round(parsed.amount * scaleFactor * 100) / 100 : null
@@ -226,7 +231,9 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
         return matched ? { ...item, isPantry: true } : item
       })
     }
-  } catch { /* non-fatal */ }
+  } catch (err) {
+    logger.debug({ error: err instanceof Error ? err.message : String(err) }, 'pantry cross-reference failed (non-fatal)')
+  }
 
   // 6. Build recipeScales (all null → inherit plan default)
   const recipeScales: RecipeScale[] = recipeEntries.map((r) => ({
@@ -282,9 +289,10 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
       return NextResponse.json({ error: 'Failed to save grocery list' }, { status: 500 })
     }
 
+    logger.info({ listId: upserted.id, itemCount: allItems.length, recipeCount: recipeEntries.length, skipped: skippedRecipes.length }, 'grocery list generated')
     return NextResponse.json({ list: upserted, skippedRecipes })
   } catch (err) {
-    console.error('Upsert error:', err)
+    logger.error({ error: err instanceof Error ? err.message : String(err), dateFrom, userId: user.id }, 'failed to upsert grocery list')
     return NextResponse.json({ error: 'Failed to save grocery list' }, { status: 500 })
   }
 })

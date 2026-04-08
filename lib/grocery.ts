@@ -386,25 +386,25 @@ export function effectiveServings(
   return scale?.servings ?? planServings
 }
 
-// ── Plain text share format ───────────────────────────────────────────────────
+// ── Export helpers ────────────────────────────────────────────────────────────
+
+/** Filter items for export: pantry checked=include, non-pantry checked=exclude, bought=exclude */
+function filterExportableItems(items: GroceryItem[], onlyUnchecked?: boolean): GroceryItem[] {
+  if (!onlyUnchecked) return items
+  // Pantry semantics: checked=true means "add to cart" (include).
+  // Non-pantry: checked=true means "I already have this" (exclude); bought=true means "Got it" (exclude).
+  return items.filter((i) => i.isPantry ? i.checked : !i.checked && !i.bought)
+}
 
 /**
  * Build the plain-text share payload for the Web Share API.
  * One item per line, no headers, no bullets — compatible with iOS Reminders.
- * Each newline becomes a separate reminder when pasted or shared.
  */
 export function buildPlainTextList(
   items: GroceryItem[],
-  _recipeScales: RecipeScale[],
-  _planServings: number,
-  _weekStart: string,
   options?: { onlyUnchecked?: boolean },
 ): string {
-  // Pantry semantics: checked=true means "add to cart" (include).
-  // Non-pantry: checked=true means "I already have this" (exclude); bought=true means "Got it" (exclude).
-  const filtered = options?.onlyUnchecked
-    ? items.filter((i) => i.isPantry ? i.checked : !i.checked && !i.bought)
-    : items
+  const filtered = filterExportableItems(items, options?.onlyUnchecked)
   return filtered
     .map((item) => {
       const amt = item.amount !== null ? `${item.amount} ` : ''
@@ -412,6 +412,77 @@ export function buildPlainTextList(
       return `${amt}${unit}${item.name}`
     })
     .join('\n')
+}
+
+/**
+ * Build an iCalendar (.ics) payload with one VTODO per grocery item.
+ * iOS Reminders imports each VTODO as a separate reminder when the file is shared.
+ * Uses CRLF line endings as required by RFC 5545.
+ */
+export function buildICSExport(
+  items: GroceryItem[],
+  options?: { onlyUnchecked?: boolean },
+): string {
+  const filtered = filterExportableItems(items, options?.onlyUnchecked)
+
+  const CRLF = '\r\n'
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z'
+  const vtodos = filtered.map((item) => {
+    const amt = item.amount !== null ? `${item.amount} ` : ''
+    const unit = item.unit ? `${item.unit} ` : ''
+    const summary = `${amt}${unit}${item.name}`
+      .replace(/[\r\n]/g, ' ')
+      .replace(/[\\;,]/g, (c) => `\\${c}`)
+    return [
+      'BEGIN:VTODO',
+      `DTSTAMP:${stamp}`,
+      `UID:${crypto.randomUUID()}@thymeline`,
+      `SUMMARY:${summary}`,
+      'STATUS:NEEDS-ACTION',
+      'END:VTODO',
+    ].join(CRLF)
+  })
+
+  return [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Thymeline//Grocery List//EN',
+    ...vtodos,
+    'END:VCALENDAR',
+  ].join(CRLF)
+}
+
+// ── Apple Shortcuts URL ──────────────────────────────────────────────────────
+
+const SHORTCUT_NAME = 'Thymeline Groceries'
+
+/**
+ * Build a shortcuts:// URL that passes grocery items as newline-separated text
+ * to an Apple Shortcut. The Shortcut splits by newlines and adds each line
+ * as a separate reminder.
+ */
+/** Maximum URL length for shortcuts:// scheme (conservative limit for OS URL handlers) */
+const SHORTCUTS_URL_MAX_LENGTH = 2000
+
+export function buildShortcutsURL(
+  items: GroceryItem[],
+  options?: { onlyUnchecked?: boolean },
+): string {
+  const filtered = filterExportableItems(items, options?.onlyUnchecked)
+  const prefix = `shortcuts://run-shortcut?name=${encodeURIComponent(SHORTCUT_NAME)}&input=text&text=`
+
+  // Build text incrementally to stay within URL length limits
+  const lines: string[] = []
+  for (const item of filtered) {
+    const amt = item.amount !== null ? `${item.amount} ` : ''
+    const unit = item.unit ? `${item.unit} ` : ''
+    const line = `${amt}${unit}${item.name}`
+    const candidate = [...lines, line].join('\n')
+    if ((prefix + encodeURIComponent(candidate)).length > SHORTCUTS_URL_MAX_LENGTH) break
+    lines.push(line)
+  }
+
+  return `${prefix}${encodeURIComponent(lines.join('\n'))}`
 }
 
 // ── Week helpers (re-exported from date-utils) ───────────────────────────────

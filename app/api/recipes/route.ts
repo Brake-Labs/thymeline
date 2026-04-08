@@ -3,6 +3,7 @@ import { withAuth } from '@/lib/auth'
 import { validateTags } from '@/lib/tags-server'
 import { scopeCondition, scopeInsert } from '@/lib/household'
 import { createRecipeSchema, parseBody } from '@/lib/schemas'
+import { logger } from '@/lib/logger'
 import { db } from '@/lib/db'
 import { eq, and, desc, inArray, arrayContains } from 'drizzle-orm'
 import { recipes, recipeHistory } from '@/lib/db/schema'
@@ -67,7 +68,7 @@ export const GET = withAuth(async (req, { user, ctx }) => {
 
     return NextResponse.json(result)
   } catch (err) {
-    console.error('DB error:', err)
+    logger.error({ error: err instanceof Error ? err.message : String(err) }, 'failed to fetch/create recipe')
     return NextResponse.json({ error: 'Failed to fetch recipes' }, { status: 500 })
   }
 })
@@ -107,7 +108,7 @@ export const POST = withAuth(async (req, { user, ctx }) => {
     if (!data) return NextResponse.json({ error: 'Failed to create recipe' }, { status: 500 })
     return NextResponse.json(recipeRowToJson(data), { status: 201 })
   } catch (err) {
-    console.error('DB error:', err)
+    logger.error({ error: err instanceof Error ? err.message : String(err) }, 'failed to fetch/create recipe')
     return NextResponse.json({ error: 'Failed to create recipe' }, { status: 500 })
   }
 })

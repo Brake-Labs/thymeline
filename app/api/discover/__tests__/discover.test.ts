@@ -23,22 +23,6 @@ function mockDbChain(result: unknown[] = []) {
   return chain
 }
 
-function setupMocks() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  vi.mocked(db.select).mockReturnValue(mockDbChain(vaultRecipes) as any)
-  vi.mocked(auth.api.getSession).mockResolvedValue({
-    user: { id: 'user-1', email: 'test@example.com', name: 'Test', image: null },
-    session: { id: 'sess-1', createdAt: new Date(), updatedAt: new Date(), userId: 'user-1', expiresAt: new Date(Date.now() + 86400000), token: 'tok' },
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } as any)
-}
-
-function setupUnauthMocks() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  vi.mocked(db.select).mockReturnValue(mockDbChain(vaultRecipes) as any)
-  vi.mocked(auth.api.getSession).mockResolvedValue(null as never)
-}
-
 vi.mock('@/lib/db', () => ({
   db: { select: vi.fn(), insert: vi.fn(), update: vi.fn(), delete: vi.fn(), execute: vi.fn() },
 }))
@@ -83,6 +67,22 @@ vi.mock('@/lib/llm', () => ({
 
 import { db } from '@/lib/db'
 import { auth } from '@/lib/auth-server'
+
+function setupMocks() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  vi.mocked(db.select).mockReturnValue(mockDbChain(vaultRecipes) as any)
+  vi.mocked(auth.api.getSession).mockResolvedValue({
+    user: { id: 'user-1', email: 'test@example.com', name: 'Test', image: null },
+    session: { id: 'sess-1', createdAt: new Date(), updatedAt: new Date(), userId: 'user-1', expiresAt: new Date(Date.now() + 86400000), token: 'tok' },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as any)
+}
+
+function setupUnauthMocks() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  vi.mocked(db.select).mockReturnValue(mockDbChain(vaultRecipes) as any)
+  vi.mocked(auth.api.getSession).mockResolvedValue(null as never)
+}
 
 beforeEach(() => {
   mockAnthropicCreate.mockClear()

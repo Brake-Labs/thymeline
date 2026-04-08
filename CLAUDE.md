@@ -117,9 +117,13 @@ All LLM calls go through `lib/llm.ts` which provides:
 - `LLMError` class with codes: `rate_limit`, `timeout`, `bad_response`, `service_down`, `auth`, `unknown`
 - `LLM_MODEL_FAST` — haiku (default for most calls)
 - `LLM_MODEL_CAPABLE` — sonnet (for complex generation)
+- `logger` — structured logger from `lib/logger.ts` (pino). Run with `LOG_LEVEL=debug npm run dev` for verbose output. Pipe through `npx pino-pretty` for colorized formatting.
 
-Default model: `process.env.LLM_MODEL` or `claude-haiku-4-5-20251001`.
-The plan suggestion engine in `plan/helpers.ts` delegates to `callLLM()`.
+**Two model tiers** — controlled by separate env vars:
+- `LLM_MODEL` (env) → `LLM_MODEL_FAST` — defaults to `claude-haiku-4-5-20251001`. Used for: scraping, ingredient extraction, grocery ambiguous resolution, plan suggestions.
+- `LLM_MODEL_CAPABLE` (env) → `LLM_MODEL_CAPABLE` — defaults to `claude-sonnet-4-6`. Used for: discover, recipe generation, AI edit, search ranking, cook step ordering.
+
+Both can be overridden independently in `.env.local`. Setting only `LLM_MODEL` does NOT affect the capable tier — you must also set `LLM_MODEL_CAPABLE` to override it.
 
 ### Server-only modules
 Some modules import Node-only dependencies (pg, firecrawl, etc.) and must not be imported by client components:
