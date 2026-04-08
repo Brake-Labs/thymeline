@@ -14,10 +14,38 @@ import { eq, and, gte, lte, inArray, asc } from 'drizzle-orm'
 import { mealPlans, mealPlanEntries, recipes, groceryLists, pantryItems } from '@/lib/db/schema'
 import { scopeCondition, scopeInsert } from '@/lib/household'
 import { toDateString } from '@/lib/date-utils'
-import { GroceryItem, GrocerySection, RecipeScale } from '@/types'
+import { GroceryItem, GroceryList, GrocerySection, RecipeScale } from '@/types'
 
 function uuidv4(): string {
   return crypto.randomUUID()
+}
+
+function toGroceryList(row: {
+  id: string
+  userId: string
+  mealPlanId: string | null
+  weekStart: string
+  dateFrom: string | null
+  dateTo: string | null
+  servings: number
+  recipeScales: unknown
+  items: unknown
+  createdAt: Date
+  updatedAt: Date
+}): GroceryList {
+  return {
+    id:            row.id,
+    user_id:       row.userId,
+    meal_plan_id:  row.mealPlanId ?? '',
+    week_start:    row.weekStart,
+    date_from:     row.dateFrom,
+    date_to:       row.dateTo,
+    servings:      row.servings,
+    recipe_scales: row.recipeScales as RecipeScale[],
+    items:         row.items as GroceryItem[],
+    created_at:    row.createdAt.toISOString(),
+    updated_at:    row.updatedAt.toISOString(),
+  }
 }
 
 interface RecipeEntry {
@@ -279,7 +307,7 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
       return NextResponse.json({ error: 'Failed to save grocery list' }, { status: 500 })
     }
 
-    return NextResponse.json({ list: upserted, skipped_recipes })
+    return NextResponse.json({ list: toGroceryList(upserted), skipped_recipes })
   } catch (err) {
     console.error('Upsert error:', err)
     return NextResponse.json({ error: 'Failed to save grocery list' }, { status: 500 })
