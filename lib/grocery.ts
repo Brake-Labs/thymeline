@@ -146,13 +146,22 @@ function singularize(word: string): string {
 //   "fresh cilantro" → "cilantro"
 //   "grated parmesan" → "parmesan"
 //   "boneless skinless chicken breast" → "chicken breast"
-//   "diced onion" → "onion"
 //   "minced garlic" → "garlic"
 //   "extra virgin olive oil" → "olive oil"
-// Intentionally excluded: "dried" (dried vs fresh changes the product — dried
-// cranberries ≠ cranberries), "unsalted" (baking recipes are specific about salt),
-// Greek/whole/low-fat dairy variants (different fat/flavor profiles).
-const PREP_ADJECTIVE_RE = /^(fresh|raw|grated|shredded|crumbled|chopped|diced|minced|sliced|peeled|pitted|julienned|roasted|toasted|thawed|softened|melted|cooled|chilled|trimmed|rinsed|drained|halved|quartered|boneless|skinless|extra|virgin|large|medium|small|mini|lean)\s+/
+//
+// Intentionally excluded — these words are often part of a product name and must
+// NOT be stripped:
+//   "dried"   — dried cranberries ≠ cranberries (different product)
+//   "whole"   — whole milk ≠ milk, whole wheat ≠ wheat (dairy/grain qualifiers)
+//   "diced"   — "diced tomatoes" is a common canned product name; stripping would
+//               merge it with fresh tomatoes
+//   "toasted" — "toasted sesame oil" is a completely distinct product from
+//               regular sesame oil (different flavor, different use)
+//   "roasted" — "roasted red peppers" (jarred) and "roasted almonds" (packaged
+//               snack) are distinct products from their raw counterparts
+//   "unsalted" — baking recipes are specific about salt content
+//   Greek/low-fat/2% dairy variants — different fat/flavor profiles
+const PREP_ADJECTIVE_RE = /^(fresh|raw|grated|shredded|crumbled|chopped|minced|sliced|peeled|pitted|julienned|thawed|softened|melted|cooled|chilled|trimmed|rinsed|drained|halved|quartered|boneless|skinless|extra|virgin|large|medium|small|mini|lean)\s+/
 
 // Named cheeses where the trailing " cheese" word is redundant and can be stripped
 // so "parmesan cheese" and "grated parmesan" both normalize to "parmesan".

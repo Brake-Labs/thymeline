@@ -942,8 +942,25 @@ describe('regression #358c - color/variety normalization for dedup', () => {
     expect(normalizeIngredientName('extra virgin olive oil')).toBe('olive oil')
   })
 
-  it('normalizes "diced onion" → "onion" (leading prep word without comma)', () => {
-    expect(normalizeIngredientName('diced onion')).toBe('onion')
+  it('does NOT normalize "diced onion" → "onion" because "diced" can be a product name (diced tomatoes)', () => {
+    // "diced onion" stays as "diced onion" — use "onion, diced" form (comma-split handles it)
+    expect(normalizeIngredientName('diced onion')).toBe('diced onion')
+  })
+
+  it('does NOT strip "diced" from "diced tomatoes" to avoid merging canned product with fresh', () => {
+    expect(normalizeIngredientName('diced tomatoes')).toMatch(/^diced/)
+  })
+
+  it('does NOT normalize "toasted sesame oil" → "sesame oil" (distinct product)', () => {
+    expect(normalizeIngredientName('toasted sesame oil')).toBe('toasted sesame oil')
+  })
+
+  it('does NOT normalize "roasted red peppers" → "red pepper" (jarred product)', () => {
+    expect(normalizeIngredientName('roasted red peppers')).toBe('roasted red pepper')
+  })
+
+  it('does NOT normalize "roasted almonds" → "almonds" (packaged product)', () => {
+    expect(normalizeIngredientName('roasted almonds')).toBe('roasted almond')
   })
 
   it('normalizes "minced garlic" → "garlic"', () => {
@@ -962,9 +979,20 @@ describe('regression #358c - color/variety normalization for dedup', () => {
     expect(normalizeIngredientName('peeled shrimp')).toBe('shrimp')
   })
 
-  it('combines "diced onion" and "onion" into one item', () => {
+  it('does NOT combine "diced onion" and "onion" via PREP_ADJECTIVE_RE (use comma form instead)', () => {
+    // "1 onion, diced" → rawName="onion" ✓. But "1 diced onion" is left as "diced onion"
+    // to avoid merging canned "diced tomatoes" with fresh "tomatoes".
     const inputs = [
       { parsed: parseIngredientLine('1 diced onion'), recipeTitle: 'Soup', scaleFactor: 1 },
+      { parsed: parseIngredientLine('2 onions'), recipeTitle: 'Stew', scaleFactor: 1 },
+    ]
+    const { resolved } = combineIngredients(inputs)
+    expect(resolved).toHaveLength(2)
+  })
+
+  it('combines "1 onion, diced" and "2 onions" (comma-form handled by PREP_SEGMENT_RE)', () => {
+    const inputs = [
+      { parsed: parseIngredientLine('1 onion, diced'), recipeTitle: 'Soup', scaleFactor: 1 },
       { parsed: parseIngredientLine('2 onions'), recipeTitle: 'Stew', scaleFactor: 1 },
     ]
     const { resolved, ambiguous } = combineIngredients(inputs)
