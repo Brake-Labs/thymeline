@@ -3,7 +3,7 @@ import { withAuth } from '@/lib/auth'
 import { createHouseholdSchema, parseBody } from '@/lib/schemas'
 import { canManage } from '@/lib/household'
 import { db } from '@/lib/db'
-import { households, householdMembers } from '@/lib/db/schema'
+import { households, householdMembers, user as userTable } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { dbFirst } from '@/lib/db/helpers'
 import type { HouseholdMember } from '@/types'
@@ -55,22 +55,26 @@ export const GET = withAuth(async (req, { ctx }) => {
 
     const household = dbFirst(householdRows)
 
-    const members = await db
+    const memberRows = await db
       .select({
         householdId: householdMembers.householdId,
         userId: householdMembers.userId,
         role: householdMembers.role,
         joinedAt: householdMembers.joinedAt,
+        displayName: userTable.name,
+        email: userTable.email,
       })
       .from(householdMembers)
+      .leftJoin(userTable, eq(householdMembers.userId, userTable.id))
       .where(eq(householdMembers.householdId, ctx.householdId))
 
-    // Note: email enrichment via admin auth API is not available with Drizzle/Better Auth.
-    // Return members without email enrichment. Convert Date to ISO string for API response.
-    const enrichedMembers: HouseholdMember[] = members.map((m) => ({
+    const enrichedMembers: HouseholdMember[] = memberRows.map((m) => ({
       ...m,
+      role: m.role as HouseholdMember['role'],
       joinedAt: m.joinedAt.toISOString(),
-    })) as HouseholdMember[]
+      displayName: m.displayName ?? undefined,
+      email: m.email ?? undefined,
+    }))
 
     return NextResponse.json({ household, members: enrichedMembers, myRole: ctx.role })
   } catch (err) {
