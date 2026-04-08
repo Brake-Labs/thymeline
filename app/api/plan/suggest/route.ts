@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { suggestSchema, parseBody } from '@/lib/schemas'
-import { getTodayISO, addDays } from '@/lib/date-utils'
+import { addDays } from '@/lib/date-utils'
 import { parseLLMJsonSafe, callLLM } from '@/lib/llm'
 import {
   getSeason,
@@ -31,8 +31,6 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
 
   const { week_start, active_dates, prefer_this_week, avoid_this_week, free_text } = body
   const active_meal_types: MealType[] = body.active_meal_types?.length ? body.active_meal_types : ['dinner']
-
-  const _todayISO = getTodayISO()
 
   const [prefs, tasteProfile] = await Promise.all([
     fetchUserPreferences(user.id, ctx),
