@@ -112,6 +112,34 @@ export const aiEditSchema = z.object({
   ),
 })
 
+export const generateRefineSchema = z.object({
+  message: z.string().trim().min(1, 'message is required'),
+  current_recipe: z.object({
+    title:                 z.string().min(1, 'current_recipe.title is required'),
+    ingredients:           z.string(),
+    steps:                 z.string(),
+    tags:                  z.array(z.string()).default([]),
+    category:              z.string(),
+    servings:              z.number().nullable().optional(),
+    prep_time_minutes:     z.number().nullable().optional(),
+    cook_time_minutes:     z.number().nullable().optional(),
+    total_time_minutes:    z.number().nullable().optional(),
+    inactive_time_minutes: z.number().nullable().optional(),
+    notes:                 z.string().nullable().optional(),
+  }),
+  conversation_history: z.array(
+    z.object({
+      role:    z.enum(['user', 'assistant']),
+      content: z.string(),
+    })
+  ).default([]),
+  generation_context: z.object({
+    meal_type:            z.string(),
+    style_hints:          z.string(),
+    dietary_restrictions: z.array(z.string()),
+  }),
+})
+
 export const bulkUpdateRecipesSchema = z.object({
   recipe_ids: z.array(z.string()).min(1, 'recipe_ids is required and must be non-empty'),
   add_tags: z.array(z.string()).default([]),
