@@ -36,6 +36,12 @@ export const config = {
   },
   llm: { apiKey: process.env.LLM_API_KEY },
   firecrawl: { apiKey: process.env.FIRECRAWL_API_KEY },
-  admin: { userId: process.env.ADMIN_USER_ID },
+  /** Comma-separated list of admin emails. Empty = no admins. */
+  get adminEmails(): string[] {
+    return (process.env.ADMIN_EMAILS ?? '')
+      .split(',')
+      .map(e => e.trim().toLowerCase())
+      .filter(Boolean)
+  },
   siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000',
 }

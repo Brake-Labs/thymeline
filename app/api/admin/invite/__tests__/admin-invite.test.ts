@@ -8,7 +8,7 @@ const mockState = {
 }
 
 const mockConfig = {
-  adminUserId: 'admin-uuid' as string | undefined,
+  adminEmails: ['admin@example.com'] as string[],
   siteUrl: 'https://example.com',
 }
 
@@ -56,7 +56,7 @@ vi.mock('@/lib/household', () => ({
 
 vi.mock('@/lib/config', () => ({
   config: {
-    get admin() { return { userId: mockConfig.adminUserId } },
+    get adminEmails() { return mockConfig.adminEmails },
     get siteUrl() { return mockConfig.siteUrl },
     get allowedEmails() { return [] },
   },
@@ -73,7 +73,7 @@ function makeRequest(): NextRequest {
 beforeEach(() => {
   mockState.user = { id: 'admin-uuid', email: 'admin@example.com', name: 'Admin', image: null }
   mockState.insertError = null
-  mockConfig.adminUserId = 'admin-uuid'
+  mockConfig.adminEmails = ['admin@example.com']
   mockConfig.siteUrl = 'https://example.com'
 })
 
@@ -101,16 +101,21 @@ describe('T19 - POST /api/admin/invite returns 403 for non-admin', () => {
   })
 })
 
-// ── T20: POST /api/admin/invite returns 403 when ADMIN_USER_ID not set ───────
-describe('T20 - POST /api/admin/invite returns 403 when ADMIN_USER_ID not set', () => {
-  it('returns 403 when ADMIN_USER_ID is not configured', async () => {
-    mockConfig.adminUserId = undefined
+// ── Multi-admin: second admin in list can create invites ────────────────────
+describe('Multi-admin support', () => {
+  it('returns 200 when user is the second admin in the list', async () => {
+    mockConfig.adminEmails = ['first@example.com', 'admin@example.com']
     const res = await POST(makeRequest())
-    expect(res.status).toBe(403)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.invite_url).toMatch(/^https:\/\/example\.com\/invite\?token=/)
   })
+})
 
-  it('returns 403 when ADMIN_USER_ID is empty string', async () => {
-    mockConfig.adminUserId = ''
+// ── T20: POST /api/admin/invite returns 403 when ADMIN_EMAILS not set ───────
+describe('T20 - POST /api/admin/invite returns 403 when ADMIN_EMAILS not set', () => {
+  it('returns 403 when ADMIN_EMAILS is empty', async () => {
+    mockConfig.adminEmails = []
     const res = await POST(makeRequest())
     expect(res.status).toBe(403)
   })
