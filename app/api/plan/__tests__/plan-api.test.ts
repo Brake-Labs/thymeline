@@ -34,6 +34,8 @@ const mockState = {
   entryById: {} as Record<string, { id: string; planned_date: string; recipe_id: string; meal_plan_id: string; meal_plans: { user_id: string; household_id: string | null } | null } | undefined>,
   rpcError: null as { message: string } | null,
   rpcCallCount: 0,
+  // side dishes keyed by parent entry id
+  sideDishes: {} as Record<string, { id: string; parentEntryId: string }[]>,
 }
 
 // ── Mock chain builder ───────────────────────────────────────────────────────
@@ -223,19 +225,46 @@ const SWAP_ID_B = '22222222-2222-4222-8222-222222222222'
 
 async function setupSwapDbMocks() {
   const { db } = await import('@/lib/db') as unknown as { db: Record<string, ReturnType<typeof vi.fn>> }
+  // Select call sequence (Promise.all pairs are always called in declaration order in JS):
+  //   1 — initial fetch of entry A
+  //   2 — initial fetch of entry B
+  //   3 — side-dish fetch (inArray on parentEntryId)
+  //   4 — re-fetch entry A (after swap)
+  //   5 — re-fetch entry B (after swap)
   let selectCallIdx = 0
   db.select!.mockImplementation(() => {
     selectCallIdx++
-    const entryId = (selectCallIdx % 2 === 1) ? SWAP_ID_A : SWAP_ID_B
-    function makeEntryRow() {
-      const entry = mockState.entryById[entryId]
-      if (!entry) return []
-      return [{ id: entry.id, plannedDate: entry.planned_date, recipeId: entry.recipe_id,
-        mealPlanId: entry.meal_plan_id, planUserId: entry.meal_plans?.user_id ?? null,
-        planHouseholdId: entry.meal_plans?.household_id ?? null }]
+    const idx = selectCallIdx
+    function makeResult() {
+      function entryRow(id: string) {
+        const entry = mockState.entryById[id]
+        if (!entry) return []
+        return [{ id: entry.id, plannedDate: entry.planned_date, recipeId: entry.recipe_id,
+          mealPlanId: entry.meal_plan_id, planUserId: entry.meal_plans?.user_id ?? null,
+          planHouseholdId: entry.meal_plans?.household_id ?? null }]
+      }
+      if (idx === 1) return entryRow(SWAP_ID_A)
+      if (idx === 2) return entryRow(SWAP_ID_B)
+      if (idx === 3) {
+        // Return side dishes for both parents
+        const all = [
+          ...(mockState.sideDishes[SWAP_ID_A] ?? []),
+          ...(mockState.sideDishes[SWAP_ID_B] ?? []),
+        ]
+        return all
+      }
+      // re-fetch after swap: return the (now-updated) planned_date
+      function refetchRow(id: string) {
+        const entry = mockState.entryById[id]
+        if (!entry) return []
+        return [{ id: entry.id, plannedDate: entry.planned_date, recipeId: entry.recipe_id }]
+      }
+      if (idx === 4) return refetchRow(SWAP_ID_A)
+      if (idx === 5) return refetchRow(SWAP_ID_B)
+      return []
     }
     const chain = mockChain([])
-    chain.then = vi.fn().mockImplementation((resolve: (v: unknown) => void) => Promise.resolve(makeEntryRow()).then(resolve))
+    chain.then = vi.fn().mockImplementation((resolve: (v: unknown) => void) => Promise.resolve(makeResult()).then(resolve))
     return chain
   })
   db.execute!.mockImplementation(async () => {
@@ -297,6 +326,7 @@ beforeEach(async () => {
   mockState.entryById = {}
   mockState.rpcError = null
   mockState.rpcCallCount = 0
+  mockState.sideDishes = {}
   mockState.llmResponse = JSON.stringify({
     days: [
       {
@@ -1245,5 +1275,51 @@ describe('SWAP-T20 - 200 for household member swapping entries in their househol
     const body = await res.json()
     expect(body.entry_a.planned_date).toBe('2026-03-03')
     expect(body.entry_b.planned_date).toBe('2026-03-01')
+  })
+})
+
+// ── SWAP-T09: side dishes follow their parent when swapping ──────────────────
+// Regression for #318: swapping two meals in the calendar caused any side dish
+// attached to one of them to disappear because only the two main entries were
+// updated, leaving side dishes with their original (now-wrong) planned_date.
+
+const SWAP_SIDE_ID = '33333333-3333-4333-8333-333333333333'
+
+describe('SWAP-T09 - side dish follows its parent entry when swapped (RPC fallback)', () => {
+  it('updates the side dish planned_date to match its parent after a swap', async () => {
+    mockState.entryById[SWAP_ID_A] = makeSwapEntry(SWAP_ID_A, '2026-03-01')
+    mockState.entryById[SWAP_ID_B] = makeSwapEntry(SWAP_ID_B, '2026-03-03')
+    // entry A has one side dish
+    mockState.sideDishes[SWAP_ID_A] = [{ id: SWAP_SIDE_ID, parentEntryId: SWAP_ID_A }]
+    mockState.rpcError = { message: 'function swap_meal_plan_entries does not exist' }
+
+    let sideDishUpdatedDate: string | null = null
+    await setupSwapDbMocks()
+
+    // Intercept update calls to capture what date the side dish gets moved to
+    const { db } = await import('@/lib/db') as unknown as { db: Record<string, ReturnType<typeof vi.fn>> }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test-only mock interception
+    const origUpdate = db.update!.getMockImplementation() as ((...args: any[]) => any) | undefined
+    let updateIdx = 0
+    db.update!.mockImplementation((...args: unknown[]) => {
+      updateIdx++
+      const chain = origUpdate?.(...args) ?? mockChain([])
+      // Update 3 is the side dish update for A's children (A=1, B=2, sideA=3)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test-only mock interception
+      const origSet = chain.set as ((...a: any[]) => any) | undefined
+      chain.set = vi.fn().mockImplementation((payload: { plannedDate?: string }) => {
+        if (updateIdx === 3 && payload.plannedDate) sideDishUpdatedDate = payload.plannedDate
+        return origSet?.(payload) ?? chain
+      })
+      return chain
+    })
+
+    const res = await swapEntriesPOST(makeReq('POST', 'http://localhost/api/plan/swap', {
+      entry_id_a: SWAP_ID_A,
+      entry_id_b: SWAP_ID_B,
+    }))
+    expect(res.status).toBe(200)
+    // The side dish must have been moved to entry B's original date (2026-03-03)
+    expect(sideDishUpdatedDate).toBe('2026-03-03')
   })
 })

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { swapEntriesSchema, parseBody } from '@/lib/schemas'
 import { db } from '@/lib/db'
-import { eq, sql } from 'drizzle-orm'
+import { eq, inArray, sql } from 'drizzle-orm'
 import { mealPlanEntries, mealPlans } from '@/lib/db/schema'
 import { dbFirst } from '@/lib/db/helpers'
 
@@ -62,16 +62,35 @@ export const POST = withAuth(async (req, { user, ctx }) => {
     }
   }
 
+  // Fetch side dishes (entries parented to either entry being swapped) so they
+  // follow their parent to its new date.
+  const sideDishes = await db.select({
+    id: mealPlanEntries.id,
+    parentEntryId: mealPlanEntries.parentEntryId,
+  })
+    .from(mealPlanEntries)
+    .where(inArray(mealPlanEntries.parentEntryId, [entry_id_a, entry_id_b]))
+
+  const sideDishIdsA = sideDishes.filter(sd => sd.parentEntryId === entry_id_a).map(sd => sd.id)
+  const sideDishIdsB = sideDishes.filter(sd => sd.parentEntryId === entry_id_b).map(sd => sd.id)
+
   // Atomic swap via RPC
   try {
     await db.execute(sql`SELECT swap_meal_plan_entries(${entry_id_a}::uuid, ${entry_id_b}::uuid)`)
+    // Side dishes must follow their parent even when using the RPC path
+    await Promise.all([
+      ...(sideDishIdsA.length > 0 ? [db.update(mealPlanEntries).set({ plannedDate: entryB.plannedDate }).where(inArray(mealPlanEntries.id, sideDishIdsA))] : []),
+      ...(sideDishIdsB.length > 0 ? [db.update(mealPlanEntries).set({ plannedDate: entryA.plannedDate }).where(inArray(mealPlanEntries.id, sideDishIdsB))] : []),
+    ])
   } catch {
-    // RPC unavailable (e.g. migration 028 not yet applied) — fall back to two concurrent UPDATEs.
+    // RPC unavailable (e.g. migration 028 not yet applied) — fall back to concurrent UPDATEs.
     // Not atomic, but acceptable for a meal-planning context.
     try {
       await Promise.all([
         db.update(mealPlanEntries).set({ plannedDate: entryB.plannedDate }).where(eq(mealPlanEntries.id, entry_id_a)),
         db.update(mealPlanEntries).set({ plannedDate: entryA.plannedDate }).where(eq(mealPlanEntries.id, entry_id_b)),
+        ...(sideDishIdsA.length > 0 ? [db.update(mealPlanEntries).set({ plannedDate: entryB.plannedDate }).where(inArray(mealPlanEntries.id, sideDishIdsA))] : []),
+        ...(sideDishIdsB.length > 0 ? [db.update(mealPlanEntries).set({ plannedDate: entryA.plannedDate }).where(inArray(mealPlanEntries.id, sideDishIdsB))] : []),
       ])
     } catch {
       return NextResponse.json({ error: 'Swap failed' }, { status: 500 })
