@@ -6,6 +6,7 @@ import { createRecipeSchema, parseBody } from '@/lib/schemas'
 import { db } from '@/lib/db'
 import { eq, and, desc, inArray, arrayContains } from 'drizzle-orm'
 import { recipes, recipeHistory } from '@/lib/db/schema'
+import { recipeListItemToJson, recipeRowToJson } from '@/lib/db/serialize'
 
 export const GET = withAuth(async (req, { user, ctx }) => {
   const { searchParams } = new URL(req.url)
@@ -58,7 +59,7 @@ export const GET = withAuth(async (req, { user, ctx }) => {
       }
     }
 
-    const result = recipeRows.map((r) => ({
+    const result = recipeRows.map((r) => recipeListItemToJson({
       ...r,
       last_made: historyMap[r.id]?.last_made ?? null,
       times_made: historyMap[r.id]?.times_made ?? 0,
@@ -103,7 +104,8 @@ export const POST = withAuth(async (req, { user, ctx }) => {
 
   try {
     const [data] = await db.insert(recipes).values(insertPayload).returning()
-    return NextResponse.json(data, { status: 201 })
+    if (!data) return NextResponse.json({ error: 'Failed to create recipe' }, { status: 500 })
+    return NextResponse.json(recipeRowToJson(data), { status: 201 })
   } catch (err) {
     console.error('DB error:', err)
     return NextResponse.json({ error: 'Failed to create recipe' }, { status: 500 })

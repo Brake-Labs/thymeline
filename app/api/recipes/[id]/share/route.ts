@@ -5,6 +5,7 @@ import { checkOwnership } from '@/lib/household'
 import { db } from '@/lib/db'
 import { eq } from 'drizzle-orm'
 import { recipes } from '@/lib/db/schema'
+import { recipeRowToJson } from '@/lib/db/serialize'
 
 export const PATCH = withAuth(async (req: NextRequest, { user, ctx }, params) => {
   const id = params.id!
@@ -26,7 +27,8 @@ export const PATCH = withAuth(async (req: NextRequest, { user, ctx }, params) =>
       .where(eq(recipes.id, id))
       .returning()
 
-    return NextResponse.json(updated)
+    if (!updated) return NextResponse.json({ error: 'Failed to update share status' }, { status: 500 })
+    return NextResponse.json(recipeRowToJson(updated))
   } catch (err) {
     console.error('DB error:', err)
     return NextResponse.json({ error: 'Failed to update share status' }, { status: 500 })

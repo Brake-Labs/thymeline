@@ -94,7 +94,7 @@ vi.stubGlobal('fetch', mockFetch)
 
 function setupFetch(recipe: ReturnType<typeof makeRecipe>) {
   mockFetch.mockImplementation(async (url: string) => {
-    if (url.includes('/api/auth/get-session')) {
+    if (url.includes('/api/auth/session')) {
       // Always return user-1 as the logged-in user (matches default makeRecipe().user_id)
       return { status: 200, ok: true, json: async () => ({ user: { id: 'user-1' } }) } as Response
     }
