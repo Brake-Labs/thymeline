@@ -288,12 +288,16 @@ export function parseIngredientLine(line: string): ParsedIngredient {
   // "minced", "diced", etc. These don't belong on a grocery list.
   // Work backwards through comma-separated segments, removing each one that
   // looks like a prep/cooking instruction rather than part of the item name.
-  const PREP_SEGMENT_RE = /^\s*(?:about|approximately|finely|roughly|thinly|coarsely|lightly|freshly|cut|chop(?:ped)?|diced?|minced?|sliced?|grated?|shredded?|peeled?|pitted?|halved?|quartered?|trimmed?|rinsed?|drained?|thawed?|softened?|melted?|toasted?|roasted?|julienned?|for\b|to taste|plus more|optional)\b/i
+  const PREP_SEGMENT_RE = /^\s*(?:about|approximately|finely|roughly|thinly|coarsely|lightly|freshly|cut|chop(?:ped)?|diced?|minced?|sliced?|grated?|shredded?|peeled?|pitted?|halved?|quartered?|trimmed?|rinsed?|drained?|thawed?|softened?|melted?|toasted?|roasted?|julienned?|chilled?|cooled?|for\b|to taste|plus more|optional|as needed|if needed|at room temperature|room temperature)\b/i
   const parts = rawName.split(',')
   while (parts.length > 1 && PREP_SEGMENT_RE.test(parts[parts.length - 1]!)) {
     parts.pop()
   }
   rawName = parts.join(',').trim()
+
+  // Strip common trailing qualifiers that appear without a preceding comma
+  // ("hot water as needed" → "hot water", "parmesan to serve" → "parmesan")
+  rawName = rawName.replace(/\s+(?:to taste|to serve|as needed|if needed|as required|for serving|if desired|optional)$/i, '').trim()
 
   const name = normalizeIngredientName(rawName)
   const section = assignSection(name)
@@ -398,6 +402,72 @@ export function combineIngredients(inputs: CombineInput[]): {
   }
 
   return { resolved, ambiguous }
+}
+
+// ── Final deduplication pass ──────────────────────────────────────────────────
+
+/**
+ * Final safety-net dedup on a flat GroceryItem list.
+ * Called after combining rule-resolved and LLM-resolved items to catch any
+ * remaining same-name duplicates (e.g. when some occurrences of "parmesan"
+ * merged in the rule pass and a different-unit occurrence came back from LLM
+ * as a separate item).
+ *
+ * Strategy per group of same-normalized-name items:
+ * - Same unit or one unit is null → sum amounts, merge recipe lists
+ * - Different units → keep the item with the largest amount (or first), merge recipe lists
+ */
+export function deduplicateItems(items: GroceryItem[]): GroceryItem[] {
+  const byName = new Map<string, GroceryItem[]>()
+  for (const item of items) {
+    const key = normalizeIngredientName(item.name)
+    if (!byName.has(key)) byName.set(key, [])
+    byName.get(key)!.push(item)
+  }
+
+  const result: GroceryItem[] = []
+  for (const [, group] of byName) {
+    if (group.length === 1) {
+      result.push(group[0]!)
+      continue
+    }
+
+    // Merge all recipes lists
+    const allRecipes = Array.from(new Set(group.flatMap((i) => i.recipes)))
+
+    const units = new Set(group.map((i) => i.unit))
+    const nonNullUnits = Array.from(units).filter((u): u is string => u !== null)
+
+    if (nonNullUnits.length <= 1) {
+      // All null or one common unit → sum amounts
+      const unit = nonNullUnits[0] ?? null
+      let total: number | null = null
+      for (const item of group) {
+        if (item.amount !== null) {
+          total = (total ?? 0) + item.amount
+        }
+      }
+      // Use the item with shortest name (most canonical form) as the base
+      const base = group.reduce((a, b) => a.name.length <= b.name.length ? a : b)
+      result.push({
+        ...base,
+        unit,
+        amount: total !== null ? Math.round(total * 100) / 100 : null,
+        recipes: allRecipes,
+      })
+    } else {
+      // Multiple distinct units — keep the item with the largest amount as primary,
+      // merge recipe lists. (LLM already had a chance to reconcile units.)
+      const base = group.reduce((best, item) => {
+        if (item.amount === null) return best
+        if (best.amount === null) return item
+        return item.amount > best.amount ? item : best
+      }, group[0]!)
+      result.push({ ...base, recipes: allRecipes })
+    }
+  }
+
+  return result
 }
 
 // ── Scaling ───────────────────────────────────────────────────────────────────

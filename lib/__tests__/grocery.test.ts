@@ -11,6 +11,7 @@ import {
   isPantryStaple,
   isWaterIngredient,
   combineIngredients,
+  deduplicateItems,
   scaleItem,
   effectiveServings,
   buildPlainTextList,
@@ -639,6 +640,82 @@ describe('buildShortcutsURL', () => {
   })
 })
 
+// ── deduplicateItems — final safety-net dedup (regression #358b) ─────────────
+
+describe('deduplicateItems (regression #358b)', () => {
+  const base: Omit<GroceryItem, 'id' | 'name' | 'amount' | 'unit' | 'recipes'> = {
+    section: 'Pantry', isPantry: false, checked: false,
+  }
+
+  it('passes through a list with no duplicates unchanged', () => {
+    const items: GroceryItem[] = [
+      { id: 'a', name: 'parmesan', amount: 0.25, unit: 'cup', recipes: ['A'], ...base },
+      { id: 'b', name: 'olive oil', amount: 2, unit: 'tbsp', recipes: ['B'], ...base },
+    ]
+    const result = deduplicateItems(items)
+    expect(result).toHaveLength(2)
+  })
+
+  it('merges two same-name same-unit items (summing amounts)', () => {
+    const items: GroceryItem[] = [
+      { id: 'a', name: 'parmesan', amount: 0.25, unit: 'cup', recipes: ['A'], ...base },
+      { id: 'b', name: 'parmesan', amount: 1,    unit: 'cup', recipes: ['B'], ...base },
+    ]
+    const result = deduplicateItems(items)
+    expect(result).toHaveLength(1)
+    expect(result[0]!.amount).toBeCloseTo(1.25)
+    expect(result[0]!.unit).toBe('cup')
+    expect(result[0]!.recipes).toContain('A')
+    expect(result[0]!.recipes).toContain('B')
+  })
+
+  it('merges "grated parmesan" and "parmesan" by normalized name', () => {
+    const items: GroceryItem[] = [
+      { id: 'a', name: 'grated parmesan', amount: 0.25, unit: 'cup', recipes: ['A'], ...base },
+      { id: 'b', name: 'parmesan',        amount: 1,    unit: 'cup', recipes: ['B'], ...base },
+    ]
+    const result = deduplicateItems(items)
+    expect(result).toHaveLength(1)
+    expect(result[0]!.amount).toBeCloseTo(1.25)
+    expect(result[0]!.recipes).toContain('A')
+    expect(result[0]!.recipes).toContain('B')
+  })
+
+  it('merges items where one has null unit, keeping the non-null unit', () => {
+    const items: GroceryItem[] = [
+      { id: 'a', name: 'cilantro', amount: 1,    unit: 'bunch', recipes: ['A'], ...base },
+      { id: 'b', name: 'cilantro', amount: null,  unit: null,   recipes: ['B'], ...base },
+    ]
+    const result = deduplicateItems(items)
+    expect(result).toHaveLength(1)
+    expect(result[0]!.amount).toBe(1)
+    expect(result[0]!.unit).toBe('bunch')
+    expect(result[0]!.recipes).toContain('A')
+    expect(result[0]!.recipes).toContain('B')
+  })
+
+  it('merges items with different units by keeping the larger amount', () => {
+    const items: GroceryItem[] = [
+      { id: 'a', name: 'chicken breast', amount: 2, unit: 'lb', recipes: ['A'], ...base },
+      { id: 'b', name: 'chicken breast', amount: 1, unit: 'oz', recipes: ['B'], ...base },
+    ]
+    const result = deduplicateItems(items)
+    expect(result).toHaveLength(1)
+    expect(result[0]!.recipes).toContain('A')
+    expect(result[0]!.recipes).toContain('B')
+  })
+
+  it('does not deduplicate genuinely different ingredients', () => {
+    const items: GroceryItem[] = [
+      { id: 'a', name: 'parmesan',    amount: 0.5, unit: 'cup',  recipes: ['A'], ...base },
+      { id: 'b', name: 'mozzarella', amount: 1,   unit: 'cup',  recipes: ['B'], ...base },
+      { id: 'c', name: 'cilantro',   amount: 1,   unit: 'bunch',recipes: ['C'], ...base },
+    ]
+    const result = deduplicateItems(items)
+    expect(result).toHaveLength(3)
+  })
+})
+
 // ── regression #327: grocery list organization ───────────────────────────────
 
 describe('regression #327 - bratwurst and sausage variants → Proteins', () => {
@@ -740,6 +817,17 @@ describe('regression #327 - water exclusion', () => {
 
   it('isWaterIngredient returns false for "sparkling water with lemon"', () => {
     expect(isWaterIngredient('sparkling water with lemon')).toBe(false)
+  })
+
+  it('parseIngredientLine strips trailing "chilled" so "sparkling water, chilled" is excluded (regression #358b)', () => {
+    const result = parseIngredientLine('1 cup sparkling water, chilled')
+    // After stripping "chilled" the name should be "sparkling water" → excluded as water
+    expect(isWaterIngredient(result.name)).toBe(true)
+  })
+
+  it('parseIngredientLine strips trailing "as needed" so water variants are excluded (regression #358b)', () => {
+    const result = parseIngredientLine('hot water as needed')
+    expect(isWaterIngredient(result.name)).toBe(true)
   })
 })
 
