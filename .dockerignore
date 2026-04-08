@@ -12,6 +12,5 @@ test/
 **/*.test.tsx
 vitest.config.ts
 vitest.setup.ts
-drizzle/
 .eslintrc.json
 .vscode/
