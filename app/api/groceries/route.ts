@@ -9,6 +9,39 @@ import { dbFirst, dbSingle } from '@/lib/db/helpers'
 import { updateGroceryListSchema, parseBody } from '@/lib/schemas'
 import { logger } from '@/lib/logger'
 
+// ── Backward-compat normalizer ────────────────────────────────────────────────
+// Lists generated before the camelCase refactor (#351) stored JSONB with
+// snake_case keys (recipe_id, recipe_title, is_pantry). Normalize on read so
+// the UI always receives camelCase regardless of when the list was generated.
+
+function normalizeRecipeScales(raw: unknown): RecipeScale[] {
+  if (!Array.isArray(raw)) return []
+  return raw.map((s: unknown) => {
+    if (typeof s !== 'object' || s === null) return s as RecipeScale
+    const r = s as Record<string, unknown>
+    return {
+      recipeId:    (r.recipeId   ?? r.recipe_id)    as string,
+      recipeTitle: (r.recipeTitle ?? r.recipe_title) as string,
+      servings:    r.servings as number | null,
+    }
+  })
+}
+
+function normalizeItems(raw: unknown): GroceryItem[] {
+  if (!Array.isArray(raw)) return []
+  return raw.map((item: unknown) => {
+    if (typeof item !== 'object' || item === null) return item as GroceryItem
+    const i = item as Record<string, unknown>
+    // Normalize is_pantry → isPantry (old snake_case JSONB)
+    if ('is_pantry' in i && !('isPantry' in i)) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { is_pantry, ...rest } = i
+      return { ...rest, isPantry: is_pantry } as unknown as GroceryItem
+    }
+    return item as GroceryItem
+  })
+}
+
 // ── GET /api/groceries?weekStart=YYYY-MM-DD  (or ?dateFrom=YYYY-MM-DD) ─────
 
 export const GET = withAuth(async (req, { user, ctx }) => {
@@ -31,8 +64,18 @@ export const GET = withAuth(async (req, { user, ctx }) => {
 
   const list = dbFirst(rows)
 
-  logger.debug({ weekStart, found: !!list }, 'grocery list fetched')
-  return NextResponse.json({ list: list ?? null })
+  if (list) {
+    const normalized = {
+      ...list,
+      recipeScales: normalizeRecipeScales(list.recipeScales),
+      items:        normalizeItems(list.items),
+    }
+    logger.debug({ weekStart, found: true }, 'grocery list fetched')
+    return NextResponse.json({ list: normalized })
+  }
+
+  logger.debug({ weekStart, found: false }, 'grocery list fetched')
+  return NextResponse.json({ list: null })
 })
 
 // ── PATCH /api/groceries ──────────────────────────────────────────────────────

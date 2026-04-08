@@ -6,6 +6,21 @@ function uuidv4(): string {
 
 // ── Known units ───────────────────────────────────────────────────────────────
 
+// Maps full-form and plural unit spellings to their canonical abbreviation.
+// This is checked BEFORE KNOWN_UNITS so that "tablespoons" normalizes to "tbsp"
+// rather than being treated as part of the ingredient name.
+const UNIT_ALIASES: Record<string, string> = {
+  tablespoon: 'tbsp', tablespoons: 'tbsp',
+  teaspoon:   'tsp',  teaspoons:   'tsp',
+  ounce:      'oz',   ounces:      'oz',
+  pound:      'lb',   pounds:      'lb',
+  gram:       'g',    grams:       'g',
+  kilogram:   'kg',   kilograms:   'kg',
+  milliliter: 'ml',   milliliters: 'ml',
+  liter:      'l',    liters:      'l',
+  fluid:      '',     // "fluid ounce" handled below — empty string triggers special case
+}
+
 const KNOWN_UNITS = new Set([
   'tsp', 'tbsp', 'cup', 'cups', 'oz', 'lb', 'lbs', 'g', 'kg', 'ml', 'l',
   'clove', 'cloves', 'can', 'cans', 'slice', 'slices', 'piece', 'pieces',
@@ -245,10 +260,23 @@ export function parseIngredientLine(line: string): ParsedIngredient {
     remainder = remainder.slice(amountMatch[0].length)
   }
 
-  // Extract unit (must be a known unit as a whole word)
+  // Extract unit — check aliases first (full forms like "tablespoons"), then abbreviations
   let unit: string | null = null
   const firstWord = remainder.split(/\s+/)[0]?.toLowerCase() ?? ''
-  if (KNOWN_UNITS.has(firstWord)) {
+  if (firstWord in UNIT_ALIASES) {
+    const canonical = UNIT_ALIASES[firstWord]!
+    remainder = remainder.slice(firstWord.length).trim()
+    if (canonical !== '') {
+      unit = canonical
+    } else {
+      // "fluid" — consume it and look at the next word for "ounce"/"ounces"
+      const nextWord = remainder.split(/\s+/)[0]?.toLowerCase() ?? ''
+      if (nextWord === 'ounce' || nextWord === 'ounces') {
+        unit = 'oz'
+        remainder = remainder.slice(nextWord.length).trim()
+      }
+    }
+  } else if (KNOWN_UNITS.has(firstWord)) {
     unit = firstWord
     remainder = remainder.slice(firstWord.length).trim()
   }
@@ -322,41 +350,48 @@ export function combineIngredients(inputs: CombineInput[]): {
 
     // Multiple recipes — check if units are compatible
     const units = new Set(group.map((g) => g.parsed.unit))
-    if (units.size === 1) {
-      // Same unit (or all null) → sum
-      const unit = Array.from(units)[0] ?? null
+
+    // Determine the effective unit set, ignoring null:
+    // If the only variation is null vs one specific unit, treat as same-unit
+    // (null-unit items contribute recipe names but not amounts).
+    const nonNullUnits = new Set(Array.from(units).filter((u): u is string => u !== null))
+    const canCombine = units.size === 1 || (nonNullUnits.size === 1 && units.has(null))
+
+    if (canCombine) {
+      // Same unit (or all null, or null + one specific unit) →
+      // sum amounts for items that have a quantity; null-unit/null-amount items
+      // contribute only their recipe name (e.g. "parmesan to taste", "chicken breasts")
+      const unit = nonNullUnits.size > 0 ? Array.from(nonNullUnits)[0]! : null
       let total: number | null = null
       const recipeNames: string[] = []
-      let isAmbiguous = false
       for (const { parsed, recipeTitle, scaleFactor } of group) {
         if (!recipeNames.includes(recipeTitle)) recipeNames.push(recipeTitle)
-        if (parsed.amount === null) { isAmbiguous = true; break }
-        const scaled = parsed.amount * scaleFactor
-        total = (total ?? 0) + scaled
+        if (parsed.amount !== null) {
+          const scaled = parsed.amount * scaleFactor
+          total = (total ?? 0) + scaled
+        }
       }
-      if (!isAmbiguous) {
-        const first = group[0]!.parsed
-        // Prefer the shortest display name in the group: "cilantro" over "fresh cilantro",
-        // "boneless skinless chicken breast" over "boneless, skinless chicken breast"
-        const displayName = group.reduce((best, inp) => {
-          const n = inp.parsed.rawName || inp.parsed.name
-          return n.length < best.length ? n : best
-        }, first.rawName || first.name)
-        resolved.push({
-          id:        uuidv4(),
-          name:      displayName,
-          amount:    total !== null ? Math.round(total * 100) / 100 : null,
-          unit,
-          section:   first.section,
-          isPantry: first.isPantry,
-          checked:   false,
-          recipes:   recipeNames,
-        })
-        continue
-      }
+      const first = group[0]!.parsed
+      // Prefer the shortest display name in the group: "cilantro" over "fresh cilantro",
+      // "boneless skinless chicken breast" over "boneless, skinless chicken breast"
+      const displayName = group.reduce((best, inp) => {
+        const n = inp.parsed.rawName || inp.parsed.name
+        return n.length < best.length ? n : best
+      }, first.rawName || first.name)
+      resolved.push({
+        id:        uuidv4(),
+        name:      displayName,
+        amount:    total !== null ? Math.round(total * 100) / 100 : null,
+        unit,
+        section:   first.section,
+        isPantry: first.isPantry,
+        checked:   false,
+        recipes:   recipeNames,
+      })
+      continue
     }
 
-    // Conflicting units or nulls → ambiguous, send to LLM
+    // Conflicting units (multiple specific units) → ambiguous, send to LLM
     for (const inp of group) {
       ambiguous.push(inp)
     }
