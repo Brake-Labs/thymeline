@@ -142,9 +142,17 @@ function singularize(word: string): string {
 }
 
 // Prep-only adjectives whose presence/absence shouldn't prevent two entries from
-// combining ("fresh cilantro" and "cilantro", "grated parmesan" and "parmesan",
-// "boneless skinless chicken breast" and "chicken breast").
-const PREP_ADJECTIVE_RE = /^(fresh|raw|grated|shredded|crumbled|boneless|skinless|extra|virgin|large|medium|small|mini|whole|lean)\s+/
+// combining. Applied iteratively so multi-word prefixes collapse:
+//   "fresh cilantro" → "cilantro"
+//   "grated parmesan" → "parmesan"
+//   "boneless skinless chicken breast" → "chicken breast"
+//   "diced onion" → "onion"
+//   "minced garlic" → "garlic"
+//   "extra virgin olive oil" → "olive oil"
+// Intentionally excluded: "dried" (dried vs fresh changes the product — dried
+// cranberries ≠ cranberries), "unsalted" (baking recipes are specific about salt),
+// Greek/whole/low-fat dairy variants (different fat/flavor profiles).
+const PREP_ADJECTIVE_RE = /^(fresh|raw|grated|shredded|crumbled|chopped|diced|minced|sliced|peeled|pitted|julienned|roasted|toasted|thawed|softened|melted|cooled|chilled|trimmed|rinsed|drained|halved|quartered|boneless|skinless|extra|virgin|large|medium|small|mini|whole|lean)\s+/
 
 // Named cheeses where the trailing " cheese" word is redundant and can be stripped
 // so "parmesan cheese" and "grated parmesan" both normalize to "parmesan".
@@ -166,10 +174,10 @@ export function normalizeIngredientName(name: string): string {
   n = singularize(n).replace(/\s+/g, ' ')
   // Strip color/variety modifiers from onions and bell peppers so variants
   // deduplicate: "yellow onion" → "onion", "red bell pepper" → "bell pepper".
+  // Intentionally NOT applied to tomatoes (cherry/roma/grape are meaningfully
+  // different), tortillas (flour ≠ corn), or milk fat variants (whole/2%/skim).
   n = n.replace(/\b(?:yellow|white|sweet|purple|red|vidalia|spanish)\s+onion\b/, 'onion')
   n = n.replace(/\b(?:red|green|yellow|orange|purple)\s+bell\s+pepper\b/, 'bell pepper')
-  // Normalize tortilla varieties so "flour tortilla" and "corn tortilla" merge.
-  n = n.replace(/\b(?:flour|corn|wheat|whole[\s-]wheat|spinach)\s+tortilla\b/, 'tortilla')
   // Strip redundant trailing " cheese" from specific named cheeses:
   // "parmesan cheese" → "parmesan" so it deduplicates with "grated parmesan"
   const cheeseMatch = n.match(CHEESE_STRIP_RE)

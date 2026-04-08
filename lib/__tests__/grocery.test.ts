@@ -922,16 +922,12 @@ describe('regression #358c - color/variety normalization for dedup', () => {
     expect(normalizeIngredientName('yellow bell peppers')).toBe('bell pepper')
   })
 
-  it('normalizes "flour tortilla" → "tortilla"', () => {
-    expect(normalizeIngredientName('flour tortilla')).toBe('tortilla')
+  it('does NOT normalize "flour tortilla" → "tortilla" (flour and corn are distinct products)', () => {
+    expect(normalizeIngredientName('flour tortilla')).toBe('flour tortilla')
   })
 
-  it('normalizes "corn tortillas" → "tortilla"', () => {
-    expect(normalizeIngredientName('corn tortillas')).toBe('tortilla')
-  })
-
-  it('normalizes "wheat tortilla" → "tortilla"', () => {
-    expect(normalizeIngredientName('wheat tortilla')).toBe('tortilla')
+  it('does NOT normalize "corn tortilla" → "tortilla"', () => {
+    expect(normalizeIngredientName('corn tortilla')).toBe('corn tortilla')
   })
 
   it('normalizes "boneless skinless chicken breast" → "chicken breast"', () => {
@@ -944,6 +940,68 @@ describe('regression #358c - color/variety normalization for dedup', () => {
 
   it('normalizes "extra virgin olive oil" → "olive oil"', () => {
     expect(normalizeIngredientName('extra virgin olive oil')).toBe('olive oil')
+  })
+
+  it('normalizes "diced onion" → "onion" (leading prep word without comma)', () => {
+    expect(normalizeIngredientName('diced onion')).toBe('onion')
+  })
+
+  it('normalizes "minced garlic" → "garlic"', () => {
+    expect(normalizeIngredientName('minced garlic')).toBe('garlic')
+  })
+
+  it('normalizes "chopped cilantro" → "cilantro"', () => {
+    expect(normalizeIngredientName('chopped cilantro')).toBe('cilantro')
+  })
+
+  it('normalizes "sliced mushrooms" → "mushroom"', () => {
+    expect(normalizeIngredientName('sliced mushrooms')).toBe('mushroom')
+  })
+
+  it('normalizes "peeled shrimp" → "shrimp"', () => {
+    expect(normalizeIngredientName('peeled shrimp')).toBe('shrimp')
+  })
+
+  it('combines "diced onion" and "onion" into one item', () => {
+    const inputs = [
+      { parsed: parseIngredientLine('1 diced onion'), recipeTitle: 'Soup', scaleFactor: 1 },
+      { parsed: parseIngredientLine('2 onions'), recipeTitle: 'Stew', scaleFactor: 1 },
+    ]
+    const { resolved, ambiguous } = combineIngredients(inputs)
+    expect(ambiguous).toHaveLength(0)
+    const onion = resolved.find((i) => i.name.toLowerCase().includes('onion'))!
+    expect(onion).toBeDefined()
+    expect(onion.recipes).toContain('Soup')
+    expect(onion.recipes).toContain('Stew')
+  })
+
+  it('combines "minced garlic" and "garlic" into one item', () => {
+    const inputs = [
+      { parsed: parseIngredientLine('3 cloves minced garlic'), recipeTitle: 'Pasta', scaleFactor: 1 },
+      { parsed: parseIngredientLine('2 cloves garlic'), recipeTitle: 'Soup', scaleFactor: 1 },
+    ]
+    const { resolved, ambiguous } = combineIngredients(inputs)
+    expect(ambiguous).toHaveLength(0)
+    const garlic = resolved.find((i) => i.name.toLowerCase().includes('garlic'))!
+    expect(garlic).toBeDefined()
+    expect(garlic.amount).toBe(5)
+    expect(garlic.recipes).toContain('Pasta')
+    expect(garlic.recipes).toContain('Soup')
+  })
+
+  it('does NOT combine "diced tomatoes" with "cherry tomatoes" (different products)', () => {
+    const inputs = [
+      { parsed: parseIngredientLine('1 cup diced tomatoes'), recipeTitle: 'Sauce', scaleFactor: 1 },
+      { parsed: parseIngredientLine('1 cup cherry tomatoes'), recipeTitle: 'Salad', scaleFactor: 1 },
+    ]
+    const { resolved } = combineIngredients(inputs)
+    // "diced tomatoes" → "tomato", "cherry tomatoes" → "cherry tomato" — different names
+    expect(resolved).toHaveLength(2)
+  })
+
+  it('does NOT strip "dried" so "dried cranberries" stays distinct from "cranberries"', () => {
+    expect(normalizeIngredientName('dried cranberries')).toBe('dried cranberry')
+    expect(normalizeIngredientName('dried cranberry')).not.toBe('cranberry')
   })
 
   it('combines "yellow onion" and "white onion" into one item', () => {
@@ -972,17 +1030,14 @@ describe('regression #358c - color/variety normalization for dedup', () => {
     expect(pepper.recipes).toContain('Stir Fry')
   })
 
-  it('combines "flour tortillas" and "corn tortilla" into one item', () => {
+  it('does NOT combine "flour tortillas" and "corn tortillas" (different products)', () => {
     const inputs = [
       { parsed: parseIngredientLine('8 flour tortillas'), recipeTitle: 'Tacos', scaleFactor: 1 },
       { parsed: parseIngredientLine('4 corn tortillas'), recipeTitle: 'Enchilada', scaleFactor: 1 },
     ]
-    const { resolved, ambiguous } = combineIngredients(inputs)
-    expect(ambiguous).toHaveLength(0)
-    const tortilla = resolved.find((i) => i.name.toLowerCase().includes('tortilla'))!
-    expect(tortilla).toBeDefined()
-    expect(tortilla.recipes).toContain('Tacos')
-    expect(tortilla.recipes).toContain('Enchilada')
+    const { resolved } = combineIngredients(inputs)
+    // Should produce two separate items
+    expect(resolved).toHaveLength(2)
   })
 
   it('combines "2 lb boneless skinless chicken breast" and "1 lb chicken breast"', () => {
@@ -1060,6 +1115,10 @@ describe('regression #358c - section assignment for fresh produce', () => {
 
   it('assigns Bakery to flour tortilla', () => {
     expect(assignSection('flour tortilla')).toBe('Bakery')
+  })
+
+  it('assigns Bakery to corn tortilla', () => {
+    expect(assignSection('corn tortilla')).toBe('Bakery')
   })
 })
 
