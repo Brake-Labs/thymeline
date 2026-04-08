@@ -8,6 +8,17 @@ import { db } from '@/lib/db'
 import { userPreferences, customTags } from '@/lib/db/schema'
 import { dbFirst } from '@/lib/db/helpers'
 
+const DAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const
+
+function dayNameToNumber(name: string): number {
+  const idx = DAY_NAMES.indexOf(name as typeof DAY_NAMES[number])
+  return idx >= 0 ? idx : 0
+}
+
+function numberToDayName(n: number): string {
+  return DAY_NAMES[n] ?? 'sunday'
+}
+
 const DEFAULT_PREFS = {
   options_per_day: 3,
   cooldown_days: 28,
@@ -19,7 +30,7 @@ const DEFAULT_PREFS = {
   is_active: true,
   meal_context: null as string | null,
   hidden_tags: [] as string[],
-  week_start_day: 'sunday',
+  week_start_day: 0,
 }
 
 export const GET = withAuth(async (req, { user, ctx }) => {
@@ -47,7 +58,7 @@ export const GET = withAuth(async (req, { user, ctx }) => {
       return NextResponse.json(DEFAULT_PREFS)
     }
 
-    return NextResponse.json(data)
+    return NextResponse.json({ ...data, week_start_day: dayNameToNumber(data.week_start_day) })
   } catch (err) {
     console.error('[GET /api/preferences] DB error:', err)
     return NextResponse.json(DEFAULT_PREFS)
@@ -112,7 +123,11 @@ export const PATCH = withAuth(async (req, { user, ctx }) => {
   const update: Record<string, unknown> = {}
   for (const key of allowed) {
     if (key in body) {
-      update[keyMap[key]!] = bodyRecord[key]
+      if (key === 'week_start_day') {
+        update[keyMap[key]!] = numberToDayName(bodyRecord[key] as number)
+      } else {
+        update[keyMap[key]!] = bodyRecord[key]
+      }
     }
   }
 
@@ -146,7 +161,7 @@ export const PATCH = withAuth(async (req, { user, ctx }) => {
       return NextResponse.json({ error: 'Failed to update preferences' }, { status: 500 })
     }
 
-    return NextResponse.json(data)
+    return NextResponse.json({ ...data, week_start_day: dayNameToNumber(data.week_start_day) })
   } catch (err) {
     console.warn('[PATCH /api/preferences] upsert error:', err)
     return NextResponse.json({ error: 'Failed to update preferences' }, { status: 500 })
