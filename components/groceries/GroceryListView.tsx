@@ -344,7 +344,7 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
                   <button
                     type="button"
                     onClick={() => {
-                      shortcutInstalled ? handleAddToReminders() : setShowRemindersDialog(true)
+                      if (shortcutInstalled) { handleAddToReminders() } else { setShowRemindersDialog(true) }
                       setExportMenuOpen(false)
                     }}
                     className="w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
