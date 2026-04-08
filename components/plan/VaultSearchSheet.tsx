@@ -64,12 +64,12 @@ export default function VaultSearchSheet({ forDate: _forDate, mealType, allowedC
       {/* Sheet / Modal */}
       <div
         role="dialog"
-        aria-label="Search your recipe vault"
+        aria-label="Search your recipe box"
         className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl max-h-[80vh] flex flex-col md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-lg md:rounded-2xl md:max-h-[70vh] shadow-xl"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b border-stone-100">
-          <h2 className="font-display text-base font-semibold text-stone-800">Pick from your vault</h2>
+          <h2 className="font-display text-base font-semibold text-stone-800">Choose from recipe box</h2>
           <button
             onClick={onClose}
             aria-label="Close"

@@ -61,7 +61,7 @@ export default function SuggestionMealSlotRow({
     const result = await onFreeTextMatch(freeTextQuery.trim(), date, mealType)
     setFreeTextLoading(false)
     if (!result.matched) {
-      setFreeTextError("Couldn\u2019t find that in your vault \u2014 try searching")
+      setFreeTextError("Couldn\u2019t find that in your recipe box \u2014 try searching")
       setVaultOpen(true)
     } else {
       setFreeTextExpanded(false)
@@ -125,7 +125,7 @@ export default function SuggestionMealSlotRow({
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-stone-800 truncate">{selection.recipeTitle}</p>
-                  <p className="text-xs text-stone-400 italic mt-0.5">From your vault</p>
+                  <p className="text-xs text-stone-400 italic mt-0.5">From your recipe box</p>
                 </div>
                 <button
                   onClick={() => onSelect(date, mealType, { recipeId: selection.recipeId, recipeTitle: selection.recipeTitle })}
@@ -142,7 +142,7 @@ export default function SuggestionMealSlotRow({
 
           {options.length === 0 ? (
             <div className="px-3 py-2">
-              <p className="text-sm text-stone-400">No suggestions — try swapping or searching your vault.</p>
+              <p className="text-sm text-stone-400">No suggestions — try swapping or searching your recipe box.</p>
             </div>
           ) : (
             options.map((opt) => {
@@ -205,9 +205,9 @@ export default function SuggestionMealSlotRow({
                     </button>
                   </div>
 
-                  {/* From vault badge */}
+                  {/* From recipe box badge */}
                   {selected && selection?.fromVault && (
-                    <span className="text-xs text-stone-400 mt-1 block">From vault</span>
+                    <span className="text-xs text-stone-400 mt-1 block">From recipe box</span>
                   )}
                 </div>
               )
@@ -278,7 +278,7 @@ export default function SuggestionMealSlotRow({
               onClick={() => setVaultOpen(true)}
               className="text-xs font-medium text-stone-600 border border-stone-300 px-3 py-1.5 rounded-lg hover:bg-stone-50 transition-colors"
             >
-              Pick from my vault
+              Choose from recipe box
             </button>
 
             {!freeTextExpanded ? (

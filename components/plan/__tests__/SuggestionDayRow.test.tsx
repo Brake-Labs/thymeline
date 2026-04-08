@@ -114,10 +114,10 @@ describe('T23 - Skip and undo', () => {
 
 // ── T20: Pick from vault ──────────────────────────────────────────────────────
 
-describe('T20 - Pick from my vault opens VaultSearchSheet', () => {
-  it('renders "Pick from my vault" button', () => {
+describe('T20 - Choose from recipe box opens VaultSearchSheet', () => {
+  it('renders "Choose from recipe box" button', () => {
     render(<SuggestionDayRow {...makeRow()} />)
-    expect(screen.getByText('Pick from my vault')).toBeInTheDocument()
+    expect(screen.getByText('Choose from recipe box')).toBeInTheDocument()
   })
 })
 
@@ -130,13 +130,13 @@ describe('Reason field display', () => {
   })
 })
 
-// ── From vault label ──────────────────────────────────────────────────────────
+// ── From recipe box label ─────────────────────────────────────────────────────
 
-describe('From vault label', () => {
-  it('shows "From vault" when selection has fromVault=true', () => {
+describe('From recipe box label', () => {
+  it('shows "From recipe box" when selection has fromVault=true', () => {
     const sel: DaySelection = { date: DATE, mealType: 'dinner', recipeId: 'r1', recipeTitle: 'Pasta', fromVault: true }
     render(<SuggestionDayRow {...makeRow({ selections: { [`${DATE}:dinner`]: sel } })} />)
-    expect(screen.getByText('From vault')).toBeInTheDocument()
+    expect(screen.getByText('From recipe box')).toBeInTheDocument()
   })
 })
 
@@ -152,17 +152,17 @@ describe('Vault selection absent from options — selected-recipe row (regressio
   }
   const key = `${DATE}:dinner`
 
-  it('renders the "From your vault" row with the recipe title when selection is not in options', () => {
+  it('renders the "From your recipe box" row with the recipe title when selection is not in options', () => {
     render(<SuggestionDayRow {...makeRow({ selections: { [key]: VAULT_SEL } })} />)
     expect(screen.getByText('My Vault Recipe')).toBeInTheDocument()
-    expect(screen.getByText('From your vault')).toBeInTheDocument()
+    expect(screen.getByText('From your recipe box')).toBeInTheDocument()
   })
 
-  it('does NOT render the "From your vault" row when the selection IS one of the options', () => {
-    // r1 (Pasta) is in options — should use the inline selected style, not the vault row
+  it('does NOT render the "From your recipe box" row when the selection IS one of the options', () => {
+    // r1 (Pasta) is in options — should use the inline selected style, not the recipe box row
     const inOptionsSel: DaySelection = { date: DATE, mealType: 'dinner', recipeId: 'r1', recipeTitle: 'Pasta', fromVault: true }
     render(<SuggestionDayRow {...makeRow({ selections: { [key]: inOptionsSel } })} />)
-    expect(screen.queryByText('From your vault')).not.toBeInTheDocument()
+    expect(screen.queryByText('From your recipe box')).not.toBeInTheDocument()
   })
 
   it('clicking the checkmark on the vault row calls onSelect with the matched recipe', () => {
