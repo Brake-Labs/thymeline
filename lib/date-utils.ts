@@ -27,6 +27,13 @@ export function getMostRecentSunday(date: Date = new Date()): string {
   return getMostRecentWeekStart(0, date)
 }
 
+/** Convert a DB day-name string ('sunday'…'saturday') to a weekday number (0–6). */
+const DAY_NAMES_ORDERED = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const
+export function dayNameToNumber(name: string): number {
+  const idx = DAY_NAMES_ORDERED.indexOf(name as typeof DAY_NAMES_ORDERED[number])
+  return idx >= 0 ? idx : 0
+}
+
 /** Add N days to a "YYYY-MM-DD" string, returning a new date string. */
 export function addDays(dateStr: string, days: number): string {
   const d = new Date(`${dateStr}T00:00:00Z`)

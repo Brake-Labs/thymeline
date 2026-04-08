@@ -1,4 +1,4 @@
-export { getMostRecentSunday, getTodayISO } from '@/lib/date-utils'
+export { getMostRecentSunday, getMostRecentWeekStart, dayNameToNumber, getTodayISO } from '@/lib/date-utils'
 
 export type DayEntry = {
   recipe_id: string

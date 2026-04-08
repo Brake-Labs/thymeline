@@ -3,9 +3,9 @@ import { Sparkles, Archive, ClipboardList } from 'lucide-react'
 import { getSessionUser } from '@/lib/auth-helpers'
 import { db } from '@/lib/db'
 import { and, eq, desc, sql } from 'drizzle-orm'
-import { recipes, mealPlans, mealPlanEntries, recipeHistory, groceryLists } from '@/lib/db/schema'
+import { recipes, mealPlans, mealPlanEntries, recipeHistory, groceryLists, userPreferences } from '@/lib/db/schema'
 import { HomeData } from '@/types'
-import { getMostRecentSunday, getTodayISO, isToday, buildEntriesByDay } from './utils'
+import { getMostRecentWeekStart, dayNameToNumber, getTodayISO, isToday, buildEntriesByDay } from './utils'
 import GreetingHeading from './GreetingHeading'
 
 import { getDayAbbrev, getDayNum, formatShortDate, formatWeekRange, getWeekDates } from '@/lib/date-utils'
@@ -29,8 +29,8 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
 async function getHomeData(): Promise<HomeData & { weekStart: string }> {
   const user = await getSessionUser()
 
-  const weekStart = getMostRecentSunday()
   if (!user) {
+    const weekStart = getMostRecentWeekStart(0)
     return { userName: null, recipeCount: 0, groceryListWeekStart: null, currentWeekPlan: null, recentlyMade: [], weekStart }
   }
 
@@ -38,6 +38,14 @@ async function getHomeData(): Promise<HomeData & { weekStart: string }> {
   const userName = fullName
     ? (fullName.split(' ')[0] ?? fullName)
     : (user.email?.split('@')[0] ?? null)
+
+  // Fetch preference first to determine the user's week start day
+  const prefRows = await db.select({ weekStartDay: userPreferences.weekStartDay })
+    .from(userPreferences)
+    .where(eq(userPreferences.userId, user.id))
+    .limit(1)
+
+  const weekStart = getMostRecentWeekStart(dayNameToNumber(prefRows[0]?.weekStartDay ?? 'sunday'))
 
   const [planRows, historyRows, countRows, groceryRows] = await Promise.all([
     db.select({ id: mealPlans.id, weekStart: mealPlans.weekStart })

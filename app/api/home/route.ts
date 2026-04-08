@@ -1,15 +1,21 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
-import { getMostRecentSunday } from '@/lib/date-utils'
+import { getMostRecentWeekStart, dayNameToNumber } from '@/lib/date-utils'
 import { scopeCondition } from '@/lib/household'
 import { db } from '@/lib/db'
-import { mealPlans, mealPlanEntries, recipes, recipeHistory, groceryLists } from '@/lib/db/schema'
+import { mealPlans, mealPlanEntries, recipes, recipeHistory, groceryLists, userPreferences } from '@/lib/db/schema'
 import { eq, and, desc, sql } from 'drizzle-orm'
 import { dbFirst } from '@/lib/db/helpers'
 import type { HomeData } from '@/types'
 
 export const GET = withAuth(async (req, { user, ctx }) => {
-  const weekStart = getMostRecentSunday()
+  const prefRows = await db
+    .select({ weekStartDay: userPreferences.weekStartDay })
+    .from(userPreferences)
+    .where(scopeCondition({ userId: userPreferences.userId, householdId: userPreferences.householdId }, user.id, ctx))
+    .limit(1)
+
+  const weekStart = getMostRecentWeekStart(dayNameToNumber(prefRows[0]?.weekStartDay ?? 'sunday'))
 
   // Find the current week's plan
   const planRows = await db
