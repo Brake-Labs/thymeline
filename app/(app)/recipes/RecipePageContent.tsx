@@ -10,6 +10,7 @@ import BulkActionBar from '@/components/recipes/BulkActionBar'
 import BulkTagModal from '@/components/recipes/BulkTagModal'
 import AddRecipeModal from '@/components/recipes/AddRecipeModal'
 import GenerateRecipeModal from '@/components/recipes/GenerateRecipeModal'
+import BatchExportModal from '@/components/recipes/BatchExportModal'
 import Link from 'next/link'
 
 const VIEW_KEY = 'thymeline:recipe-view'
@@ -120,6 +121,7 @@ export default function RecipePageContent() {
   const [showBulkTagModal, setShowBulkTagModal] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [bulkDeleting, setBulkDeleting] = useState(false)
+  const [showExportModal, setShowExportModal] = useState(false)
 
   // List sort — persisted in URL as ?sort=<key>&dir=<asc|desc>
   const { key: listSortKey, dir: listSortDir } = parseSortParams(searchParams)
@@ -421,6 +423,17 @@ export default function RecipePageContent() {
           </button>
         </div>
 
+        {/* Export */}
+        <button
+          type="button"
+          disabled={recipes.length === 0}
+          onClick={() => setShowExportModal(true)}
+          title={recipes.length === 0 ? 'Add some recipes first' : 'Export recipes'}
+          className="text-sm font-medium text-stone-600 hover:text-sage-600 disabled:text-stone-300 disabled:cursor-not-allowed transition-colors"
+        >
+          Export
+        </button>
+
         {/* Add Recipe dropdown */}
         <div ref={dropdownRef} className="relative">
           <button
@@ -620,6 +633,14 @@ export default function RecipePageContent() {
           selectedCount={selectedIds.size}
           onConfirm={handleBulkAddTags}
           onClose={() => setShowBulkTagModal(false)}
+        />
+      )}
+
+      {/* Export modal */}
+      {showExportModal && (
+        <BatchExportModal
+          recipes={recipes}
+          onClose={() => setShowExportModal(false)}
         />
       )}
     </div>
