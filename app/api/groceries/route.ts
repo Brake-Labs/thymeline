@@ -1,12 +1,40 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
-import { GroceryItem, RecipeScale } from '@/types'
+import { GroceryItem, GroceryList, RecipeScale } from '@/types'
 import { db } from '@/lib/db'
 import { eq, and } from 'drizzle-orm'
 import { groceryLists, mealPlans } from '@/lib/db/schema'
 import { scopeCondition } from '@/lib/household'
 import { dbFirst, dbSingle } from '@/lib/db/helpers'
 import { updateGroceryListSchema, parseBody } from '@/lib/schemas'
+
+function toGroceryList(row: {
+  id: string
+  userId: string
+  mealPlanId: string | null
+  weekStart: string
+  dateFrom: string | null
+  dateTo: string | null
+  servings: number
+  recipeScales: unknown
+  items: unknown
+  createdAt: Date
+  updatedAt: Date
+}): GroceryList {
+  return {
+    id:            row.id,
+    user_id:       row.userId,
+    meal_plan_id:  row.mealPlanId ?? '',
+    week_start:    row.weekStart,
+    date_from:     row.dateFrom,
+    date_to:       row.dateTo,
+    servings:      row.servings,
+    recipe_scales: row.recipeScales as RecipeScale[],
+    items:         row.items as GroceryItem[],
+    created_at:    row.createdAt.toISOString(),
+    updated_at:    row.updatedAt.toISOString(),
+  }
+}
 
 // ── GET /api/groceries?week_start=YYYY-MM-DD  (or ?date_from=YYYY-MM-DD) ─────
 
@@ -29,7 +57,7 @@ export const GET = withAuth(async (req, { user, ctx }) => {
 
   const list = dbFirst(rows)
 
-  return NextResponse.json({ list: list ?? null })
+  return NextResponse.json({ list: list ? toGroceryList(list) : null })
 })
 
 // ── PATCH /api/groceries ──────────────────────────────────────────────────────
@@ -106,11 +134,7 @@ export const PATCH = withAuth(async (req, { user, ctx }) => {
         .where(eq(mealPlans.id, existing.mealPlanId))
     }
 
-    return NextResponse.json({
-      ...updated,
-      items: updated.items as unknown as GroceryItem[],
-      recipe_scales: updated.recipeScales as unknown as RecipeScale[],
-    })
+    return NextResponse.json(toGroceryList(updated))
   } catch (err) {
     console.error('Grocery list update error:', err)
     return NextResponse.json({ error: 'Failed to update grocery list' }, { status: 500 })
