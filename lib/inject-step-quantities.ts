@@ -53,7 +53,15 @@ export function injectStepQuantities(
   const scaled = scaleIngredients(ingredients, originalServings, servings)
 
   type Entry = { name: string; matchName: string; ingredientName: string; quantity: string }
-  const entries: Entry[] = []
+  const primaryEntries: Entry[] = []
+  // Collect fallback candidates separately so we can apply two guards before adding them:
+  //   1. The full ingredient name must NOT appear in the step text (prevents "sauce" from
+  //      shadowing "soy sauce" when both "sauce" and "soy sauce" are in the same step).
+  //   2. The fallback last-word must be unambiguous — only one ingredient maps to it
+  //      (prevents "sauce" matching when BOTH "soy sauce" and "fish sauce" are ingredients).
+  const fallbackCandidates: { entry: Entry; fullRe: RegExp }[] = []
+  const fallbackWordCount = new Map<string, number>()
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!
     const { rawName } = parseIngredientLine(line)
@@ -65,13 +73,25 @@ export function injectStepQuantities(
     // Strip comma-separated descriptors so "garlic, minced" matches "garlic" in steps
     const preComma = rawName.includes(',') ? rawName.split(',')[0]!.trim() : rawName
     const matchName = preComma || rawName
-    entries.push({ name: rawName, matchName, ingredientName: rawName, quantity })
-    // Add last-word fallback for multi-word names (e.g. "olive oil" → "oil",
+    primaryEntries.push({ name: rawName, matchName, ingredientName: rawName, quantity })
+    // Prepare last-word fallback for multi-word names (e.g. "olive oil" → "oil",
     // "all-purpose flour" → "flour") so step text that uses only the short form still matches.
     const words = matchName.split(/\s+/)
     if (words.length > 1) {
       const lastWord = words[words.length - 1]!
-      entries.push({ name: rawName, matchName: lastWord, ingredientName: rawName, quantity })
+      const fullRe = new RegExp(`\\b${escapeRegex(matchName)}\\b`, 'i')
+      fallbackCandidates.push({ entry: { name: rawName, matchName: lastWord, ingredientName: rawName, quantity }, fullRe })
+      fallbackWordCount.set(lastWord, (fallbackWordCount.get(lastWord) ?? 0) + 1)
+    }
+  }
+
+  const entries: Entry[] = [...primaryEntries]
+  for (const { entry, fullRe } of fallbackCandidates) {
+    const lastWord = entry.matchName
+    // Guard 1: only use fallback when the full name isn't already in the step
+    // Guard 2: skip if multiple ingredients share the same fallback word (ambiguous)
+    if (!fullRe.test(stepText) && (fallbackWordCount.get(lastWord) ?? 0) <= 1) {
+      entries.push(entry)
     }
   }
 

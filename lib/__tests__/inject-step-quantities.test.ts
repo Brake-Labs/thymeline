@@ -343,3 +343,57 @@ describe('T63 - inline qty highlighted in subsequent steps even after cross-step
     expect(span).toBe('2 teaspoons')
   })
 })
+
+// ── T66: Last-word fallback does not shadow explicit full-name mention ─────────
+
+describe('T66 - last-word fallback does not shadow explicit full-name match (regression for #319)', () => {
+  it('attaches 1/4 cup to "soy sauce" even when "sauce" appears earlier in the step', () => {
+    const result = injectStepQuantities(
+      'Stir in the sauce until combined, then add soy sauce.',
+      '1/4 cup soy sauce',
+      4,
+      4,
+    )
+    expect(result.text).toBe('Stir in the sauce until combined, then add 1/4 cup soy sauce.')
+    expect(result.highlights).toHaveLength(1)
+    const span = result.text.slice(result.highlights[0]!.start, result.highlights[0]!.end)
+    expect(span).toBe('1/4 cup')
+  })
+
+  it('does not annotate bare "oil" when "olive oil" appears in the same step', () => {
+    const result = injectStepQuantities(
+      'Heat oil then drizzle olive oil over the top.',
+      '2 tbsp olive oil',
+      4,
+      4,
+    )
+    expect(result.text).toBe('Heat oil then drizzle 2 tbsp olive oil over the top.')
+    expect(result.highlights).toHaveLength(1)
+  })
+})
+
+// ── T67: Ambiguous last-word fallback suppressed ───────────────────────────────
+
+describe('T67 - ambiguous last-word fallback suppressed (regression for #319)', () => {
+  it('does not annotate bare "sauce" when both soy sauce and fish sauce are ingredients', () => {
+    const result = injectStepQuantities(
+      'Add the sauce to the pan.',
+      '1/4 cup soy sauce\n2 tbsp fish sauce',
+      4,
+      4,
+    )
+    expect(result.text).toBe('Add the sauce to the pan.')
+    expect(result.highlights).toHaveLength(0)
+  })
+
+  it('still annotates each sauce by full name when both appear in the step', () => {
+    const result = injectStepQuantities(
+      'Mix soy sauce with fish sauce.',
+      '1/4 cup soy sauce\n2 tbsp fish sauce',
+      4,
+      4,
+    )
+    expect(result.text).toBe('Mix 1/4 cup soy sauce with 2 tbsp fish sauce.')
+    expect(result.highlights).toHaveLength(2)
+  })
+})
