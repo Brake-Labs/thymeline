@@ -195,6 +195,8 @@ export type GrocerySection =
   | 'Canned & Jarred'
   | 'Bakery'
   | 'Frozen'
+  | 'Beverages'
+  | 'Deli'
   | 'Other'
 
 export interface GroceryItem {

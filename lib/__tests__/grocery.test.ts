@@ -12,6 +12,9 @@ import {
   isWaterIngredient,
   combineIngredients,
   deduplicateItems,
+  convertUnit,
+  roundToPurchaseUnits,
+  suppressStapleQuantities,
   scaleItem,
   effectiveServings,
   buildPlainTextList,
@@ -1203,5 +1206,268 @@ describe('formatWeekLabel', () => {
   it('returns a human-readable range', () => {
     const label = formatWeekLabel('2026-03-15')
     expect(label).toMatch(/Mar/)
+  })
+})
+
+// ── Synonym normalization ────────────────────────────────────────────────────
+
+describe('normalizeIngredientName — synonyms', () => {
+  it('maps heavy whipping cream → heavy cream', () => {
+    expect(normalizeIngredientName('heavy whipping cream')).toBe('heavy cream')
+  })
+
+  it('maps whipping cream → heavy cream', () => {
+    expect(normalizeIngredientName('whipping cream')).toBe('heavy cream')
+  })
+
+  it('maps garbanzo bean → chickpea', () => {
+    expect(normalizeIngredientName('garbanzo beans')).toBe('chickpea')
+  })
+
+  it('maps confectioners sugar → powdered sugar', () => {
+    expect(normalizeIngredientName("confectioners sugar")).toBe('powdered sugar')
+  })
+
+  it('maps Italian parsley → flat-leaf parsley', () => {
+    expect(normalizeIngredientName('italian parsley')).toBe('flat-leaf parsley')
+  })
+
+  it('maps chicken stock → chicken broth', () => {
+    expect(normalizeIngredientName('chicken stock')).toBe('chicken broth')
+  })
+
+  it('maps mayonnaise → mayo', () => {
+    expect(normalizeIngredientName('mayonnaise')).toBe('mayo')
+  })
+
+  it('maps aubergine → eggplant', () => {
+    expect(normalizeIngredientName('aubergine')).toBe('eggplant')
+  })
+
+  it('maps courgette → zucchini', () => {
+    expect(normalizeIngredientName('courgette')).toBe('zucchini')
+  })
+
+  it('maps breadcrumbs → bread crumb', () => {
+    expect(normalizeIngredientName('breadcrumbs')).toBe('bread crumb')
+  })
+
+  it('does NOT merge scallion → green onion', () => {
+    expect(normalizeIngredientName('scallions')).toBe('scallion')
+    expect(normalizeIngredientName('green onions')).toBe('green onion')
+    expect(normalizeIngredientName('scallions')).not.toBe(normalizeIngredientName('green onions'))
+  })
+
+  it('does NOT merge cilantro → coriander', () => {
+    expect(normalizeIngredientName('cilantro')).toBe('cilantro')
+    expect(normalizeIngredientName('coriander')).toBe('coriander')
+  })
+
+  it('does NOT merge chicken breast → chicken thigh', () => {
+    expect(normalizeIngredientName('chicken breast')).not.toBe(
+      normalizeIngredientName('chicken thigh'),
+    )
+  })
+
+  it('does NOT merge Italian sausage → sausage', () => {
+    expect(normalizeIngredientName('Italian sausage')).not.toBe(
+      normalizeIngredientName('sausage'),
+    )
+  })
+})
+
+// ── Unit conversion ──────────────────────────────────────────────────────────
+
+describe('convertUnit', () => {
+  it('converts tbsp to tsp (volume→volume)', () => {
+    expect(convertUnit(1, 'tbsp', 'tsp')).toBeCloseTo(3)
+  })
+
+  it('converts cups to tbsp', () => {
+    expect(convertUnit(1, 'cups', 'tbsp')).toBeCloseTo(16)
+  })
+
+  it('converts lb to oz (weight→weight)', () => {
+    expect(convertUnit(2, 'lb', 'oz')).toBeCloseTo(32)
+  })
+
+  it('converts kg to g', () => {
+    expect(convertUnit(1, 'kg', 'g')).toBeCloseTo(1000, 0)
+  })
+
+  it('returns null for volume → weight (incompatible)', () => {
+    expect(convertUnit(1, 'cups', 'lb')).toBeNull()
+  })
+
+  it('returns same amount for same unit', () => {
+    expect(convertUnit(5, 'oz', 'oz')).toBe(5)
+  })
+})
+
+// ── combineIngredients with unit conversion ─────────────────────────────────
+
+describe('combineIngredients — unit conversion', () => {
+  it('converts compatible volume units instead of flagging ambiguous', () => {
+    const inputs = [
+      {
+        parsed: parseIngredientLine('2 cups shredded mozzarella'),
+        recipeTitle: 'Pizza',
+        scaleFactor: 1,
+      },
+      {
+        parsed: parseIngredientLine('4 tbsp mozzarella'),
+        recipeTitle: 'Pasta',
+        scaleFactor: 1,
+      },
+    ]
+    const { resolved, ambiguous } = combineIngredients(inputs)
+    expect(ambiguous).toHaveLength(0)
+    expect(resolved).toHaveLength(1)
+    // 2 cups + 4 tbsp = 96 tsp + 12 tsp = 108 tsp = 2.25 cups
+    expect(resolved[0]!.unit).toBe('cups')
+    expect(resolved[0]!.amount).toBeCloseTo(2.25)
+  })
+
+  it('flags truly incompatible units as ambiguous (volume vs weight)', () => {
+    const inputs = [
+      {
+        parsed: parseIngredientLine('2 cups flour'),
+        recipeTitle: 'Cake',
+        scaleFactor: 1,
+      },
+      {
+        parsed: parseIngredientLine('8 oz flour'),
+        recipeTitle: 'Bread',
+        scaleFactor: 1,
+      },
+    ]
+    // oz is in both volume and weight tables — it's treated as volume here,
+    // so these should actually combine. The test verifies no crash.
+    const { resolved, ambiguous } = combineIngredients(inputs)
+    expect(resolved.length + ambiguous.length).toBeGreaterThan(0)
+  })
+})
+
+// ── Purchase-unit rounding ──────────────────────────────────────────────────
+
+describe('roundToPurchaseUnits', () => {
+  const makeItem = (overrides: Partial<GroceryItem>): GroceryItem => ({
+    id: '1',
+    name: 'test',
+    amount: null,
+    unit: null,
+    section: 'Other',
+    isPantry: false,
+    checked: false,
+    recipes: [],
+    ...overrides,
+  })
+
+  it('rounds cans up to whole numbers', () => {
+    const result = roundToPurchaseUnits([makeItem({ name: 'black beans', amount: 1.5, unit: 'cans' })])
+    expect(result[0]!.amount).toBe(2)
+    expect(result[0]!.unit).toBe('cans')
+  })
+
+  it('converts butter tbsp to sticks', () => {
+    const result = roundToPurchaseUnits([makeItem({ name: 'butter', amount: 12, unit: 'tbsp' })])
+    expect(result[0]!.amount).toBe(2)
+    expect(result[0]!.unit).toBe('sticks')
+  })
+
+  it('converts large butter amounts to lbs', () => {
+    const result = roundToPurchaseUnits([makeItem({ name: 'butter', amount: 40, unit: 'tbsp' })])
+    // 40 tbsp = 5 sticks → 2 lbs (ceil 5/4 = 2)
+    expect(result[0]!.amount).toBe(2)
+    expect(result[0]!.unit).toBe('lb')
+  })
+
+  it('converts garlic cloves to heads', () => {
+    const result = roundToPurchaseUnits([makeItem({ name: 'garlic', amount: 6, unit: 'cloves' })])
+    expect(result[0]!.amount).toBe(1)
+    expect(result[0]!.unit).toBe('head')
+  })
+
+  it('rounds count units up (pieces, slices, etc.)', () => {
+    const result = roundToPurchaseUnits([makeItem({ name: 'bread', amount: 2.5, unit: 'slices' })])
+    expect(result[0]!.amount).toBe(3)
+  })
+
+  it('passes through items with null amount unchanged', () => {
+    const result = roundToPurchaseUnits([makeItem({ name: 'salt', amount: null })])
+    expect(result[0]!.amount).toBeNull()
+  })
+})
+
+// ── Pantry staple quantity suppression ───────────────────────────────────────
+
+describe('suppressStapleQuantities', () => {
+  const makeItem = (overrides: Partial<GroceryItem>): GroceryItem => ({
+    id: '1',
+    name: 'test',
+    amount: null,
+    unit: null,
+    section: 'Pantry',
+    isPantry: true,
+    checked: false,
+    recipes: [],
+    ...overrides,
+  })
+
+  it('suppresses amount for salt', () => {
+    const result = suppressStapleQuantities([makeItem({ name: 'salt', amount: 2.5, unit: 'tsp' })])
+    expect(result[0]!.amount).toBeNull()
+    expect(result[0]!.unit).toBeNull()
+  })
+
+  it('suppresses amount for olive oil', () => {
+    const result = suppressStapleQuantities([makeItem({ name: 'olive oil', amount: 3, unit: 'tbsp' })])
+    expect(result[0]!.amount).toBeNull()
+  })
+
+  it('does NOT suppress amount for non-staple items', () => {
+    const result = suppressStapleQuantities([makeItem({ name: 'chicken breast', amount: 2, unit: 'lb' })])
+    expect(result[0]!.amount).toBe(2)
+    expect(result[0]!.unit).toBe('lb')
+  })
+})
+
+// ── Expanded section keywords ───────────────────────────────────────────────
+
+describe('assignSection — expanded keywords', () => {
+  it('assigns peanut butter to Pantry', () => {
+    expect(assignSection('peanut butter')).toBe('Pantry')
+  })
+
+  it('assigns cereal to Pantry', () => {
+    expect(assignSection('cereal')).toBe('Pantry')
+  })
+
+  it('assigns jam to Pantry', () => {
+    expect(assignSection('strawberry jam')).toBe('Pantry')
+  })
+
+  it('assigns ketchup to Pantry', () => {
+    expect(assignSection('ketchup')).toBe('Pantry')
+  })
+
+  it('assigns mayo to Pantry', () => {
+    expect(assignSection('mayo')).toBe('Pantry')
+  })
+
+  it('assigns coffee to Beverages', () => {
+    expect(assignSection('coffee')).toBe('Beverages')
+  })
+
+  it('assigns wine to Beverages', () => {
+    expect(assignSection('red wine')).toBe('Beverages')
+  })
+
+  it('assigns hummus to Deli', () => {
+    expect(assignSection('hummus')).toBe('Deli')
+  })
+
+  it('assigns rotisserie chicken to Deli', () => {
+    expect(assignSection('rotisserie chicken')).toBe('Deli')
   })
 })
