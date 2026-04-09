@@ -28,6 +28,7 @@ interface UsageByFeature {
 
 interface UsageByUser {
   userId: string | null
+  userName: string | null
   totalTokens: number
 }
 
@@ -85,12 +86,15 @@ export default function AdminPage() {
     async function loadUsage() {
       try {
         const res = await fetch(`/api/admin/usage?range=${dateRange}`)
-        if (!res.ok) return
+        if (!res.ok) {
+          setError('Failed to load usage data')
+          return
+        }
         const data = await res.json()
         setUsageByFeature(data.byFeature ?? [])
         setUsageByUser(data.byUser ?? [])
       } catch {
-        // ignore
+        setError('Failed to load usage data')
       }
     }
     loadUsage()
@@ -130,14 +134,17 @@ export default function AdminPage() {
     const action = currentStatus === 'disabled' ? 'enable' : 'disable'
     try {
       const res = await fetch(`/api/admin/users/${userId}/${action}`, { method: 'POST' })
-      if (!res.ok) return
+      if (!res.ok) {
+        setError(`Failed to ${action} user`)
+        return
+      }
       setUsers((prev) =>
         prev.map((u) =>
           u.id === userId ? { ...u, status: action === 'disable' ? 'disabled' : 'active' } : u,
         ),
       )
     } catch {
-      // ignore
+      setError(`Failed to ${action} user`)
     }
   }
 
@@ -353,7 +360,7 @@ export default function AdminPage() {
                     <tbody>
                       {usageByUser.map((u) => (
                         <tr key={u.userId ?? 'unknown'} className="border-b border-stone-100 last:border-0">
-                          <td className="py-2 text-stone-900">{u.userId ?? 'Unknown'}</td>
+                          <td className="py-2 text-stone-900">{u.userName ?? u.userId ?? 'Unknown'}</td>
                           <td className="py-2 text-right text-stone-600">{formatNumber(u.totalTokens)}</td>
                         </tr>
                       ))}

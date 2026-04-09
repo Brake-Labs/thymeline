@@ -313,6 +313,12 @@ export const exportPdfSchema = z.object({
   format: z.enum(['single', 'cookbook']),
 })
 
+// ─── Admin ─────────────────────────────────────────────────────────────────
+
+export const inviteUserSchema = z.object({
+  email: z.string().trim().toLowerCase().email('Valid email is required'),
+})
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 import { NextRequest, NextResponse } from 'next/server'

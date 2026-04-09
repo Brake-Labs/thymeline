@@ -5,7 +5,7 @@ import { config } from './config'
 import { resolveHouseholdScope } from './household'
 import { logger } from './logger'
 import { withRequestContext } from './request-context'
-import { sql } from 'drizzle-orm'
+import { allowedUsers } from './db/schema'
 import type { HouseholdContext } from '@/types'
 
 export interface AuthUser {
@@ -47,11 +47,11 @@ export function invalidateAllowedUsersCache() {
 async function loadAllowedUsersFromDb(): Promise<Map<string, boolean>> {
   const map = new Map<string, boolean>()
   try {
-    const rows = (await db.execute(
-      sql`SELECT email, disabled_at FROM allowed_users`,
-    ) as unknown) as { email: string; disabled_at: string | null }[]
+    const rows = await db
+      .select({ email: allowedUsers.email, disabledAt: allowedUsers.disabledAt })
+      .from(allowedUsers)
     for (const row of rows) {
-      map.set(row.email.toLowerCase(), row.disabled_at === null)
+      map.set(row.email.toLowerCase(), row.disabledAt === null)
     }
   } catch {
     // Table may not exist yet (pre-migration) or in test environments

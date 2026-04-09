@@ -23,32 +23,27 @@ export const GET = withAdmin(async (req: NextRequest) => {
     conditions.push(eq(llmUsage.userId, userId))
   }
 
-  // Per-feature breakdown
-  const byFeature = await db
-    .select({
-      feature: llmUsage.feature,
-      model: llmUsage.model,
-      totalInput: sql<number>`sum(${llmUsage.inputTokens})::int`.as('total_input'),
-      totalOutput: sql<number>`sum(${llmUsage.outputTokens})::int`.as('total_output'),
-      callCount: sql<number>`count(*)::int`.as('call_count'),
-    })
-    .from(llmUsage)
-    .where(and(...conditions))
-    .groupBy(llmUsage.feature, llmUsage.model)
+  const [byFeature, byUser] = await Promise.all([
+    db
+      .select({
+        feature: llmUsage.feature,
+        totalTokens: sql<number>`sum(${llmUsage.inputTokens} + ${llmUsage.outputTokens})::int`.as('total_tokens'),
+      })
+      .from(llmUsage)
+      .where(and(...conditions))
+      .groupBy(llmUsage.feature),
 
-  // Per-user breakdown
-  const byUser = await db
-    .select({
-      userId: llmUsage.userId,
-      userName: user.name,
-      userEmail: user.email,
-      feature: llmUsage.feature,
-      totalTokens: sql<number>`sum(${llmUsage.inputTokens} + ${llmUsage.outputTokens})::int`.as('total_tokens'),
-    })
-    .from(llmUsage)
-    .leftJoin(user, eq(llmUsage.userId, user.id))
-    .where(and(...conditions))
-    .groupBy(llmUsage.userId, user.name, user.email, llmUsage.feature)
+    db
+      .select({
+        userId: llmUsage.userId,
+        userName: user.name,
+        totalTokens: sql<number>`sum(${llmUsage.inputTokens} + ${llmUsage.outputTokens})::int`.as('total_tokens'),
+      })
+      .from(llmUsage)
+      .leftJoin(user, eq(llmUsage.userId, user.id))
+      .where(and(...conditions))
+      .groupBy(llmUsage.userId, user.name),
+  ])
 
   return NextResponse.json({ byFeature, byUser, range })
 })

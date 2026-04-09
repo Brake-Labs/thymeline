@@ -20,23 +20,33 @@ export const LLM_MODEL_CAPABLE = process.env.LLM_MODEL_CAPABLE ?? 'claude-sonnet
 
 // ── Usage tracking (fire-and-forget) ─────────────────────────────────────────
 
+// Cache the lazy import to avoid re-resolving on every LLM call
+let _dbModules: Promise<{ db: typeof import('./db')['db']; llmUsage: typeof import('./db/schema')['llmUsage'] }> | null = null
+function getDbModules() {
+  if (!_dbModules) {
+    // Lazy import to avoid circular deps (db → schema → ... → llm)
+    _dbModules = Promise.all([import('./db'), import('./db/schema')])
+      .then(([{ db }, { llmUsage }]) => ({ db, llmUsage }))
+  }
+  return _dbModules
+}
+
 function trackUsage(model: string, inputTokens: number, outputTokens: number) {
   if (process.env.DEV_BYPASS_AUTH === 'true' && process.env.NODE_ENV !== 'production') return
   const ctx = getRequestContext()
   if (!ctx) return
 
-  // Lazy import to avoid circular deps (db → schema → ... → llm)
-  import('./db').then(({ db }) =>
-    import('./db/schema').then(({ llmUsage }) =>
+  getDbModules()
+    .then(({ db, llmUsage }) =>
       db.insert(llmUsage).values({
         userId: ctx.userId,
         feature: ctx.feature,
         model,
         inputTokens,
         outputTokens,
-      })
+      }),
     )
-  ).catch((err) => logger.warn({ err }, 'llm usage tracking failed'))
+    .catch((err) => logger.warn({ err }, 'llm usage tracking failed'))
 }
 
 // ── Structured error types ──────────────────────────────────────────────────────
