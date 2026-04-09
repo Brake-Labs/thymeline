@@ -1,15 +1,11 @@
 import { NextResponse } from 'next/server'
-import { withAuth } from '@/lib/auth'
+import { withAdmin } from '@/lib/auth'
 import { config } from '@/lib/config'
 import { db } from '@/lib/db'
 import { invites } from '@/lib/db/schema'
+import { logger } from '@/lib/logger'
 
-export const POST = withAuth(async (req, { user }) => {
-  const admins = config.adminEmails
-  if (admins.length === 0 || !admins.includes(user.email.toLowerCase())) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
-
+export const POST = withAdmin(async (_req, { user }) => {
   const token = crypto.randomUUID()
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
 
@@ -23,7 +19,7 @@ export const POST = withAuth(async (req, { user }) => {
       expiresAt: expiresAt.toISOString(),
     })
   } catch (err) {
-    console.error('[POST /api/admin/invite] error:', err)
+    logger.error({ err, route: '/api/admin/invite' }, 'failed to create invite')
     return NextResponse.json({ error: 'Failed to create invite' }, { status: 500 })
   }
 })

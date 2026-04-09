@@ -50,14 +50,11 @@ vi.mock('@/lib/household', () => ({
 
 // ── LLM mock ──────────────────────────────────────────────────────────────────
 
-const mockAnthropicCreate = vi.fn()
+const mockCallLLM = vi.fn()
+const mockCallLLMMultimodal = vi.fn()
 vi.mock('@/lib/llm', () => ({
-  anthropic: {
-    messages: {
-      create: (...args: unknown[]) => mockAnthropicCreate(...args),
-    },
-  },
-  // parseLLMJson: strip markdown fences and parse JSON (mirrors the real implementation)
+  callLLM: (...args: unknown[]) => mockCallLLM(...args),
+  callLLMMultimodal: (...args: unknown[]) => mockCallLLMMultimodal(...args),
   parseLLMJson: (text: string) => {
     const stripped = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '')
     return JSON.parse(stripped)
@@ -85,7 +82,8 @@ function setupUnauthMocks() {
 }
 
 beforeEach(() => {
-  mockAnthropicCreate.mockClear()
+  mockCallLLM.mockClear()
+  mockCallLLMMultimodal.mockClear()
 })
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -100,10 +98,6 @@ function makeReq(body: unknown, headers: Record<string, string> = {}): Request {
     },
     body: JSON.stringify(body),
   })
-}
-
-function makeTextMsg(text: string) {
-  return { content: [{ type: 'text', text }] }
 }
 
 const sampleSearchResults = [
@@ -172,13 +166,17 @@ describe('POST /api/discover — T04: returns results array', () => {
   it('returns 200 with results when LLM and web search succeed', async () => {
     setupMocks()
 
-    // Step 2 — query gen
-    mockAnthropicCreate
-      .mockResolvedValueOnce(makeTextMsg('["easy chicken stir fry recipe", "quick chicken stir fry weeknight"]'))
-      // Step 3 — web search
-      .mockResolvedValueOnce(makeTextMsg(JSON.stringify(sampleSearchResults)))
-      // Step 4 — rank
-      .mockResolvedValueOnce(makeTextMsg(JSON.stringify(rankedResults)))
+    // Step 2 — query gen (callLLM returns string)
+    mockCallLLM
+      .mockResolvedValueOnce('["easy chicken stir fry recipe", "quick chicken stir fry weeknight"]')
+      // Step 4 — rank (callLLM returns string)
+      .mockResolvedValueOnce(JSON.stringify(rankedResults))
+
+    // Step 3 — web search (callLLMMultimodal returns {text, response})
+    mockCallLLMMultimodal.mockResolvedValueOnce({
+      text: JSON.stringify(sampleSearchResults),
+      response: { content: [{ type: 'text', text: JSON.stringify(sampleSearchResults) }] },
+    })
 
     const { POST } = await import('../route')
     const res = await POST(makeReq({ query: 'easy chicken stir fry' }) as Parameters<typeof POST>[0])
@@ -191,9 +189,14 @@ describe('POST /api/discover — T04: returns results array', () => {
   it('returns empty results array when web search returns nothing', async () => {
     setupMocks()
 
-    mockAnthropicCreate
-      .mockResolvedValueOnce(makeTextMsg('["query one"]'))
-      .mockResolvedValueOnce(makeTextMsg('[]'))
+    // Step 2 — query gen
+    mockCallLLM.mockResolvedValueOnce('["query one"]')
+
+    // Step 3 — web search returns empty
+    mockCallLLMMultimodal.mockResolvedValueOnce({
+      text: '[]',
+      response: { content: [{ type: 'text', text: '[]' }] },
+    })
 
     const { POST } = await import('../route')
     const res = await POST(makeReq({ query: 'exotic dish no results' }) as Parameters<typeof POST>[0])
@@ -219,10 +222,14 @@ describe('POST /api/discover — T05: suggestedTags filtered to FIRST_CLASS_TAGS
       },
     ]
 
-    mockAnthropicCreate
-      .mockResolvedValueOnce(makeTextMsg('["test query"]'))
-      .mockResolvedValueOnce(makeTextMsg(JSON.stringify([resultsWithBadTags[0]])))
-      .mockResolvedValueOnce(makeTextMsg(JSON.stringify(resultsWithBadTags)))
+    mockCallLLM
+      .mockResolvedValueOnce('["test query"]')
+      .mockResolvedValueOnce(JSON.stringify(resultsWithBadTags))
+
+    mockCallLLMMultimodal.mockResolvedValueOnce({
+      text: JSON.stringify([resultsWithBadTags[0]]),
+      response: { content: [{ type: 'text', text: JSON.stringify([resultsWithBadTags[0]]) }] },
+    })
 
     const { POST } = await import('../route')
     const res = await POST(makeReq({ query: 'test recipe' }) as Parameters<typeof POST>[0])
@@ -257,10 +264,14 @@ describe('POST /api/discover — T06: vaultMatch populated when similar recipe i
       },
     ]
 
-    mockAnthropicCreate
-      .mockResolvedValueOnce(makeTextMsg('["chicken stir fry recipe"]'))
-      .mockResolvedValueOnce(makeTextMsg(JSON.stringify([sampleSearchResults[0]])))
-      .mockResolvedValueOnce(makeTextMsg(JSON.stringify(resultsWithMatch)))
+    mockCallLLM
+      .mockResolvedValueOnce('["chicken stir fry recipe"]')
+      .mockResolvedValueOnce(JSON.stringify(resultsWithMatch))
+
+    mockCallLLMMultimodal.mockResolvedValueOnce({
+      text: JSON.stringify([sampleSearchResults[0]]),
+      response: { content: [{ type: 'text', text: JSON.stringify([sampleSearchResults[0]]) }] },
+    })
 
     const { POST } = await import('../route')
     const res = await POST(makeReq({ query: 'chicken stir fry' }) as Parameters<typeof POST>[0])
@@ -279,10 +290,14 @@ describe('POST /api/discover — T07: siteFilter appends site: operator', () => 
   it('includes site: operator in search query when siteFilter is set', async () => {
     setupMocks()
 
-    mockAnthropicCreate
-      .mockResolvedValueOnce(makeTextMsg('["chicken stir fry site:budgetbytes.com"]'))
-      .mockResolvedValueOnce(makeTextMsg(JSON.stringify(sampleSearchResults)))
-      .mockResolvedValueOnce(makeTextMsg(JSON.stringify(rankedResults)))
+    mockCallLLM
+      .mockResolvedValueOnce('["chicken stir fry site:budgetbytes.com"]')
+      .mockResolvedValueOnce(JSON.stringify(rankedResults))
+
+    mockCallLLMMultimodal.mockResolvedValueOnce({
+      text: JSON.stringify(sampleSearchResults),
+      response: { content: [{ type: 'text', text: JSON.stringify(sampleSearchResults) }] },
+    })
 
     const { POST } = await import('../route')
     const res = await POST(
@@ -290,10 +305,9 @@ describe('POST /api/discover — T07: siteFilter appends site: operator', () => 
     )
     expect(res.status).toBe(200)
 
-    // The query-gen prompt should have included site:budgetbytes.com instruction
-    const firstCall = mockAnthropicCreate.mock.calls[0]![0]
-    const promptContent: string = firstCall.messages[0].content
-    expect(promptContent).toContain('site:budgetbytes.com')
+    // The query-gen call (first callLLM) should include site filter instruction
+    const firstCall = mockCallLLM.mock.calls[0]![0]
+    expect(firstCall.user).toContain('site:budgetbytes.com')
   })
 })
 

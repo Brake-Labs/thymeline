@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { MessageParam } from '@anthropic-ai/sdk/resources/messages'
 import { logger } from './logger'
+import { getRequestContext } from './request-context'
 
 /**
  * Centralized Anthropic client with retry and timeout.
@@ -16,6 +17,27 @@ export const anthropic = new Anthropic({
 
 export const LLM_MODEL_FAST = process.env.LLM_MODEL ?? 'claude-haiku-4-5-20251001'
 export const LLM_MODEL_CAPABLE = process.env.LLM_MODEL_CAPABLE ?? 'claude-sonnet-4-6'
+
+// ── Usage tracking (fire-and-forget) ─────────────────────────────────────────
+
+function trackUsage(model: string, inputTokens: number, outputTokens: number) {
+  if (process.env.DEV_BYPASS_AUTH === 'true' && process.env.NODE_ENV !== 'production') return
+  const ctx = getRequestContext()
+  if (!ctx) return
+
+  // Lazy import to avoid circular deps (db → schema → ... → llm)
+  import('./db').then(({ db }) =>
+    import('./db/schema').then(({ llmUsage }) =>
+      db.insert(llmUsage).values({
+        userId: ctx.userId,
+        feature: ctx.feature,
+        model,
+        inputTokens,
+        outputTokens,
+      })
+    )
+  ).catch((err) => logger.warn({ err }, 'llm usage tracking failed'))
+}
 
 // ── Structured error types ──────────────────────────────────────────────────────
 
@@ -95,6 +117,7 @@ export async function callLLM(opts: CallLLMOptions): Promise<string> {
       throw new LLMError('Empty response from LLM', 'bad_response')
     }
     logger.debug({ model, inputTokens: response.usage?.input_tokens, outputTokens: response.usage?.output_tokens }, 'callLLM ok')
+    trackUsage(model, response.usage?.input_tokens ?? 0, response.usage?.output_tokens ?? 0)
     return text
   } catch (err) {
     if (err instanceof LLMError) throw err
@@ -111,29 +134,52 @@ export interface CallLLMMultimodalOptions {
   maxTokens: number
   system: string
   messages: MessageParam[]
+  temperature?: number
+  /** Pass tools (e.g. web_search) to enable tool use in the response. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  tools?: any[]
+}
+
+export interface CallLLMMultimodalResult {
+  text: string
+  response: Anthropic.Messages.Message
 }
 
 /**
  * Make an LLM call with multi-content messages (images, etc.).
  * Uses the centralized Anthropic client (retry + timeout included).
+ *
+ * When called without tools, returns the text content as a string (backwards compatible).
+ * When called with tools, returns { text, response } so callers can inspect tool use blocks.
  */
-export async function callLLMMultimodal(opts: CallLLMMultimodalOptions): Promise<string> {
+export async function callLLMMultimodal(opts: CallLLMMultimodalOptions & { tools: CallLLMMultimodalOptions['tools'] }): Promise<CallLLMMultimodalResult>
+export async function callLLMMultimodal(opts: CallLLMMultimodalOptions): Promise<string>
+export async function callLLMMultimodal(opts: CallLLMMultimodalOptions): Promise<string | CallLLMMultimodalResult> {
   const model = opts.model ?? LLM_MODEL_FAST
-  logger.debug({ model, maxTokens: opts.maxTokens, messageCount: opts.messages.length }, 'callLLMMultimodal start')
+  logger.debug({ model, maxTokens: opts.maxTokens, messageCount: opts.messages.length, hasTools: !!opts.tools }, 'callLLMMultimodal start')
   try {
-    const response = await anthropic.messages.create({
+    const createOpts: Anthropic.Messages.MessageCreateParamsNonStreaming = {
       model,
       max_tokens: opts.maxTokens,
       messages: opts.messages,
       system: opts.system,
-    })
-    const text =
-      response.content[0]?.type === 'text' ? response.content[0].text : ''
-    if (!text) {
+      ...(opts.temperature !== undefined && { temperature: opts.temperature }),
+      ...(opts.tools && { tools: opts.tools }),
+    }
+    const response = await anthropic.messages.create(createOpts)
+    const text = response.content
+      .filter((b): b is Anthropic.Messages.TextBlock => b.type === 'text')
+      .map((b) => b.text)
+      .join('')
+    if (!text && !opts.tools) {
       logger.error({ model }, 'callLLMMultimodal returned empty response')
       throw new LLMError('Empty response from LLM', 'bad_response')
     }
     logger.debug({ model, inputTokens: response.usage?.input_tokens, outputTokens: response.usage?.output_tokens }, 'callLLMMultimodal ok')
+    trackUsage(model, response.usage?.input_tokens ?? 0, response.usage?.output_tokens ?? 0)
+    if (opts.tools) {
+      return { text, response }
+    }
     return text
   } catch (err) {
     if (err instanceof LLMError) throw err

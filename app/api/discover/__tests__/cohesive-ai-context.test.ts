@@ -7,18 +7,17 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // ── Mock state ────────────────────────────────────────────────────────────────
 
-const mockAnthropicCreate = vi.fn()
+const mockCallLLM = vi.fn()
+const mockCallLLMMultimodal = vi.fn()
 
 vi.mock('@/lib/llm', () => ({
-  anthropic: {
-    messages: { create: (...args: unknown[]) => mockAnthropicCreate(...args) },
-  },
+  callLLM: (...args: unknown[]) => mockCallLLM(...args),
+  callLLMMultimodal: (...args: unknown[]) => mockCallLLMMultimodal(...args),
   parseLLMJson: (text: string) => {
     const stripped = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '')
     return JSON.parse(stripped)
   },
   LLM_MODEL_CAPABLE: 'claude-sonnet-4-6',
-  callLLM: vi.fn(),
 }))
 
 vi.mock('@/lib/db', () => ({
@@ -103,10 +102,6 @@ function makeReq(body: unknown): Request {
   })
 }
 
-function makeTextMsg(text: string) {
-  return { content: [{ type: 'text', text }] }
-}
-
 const sampleSearchResults = [
   {
     url:         'https://example.com/spinach-salad',
@@ -134,10 +129,17 @@ const defaultProfile = {
 }
 
 function setupSuccessfulLLMCalls(rankResults = sampleSearchResults) {
-  mockAnthropicCreate
-    .mockResolvedValueOnce(makeTextMsg('["spinach salad recipe"]'))        // query gen
-    .mockResolvedValueOnce(makeTextMsg(JSON.stringify(sampleSearchResults))) // web search
-    .mockResolvedValueOnce(makeTextMsg(JSON.stringify(rankResults)))        // ranking
+  // Step 2: query gen (callLLM returns string)
+  mockCallLLM
+    .mockResolvedValueOnce('["spinach salad recipe"]')
+    // Step 4: ranking (callLLM returns string)
+    .mockResolvedValueOnce(JSON.stringify(rankResults))
+
+  // Step 3: web search (callLLMMultimodal returns {text, response})
+  mockCallLLMMultimodal.mockResolvedValueOnce({
+    text: JSON.stringify(sampleSearchResults),
+    response: { content: [{ type: 'text', text: JSON.stringify(sampleSearchResults) }] },
+  })
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -145,7 +147,8 @@ function setupSuccessfulLLMCalls(rankResults = sampleSearchResults) {
 describe('POST /api/discover — spec-22 taste profile (T01–T03)', () => {
   beforeEach(() => {
     vi.resetModules()
-    mockAnthropicCreate.mockClear()
+    mockCallLLM.mockClear()
+    mockCallLLMMultimodal.mockClear()
     vi.mocked(deriveTasteProfile).mockResolvedValue(defaultProfile)
     vi.mocked(fetchCurrentWeekPlan).mockResolvedValue([])
     vi.mocked(detectWasteOverlap).mockResolvedValue(new Map())
@@ -176,12 +179,11 @@ describe('POST /api/discover — spec-22 taste profile (T01–T03)', () => {
     const { POST } = await import('../route')
     await POST(makeReq({ query: 'quick dinner' }) as Parameters<typeof POST>[0])
 
-    // Third call is the ranking call
-    const rankCall = mockAnthropicCreate.mock.calls[2]![0]
-    const content: string = rankCall.messages[0].content
-    expect(content).toContain('Quick')
-    expect(content).toContain('Healthy')
-    expect(content).toContain('Family of 4')
+    // Second callLLM call is the ranking call
+    const rankCall = mockCallLLM.mock.calls[1]![0]
+    expect(rankCall.user).toContain('Quick')
+    expect(rankCall.user).toContain('Healthy')
+    expect(rankCall.user).toContain('Family of 4')
   })
 
   it('T22: ranking step uses LLM_MODEL_CAPABLE', async () => {
@@ -192,7 +194,8 @@ describe('POST /api/discover — spec-22 taste profile (T01–T03)', () => {
     const { POST } = await import('../route')
     await POST(makeReq({ query: 'quick dinner' }) as Parameters<typeof POST>[0])
 
-    const rankCall = mockAnthropicCreate.mock.calls[2]![0]
+    // Second callLLM call is the ranking call
+    const rankCall = mockCallLLM.mock.calls[1]![0]
     expect(rankCall.model).toBe('claude-sonnet-4-6')
   })
 })
@@ -200,7 +203,8 @@ describe('POST /api/discover — spec-22 taste profile (T01–T03)', () => {
 describe('POST /api/discover — spec-22 avoided-tag filter (T02)', () => {
   beforeEach(() => {
     vi.resetModules()
-    mockAnthropicCreate.mockClear()
+    mockCallLLM.mockClear()
+    mockCallLLMMultimodal.mockClear()
     vi.mocked(fetchCurrentWeekPlan).mockResolvedValue([])
     vi.mocked(detectWasteOverlap).mockResolvedValue(new Map())
   })
@@ -230,10 +234,17 @@ describe('POST /api/discover — spec-22 avoided-tag filter (T02)', () => {
       },
     ]
 
-    mockAnthropicCreate
-      .mockResolvedValueOnce(makeTextMsg('["spicy food"]'))
-      .mockResolvedValueOnce(makeTextMsg(JSON.stringify(rankedWithAvoidedTag)))
-      .mockResolvedValueOnce(makeTextMsg(JSON.stringify(rankedWithAvoidedTag)))
+    // Step 2: query gen
+    mockCallLLM
+      .mockResolvedValueOnce('["spicy food"]')
+      // Step 4: ranking
+      .mockResolvedValueOnce(JSON.stringify(rankedWithAvoidedTag))
+
+    // Step 3: web search
+    mockCallLLMMultimodal.mockResolvedValueOnce({
+      text: JSON.stringify(rankedWithAvoidedTag),
+      response: { content: [{ type: 'text', text: JSON.stringify(rankedWithAvoidedTag) }] },
+    })
 
     const { POST } = await import('../route')
     const res = await POST(makeReq({ query: 'spicy food' }) as Parameters<typeof POST>[0])
@@ -249,7 +260,8 @@ describe('POST /api/discover — spec-22 avoided-tag filter (T02)', () => {
 describe('POST /api/discover — spec-22 waste detection (T04–T07)', () => {
   beforeEach(() => {
     vi.resetModules()
-    mockAnthropicCreate.mockClear()
+    mockCallLLM.mockClear()
+    mockCallLLMMultimodal.mockClear()
     vi.mocked(deriveTasteProfile).mockResolvedValue(defaultProfile)
     vi.mocked(detectWasteOverlap).mockClear()
     vi.mocked(fetchCurrentWeekPlan).mockClear()
