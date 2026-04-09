@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import type { RecipeListItem } from '@/types'
 import { triggerDownload } from '@/lib/recipe-export'
 import ExportProgress from './ExportProgress'
@@ -18,6 +18,7 @@ export default function BatchExportModal({ recipes, onClose }: Props) {
   const [format, setFormat] = useState<ExportFormat>('pdf')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set(recipes.map((r) => r.id)))
 
   const allTags = useMemo(() => {
     const set = new Set<string>()
@@ -35,14 +36,46 @@ export default function BatchExportModal({ recipes, onClose }: Props) {
     })
   }, [recipes, tagFilter, titleSearch])
 
+  // When filters change, select all newly visible recipes
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      for (const r of filtered) next.add(r.id)
+      return next
+    })
+  }, [filtered])
+
+  const selected = useMemo(() => filtered.filter((r) => selectedIds.has(r.id)), [filtered, selectedIds])
+
+  function toggleRecipe(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function toggleAll() {
+    const allFilteredSelected = filtered.every((r) => selectedIds.has(r.id))
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      for (const r of filtered) {
+        if (allFilteredSelected) next.delete(r.id)
+        else next.add(r.id)
+      }
+      return next
+    })
+  }
+
   async function handleExport() {
-    if (filtered.length === 0) return
+    if (selected.length === 0) return
     setLoading(true)
     setError(null)
 
     try {
       if (format === 'pdf') {
-        const ids = filtered.slice(0, 50).map((r) => r.id)
+        const ids = selected.map((r) => r.id)
         const res = await fetch('/api/recipes/export/pdf', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -56,7 +89,7 @@ export default function BatchExportModal({ recipes, onClose }: Props) {
         const filename = `thymeline-recipes-${new Date().toISOString().slice(0, 10)}.pdf`
         triggerDownload(blob, filename)
       } else {
-        const ids = filtered.map((r) => r.id)
+        const ids = selected.map((r) => r.id)
         const idsParam = ids.join(',')
         const res = await fetch(`/api/recipes/export/json?ids=${encodeURIComponent(idsParam)}`)
         if (!res.ok) {
@@ -104,9 +137,39 @@ export default function BatchExportModal({ recipes, onClose }: Props) {
           </select>
         </div>
 
+        {/* Recipe list with checkboxes */}
+        <div className="max-h-48 overflow-y-auto border border-stone-200 rounded-lg">
+          {filtered.length > 0 && (
+            <label className="flex items-center gap-2 px-3 py-2 border-b border-stone-100 bg-stone-50 sticky top-0 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={filtered.every((r) => selectedIds.has(r.id))}
+                onChange={toggleAll}
+                className="rounded border-stone-300 text-sage-500 focus:ring-sage-400"
+              />
+              <span className="text-xs font-medium text-stone-500">
+                {filtered.every((r) => selectedIds.has(r.id)) ? 'Deselect all' : 'Select all'}
+              </span>
+            </label>
+          )}
+          {filtered.map((r) => (
+            <label key={r.id} className="flex items-center gap-2 px-3 py-1.5 hover:bg-stone-50 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={selectedIds.has(r.id)}
+                onChange={() => toggleRecipe(r.id)}
+                className="rounded border-stone-300 text-sage-500 focus:ring-sage-400"
+              />
+              <span className="text-sm text-stone-700 truncate">{r.title}</span>
+            </label>
+          ))}
+          {filtered.length === 0 && (
+            <p className="text-sm text-stone-400 px-3 py-4 text-center">No recipes match your filters</p>
+          )}
+        </div>
+
         <p className="text-sm text-stone-500">
-          {filtered.length} recipe{filtered.length !== 1 ? 's' : ''} selected
-          {format === 'pdf' && filtered.length > 50 && ' (first 50 will be exported)'}
+          {selected.length} of {filtered.length} recipe{filtered.length !== 1 ? 's' : ''} selected
         </p>
 
         {/* Format picker */}
@@ -154,7 +217,7 @@ export default function BatchExportModal({ recipes, onClose }: Props) {
               <button
                 type="button"
                 onClick={() => void handleExport()}
-                disabled={filtered.length === 0}
+                disabled={selected.length === 0}
                 className="px-4 py-2 text-sm font-medium text-white bg-sage-500 rounded-lg hover:bg-sage-600 disabled:opacity-40"
               >
                 Export
