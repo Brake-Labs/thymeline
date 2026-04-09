@@ -6,6 +6,7 @@ export type ImportFormat =
   | 'paprika'
   | 'plan_to_eat'
   | 'whisk'
+  | 'thymeline'
   | 'notion_csv'
 
 /**
