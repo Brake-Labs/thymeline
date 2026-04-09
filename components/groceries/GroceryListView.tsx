@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { GroceryItem, GroceryList, GrocerySection, RecipeScale } from '@/types'
 import GroceryItemRow from './GroceryItemRow'
 import GotItSection from './GotItSection'
@@ -34,8 +34,6 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
   const [regenerating, setRegenerating] = useState(false)
   const [shareToast, setShareToast] = useState<string | null>(null)
   const [showRemindersDialog, setShowRemindersDialog] = useState(false)
-  const [exportMenuOpen, setExportMenuOpen] = useState(false)
-  const exportMenuRef = useRef<HTMLDivElement>(null)
   const [isMac, setIsMac] = useState(false)
   const [shortcutInstalled, setShortcutInstalled] = useState(false)
   const weekStart = initialList.weekStart
@@ -55,18 +53,6 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
       setShortcutInstalled(localStorage.getItem('thymeline-shortcut-installed') === 'true')
     } catch { /* Safari private browsing / quota exceeded */ }
   }, [])
-
-  // Close export menu on outside click
-  useEffect(() => {
-    if (!exportMenuOpen) return
-    function handleClick(e: MouseEvent) {
-      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
-        setExportMenuOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [exportMenuOpen])
 
   // ── Persist helpers ─────────────────────────────────────────────────────────
 
@@ -308,54 +294,14 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
         <h1 className="font-display text-xl font-bold text-stone-800">
           Groceries for {formatWeekLabel(weekStart)}
         </h1>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setConfirmRegenerate(true)}
-            disabled={regenerating}
-            className="text-xs px-3 py-1.5 text-stone-500 hover:text-stone-700 transition-colors"
-          >
-            {regenerating ? 'Regenerating…' : 'Regenerate'}
-          </button>
-
-          {/* Export menu */}
-          <div ref={exportMenuRef} className="relative">
-            <button
-              type="button"
-              onClick={() => setExportMenuOpen((o) => !o)}
-              aria-label="Export options"
-              className="p-1.5 text-stone-400 hover:text-stone-600 rounded-lg hover:bg-stone-100 transition-colors"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
-                <path fillRule="evenodd" d="M13.75 7h-3V3.66l1.95 2.1a.75.75 0 1 0 1.1-1.02l-3.25-3.5a.75.75 0 0 0-1.1 0L6.2 4.74a.75.75 0 0 0 1.1 1.02l1.95-2.1V7h-3A2.25 2.25 0 0 0 4 9.25v7.5A2.25 2.25 0 0 0 6.25 19h7.5A2.25 2.25 0 0 0 16 16.75v-7.5A2.25 2.25 0 0 0 13.75 7Zm-3 0h-1.5v5.25a.75.75 0 0 0 1.5 0V7Z" clipRule="evenodd" />
-              </svg>
-            </button>
-
-            {exportMenuOpen && (
-              <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-stone-200 rounded-xl shadow-lg z-30 py-1">
-                <button
-                  type="button"
-                  onClick={() => { handleShare(); setExportMenuOpen(false) }}
-                  className="w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
-                >
-                  Share list
-                </button>
-                {isMac && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (shortcutInstalled) { handleAddToReminders() } else { setShowRemindersDialog(true) }
-                      setExportMenuOpen(false)
-                    }}
-                    className="w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
-                  >
-                    Add to Reminders
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
+        <button
+          type="button"
+          onClick={() => setConfirmRegenerate(true)}
+          disabled={regenerating}
+          className="text-xs px-3 py-1.5 text-stone-500 hover:text-stone-700 transition-colors"
+        >
+          {regenerating ? 'Regenerating…' : 'Regenerate'}
+        </button>
       </div>
 
       {saving && (
@@ -498,10 +444,35 @@ export default function GroceryListView({ initialList, dateFrom, dateTo }: Groce
       {/* Got it section */}
       <GotItSection items={boughtItems} onUndo={handleUndoBought} />
 
-      {/* Progress counter */}
-      <p className="text-sm text-stone-400 text-right">
-        {checkedCount} of {totalCount} checked
-      </p>
+      {/* Progress + share */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3 text-xs text-stone-400">
+          <button
+            type="button"
+            onClick={handleShare}
+            className="hover:text-stone-600 transition-colors"
+          >
+            Share list
+          </button>
+          {isMac && (
+            <>
+              <span aria-hidden="true">·</span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (shortcutInstalled) { handleAddToReminders() } else { setShowRemindersDialog(true) }
+                }}
+                className="hover:text-stone-600 transition-colors"
+              >
+                Add to Reminders
+              </button>
+            </>
+          )}
+        </div>
+        <p className="text-sm text-stone-400">
+          {checkedCount} of {totalCount} checked
+        </p>
+      </div>
 
       {/* Regenerate confirmation dialog */}
       {confirmRegenerate && (
