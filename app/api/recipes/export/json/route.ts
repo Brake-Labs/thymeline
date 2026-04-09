@@ -40,8 +40,12 @@ export const GET = withAuth(async (req, { user, ctx }) => {
       prepTimeMinutes: recipes.prepTimeMinutes,
       cookTimeMinutes: recipes.cookTimeMinutes,
       totalTimeMinutes: recipes.totalTimeMinutes,
+      inactiveTimeMinutes: recipes.inactiveTimeMinutes,
       tags: recipes.tags,
       url: recipes.url,
+      imageUrl: recipes.imageUrl,
+      source: recipes.source,
+      stepPhotos: recipes.stepPhotos,
       createdAt: recipes.createdAt,
     })
     .from(recipes)
@@ -52,6 +56,7 @@ export const GET = withAuth(async (req, { user, ctx }) => {
   }
 
   const payload = {
+    format: 'thymeline',
     exported_at: new Date().toISOString(),
     recipe_count: rows.length,
     recipes: rows.map((r) => ({
@@ -65,8 +70,12 @@ export const GET = withAuth(async (req, { user, ctx }) => {
       prep_time_minutes: r.prepTimeMinutes,
       cook_time_minutes: r.cookTimeMinutes,
       total_time_minutes: r.totalTimeMinutes,
+      inactive_time_minutes: r.inactiveTimeMinutes,
       tags: r.tags,
-      source_url: r.url,
+      url: r.url,
+      image_url: r.imageUrl,
+      source: r.source,
+      step_photos: r.stepPhotos,
       created_at: r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt),
     })),
   }

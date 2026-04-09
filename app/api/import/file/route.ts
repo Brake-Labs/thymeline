@@ -4,6 +4,7 @@ import { detectFormat, detectCsvFormat } from '@/lib/import/detect-format'
 import { parseCsv } from '@/lib/import/parse-csv'
 import { parsePlanToEat } from '@/lib/import/parse-plan-to-eat'
 import { parseWhisk } from '@/lib/import/parse-whisk'
+import { parseThymeline, isThymelineJson } from '@/lib/import/parse-thymeline'
 import { parsePaprika } from '@/lib/import/parse-paprika'
 import { detectDuplicates } from '@/lib/import/detect-duplicates'
 import { suggestNotionMapping } from '@/lib/import/notion-mapping'
@@ -11,7 +12,7 @@ import type { ParsedRecipe } from '@/types'
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 
-type ImportFileFormat = 'csv' | 'paprika' | 'plan_to_eat' | 'whisk' | 'notion_csv'
+type ImportFileFormat = 'csv' | 'paprika' | 'plan_to_eat' | 'whisk' | 'thymeline' | 'notion_csv'
 
 type ImportFileResult = {
   status:     'ready' | 'partial' | 'failed'
@@ -49,18 +50,23 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   let format: ImportFileFormat | null = null
 
   if (formatHint) {
-    const validFormats: ImportFileFormat[] = ['csv', 'paprika', 'plan_to_eat', 'whisk', 'notion_csv']
+    const validFormats: ImportFileFormat[] = ['csv', 'paprika', 'plan_to_eat', 'whisk', 'thymeline', 'notion_csv']
     format = validFormats.includes(formatHint as ImportFileFormat)
       ? (formatHint as ImportFileFormat)
       : null
   } else {
     const detected = detectFormat(file)
     if (detected === 'paprika') format = 'paprika'
-    else if (detected === 'whisk') format = 'whisk'
-    // For CSV: need to read content to determine sub-format
+    // For JSON and CSV: need to read content to determine sub-format
   }
 
   const buffer = await file.arrayBuffer()
+
+  // For JSON files, detect whether it's Thymeline or Whisk
+  if (!format && file.name.toLowerCase().endsWith('.json')) {
+    const text = new TextDecoder().decode(buffer)
+    format = isThymelineJson(text) ? 'thymeline' : 'whisk'
+  }
 
   // For CSV files, detect sub-format from headers
   if (!format && file.name.toLowerCase().endsWith('.csv')) {
@@ -80,6 +86,9 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
   try {
     if (format === 'paprika') {
       parsedRecipes = await parsePaprika(buffer)
+    } else if (format === 'thymeline') {
+      const text = new TextDecoder().decode(buffer)
+      parsedRecipes = parseThymeline(text)
     } else if (format === 'whisk') {
       const text = new TextDecoder().decode(buffer)
       parsedRecipes = parseWhisk(text)
