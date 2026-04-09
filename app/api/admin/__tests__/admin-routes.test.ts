@@ -159,6 +159,55 @@ describe('POST /api/admin/users/invite', () => {
   })
 })
 
+describe('POST /api/admin/users/[id]/disable', () => {
+  it('disables a user by looking up email from user table', async () => {
+    // First select: user email lookup
+    mockSelect.mockReturnValueOnce(mockDbChain([{ email: 'test@x.com' }]))
+    // update → set → where → returning chain
+    mockUpdate.mockReturnValue(mockDbChain([{ id: 'au1', email: 'test@x.com', disabledAt: new Date() }]))
+
+    const { POST } = await import('../../admin/users/[id]/disable/route')
+    const req = new Request('http://localhost:3000/api/admin/users/u1/disable', { method: 'POST' })
+    const res = await POST(req as any, { params: { id: 'u1' } })
+
+    expect(res.status).toBe(200)
+  })
+
+  it('returns 404 when user ID does not exist', async () => {
+    mockSelect.mockReturnValueOnce(mockDbChain([]))
+
+    const { POST } = await import('../../admin/users/[id]/disable/route')
+    const req = new Request('http://localhost:3000/api/admin/users/bad/disable', { method: 'POST' })
+    const res = await POST(req as any, { params: { id: 'bad' } })
+
+    expect(res.status).toBe(404)
+  })
+})
+
+describe('POST /api/admin/users/[id]/enable', () => {
+  it('enables a disabled user', async () => {
+    mockSelect.mockReturnValueOnce(mockDbChain([{ email: 'test@x.com' }]))
+    mockUpdate.mockReturnValue(mockDbChain([{ id: 'au1', email: 'test@x.com', disabledAt: null }]))
+
+    const { POST } = await import('../../admin/users/[id]/enable/route')
+    const req = new Request('http://localhost:3000/api/admin/users/u1/enable', { method: 'POST' })
+    const res = await POST(req as any, { params: { id: 'u1' } })
+
+    expect(res.status).toBe(200)
+  })
+
+  it('returns 404 when user not in allowed list', async () => {
+    mockSelect.mockReturnValueOnce(mockDbChain([{ email: 'test@x.com' }]))
+    mockUpdate.mockReturnValue(mockDbChain([]))
+
+    const { POST } = await import('../../admin/users/[id]/enable/route')
+    const req = new Request('http://localhost:3000/api/admin/users/u1/enable', { method: 'POST' })
+    const res = await POST(req as any, { params: { id: 'u1' } })
+
+    expect(res.status).toBe(404)
+  })
+})
+
 describe('GET /api/admin/usage', () => {
   it('returns usage data with default 7d range', async () => {
     mockSelect

@@ -53,9 +53,16 @@ async function loadAllowedUsersFromDb(): Promise<Map<string, boolean>> {
     for (const row of rows) {
       map.set(row.email.toLowerCase(), row.disabledAt === null)
     }
-  } catch {
-    // Table may not exist yet (pre-migration) or in test environments
-    logger.debug('allowed_users table not available, skipping DB check')
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    // Only swallow "table does not exist" errors (pre-migration / test envs).
+    // All other DB errors (connection, auth, etc.) must propagate so
+    // isEmailAllowed fails closed instead of granting open access.
+    if (msg.includes('does not exist') || msg.includes('relation')) {
+      logger.debug('allowed_users table not available, skipping DB check')
+    } else {
+      throw err
+    }
   }
   return map
 }

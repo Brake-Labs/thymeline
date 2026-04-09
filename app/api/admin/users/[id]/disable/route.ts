@@ -4,10 +4,14 @@ import { db } from '@/lib/db'
 import { user, allowedUsers } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 
-export const POST = withAdmin(async (_req: NextRequest, _auth, params) => {
+export const POST = withAdmin(async (_req: NextRequest, { user: admin }, params) => {
   const id = params.id
   if (!id) {
     return NextResponse.json({ error: 'User ID is required' }, { status: 400 })
+  }
+
+  if (id === admin.id) {
+    return NextResponse.json({ error: 'Cannot disable your own account' }, { status: 400 })
   }
 
   // Look up the user's email — the param is the Better Auth user ID,

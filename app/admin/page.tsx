@@ -159,7 +159,15 @@ export default function AdminPage() {
   if (error) {
     return (
       <div className="min-h-screen bg-stone-50 flex items-center justify-center">
-        <p className="text-red-600">{error}</p>
+        <div className="text-center">
+          <p className="text-red-600 mb-3">{error}</p>
+          <button
+            onClick={() => { setError(null); window.location.reload() }}
+            className="text-sm text-stone-600 hover:text-stone-900 underline"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     )
   }

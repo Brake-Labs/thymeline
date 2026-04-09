@@ -27,6 +27,7 @@ function getDbModules() {
     // Lazy import to avoid circular deps (db → schema → ... → llm)
     _dbModules = Promise.all([import('./db'), import('./db/schema')])
       .then(([{ db }, { llmUsage }]) => ({ db, llmUsage }))
+      .catch((err) => { _dbModules = null; throw err })
   }
   return _dbModules
 }

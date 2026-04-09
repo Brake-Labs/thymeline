@@ -54,6 +54,7 @@ npm run dev                         # runs migrations automatically, then starts
 | `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
 | `NEXT_PUBLIC_SITE_URL` | App URL (default: `http://localhost:3000`) |
 | `ALLOWED_EMAILS` | Comma-separated email whitelist (empty = open access) |
+| `ADMIN_EMAILS` | Comma-separated admin emails (grants `/admin` access) |
 | `LLM_API_KEY` | Anthropic API key |
 
 ### Google OAuth redirect URI
@@ -86,6 +87,33 @@ Request bodies are validated with Zod via `parseBody()` from `lib/schemas.ts`:
 const { data: body, error } = await parseBody(req, createRecipeSchema)
 if (error) return error
 ```
+
+### Admin routes
+Admin-only routes use `withAdmin()` from `lib/auth.ts`, which wraps `withAuth()` and
+checks the user's email against the `ADMIN_EMAILS` env var:
+```typescript
+export const GET = withAdmin(async (req, { user, db, ctx }, params) => { ... })
+```
+
+**Access control layers:**
+- `allowed_users` DB table — DB-backed email whitelist (managed via admin UI)
+- `ALLOWED_EMAILS` env var — always granted, overrides DB disable status
+- `ADMIN_EMAILS` env var — grants access to `/admin` routes
+- Cache: allowed users are cached in-memory for 60s; `invalidateAllowedUsersCache()` clears it
+
+**Admin API routes (`/api/admin/`):**
+- `GET /api/admin/users` — list all users with recipe counts, token usage, and status
+- `POST /api/admin/users/invite` — add email to allowed users (Zod: `inviteUserSchema`)
+- `POST /api/admin/users/[id]/disable` — disable a user (prevents self-disable)
+- `POST /api/admin/users/[id]/enable` — re-enable a disabled user
+- `GET /api/admin/stats` — summary stats (user count, recipe count, 7d tokens)
+- `GET /api/admin/usage?range=7d|30d|all` — LLM token usage by feature and user
+
+**DB tables:** `allowed_users` (email whitelist), `llm_usage` (per-request token tracking)
+
+**LLM usage tracking:** Automatic via `AsyncLocalStorage` context (`lib/request-context.ts`).
+`withAuth()` sets the context; `callLLM()`/`callLLMMultimodal()` read it to record usage
+fire-and-forget. Skipped in dev mode (`DEV_BYPASS_AUTH=true`).
 
 ### Household scoping
 All data queries must be scoped to the correct user or household. Use helpers from `lib/household.ts`:
