@@ -21,8 +21,12 @@ const sampleRecipe = {
   prepTimeMinutes: 10,
   cookTimeMinutes: 20,
   totalTimeMinutes: 30,
+  inactiveTimeMinutes: null,
   tags: ['Quick'],
   url: 'https://example.com/pasta',
+  imageUrl: 'https://example.com/pasta.jpg',
+  source: 'scraped',
+  stepPhotos: [],
   createdAt: new Date('2026-01-01T00:00:00Z'),
 }
 
@@ -140,6 +144,7 @@ describe('GET /api/recipes/export/json', () => {
     const res = await GET(req)
     const json = await res.json()
 
+    expect(json).toHaveProperty('format', 'thymeline')
     expect(json).toHaveProperty('exported_at')
     expect(json).toHaveProperty('recipe_count')
     expect(json.recipes[0]).toHaveProperty('id')
@@ -152,8 +157,12 @@ describe('GET /api/recipes/export/json', () => {
     expect(json.recipes[0]).toHaveProperty('prep_time_minutes')
     expect(json.recipes[0]).toHaveProperty('cook_time_minutes')
     expect(json.recipes[0]).toHaveProperty('total_time_minutes')
+    expect(json.recipes[0]).toHaveProperty('inactive_time_minutes')
     expect(json.recipes[0]).toHaveProperty('tags')
-    expect(json.recipes[0]).toHaveProperty('source_url')
+    expect(json.recipes[0]).toHaveProperty('url')
+    expect(json.recipes[0]).toHaveProperty('image_url')
+    expect(json.recipes[0]).toHaveProperty('source')
+    expect(json.recipes[0]).toHaveProperty('step_photos')
     expect(json.recipes[0]).toHaveProperty('created_at')
   })
 
