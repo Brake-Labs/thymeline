@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 interface UserRow {
   id: string
@@ -36,7 +36,6 @@ type Tab = 'users' | 'usage'
 type DateRange = '7d' | '30d' | 'all'
 
 export default function AdminPage() {
-  const router = useRouter()
   const [tab, setTab] = useState<Tab>('users')
   const [users, setUsers] = useState<UserRow[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
@@ -58,11 +57,6 @@ export default function AdminPage() {
           fetch('/api/admin/stats'),
         ])
 
-        if (usersRes.status === 403 || statsRes.status === 403) {
-          router.push('/home')
-          return
-        }
-
         if (!usersRes.ok || !statsRes.ok) {
           setError('Failed to load admin data')
           return
@@ -79,7 +73,7 @@ export default function AdminPage() {
       }
     }
     loadData()
-  }, [router])
+  }, [])
 
   useEffect(() => {
     if (tab !== 'usage') return
@@ -177,7 +171,12 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-stone-50">
       <div className="max-w-6xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold text-stone-900 mb-6">Admin</h1>
+        <div className="flex items-center gap-3 mb-6">
+          <Link href="/home" className="text-stone-400 hover:text-stone-600 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          </Link>
+          <h1 className="text-2xl font-bold text-stone-900">Admin</h1>
+        </div>
 
         {/* Stat cards */}
         {stats && (

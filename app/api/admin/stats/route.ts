@@ -4,8 +4,10 @@ import { db } from '@/lib/db'
 import { user, recipes, allowedUsers, llmUsage } from '@/lib/db/schema'
 import { sql, gte, isNull } from 'drizzle-orm'
 
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000
+
 export const GET = withAdmin(async () => {
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+  const sevenDaysAgo = new Date(Date.now() - SEVEN_DAYS_MS)
 
   const [userCount, recipeCount, tokenSum, pendingInvites] = await Promise.all([
     db.select({ count: sql<number>`count(*)::int` }).from(user),

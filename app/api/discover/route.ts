@@ -7,6 +7,7 @@ import { scopeCondition } from '@/lib/household'
 import { deriveTasteProfile } from '@/lib/taste-profile'
 import { detectWasteOverlap } from '@/lib/waste-overlap'
 import { fetchCurrentWeekPlan, getPlanWasteBadgeText } from '@/lib/plan-utils'
+import { parseBody, discoverSchema } from '@/lib/schemas'
 import { db } from '@/lib/db'
 import { recipes } from '@/lib/db/schema'
 import { desc } from 'drizzle-orm'
@@ -16,21 +17,12 @@ import type { RecipeForOverlap } from '@/lib/waste-overlap'
 const DISCOVER_WASTE_TIMEOUT_MS = 5000
 
 export const POST = withAuth(async (req: NextRequest, { user, db: _db, ctx }) => {
-  let body: { query?: string; siteFilter?: string }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
+  const { data: body, error } = await parseBody(req, discoverSchema)
+  if (error) return error
 
-  const query = (body.query ?? '').trim()
-  if (!query) {
-    return NextResponse.json({ error: 'Query is required' }, { status: 400 })
-  }
+  const { query, siteFilter } = body
 
   logger.info({ query }, 'discover: query received')
-
-  const siteFilter = (body.siteFilter ?? '').trim()
 
   try {
     // ── Step 1: Fetch vault context + taste profile + current plan ────────────

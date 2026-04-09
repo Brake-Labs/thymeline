@@ -313,6 +313,13 @@ export const exportPdfSchema = z.object({
   format: z.enum(['single', 'cookbook']),
 })
 
+// ─── Discover ──────────────────────────────────────────────────────────────
+
+export const discoverSchema = z.object({
+  query: z.preprocess((v) => v ?? '', z.string().trim().min(1, 'Query is required')),
+  siteFilter: z.string().trim().default(''),
+})
+
 // ─── Admin ─────────────────────────────────────────────────────────────────
 
 export const inviteUserSchema = z.object({

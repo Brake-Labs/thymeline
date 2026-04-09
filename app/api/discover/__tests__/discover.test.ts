@@ -148,7 +148,7 @@ describe('POST /api/discover — T03: returns 400 for empty query', () => {
     const res = await POST(makeReq({}) as Parameters<typeof POST>[0])
     expect(res.status).toBe(400)
     const body = await res.json()
-    expect(body.error).toBe('Query is required')
+    expect(body.error).toContain('Query is required')
   })
 
   it('returns 400 when query is whitespace only', async () => {
