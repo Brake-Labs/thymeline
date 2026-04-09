@@ -28,6 +28,7 @@ vi.mock('drizzle-orm', () => ({
   eq: vi.fn(),
   and: vi.fn(),
   isNull: vi.fn(),
+  sql: vi.fn(),
 }))
 
 vi.mock('../household', () => ({

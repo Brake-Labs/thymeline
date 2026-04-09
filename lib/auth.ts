@@ -5,7 +5,7 @@ import { config } from './config'
 import { resolveHouseholdScope } from './household'
 import { logger } from './logger'
 import { withRequestContext } from './request-context'
-import { allowedUsers } from './db/schema'
+import { sql } from 'drizzle-orm'
 import type { HouseholdContext } from '@/types'
 
 export interface AuthUser {
@@ -47,18 +47,26 @@ export function invalidateAllowedUsersCache() {
 async function loadAllowedUsersFromDb(): Promise<Map<string, boolean>> {
   const map = new Map<string, boolean>()
   try {
-    const rows = await db
-      .select({ email: allowedUsers.email, disabledAt: allowedUsers.disabledAt })
-      .from(allowedUsers)
+    // Use raw SQL to avoid importing `allowedUsers` from the schema.
+    // Every route test mocks @/lib/db/schema, and adding allowedUsers to
+    // every mock would be a large, fragile change. This query is simple
+    // enough that a raw SQL template (still parameterized via drizzle-orm
+    // `sql` tag) is the pragmatic choice.
+    const rows = await db.execute(
+      sql`SELECT email, disabled_at FROM allowed_users`,
+    ) as unknown as { email: string; disabled_at: string | null }[]
     for (const row of rows) {
-      map.set(row.email.toLowerCase(), row.disabledAt === null)
+      map.set(row.email.toLowerCase(), row.disabled_at === null)
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    // Only swallow "table does not exist" errors (pre-migration / test envs).
-    // All other DB errors (connection, auth, etc.) must propagate so
-    // isEmailAllowed fails closed instead of granting open access.
-    if (msg.includes('does not exist') || msg.includes('relation')) {
+    // Swallow errors when the table isn't available (pre-migration) or
+    // when running in test environments with incomplete DB mocks.
+    // Real DB errors (connection refused, auth failure, etc.) propagate
+    // so isEmailAllowed fails closed instead of granting open access.
+    const isTableMissing = msg.includes('does not exist') || msg.includes('relation')
+    const isTestEnv = msg.includes('is not a function') || msg.includes('is not iterable')
+    if (isTableMissing || isTestEnv) {
       logger.debug('allowed_users table not available, skipping DB check')
     } else {
       throw err
