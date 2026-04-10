@@ -75,6 +75,8 @@ export async function parsePaprika(buffer: ArrayBuffer): Promise<ParsedRecipe[]>
       servings:              parseInt(String(json['servings'] ?? '')) || null,
       tags:                  parseTags(json['categories']),
       source:                url ? 'scraped' : 'manual',
+      stepPhotos:            [],
+      history:               [],
     })
   }
 

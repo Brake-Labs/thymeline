@@ -31,8 +31,12 @@ const SAMPLE_EXPORT = {
       url: 'https://example.com/chicken-parm',
       image_url: 'https://example.com/chicken-parm.jpg',
       source: 'scraped',
-      step_photos: [],
+      step_photos: [{ stepIndex: 0, url: 'https://cdn.example.com/photo1.jpg' }],
       created_at: '2026-01-15T12:00:00.000Z',
+      history: [
+        { made_on: '2026-01-20' },
+        { made_on: '2026-03-05' },
+      ],
     },
   ],
 }
@@ -78,6 +82,11 @@ describe('parseThymeline', () => {
     expect(recipe.url).toBe('https://example.com/chicken-parm')
     expect(recipe.imageUrl).toBe('https://example.com/chicken-parm.jpg')
     expect(recipe.source).toBe('scraped')
+    expect(recipe.stepPhotos).toEqual([{ stepIndex: 0, url: 'https://cdn.example.com/photo1.jpg' }])
+    expect(recipe.history).toEqual([
+      { madeOn: '2026-01-20' },
+      { madeOn: '2026-03-05' },
+    ])
   })
 
   it('handles multiple recipes', () => {
@@ -165,5 +174,69 @@ describe('parseThymeline', () => {
     expect(result[0]!.category).toBeNull()
     expect(result[0]!.ingredients).toBeNull()
     expect(result[0]!.url).toBeNull()
+  })
+
+  it('T03: extracts step_photos from export JSON', () => {
+    const result = parseThymeline(JSON.stringify(SAMPLE_EXPORT))
+    expect(result[0]!.stepPhotos).toEqual([{ stepIndex: 0, url: 'https://cdn.example.com/photo1.jpg' }])
+  })
+
+  it('T04: extracts history entries and converts made_on to madeOn', () => {
+    const result = parseThymeline(JSON.stringify(SAMPLE_EXPORT))
+    expect(result[0]!.history).toEqual([
+      { madeOn: '2026-01-20' },
+      { madeOn: '2026-03-05' },
+    ])
+  })
+
+  it('T05: accepts source: generated and preserves it', () => {
+    const generated = {
+      ...SAMPLE_EXPORT,
+      recipes: [{ ...SAMPLE_EXPORT.recipes[0], source: 'generated' }],
+    }
+    const result = parseThymeline(JSON.stringify(generated))
+    expect(result[0]!.source).toBe('generated')
+  })
+
+  it('T06: defaults stepPhotos to [] when field is missing (backward compat)', () => {
+    const noPhotos = {
+      ...SAMPLE_EXPORT,
+      recipes: [{
+        ...SAMPLE_EXPORT.recipes[0],
+        step_photos: undefined,
+      }],
+    }
+    const result = parseThymeline(JSON.stringify(noPhotos))
+    expect(result[0]!.stepPhotos).toEqual([])
+  })
+
+  it('T07: defaults history to [] when field is missing (backward compat)', () => {
+    const noHistory = {
+      ...SAMPLE_EXPORT,
+      recipes: [{
+        ...SAMPLE_EXPORT.recipes[0],
+        history: undefined,
+      }],
+    }
+    const result = parseThymeline(JSON.stringify(noHistory))
+    expect(result[0]!.history).toEqual([])
+  })
+
+  it('filters out malformed history entries', () => {
+    const badHistory = {
+      ...SAMPLE_EXPORT,
+      recipes: [{
+        ...SAMPLE_EXPORT.recipes[0],
+        history: [
+          { made_on: '2026-01-20' },
+          { made_on: 123 },
+          'not an object',
+          null,
+          { no_date: true },
+        ],
+      }],
+    }
+    const result = parseThymeline(JSON.stringify(badHistory))
+    expect(result[0]!.history).toEqual([{ madeOn: '2026-01-20' }])
   })
 })

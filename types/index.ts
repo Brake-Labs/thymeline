@@ -321,7 +321,9 @@ export interface ParsedRecipe {
   inactiveTimeMinutes: number | null
   servings:              number | null
   tags:                  string[]
-  source:                'scraped' | 'manual'
+  source:                'scraped' | 'manual' | 'generated'
+  stepPhotos:            unknown[]
+  history:               { madeOn: string }[]
 }
 
 export interface ModifiedRecipe {

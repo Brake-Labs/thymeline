@@ -104,6 +104,8 @@ export function parseWhisk(content: string): ParsedRecipe[] {
         servings:              typeof r['servings'] === 'number' ? r['servings'] : null,
         tags:                  parseTags(r['tags']),
         source:                url ? 'scraped' as const : 'manual' as const,
+        stepPhotos:            [],
+        history:               [],
       } satisfies ParsedRecipe
     })
 }

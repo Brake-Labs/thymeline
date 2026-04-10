@@ -159,13 +159,13 @@ describe('ReviewTable', () => {
     {
       id:           'r1',
       status:       'ready' as const,
-      recipe:       { title: 'Chicken Soup', category: null, ingredients: 'chicken', steps: 'boil', notes: null, url: null, imageUrl: null, prepTimeMinutes: null, cookTimeMinutes: null, totalTimeMinutes: null, inactiveTimeMinutes: null, servings: null, tags: [], source: 'manual' as const },
+      recipe:       { title: 'Chicken Soup', category: null, ingredients: 'chicken', steps: 'boil', notes: null, url: null, imageUrl: null, prepTimeMinutes: null, cookTimeMinutes: null, totalTimeMinutes: null, inactiveTimeMinutes: null, servings: null, tags: [], source: 'manual' as const, stepPhotos: [], history: [] },
       sourceLabel: 'manual',
     },
     {
       id:           'r2',
       status:       'partial' as const,
-      recipe:       { title: 'Pasta', category: null, ingredients: 'pasta', steps: null, notes: null, url: null, imageUrl: null, prepTimeMinutes: null, cookTimeMinutes: null, totalTimeMinutes: null, inactiveTimeMinutes: null, servings: null, tags: [], source: 'manual' as const },
+      recipe:       { title: 'Pasta', category: null, ingredients: 'pasta', steps: null, notes: null, url: null, imageUrl: null, prepTimeMinutes: null, cookTimeMinutes: null, totalTimeMinutes: null, inactiveTimeMinutes: null, servings: null, tags: [], source: 'manual' as const, stepPhotos: [], history: [] },
       sourceLabel: 'manual',
     },
     {
@@ -178,7 +178,7 @@ describe('ReviewTable', () => {
     {
       id:           'r4',
       status:       'ready' as const,
-      recipe:       { title: 'Dupe Recipe', category: null, ingredients: 'x', steps: 'y', notes: null, url: 'https://x.com', imageUrl: null, prepTimeMinutes: null, cookTimeMinutes: null, totalTimeMinutes: null, inactiveTimeMinutes: null, servings: null, tags: [], source: 'scraped' as const },
+      recipe:       { title: 'Dupe Recipe', category: null, ingredients: 'x', steps: 'y', notes: null, url: 'https://x.com', imageUrl: null, prepTimeMinutes: null, cookTimeMinutes: null, totalTimeMinutes: null, inactiveTimeMinutes: null, servings: null, tags: [], source: 'scraped' as const, stepPhotos: [], history: [] },
       sourceLabel: 'x.com',
       duplicate:    { recipeId: 'existing-1', recipeTitle: 'Existing Recipe' },
     },
