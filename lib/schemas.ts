@@ -216,6 +216,8 @@ export const updatePreferencesSchema = z.object({
   mealContext: z.string().max(2000).nullable().optional(),
   hiddenTags: z.array(z.string()).optional(),
   weekStartDay: z.number().int().min(0).max(6).optional(),
+  lastActiveDays: z.array(z.string()).optional(),
+  lastActiveMealTypes: z.array(z.enum(MEAL_TYPES)).optional(),
 })
 
 // ─── Groceries ──────────────────────────────────────────────────────────────

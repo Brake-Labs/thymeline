@@ -36,6 +36,8 @@ function makePrefsRow(weekStartDay = 'sunday') {
     mealContext: null,
     hiddenTags: [],
     weekStartDay: weekStartDay,
+    lastActiveDays: [],
+    lastActiveMealTypes: [],
   }
 }
 

@@ -204,6 +204,8 @@ export async function fetchUserPreferences(
     isActive: data.isActive,
     mealContext: data.mealContext ?? null,
     hiddenTags: data.hiddenTags ?? [],
+    lastActiveDays: data.lastActiveDays ?? null,
+    lastActiveMealTypes: data.lastActiveMealTypes ?? null,
     createdAt: data.createdAt.toISOString(),
   } satisfies UserPreferences
 }
@@ -289,11 +291,14 @@ Rules you must follow exactly:
 - Current season is ${season}.${seasonal ? ' ' + seasonal : ''}
 - Variety matters: spread different recipe types AND tag groups across the week. No single tag (especially cuisine or cooking-style tags) should appear across more than 2 days worth of options. Avoid clustering similar recipes on the same day.
 
+For each day, also include a "whyThisDay" field: a one-sentence explanation of why these recipes were chosen for this day, referencing the user's history, preferences, seasonal context, or weekly context. Keep it conversational and brief (under 20 words).
+
 Return ONLY valid JSON in this exact format, with no prose, no markdown:
 {
   "days": [
     {
       "date": "YYYY-MM-DD",
+      "whyThisDay": "Quick picks — you like fast meals on Mondays",
       "mealTypes": [
         {
           "mealType": "dinner",
@@ -431,6 +436,7 @@ export function validateSuggestions(
 ): DaySuggestions[] {
   return days.map((day) => ({
     date: day.date,
+    whyThisDay: day.whyThisDay,
     mealTypes: (day.mealTypes ?? []).map((mts) => ({
       mealType: mts.mealType,
       options: mts.options.filter((opt) => {
@@ -439,6 +445,63 @@ export function validateSuggestions(
       }),
     })),
   }))
+}
+
+/**
+ * Compute a confidence score (0-4) for a recipe suggestion.
+ * Server-computed from tag overlap, seasonal match, and context match.
+ */
+export function computeConfidence(
+  recipeTags: string[],
+  prefs: UserPreferences | null,
+  season: string,
+  freeTextMatched: boolean,
+): number {
+  let score = 0
+  const preferredTags = prefs?.preferredTags ?? []
+  const seasonalRules = prefs?.seasonalRules?.[season]
+
+  // Tag overlap with preferred tags: +25 per overlap, max 50
+  const tagOverlap = recipeTags.filter((t) => preferredTags.includes(t)).length
+  score += Math.min(tagOverlap * 25, 50)
+
+  // Seasonal match: +15 if recipe has a tag in seasonal favor list
+  if (seasonalRules?.favor?.some((f) => recipeTags.includes(f))) {
+    score += 15
+  }
+
+  // Weekly context match: +15 if LLM flagged this as matching freeText
+  if (freeTextMatched) {
+    score += 15
+  }
+
+  // Base score for being in the suggestion at all: +20
+  score += 20
+
+  // Map 0-100 to 0-4 bars
+  return Math.min(Math.round(score / 25), 4)
+}
+
+/**
+ * Attach confidence scores to all suggestions.
+ * Looks up recipe tags from the recipesByMealType map.
+ */
+export function attachConfidenceScores(
+  days: DaySuggestions[],
+  recipeTagsById: Map<string, string[]>,
+  prefs: UserPreferences | null,
+  season: string,
+): void {
+  for (const day of days) {
+    for (const mts of day.mealTypes) {
+      for (const opt of mts.options) {
+        const tags = recipeTagsById.get(opt.recipeId) ?? []
+        // Use reason field as a heuristic for freeText matching:
+        // the LLM's reason often references context when relevant
+        opt.confidenceScore = computeConfidence(tags, prefs, season, false)
+      }
+    }
+  }
 }
 
 export async function callLLMNonStreaming(

@@ -30,6 +30,8 @@ export interface UserPreferences {
   isActive: boolean
   mealContext: string | null
   hiddenTags: string[]
+  lastActiveDays: string[] | null
+  lastActiveMealTypes: string[] | null
   createdAt: string
 }
 
@@ -128,6 +130,7 @@ export interface RecipeSuggestion {
   reason?:           string
   wasteMatches?:    WasteMatch[]
   wasteBadgeText?: string
+  confidenceScore?: number  // 0-4, server-computed
 }
 
 export interface MealTypeSuggestions {
@@ -136,8 +139,9 @@ export interface MealTypeSuggestions {
 }
 
 export interface DaySuggestions {
-  date:       string
-  mealTypes: MealTypeSuggestions[]
+  date:        string
+  mealTypes:  MealTypeSuggestions[]
+  whyThisDay?: string  // AI-generated one-line explanation per day
 }
 
 export interface DaySelection {

@@ -10,6 +10,7 @@ import {
   buildSystemMessage,
   buildSwapUserMessage,
   validateSuggestions,
+  computeConfidence,
   callLLMNonStreaming,
   MEAL_TYPE_CATEGORIES,
 } from '../../helpers'
@@ -31,7 +32,8 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
   const today = new Date()
   const season = getSeason(today.getMonth())
 
-  const systemMessage = buildSystemMessage(prefs, preferThisWeek ?? [], avoidThisWeek ?? [], season)
+  const tasteProfile = await (await import('@/lib/taste-profile')).deriveTasteProfile(user.id, null, ctx ?? null)
+  const systemMessage = buildSystemMessage(prefs, preferThisWeek ?? [], avoidThisWeek ?? [], season, tasteProfile)
   const userMessage = buildSwapUserMessage(
     date,
     mealType,
@@ -54,7 +56,16 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
     const validated = validateSuggestions(days, validIds)
     const dayResult = validated.find((d) => d.date === date)
     const options = dayResult?.mealTypes?.find((m) => m.mealType === mealType)?.options ?? []
-    return NextResponse.json({ date, mealType, options })
+
+    // Attach confidence scores
+    const recTagsById = new Map(recs.map((r) => [r.id, r.tags]))
+    for (const opt of options) {
+      const tags = recTagsById.get(opt.recipeId) ?? []
+      opt.confidenceScore = computeConfidence(tags, prefs, season, false)
+    }
+
+    const whyThisSwap = dayResult?.whyThisDay
+    return NextResponse.json({ date, mealType, options, whyThisSwap })
   } catch (err) {
     console.error('LLM swap error:', err)
     return NextResponse.json({ error: 'Swap failed. Please try again.' }, { status: 500 })
