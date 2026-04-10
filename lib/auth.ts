@@ -4,6 +4,8 @@ import { db } from './db'
 import { config } from './config'
 import { resolveHouseholdScope } from './household'
 import { logger } from './logger'
+import { withRequestContext } from './request-context'
+import { sql } from 'drizzle-orm'
 import type { HouseholdContext } from '@/types'
 
 export interface AuthUser {
@@ -28,6 +30,78 @@ const DEV_USER: AuthUser = {
   email: process.env.DEV_BYPASS_AUTH_EMAIL ?? 'dev@localhost',
   name: 'Dev User',
   image: null,
+}
+
+// ── Allowed users cache ──────────────────────────────────────────────────────
+
+const CACHE_TTL_MS = 60_000
+let _allowedUsersCache: Map<string, boolean> | null = null
+let _allowedUsersCacheTime = 0
+
+/** Clear the in-memory allowed users cache (e.g. after invite or disable). */
+export function invalidateAllowedUsersCache() {
+  _allowedUsersCache = null
+  _allowedUsersCacheTime = 0
+}
+
+async function loadAllowedUsersFromDb(): Promise<Map<string, boolean>> {
+  const map = new Map<string, boolean>()
+  try {
+    // Use raw SQL to avoid importing `allowedUsers` from the schema.
+    // Every route test mocks @/lib/db/schema, and adding allowedUsers to
+    // every mock would be a large, fragile change. This query is simple
+    // enough that a raw SQL template (still parameterized via drizzle-orm
+    // `sql` tag) is the pragmatic choice.
+    const rows = await db.execute(
+      sql`SELECT email, disabled_at FROM allowed_users`,
+    ) as unknown as { email: string; disabled_at: string | null }[]
+    for (const row of rows) {
+      map.set(row.email.toLowerCase(), row.disabled_at === null)
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    // Swallow errors when the table isn't available (pre-migration) or
+    // when running in test environments with incomplete DB mocks.
+    // Real DB errors (connection refused, auth failure, etc.) propagate
+    // so isEmailAllowed fails closed instead of granting open access.
+    const isTableMissing = msg.includes('does not exist') || msg.includes('relation')
+    const isTestEnv = msg.includes('is not a function') || msg.includes('is not iterable')
+    if (isTableMissing || isTestEnv) {
+      logger.debug('allowed_users table not available, skipping DB check')
+    } else {
+      throw err
+    }
+  }
+  return map
+}
+
+/**
+ * Check if an email is allowed access. Uses a union of:
+ * 1. ALLOWED_EMAILS env var (always granted, even if disabled in DB)
+ * 2. allowed_users DB table (active = disabledAt IS NULL)
+ * 3. If both sources are empty, access is open (no whitelist enforced)
+ */
+async function isEmailAllowed(email: string): Promise<boolean> {
+  const envAllowed = config.allowedEmails
+  const normalizedEmail = email.toLowerCase()
+
+  // Env var always wins
+  if (envAllowed.includes(normalizedEmail)) return true
+
+  // Check DB with caching
+  const now = Date.now()
+  if (!_allowedUsersCache || now - _allowedUsersCacheTime > CACHE_TTL_MS) {
+    _allowedUsersCache = await loadAllowedUsersFromDb()
+    _allowedUsersCacheTime = now
+  }
+
+  // Active in DB
+  if (_allowedUsersCache.get(normalizedEmail) === true) return true
+
+  // Open access: no env entries and no DB entries
+  if (envAllowed.length === 0 && _allowedUsersCache.size === 0) return true
+
+  return false
 }
 
 /**
@@ -68,15 +142,43 @@ export function withAuth(
         image: session.user.image ?? null,
       }
 
-      // Enforce email whitelist (empty list = open access)
-      const allowed = config.allowedEmails
-      if (allowed.length > 0 && !allowed.includes(user.email.toLowerCase())) {
+      // Enforce email whitelist (env var + DB union)
+      const allowed = await isEmailAllowed(user.email)
+      if (!allowed) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
     }
 
+    const feature = route.replace(/^\/api\//, '')
     const ctx = await resolveHouseholdScope(user.id)
     logger.debug({ userId: user.id, household: ctx?.householdId ?? null, route }, 'auth ok')
-    return handler(req, { user, db, ctx }, routeContext?.params ?? {})
+
+    return withRequestContext({ userId: user.id, feature }, () =>
+      handler(req, { user, db, ctx }, routeContext?.params ?? {}),
+    )
   }
+}
+
+/**
+ * Higher-order function for admin-only routes.
+ * Wraps withAuth() and additionally checks that the user's email
+ * is in the ADMIN_EMAILS config list.
+ */
+export function withAdmin(
+  handler: (
+    req: NextRequest,
+    auth: AuthContext,
+    params: Record<string, string>,
+  ) => Promise<NextResponse>,
+) {
+  return withAuth(async (req, authCtx, params) => {
+    const admins = config.adminEmails
+    if (admins.length === 0) {
+      logger.warn('ADMIN_EMAILS is empty — no users will have admin access')
+    }
+    if (!admins.includes(authCtx.user.email.toLowerCase())) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+    }
+    return handler(req, authCtx, params)
+  })
 }

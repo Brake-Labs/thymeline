@@ -11,6 +11,7 @@ import {
   date,
   jsonb,
   primaryKey,
+  index,
 } from 'drizzle-orm/pg-core'
 
 // ── Better Auth tables ──────────────────────────────────────────────────────
@@ -235,4 +236,29 @@ export const invites = pgTable('invites', {
   usedAt: timestamp('used_at', { withTimezone: true }),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+})
+
+// ── LLM Usage Tracking ─────────────────────────────────────────────────────
+
+export const llmUsage = pgTable('llm_usage', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: text('user_id').references(() => user.id),
+  feature: text('feature').notNull(),
+  model: text('model').notNull(),
+  inputTokens: integer('input_tokens').notNull(),
+  outputTokens: integer('output_tokens').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index('llm_usage_created_user_idx').on(t.createdAt, t.userId),
+  index('llm_usage_created_feature_idx').on(t.createdAt, t.feature),
+])
+
+// ── Allowed Users (DB-backed access whitelist) ─────────────────────────────
+
+export const allowedUsers = pgTable('allowed_users', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  email: text('email').notNull().unique(),
+  addedBy: text('added_by').references(() => user.id),
+  disabledAt: timestamp('disabled_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })

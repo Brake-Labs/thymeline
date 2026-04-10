@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
-import { anthropic, callLLM, parseLLMJson, LLM_MODEL_CAPABLE } from '@/lib/llm'
+import { callLLM, callLLMMultimodal, parseLLMJson, LLM_MODEL_CAPABLE } from '@/lib/llm'
+import { logger } from '@/lib/logger'
 import { FIRST_CLASS_TAGS } from '@/lib/tags'
 import { scopeCondition } from '@/lib/household'
 import { deriveTasteProfile } from '@/lib/taste-profile'
 import { detectWasteOverlap } from '@/lib/waste-overlap'
 import { fetchCurrentWeekPlan, getPlanWasteBadgeText } from '@/lib/plan-utils'
+import { parseBody, discoverSchema } from '@/lib/schemas'
 import { db } from '@/lib/db'
 import { recipes } from '@/lib/db/schema'
 import { desc } from 'drizzle-orm'
@@ -13,24 +15,14 @@ import type { DiscoveryResult } from '@/types'
 import type { RecipeForOverlap } from '@/lib/waste-overlap'
 
 const DISCOVER_WASTE_TIMEOUT_MS = 5000
-// Web search requires a model that supports the web_search_20250305 tool — haiku does not.
 
 export const POST = withAuth(async (req: NextRequest, { user, db: _db, ctx }) => {
-  let body: { query?: string; siteFilter?: string }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
+  const { data: body, error } = await parseBody(req, discoverSchema)
+  if (error) return error
 
-  const query = (body.query ?? '').trim()
-  if (!query) {
-    return NextResponse.json({ error: 'Query is required' }, { status: 400 })
-  }
+  const { query, siteFilter } = body
 
-  console.log('[discover] query:', query)
-
-  const siteFilter = (body.siteFilter ?? '').trim()
+  logger.info({ query }, 'discover: query received')
 
   try {
     // ── Step 1: Fetch vault context + taste profile + current plan ────────────
@@ -47,7 +39,6 @@ export const POST = withAuth(async (req: NextRequest, { user, db: _db, ctx }) =>
 
     const [vaultRecipes, tasteProfile, currentPlanRecipes] = await Promise.all([
       vaultPromise,
-      // These functions accept a db parameter for testability
       deriveTasteProfile(user.id, _db, ctx ?? null).catch(() => null),
       fetchCurrentWeekPlan(user.id, _db, ctx ?? null).catch(() => [] as RecipeForOverlap[]),
     ])
@@ -56,24 +47,14 @@ export const POST = withAuth(async (req: NextRequest, { user, db: _db, ctx }) =>
     // ── Step 2: Generate search queries ───────────────────────────────────────
     let searchQueries: string[] = [query]
     try {
-      const queryGenMsg = await anthropic.messages.create({
+      const rawText = await callLLM({
         model: LLM_MODEL_CAPABLE,
-        max_tokens: 512,
-        temperature: 0,
-        messages: [
-          {
-            role: 'user',
-            content: `Generate 2-3 optimized web search query strings to find recipe pages for this request: "${query}"${siteFilter ? `. Each query MUST include "site:${siteFilter}".` : ''}
+        maxTokens: 512,
+        system: 'You generate optimized web search queries for recipe discovery. Return ONLY a JSON array of strings.',
+        user: `Generate 2-3 optimized web search query strings to find recipe pages for this request: "${query}"${siteFilter ? `. Each query MUST include "site:${siteFilter}".` : ''}
 
 Extract key ingredients, cooking method, and cuisine style from the request. Return ONLY a JSON array of strings, nothing else. Example: ["chicken stir fry recipe", "easy weeknight chicken stir fry"]`,
-          },
-        ],
       })
-
-      const rawText = queryGenMsg.content
-        .filter((b) => b.type === 'text')
-        .map((b) => (b as { type: 'text'; text: string }).text)
-        .join('')
 
       try {
         const parsed = parseLLMJson<string[]>(rawText)
@@ -84,10 +65,10 @@ Extract key ingredients, cooking method, and cuisine style from the request. Ret
         // Fall back to raw query — already set as default
       }
     } catch (err) {
-      console.error('[discover] query-gen failed, using raw query:', err)
+      logger.error({ err }, 'discover: query-gen failed, using raw query')
     }
 
-    console.log('[discover] generated search queries:', searchQueries)
+    logger.info({ searchQueries }, 'discover: generated search queries')
 
     // ── Step 3: Web search ────────────────────────────────────────────────────
     interface RawResult {
@@ -99,11 +80,11 @@ Extract key ingredients, cooking method, and cuisine style from the request. Ret
 
     const rawResults: RawResult[] = []
     try {
-      console.log('[discover] web search model:', LLM_MODEL_CAPABLE)
-      console.log('[discover] web search tool: web_search_20250305')
-      const searchMsg = await anthropic.messages.create({
+      logger.info({ model: LLM_MODEL_CAPABLE }, 'discover: starting web search')
+      const { text: textBlock, response: searchResponse } = await callLLMMultimodal({
         model: LLM_MODEL_CAPABLE,
-        max_tokens: 4096,
+        maxTokens: 4096,
+        system: 'You are a recipe search assistant.',
         tools: [{ type: 'web_search_20250305' as const, name: 'web_search', max_uses: 6 }],
         messages: [
           {
@@ -113,12 +94,7 @@ Extract key ingredients, cooking method, and cuisine style from the request. Ret
         ],
       })
 
-      const textBlock = searchMsg.content
-        .filter((b) => b.type === 'text')
-        .map((b) => (b as { type: 'text'; text: string }).text)
-        .join('')
-
-      console.log('[discover] web search raw results:', JSON.stringify(searchMsg.content, null, 2))
+      logger.debug({ contentBlockCount: searchResponse.content.length }, 'discover: web search response received')
 
       try {
         const parsed = parseLLMJson<RawResult[]>(textBlock)
@@ -141,11 +117,11 @@ Extract key ingredients, cooking method, and cuisine style from the request. Ret
         // No parseable results — rawResults stays empty
       }
     } catch (err) {
-      console.error('[discover] web search failed:', err)
+      logger.error({ err }, 'discover: web search failed')
       return NextResponse.json({ error: 'Search failed — please try again' }, { status: 500 })
     }
 
-    console.log('[discover] parsed raw results count:', rawResults.length)
+    logger.info({ count: rawResults.length }, 'discover: parsed raw results')
 
     if (rawResults.length === 0) {
       return NextResponse.json({ results: [] })
@@ -169,14 +145,11 @@ Extract key ingredients, cooking method, and cuisine style from the request. Ret
         if (tasteProfile?.avoidedTags?.length) lines.push(`Avoid: ${tasteProfile.avoidedTags.join(', ')}`)
         return lines.length > 0 ? `\n${lines.join('\n')}\n` : ''
       })()
-      const rankMsg = await anthropic.messages.create({
+      const rankText = await callLLM({
         model: LLM_MODEL_CAPABLE,
-        max_tokens: 2048,
-        temperature: 0,
-        messages: [
-          {
-            role: 'user',
-            content: `You are a recipe assistant. Given search results and a user's recipe vault, rank the results and suggest tags.
+        maxTokens: 2048,
+        system: 'You are a recipe ranking assistant. Return ONLY valid JSON.',
+        user: `You are a recipe assistant. Given search results and a user's recipe vault, rank the results and suggest tags.
 
 User query: "${query}"
 ${tasteSection}
@@ -206,14 +179,7 @@ Return ONLY a JSON array with this shape (no explanation):
   "suggestedTags": [...],
   "vaultMatch": { "similarRecipeTitle": "...", "similarity": "exact" | "similar" }
 }]`,
-          },
-        ],
       })
-
-      const rankText = rankMsg.content
-        .filter((b) => b.type === 'text')
-        .map((b) => (b as { type: 'text'; text: string }).text)
-        .join('')
 
       try {
         const parsed = parseLLMJson<RankedResult[]>(rankText)
@@ -224,11 +190,11 @@ Return ONLY a JSON array with this shape (no explanation):
         rankedResults = rawResults.slice(0, 6).map((r) => ({ ...r, suggestedTags: [] }))
       }
     } catch (err) {
-      console.error('[discover] ranking failed:', err)
+      logger.error({ err }, 'discover: ranking failed')
       rankedResults = rawResults.slice(0, 6).map((r) => ({ ...r, suggestedTags: [] }))
     }
 
-    console.log('[discover] after LLM ranking:', JSON.stringify(rankedResults, null, 2))
+    logger.debug({ count: rankedResults.length }, 'discover: after LLM ranking')
 
     // ── Step 4.5: Post-filter recipes that have any avoided tag ─────────────
     if (tasteProfile?.avoidedTags?.length) {
@@ -260,7 +226,7 @@ Return ONLY a JSON array with this shape (no explanation):
         : {}),
     }))
 
-    console.log('[discover] after tag validation:', JSON.stringify(results, null, 2))
+    logger.debug({ count: results.length }, 'discover: after tag validation')
 
     // ── Step 6: Waste overlap detection ───────────────────────────────────────
     if (currentPlanRecipes.length > 0 && results.length > 0) {
@@ -284,13 +250,13 @@ Return ONLY a JSON array with this shape (no explanation):
           }
         }
       } catch (err) {
-        console.warn('[discover] waste detection skipped:', err)
+        logger.warn({ err }, 'discover: waste detection skipped')
       }
     }
 
     return NextResponse.json({ results })
   } catch (err) {
-    console.error('[discover] unexpected error:', err)
+    logger.error({ err }, 'discover: unexpected error')
     return NextResponse.json({ error: 'Search failed — please try again' }, { status: 500 })
   }
 })
