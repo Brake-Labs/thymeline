@@ -104,9 +104,9 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
           .set(recipePayload)
           .where(eq(recipes.id, item.existingId))
 
-        // Replace history: delete old, insert new
+        // Replace history: always delete old, insert new if present
+        await db.delete(recipeHistory).where(eq(recipeHistory.recipeId, item.existingId))
         if (recipe.history && recipe.history.length > 0) {
-          await db.delete(recipeHistory).where(eq(recipeHistory.recipeId, item.existingId))
           await db.insert(recipeHistory).values(
             recipe.history.map((h) => ({
               recipeId: item.existingId!,

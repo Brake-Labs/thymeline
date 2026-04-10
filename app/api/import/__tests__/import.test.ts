@@ -277,6 +277,8 @@ describe('POST /api/import/save', () => {
     const { db } = await import('@/lib/db')
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(db.update).mockReturnValue(mockChain([{ id: '550e8400-e29b-41d4-a716-446655440000' }]) as any)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(db.delete).mockReturnValue(mockChain([]) as any)
 
     const { POST } = await import('../save/route')
     const req = new Request('http://localhost/api/import/save', {
