@@ -188,6 +188,8 @@ export function parseCsv(
       servings:              parseInt(get('servings')) || null,
       tags:                  parseTags(get('tags')),
       source:                get('url') ? 'scraped' : 'manual',
+      stepPhotos:            [],
+      history:               [],
     }
 
     if (!title) {

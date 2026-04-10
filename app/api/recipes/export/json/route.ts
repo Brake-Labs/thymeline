@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth'
 import { scopeCondition } from '@/lib/household'
 import { db } from '@/lib/db'
-import { and, inArray } from 'drizzle-orm'
-import { recipes } from '@/lib/db/schema'
+import { and, asc, inArray } from 'drizzle-orm'
+import { recipes, recipeHistory } from '@/lib/db/schema'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -55,6 +55,28 @@ export const GET = withAuth(async (req, { user, ctx }) => {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
+  // Fetch cook history for all exported recipes in a single batch query.
+  // Recipe IDs are already scoped by ownership, so filtering history by recipeId is sufficient.
+  const exportedIds = rows.map((r) => r.id)
+  const historyRows = exportedIds.length > 0
+    ? await db
+        .select({
+          recipeId: recipeHistory.recipeId,
+          madeOn: recipeHistory.madeOn,
+        })
+        .from(recipeHistory)
+        .where(inArray(recipeHistory.recipeId, exportedIds))
+        .orderBy(asc(recipeHistory.madeOn))
+    : []
+
+  // Group history by recipe ID
+  const historyByRecipeId = new Map<string, { made_on: string }[]>()
+  for (const h of historyRows) {
+    const entries = historyByRecipeId.get(h.recipeId) ?? []
+    entries.push({ made_on: h.madeOn })
+    historyByRecipeId.set(h.recipeId, entries)
+  }
+
   const payload = {
     format: 'thymeline',
     exported_at: new Date().toISOString(),
@@ -77,6 +99,7 @@ export const GET = withAuth(async (req, { user, ctx }) => {
       source: r.source,
       step_photos: r.stepPhotos,
       created_at: r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt),
+      history: historyByRecipeId.get(r.id) ?? [],
     })),
   }
 

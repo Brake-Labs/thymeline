@@ -5,7 +5,7 @@ import { scopeInsert, checkOwnership } from '@/lib/household'
 import { FIRST_CLASS_TAGS } from '@/lib/tags'
 import { db } from '@/lib/db'
 import { eq } from 'drizzle-orm'
-import { recipes, customTags } from '@/lib/db/schema'
+import { recipes, customTags, recipeHistory } from '@/lib/db/schema'
 
 function toTitleCase(str: string): string {
   return str.replace(/\b\w/g, (c) => c.toUpperCase())
@@ -87,7 +87,7 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
       tags:               allTags,
       source:             recipe.source,
       isShared:           false,
-      stepPhotos:         [],
+      stepPhotos:         recipe.stepPhotos ?? [],
     }
 
     if (item.duplicateAction === 'replace' && item.existingId) {
@@ -103,6 +103,19 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
           .update(recipes)
           .set(recipePayload)
           .where(eq(recipes.id, item.existingId))
+
+        // Replace history: always delete old, insert new if present
+        await db.delete(recipeHistory).where(eq(recipeHistory.recipeId, item.existingId))
+        if (recipe.history && recipe.history.length > 0) {
+          await db.insert(recipeHistory).values(
+            recipe.history.map((h) => ({
+              recipeId: item.existingId!,
+              userId: user.id,
+              madeOn: h.madeOn,
+            })),
+          )
+        }
+
         replaced++
       } catch (err) {
         console.error('[import/save] Update failed:', err)
@@ -111,12 +124,26 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
     } else {
       // Insert as new recipe (keep_both or no duplicate action)
       try {
-        await db
+        const inserted = await db
           .insert(recipes)
           .values({
             ...recipePayload,
             ...scopeInsert(user.id, ctx),
           })
+          .returning({ id: recipes.id })
+
+        // Insert history for the new recipe
+        const newId = inserted[0]?.id
+        if (newId && recipe.history && recipe.history.length > 0) {
+          await db.insert(recipeHistory).values(
+            recipe.history.map((h) => ({
+              recipeId: newId,
+              userId: user.id,
+              madeOn: h.madeOn,
+            })),
+          )
+        }
+
         imported++
       } catch (err) {
         console.error('[import/save] Insert failed:', err)

@@ -135,6 +135,8 @@ export function parsePlanToEat(content: string): ParsedRecipe[] {
       servings:              parseInt(get('Servings')) || null,
       tags:                  parseTags(get('Tags')),
       source:                url ? 'scraped' : 'manual',
+      stepPhotos:            [],
+      history:               [],
     }
 
     results.push(recipe)

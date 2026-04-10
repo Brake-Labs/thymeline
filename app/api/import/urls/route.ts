@@ -58,6 +58,8 @@ async function scrapeUrl(
           servings:              data.servings ?? null,
           tags:                  data.suggestedTags ?? [],
           source:                'scraped',
+          stepPhotos:            [],
+          history:               [],
         }
 
         const status: JobResultStatus = data.partial

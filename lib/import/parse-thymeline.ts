@@ -71,7 +71,16 @@ export function parseThymeline(content: string): ParsedRecipe[] {
         inactiveTimeMinutes: typeof r['inactive_time_minutes'] === 'number' ? r['inactive_time_minutes'] : null,
         servings:            typeof r['servings'] === 'number' ? r['servings'] : null,
         tags:                parseTags(r['tags']),
-        source:              source === 'scraped' || source === 'manual' ? source : (url ? 'scraped' : 'manual'),
+        source:              source === 'scraped' || source === 'manual' || source === 'generated'
+          ? source
+          : (url ? 'scraped' : 'manual'),
+        stepPhotos:          Array.isArray(r['step_photos']) ? r['step_photos'] : [],
+        history:             Array.isArray(r['history'])
+          ? (r['history'] as unknown[])
+              .filter((h): h is Record<string, unknown> => typeof h === 'object' && h !== null)
+              .filter((h) => typeof h['made_on'] === 'string')
+              .map((h) => ({ madeOn: h['made_on'] as string }))
+          : [],
       } satisfies ParsedRecipe
     })
 }

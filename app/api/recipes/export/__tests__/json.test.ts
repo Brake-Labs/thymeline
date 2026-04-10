@@ -1,6 +1,6 @@
 /**
  * Tests for GET /api/recipes/export/json
- * Covers: T09–T13, T15
+ * Covers: T09–T13, T15, spec-26 T01–T02
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -107,7 +107,7 @@ describe('GET /api/recipes/export/json', () => {
   beforeEach(() => { vi.resetModules() })
 
   it('T09: no ids param returns all user recipes', async () => {
-    await setupMocks({ selectResults: [[sampleRecipe, sampleRecipe2]] })
+    await setupMocks({ selectResults: [[sampleRecipe, sampleRecipe2], []] })
     const { GET } = await import('../json/route')
     const req = makeRequest('GET', 'http://localhost/api/recipes/export/json')
     const res = await GET(req)
@@ -118,7 +118,7 @@ describe('GET /api/recipes/export/json', () => {
   })
 
   it('T10: ids param filters correctly', async () => {
-    await setupMocks({ selectResults: [[sampleRecipe]] })
+    await setupMocks({ selectResults: [[sampleRecipe], []] })
     const { GET } = await import('../json/route')
     const req = makeRequest('GET', `http://localhost/api/recipes/export/json?ids=${sampleRecipe.id}`)
     const res = await GET(req)
@@ -138,7 +138,7 @@ describe('GET /api/recipes/export/json', () => {
   })
 
   it('T12: response includes all required fields', async () => {
-    await setupMocks({ selectResults: [[sampleRecipe]] })
+    await setupMocks({ selectResults: [[sampleRecipe], []] })
     const { GET } = await import('../json/route')
     const req = makeRequest('GET', 'http://localhost/api/recipes/export/json')
     const res = await GET(req)
@@ -164,10 +164,11 @@ describe('GET /api/recipes/export/json', () => {
     expect(json.recipes[0]).toHaveProperty('source')
     expect(json.recipes[0]).toHaveProperty('step_photos')
     expect(json.recipes[0]).toHaveProperty('created_at')
+    expect(json.recipes[0]).toHaveProperty('history')
   })
 
   it('T13: Content-Disposition filename includes date', async () => {
-    await setupMocks({ selectResults: [[sampleRecipe]] })
+    await setupMocks({ selectResults: [[sampleRecipe], []] })
     const { GET } = await import('../json/route')
     const req = makeRequest('GET', 'http://localhost/api/recipes/export/json')
     const res = await GET(req)
@@ -186,7 +187,7 @@ describe('GET /api/recipes/export/json', () => {
     /* eslint-enable @typescript-eslint/no-explicit-any */
 
     const hhRecipe = { ...sampleRecipe, householdId: 'hh-1', userId: 'user-2' }
-    await setupMocks({ selectResults: [[hhRecipe]] })
+    await setupMocks({ selectResults: [[hhRecipe], []] })
 
     const { GET } = await import('../json/route')
     const req = makeRequest('GET', 'http://localhost/api/recipes/export/json')
@@ -202,5 +203,30 @@ describe('GET /api/recipes/export/json', () => {
     const req = makeRequest('GET', 'http://localhost/api/recipes/export/json?ids=not-a-uuid')
     const res = await GET(req)
     expect(res.status).toBe(400)
+  })
+
+  it('spec-26 T01: export includes history with made_on dates', async () => {
+    const historyRows = [
+      { recipeId: sampleRecipe.id, madeOn: '2026-01-15' },
+      { recipeId: sampleRecipe.id, madeOn: '2026-03-02' },
+    ]
+    await setupMocks({ selectResults: [[sampleRecipe], historyRows] })
+    const { GET } = await import('../json/route')
+    const req = makeRequest('GET', 'http://localhost/api/recipes/export/json')
+    const res = await GET(req)
+    const json = await res.json()
+    expect(json.recipes[0].history).toEqual([
+      { made_on: '2026-01-15' },
+      { made_on: '2026-03-02' },
+    ])
+  })
+
+  it('spec-26 T02: export includes empty history for recipes with no cook dates', async () => {
+    await setupMocks({ selectResults: [[sampleRecipe], []] })
+    const { GET } = await import('../json/route')
+    const req = makeRequest('GET', 'http://localhost/api/recipes/export/json')
+    const res = await GET(req)
+    const json = await res.json()
+    expect(json.recipes[0].history).toEqual([])
   })
 })

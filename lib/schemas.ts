@@ -275,7 +275,11 @@ export const parsedRecipeSchema = z.object({
   inactiveTimeMinutes: z.number().int().nonnegative().nullable(),
   servings:              z.number().int().positive().nullable(),
   tags:                  z.array(z.string()).default([]),
-  source:                z.enum(['scraped', 'manual']),
+  source:                z.enum(['scraped', 'manual', 'generated']),
+  stepPhotos:            z.array(z.unknown()).default([]),
+  history:               z.array(z.object({
+    madeOn: z.string(),
+  })).default([]),
 })
 
 export const importUrlsSchema = z.object({

@@ -1,6 +1,7 @@
 /**
  * Tests for import API routes
  * Covers spec-17 test cases: T03, T04, T07, T19, T20, T21, T22, T23, T25, T29, T30
+ * Covers spec-26 test cases: T08, T11, T12, T13, T14, T15
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -41,6 +42,7 @@ vi.mock('@/lib/auth-server', () => ({
 vi.mock('@/lib/db/schema', () => ({
   recipes: { id: 'id', userId: 'userId', householdId: 'householdId', title: 'title', url: 'url', category: 'category', tags: 'tags', ingredients: 'ingredients', steps: 'steps', notes: 'notes', imageUrl: 'imageUrl', source: 'source', prepTimeMinutes: 'prepTimeMinutes', cookTimeMinutes: 'cookTimeMinutes', totalTimeMinutes: 'totalTimeMinutes', inactiveTimeMinutes: 'inactiveTimeMinutes', servings: 'servings' },
   customTags: { name: 'name', userId: 'userId' },
+  recipeHistory: { id: 'id', recipeId: 'recipeId', userId: 'userId', madeOn: 'madeOn' },
 }))
 
 vi.mock('@/lib/db/helpers', () => ({
@@ -64,7 +66,7 @@ async function setupDbMocks(vaultData: unknown[] = []) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   vi.mocked(db.select).mockReturnValue(mockChain(mockVaultData) as any)
 
-  const insertChain = mockChain([])
+  const insertChain = mockChain([{ id: 'new-recipe-id' }])
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ;(insertChain as any).values = vi.fn().mockImplementation((_payload: unknown) => {
     _mockInsertCalled = true
@@ -275,6 +277,8 @@ describe('POST /api/import/save', () => {
     const { db } = await import('@/lib/db')
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(db.update).mockReturnValue(mockChain([{ id: '550e8400-e29b-41d4-a716-446655440000' }]) as any)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(db.delete).mockReturnValue(mockChain([]) as any)
 
     const { POST } = await import('../save/route')
     const req = new Request('http://localhost/api/import/save', {
@@ -340,7 +344,7 @@ describe('POST /api/import/save', () => {
   it('T29: unmatched tags saved as custom tags', async () => {
     const { db } = await import('@/lib/db')
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(db.insert).mockReturnValue(mockChain([]) as any)
+    vi.mocked(db.insert).mockReturnValue(mockChain([{ id: 'new-recipe-id' }]) as any)
 
     const { POST } = await import('../save/route')
     const req = new Request('http://localhost/api/import/save', {
@@ -359,6 +363,144 @@ describe('POST /api/import/save', () => {
     await POST(req as never, undefined as never)
 
     // Verify insert was called (for custom tag + recipe)
+    expect(db.insert).toHaveBeenCalled()
+  })
+
+  it('spec-26 T08: accepts source: generated', async () => {
+    const { POST } = await import('../save/route')
+    const req = new Request('http://localhost/api/import/save', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        recipes: [{ data: { ...sampleRecipe, source: 'generated' } }],
+      }),
+    })
+
+    const res = await POST(req as never, undefined as never)
+    expect(res.status).toBe(200)
+    const data = await res.json() as { imported: number }
+    expect(data.imported).toBe(1)
+  })
+
+  it('spec-26 T11: uses recipe.stepPhotos instead of hardcoded []', async () => {
+    const { db } = await import('@/lib/db')
+    const insertChain = mockChain([{ id: 'new-recipe-id' }])
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const valuesSpy = vi.fn().mockReturnValue(insertChain) as any
+    ;(insertChain as Record<string, unknown>).values = valuesSpy
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(db.insert).mockReturnValue(insertChain as any)
+
+    const photos = [{ stepIndex: 0, url: 'https://cdn.example.com/photo.jpg' }]
+    const { POST } = await import('../save/route')
+    const req = new Request('http://localhost/api/import/save', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        recipes: [{ data: { ...sampleRecipe, stepPhotos: photos } }],
+      }),
+    })
+
+    const res = await POST(req as never, undefined as never)
+    expect(res.status).toBe(200)
+
+    // Verify the values call includes stepPhotos from the recipe
+    const valuesCall = valuesSpy.mock.calls.find(
+      (call: unknown[]) => {
+        const arg = call[0] as Record<string, unknown>
+        return arg.title === 'Test Recipe'
+      },
+    )
+    expect(valuesCall).toBeDefined()
+    expect((valuesCall![0] as Record<string, unknown>).stepPhotos).toEqual(photos)
+  })
+
+  it('spec-26 T12: inserts recipe_history rows from recipe.history', async () => {
+    const { db } = await import('@/lib/db')
+    const insertChain = mockChain([{ id: 'new-recipe-id' }])
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(insertChain as Record<string, unknown>).values = vi.fn().mockReturnValue(insertChain)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(db.insert).mockReturnValue(insertChain as any)
+
+    const { POST } = await import('../save/route')
+    const req = new Request('http://localhost/api/import/save', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        recipes: [{
+          data: {
+            ...sampleRecipe,
+            history: [{ madeOn: '2026-01-15' }, { madeOn: '2026-03-02' }],
+          },
+        }],
+      }),
+    })
+
+    const res = await POST(req as never, undefined as never)
+    expect(res.status).toBe(200)
+    // insert called for: custom tags (if any), recipe, and history
+    expect(db.insert).toHaveBeenCalled()
+  })
+
+  it('spec-26 T15: skip does not insert any history', async () => {
+    const { db } = await import('@/lib/db')
+    vi.mocked(db.insert).mockClear()
+
+    const { POST } = await import('../save/route')
+    const req = new Request('http://localhost/api/import/save', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        recipes: [{
+          data: {
+            ...sampleRecipe,
+            history: [{ madeOn: '2026-01-15' }],
+          },
+          duplicateAction: 'skip',
+        }],
+      }),
+    })
+
+    const res = await POST(req as never, undefined as never)
+    const data = await res.json() as { skipped: number }
+    expect(data.skipped).toBe(1)
+    // No inserts should happen for skipped recipes
+    expect(db.insert).not.toHaveBeenCalled()
+  })
+
+  it('spec-26 T13: replace deletes old history then inserts imported history', async () => {
+    const { db } = await import('@/lib/db')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(db.update).mockReturnValue(mockChain([{ id: '550e8400-e29b-41d4-a716-446655440000' }]) as any)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(db.delete).mockReturnValue(mockChain([]) as any)
+    const insertChain = mockChain([{ id: 'new-recipe-id' }])
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(insertChain as Record<string, unknown>).values = vi.fn().mockReturnValue(insertChain)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(db.insert).mockReturnValue(insertChain as any)
+
+    const { POST } = await import('../save/route')
+    const req = new Request('http://localhost/api/import/save', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        recipes: [{
+          data: {
+            ...sampleRecipe,
+            history: [{ madeOn: '2026-02-10' }],
+          },
+          duplicateAction: 'replace',
+          existingId: '550e8400-e29b-41d4-a716-446655440000',
+        }],
+      }),
+    })
+
+    const res = await POST(req as never, undefined as never)
+    const data = await res.json() as { replaced: number }
+    expect(data.replaced).toBe(1)
+    expect(db.delete).toHaveBeenCalled()
     expect(db.insert).toHaveBeenCalled()
   })
 })
