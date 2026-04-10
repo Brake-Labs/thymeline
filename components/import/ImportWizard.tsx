@@ -122,7 +122,9 @@ export default function ImportWizard() {
       const results: ImportResult[] = (data.results ?? []).map((r, _i) => ({
         ...r,
         id:           r.id ?? crypto.randomUUID(),
-        sourceLabel: r.sourceLabel ?? (file.name ?? 'File'),
+        sourceLabel: r.sourceLabel
+          ?? (r.recipe?.url ? new URL(r.recipe.url).hostname.replace(/^www\./, '') : null)
+          ?? (file.name ?? 'File'),
         duplicateAction: r.duplicate ? 'keep_both' : undefined,
       }))
 
