@@ -62,8 +62,9 @@ export const POST = withAuth(async (req: NextRequest, { user, db, ctx }) => {
 
   const buffer = await file.arrayBuffer()
 
-  // For JSON files, detect whether it's Thymeline or Whisk
-  if (!format && file.name.toLowerCase().endsWith('.json')) {
+  // For JSON files, always detect from content (Thymeline vs Whisk).
+  // This overrides any client-side format hint since .json is ambiguous.
+  if (file.name.toLowerCase().endsWith('.json')) {
     const text = new TextDecoder().decode(buffer)
     format = isThymelineJson(text) ? 'thymeline' : 'whisk'
   }

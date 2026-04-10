@@ -37,7 +37,8 @@ export default function ImportSourceTabs({ onUrlsSubmit, onFileSubmit }: Props) 
   function detectFormatFromFile(f: File): string | null {
     const name = f.name.toLowerCase()
     if (name.endsWith('.paprikarecipes')) return 'paprika'
-    if (name.endsWith('.json')) return 'whisk'
+    // JSON sub-format (Thymeline vs Whisk) is detected server-side from content
+    if (name.endsWith('.json')) return 'json'
     // For CSV, we can't detect sub-format client-side — server will do it
     if (name.endsWith('.csv')) return 'csv'
     return null
@@ -60,6 +61,7 @@ export default function ImportSourceTabs({ onUrlsSubmit, onFileSubmit }: Props) 
 
   const formatLabel = (fmt: string | null): string => {
     if (!fmt) return ''
+    if (fmt === 'json') return 'JSON (auto-detected on upload)'
     return FORMAT_OPTIONS.find((o) => o.value === fmt)?.label ?? fmt
   }
 
@@ -122,7 +124,7 @@ export default function ImportSourceTabs({ onUrlsSubmit, onFileSubmit }: Props) 
       {tab === 'file' && (
         <div className="space-y-4">
           <p className="text-sm text-stone-500">
-            Supported formats: CSV, Paprika (.paprikarecipes), Whisk (.json), Plan to Eat, Notion CSV
+            Supported formats: CSV, JSON (e.g. Thymeline, Whisk, Recime), Paprika (.paprikarecipes), Plan to Eat, Notion CSV
           </p>
 
           {/* Drop zone */}
