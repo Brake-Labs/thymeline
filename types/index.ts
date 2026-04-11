@@ -199,6 +199,12 @@ export type GrocerySection =
   | 'Deli'
   | 'Other'
 
+export interface RecipeBreakdownEntry {
+  recipe: string
+  amount: number | null
+  unit:   string | null
+}
+
 export interface GroceryItem {
   id:        string
   name:      string
@@ -209,6 +215,7 @@ export interface GroceryItem {
   checked:   boolean
   bought?:   boolean   // true = item is in the "Got it" section
   recipes:   string[]
+  recipeBreakdown?: RecipeBreakdownEntry[]
 }
 
 export interface RecipeScale {

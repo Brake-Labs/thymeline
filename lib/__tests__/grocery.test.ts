@@ -1471,3 +1471,169 @@ describe('assignSection — expanded keywords', () => {
     expect(assignSection('rotisserie chicken')).toBe('Deli')
   })
 })
+
+// ── Spec 26: Shopping-scale purchase rules ──────────────────────────────────
+
+describe('Spec 26 — Shopping-scale purchase rules', () => {
+  const makeItem = (overrides: Partial<GroceryItem>): GroceryItem => ({
+    id: '1',
+    name: 'test',
+    amount: null,
+    unit: null,
+    section: 'Other',
+    isPantry: false,
+    checked: false,
+    recipes: [],
+    ...overrides,
+  })
+
+  it('T26-01: ground meat rounds to nearest 1 lb', () => {
+    const result = roundToPurchaseUnits([makeItem({ name: 'ground beef', amount: 1.73, unit: 'lb' })])
+    expect(result[0]!.amount).toBe(2)
+    expect(result[0]!.unit).toBe('lb')
+  })
+
+  it('T26-02: chicken rounds to nearest 0.5 lb', () => {
+    const result = roundToPurchaseUnits([makeItem({ name: 'chicken breast', amount: 1.2, unit: 'lb' })])
+    expect(result[0]!.amount).toBe(1.5)
+    expect(result[0]!.unit).toBe('lb')
+  })
+
+  it('T26-03: cheese rounds to nearest 8 oz', () => {
+    const result = roundToPurchaseUnits([makeItem({ name: 'cheddar', amount: 5, unit: 'oz' })])
+    expect(result[0]!.amount).toBe(8)
+    expect(result[0]!.unit).toBe('oz')
+  })
+
+  it('T26-04: cheese > 8 oz rounds to next 8 oz', () => {
+    const result = roundToPurchaseUnits([makeItem({ name: 'mozzarella', amount: 12, unit: 'oz' })])
+    expect(result[0]!.amount).toBe(16)
+    expect(result[0]!.unit).toBe('oz')
+  })
+
+  it('T26-05: produce count rounds up to whole number', () => {
+    const result = roundToPurchaseUnits([makeItem({ name: 'onion', amount: 2.5, unit: null, section: 'Produce' })])
+    expect(result[0]!.amount).toBe(3)
+  })
+
+  it('T26-06: produce weight rounds to nearest 0.5 lb', () => {
+    const result = roundToPurchaseUnits([makeItem({ name: 'potato', amount: 0.3, unit: 'lb', section: 'Produce' })])
+    expect(result[0]!.amount).toBe(0.5)
+    expect(result[0]!.unit).toBe('lb')
+  })
+
+  it('T26-07: eggs round to half-dozen (minimum 6)', () => {
+    const result = roundToPurchaseUnits([makeItem({ name: 'egg', amount: 4, unit: null })])
+    expect(result[0]!.amount).toBe(6)
+  })
+
+  it('T26-08: eggs round to dozen', () => {
+    const result = roundToPurchaseUnits([makeItem({ name: 'egg', amount: 8, unit: null })])
+    expect(result[0]!.amount).toBe(12)
+  })
+
+  it('T26-09: existing can rule still works', () => {
+    const result = roundToPurchaseUnits([makeItem({ name: 'diced tomatoes', amount: 1.5, unit: 'cans' })])
+    expect(result[0]!.amount).toBe(2)
+    expect(result[0]!.unit).toBe('cans')
+  })
+
+  it('T26-10: existing butter rule still works', () => {
+    const result = roundToPurchaseUnits([makeItem({ name: 'butter', amount: 12, unit: 'tbsp' })])
+    expect(result[0]!.amount).toBe(2)
+    expect(result[0]!.unit).toBe('sticks')
+  })
+
+  it('T26-11: existing garlic rule still works', () => {
+    const result = roundToPurchaseUnits([makeItem({ name: 'garlic', amount: 6, unit: 'cloves' })])
+    expect(result[0]!.amount).toBe(1)
+    expect(result[0]!.unit).toBe('head')
+  })
+
+  it('other meat (beef) rounds to 0.5 lb', () => {
+    const result = roundToPurchaseUnits([makeItem({ name: 'beef stew meat', amount: 1.3, unit: 'lb' })])
+    expect(result[0]!.amount).toBe(1.5)
+    expect(result[0]!.unit).toBe('lb')
+  })
+
+  it('cheese in lb converts to oz and rounds to 8 oz', () => {
+    const result = roundToPurchaseUnits([makeItem({ name: 'cheddar', amount: 0.5, unit: 'lb' })])
+    // 0.5 lb = 8 oz → rounds to 8 oz
+    expect(result[0]!.amount).toBe(8)
+    expect(result[0]!.unit).toBe('oz')
+  })
+})
+
+// ── Spec 26: recipeBreakdown population ─────────────────────────────────────
+
+describe('Spec 26 — recipeBreakdown', () => {
+  it('T26-12: single recipe item has recipeBreakdown with 1 entry', () => {
+    const inputs = [
+      { parsed: parseIngredientLine('2 lb ground beef'), recipeTitle: 'Tacos', scaleFactor: 1 },
+    ]
+    const { resolved } = combineIngredients(inputs)
+    const beef = resolved.find((i) => i.name.toLowerCase().includes('ground beef'))!
+    expect(beef.recipeBreakdown).toHaveLength(1)
+    expect(beef.recipeBreakdown![0]!.recipe).toBe('Tacos')
+    expect(beef.recipeBreakdown![0]!.amount).toBe(2)
+    expect(beef.recipeBreakdown![0]!.unit).toBe('lb')
+  })
+
+  it('T26-13: two recipes produce recipeBreakdown with 2 entries', () => {
+    const inputs = [
+      { parsed: parseIngredientLine('0.75 lb ground beef'), recipeTitle: 'Tacos', scaleFactor: 1 },
+      { parsed: parseIngredientLine('1 lb ground beef'), recipeTitle: 'Bolognese', scaleFactor: 1 },
+    ]
+    const { resolved } = combineIngredients(inputs)
+    const beef = resolved.find((i) => i.name.toLowerCase().includes('ground beef'))!
+    expect(beef.recipeBreakdown).toHaveLength(2)
+    expect(beef.recipeBreakdown![0]!.recipe).toBe('Tacos')
+    expect(beef.recipeBreakdown![0]!.amount).toBe(0.75)
+    expect(beef.recipeBreakdown![1]!.recipe).toBe('Bolognese')
+    expect(beef.recipeBreakdown![1]!.amount).toBe(1)
+    expect(beef.amount).toBe(1.75)
+  })
+
+  it('T26-14: recipeBreakdown survives deduplicateItems merge', () => {
+    const items: GroceryItem[] = [
+      {
+        id: 'a', name: 'ground beef', amount: 0.75, unit: 'lb',
+        section: 'Proteins', isPantry: false, checked: false, recipes: ['Tacos'],
+        recipeBreakdown: [{ recipe: 'Tacos', amount: 0.75, unit: 'lb' }],
+      },
+      {
+        id: 'b', name: 'ground beef', amount: 1, unit: 'lb',
+        section: 'Proteins', isPantry: false, checked: false, recipes: ['Bolognese'],
+        recipeBreakdown: [{ recipe: 'Bolognese', amount: 1, unit: 'lb' }],
+      },
+    ]
+    const result = deduplicateItems(items)
+    expect(result).toHaveLength(1)
+    expect(result[0]!.recipeBreakdown).toHaveLength(2)
+    expect(result[0]!.recipeBreakdown!.map((e) => e.recipe)).toEqual(['Tacos', 'Bolognese'])
+  })
+
+  it('T26-15: items without recipeBreakdown render without error', () => {
+    const items: GroceryItem[] = [
+      { id: 'a', name: 'pasta', amount: 200, unit: 'g', section: 'Pantry', isPantry: false, checked: false, recipes: ['A'] },
+    ]
+    // No recipeBreakdown field at all — simulates old persisted data
+    const result = deduplicateItems(items)
+    expect(result[0]!.recipeBreakdown).toBeUndefined()
+  })
+
+  it('T26-24: recipeBreakdown shows pre-rounded amounts even after roundToPurchaseUnits', () => {
+    const inputs = [
+      { parsed: parseIngredientLine('0.75 lb ground beef'), recipeTitle: 'Tacos', scaleFactor: 1 },
+      { parsed: parseIngredientLine('1 lb ground beef'), recipeTitle: 'Bolognese', scaleFactor: 1 },
+    ]
+    const { resolved } = combineIngredients(inputs)
+    const rounded = roundToPurchaseUnits(resolved)
+    const beef = rounded.find((i) => i.name.toLowerCase().includes('ground beef'))!
+    // Rounded amount should be 2 (next whole lb for ground meat)
+    expect(beef.amount).toBe(2)
+    // But breakdown should preserve the original per-recipe amounts
+    expect(beef.recipeBreakdown![0]!.amount).toBe(0.75)
+    expect(beef.recipeBreakdown![1]!.amount).toBe(1)
+  })
+})

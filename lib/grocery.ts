@@ -138,9 +138,22 @@ function pickPreferredUnit(units: string[]): string {
 // human shopping list ("2 cans" not "1.67 cans", "1 head garlic" not "6 cloves").
 
 interface PurchaseRule {
-  match: (name: string, unit: string | null) => boolean
+  match: (name: string, unit: string | null, section: GrocerySection) => boolean
   round: (amount: number, unit: string | null) => { amount: number; unit: string | null }
 }
+
+/** Helper: check if unit is a weight unit for purchase rule matching. */
+function isPurchaseWeight(unit: string | null): boolean {
+  return unit !== null && unit in WEIGHT_TO_OZ
+}
+
+/** Round up to the next multiple of `step`. */
+function ceilTo(value: number, step: number): number {
+  return Math.ceil(value / step) * step
+}
+
+const MEAT_RE = /\b(beef|pork|lamb|turkey|sausage|bacon|steak|bratwurst)\b/
+const CHEESE_RE = /\b(cheese|cheddar|mozzarella|parmesan|feta|brie|gouda|gruyere|provolone|colby|asiago|manchego|gorgonzola|camembert|romano|pecorino|fontina|havarti|emmental|ricotta)\b/
 
 const PURCHASE_RULES: PurchaseRule[] = [
   // Cans → round up to whole cans
@@ -168,6 +181,57 @@ const PURCHASE_RULES: PurchaseRule[] = [
       return { amount: Math.ceil(amount / 10), unit: 'heads' }
     },
   },
+  // ── Shopping-scale rules (spec 26) ────────────────────────────────────────
+  // Ground meat → round up to nearest 1 lb
+  {
+    match: (name, unit) => /\bground\b/.test(name.toLowerCase()) && isPurchaseWeight(unit),
+    round: (amount, unit) => {
+      const inLb = unit === 'lb' || unit === 'lbs' ? amount : (amount * (WEIGHT_TO_OZ[unit!] ?? 1)) / 16
+      return { amount: Math.ceil(inLb), unit: 'lb' }
+    },
+  },
+  // Chicken (bulk) → round up to nearest 0.5 lb
+  {
+    match: (name, unit) => /\bchicken\b/.test(name.toLowerCase()) && isPurchaseWeight(unit),
+    round: (amount, unit) => {
+      const inLb = unit === 'lb' || unit === 'lbs' ? amount : (amount * (WEIGHT_TO_OZ[unit!] ?? 1)) / 16
+      return { amount: ceilTo(inLb, 0.5), unit: 'lb' }
+    },
+  },
+  // Other meats → round up to nearest 0.5 lb
+  {
+    match: (name, unit) => MEAT_RE.test(name.toLowerCase()) && isPurchaseWeight(unit),
+    round: (amount, unit) => {
+      const inLb = unit === 'lb' || unit === 'lbs' ? amount : (amount * (WEIGHT_TO_OZ[unit!] ?? 1)) / 16
+      return { amount: ceilTo(inLb, 0.5), unit: 'lb' }
+    },
+  },
+  // Cheese → round up to nearest 8 oz
+  {
+    match: (name, unit) => CHEESE_RE.test(name.toLowerCase()) && isPurchaseWeight(unit),
+    round: (amount, unit) => {
+      const inOz = unit === 'oz' ? amount : amount * (WEIGHT_TO_OZ[unit!] ?? 1)
+      return { amount: ceilTo(inOz, 8), unit: 'oz' }
+    },
+  },
+  // Eggs → round to nearest half-dozen (minimum 6)
+  {
+    match: (name, unit) => /\begg\b/.test(name.toLowerCase()) && (unit === null || ['piece', 'pieces'].includes(unit)),
+    round: (amount, _unit) => ({ amount: Math.max(6, ceilTo(amount, 6)), unit: null }),
+  },
+  // Produce (count, null unit) → round up to whole number
+  {
+    match: (_name, unit, section) => section === 'Produce' && unit === null,
+    round: (amount, unit) => ({ amount: Math.ceil(amount), unit }),
+  },
+  // Produce (weight) → round up to nearest 0.5 lb
+  {
+    match: (_name, unit, section) => section === 'Produce' && isPurchaseWeight(unit),
+    round: (amount, unit) => {
+      const inLb = unit === 'lb' || unit === 'lbs' ? amount : (amount * (WEIGHT_TO_OZ[unit!] ?? 1)) / 16
+      return { amount: ceilTo(inLb, 0.5), unit: 'lb' }
+    },
+  },
   // Generic: round fractional items up when unit is a count (pieces, slices, etc.)
   {
     match: (_name, unit) => ['piece', 'pieces', 'slice', 'slices', 'bunch', 'head', 'heads', 'sprig', 'sprigs', 'stalk', 'stalks'].includes(unit ?? ''),
@@ -183,7 +247,7 @@ export function roundToPurchaseUnits(items: GroceryItem[]): GroceryItem[] {
   return items.map((item) => {
     if (item.amount === null) return item
     for (const rule of PURCHASE_RULES) {
-      if (rule.match(item.name, item.unit)) {
+      if (rule.match(item.name, item.unit, item.section)) {
         const { amount, unit } = rule.round(item.amount, item.unit)
         return { ...item, amount: Math.round(amount * 100) / 100, unit }
       }
@@ -620,6 +684,11 @@ export function combineIngredients(inputs: CombineInput[]): {
         isPantry: parsed.isPantry,
         checked:   false,
         recipes:   [recipeTitle],
+        recipeBreakdown: [{
+          recipe: recipeTitle,
+          amount: scaled !== null ? Math.round(scaled * 100) / 100 : null,
+          unit:   parsed.unit,
+        }],
       })
       continue
     }
@@ -640,11 +709,13 @@ export function combineIngredients(inputs: CombineInput[]): {
       const unit = nonNullUnits.size > 0 ? Array.from(nonNullUnits)[0]! : null
       let total: number | null = null
       const recipeNames: string[] = []
+      const breakdown: import('@/types').RecipeBreakdownEntry[] = []
       for (const { parsed, recipeTitle, scaleFactor } of group) {
         if (!recipeNames.includes(recipeTitle)) recipeNames.push(recipeTitle)
+        const scaled = parsed.amount !== null ? Math.round(parsed.amount * scaleFactor * 100) / 100 : null
+        breakdown.push({ recipe: recipeTitle, amount: scaled, unit: parsed.unit })
         if (parsed.amount !== null) {
-          const scaled = parsed.amount * scaleFactor
-          total = (total ?? 0) + scaled
+          total = (total ?? 0) + parsed.amount * scaleFactor
         }
       }
       const first = group[0]!.parsed
@@ -664,6 +735,7 @@ export function combineIngredients(inputs: CombineInput[]): {
         isPantry: group.every((i) => i.parsed.isPantry),
         checked:   false,
         recipes:   recipeNames,
+        recipeBreakdown: breakdown,
       })
       continue
     }
@@ -674,9 +746,12 @@ export function combineIngredients(inputs: CombineInput[]): {
     let conversionWorked = true
     let convertedTotal: number | null = null
     const convertedRecipeNames: string[] = []
+    const convertedBreakdown: import('@/types').RecipeBreakdownEntry[] = []
 
     for (const { parsed, recipeTitle, scaleFactor } of group) {
       if (!convertedRecipeNames.includes(recipeTitle)) convertedRecipeNames.push(recipeTitle)
+      const scaled = parsed.amount !== null ? Math.round(parsed.amount * scaleFactor * 100) / 100 : null
+      convertedBreakdown.push({ recipe: recipeTitle, amount: scaled, unit: parsed.unit })
       if (parsed.amount === null || parsed.unit === null) continue
       const converted = convertUnit(parsed.amount * scaleFactor, parsed.unit, targetUnit)
       if (converted === null) {
@@ -701,6 +776,7 @@ export function combineIngredients(inputs: CombineInput[]): {
         isPantry: group.every((i) => i.parsed.isPantry),
         checked:   false,
         recipes:   convertedRecipeNames,
+        recipeBreakdown: convertedBreakdown,
       })
     } else {
       // Truly incompatible (e.g. volume vs weight) → ambiguous, send to LLM
@@ -741,8 +817,9 @@ export function deduplicateItems(items: GroceryItem[]): GroceryItem[] {
       continue
     }
 
-    // Merge all recipes lists
+    // Merge all recipes lists and recipeBreakdown arrays
     const allRecipes = Array.from(new Set(group.flatMap((i) => i.recipes)))
+    const allBreakdown = group.flatMap((i) => i.recipeBreakdown ?? [])
 
     const units = new Set(group.map((i) => i.unit))
     const nonNullUnits = Array.from(units).filter((u): u is string => u !== null)
@@ -768,6 +845,7 @@ export function deduplicateItems(items: GroceryItem[]): GroceryItem[] {
         amount: total !== null ? Math.round(total * 100) / 100 : null,
         isPantry: mergedIsPantry,
         recipes: allRecipes,
+        recipeBreakdown: allBreakdown.length > 0 ? allBreakdown : undefined,
       })
     } else {
       // Multiple distinct units — keep the item with the largest amount as primary,
@@ -777,7 +855,12 @@ export function deduplicateItems(items: GroceryItem[]): GroceryItem[] {
         if (best.amount === null) return item
         return item.amount > best.amount ? item : best
       }, group[0]!)
-      result.push({ ...base, isPantry: mergedIsPantry, recipes: allRecipes })
+      result.push({
+        ...base,
+        isPantry: mergedIsPantry,
+        recipes: allRecipes,
+        recipeBreakdown: allBreakdown.length > 0 ? allBreakdown : undefined,
+      })
     }
   }
 
