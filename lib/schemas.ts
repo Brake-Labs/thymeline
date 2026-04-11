@@ -296,7 +296,7 @@ export const importSaveSchema = z.object({
     data:             parsedRecipeSchema,
     duplicateAction: z.enum(['skip', 'keep_both', 'replace']).optional(),
     existingId:      z.string().uuid().optional(),
-  })).min(1).max(200),
+  })).min(1).max(2000),
 }).refine(
   (val) => val.recipes.every(
     (r) => r.duplicateAction !== 'replace' || r.existingId !== undefined,
