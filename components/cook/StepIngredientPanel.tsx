@@ -1,12 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { parseIngredientLine } from '@/lib/grocery'
+import { buildIngredientEntries, escapeRegex } from '@/lib/inject-step-quantities'
 import { scaleIngredients } from '@/lib/scale-ingredients'
-
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')
-}
+import { parseIngredientLine } from '@/lib/grocery'
 
 interface Props {
   stepText: string
@@ -25,14 +22,23 @@ export function matchStepIngredients(
 ): string[] {
   const lines = ingredients.split('\n').filter(Boolean)
   const scaledLines = scaleIngredients(ingredients, baseServings, targetServings)
+  const entries = buildIngredientEntries(lines, targetServings, baseServings, stepText)
+
+  // Build a set of matched ingredient names
+  const matchedNames = new Set<string>()
+  for (const { matchName, ingredientName } of entries) {
+    const re = new RegExp(`\\b${escapeRegex(matchName)}\\b`, 'i')
+    if (re.test(stepText)) {
+      matchedNames.add(ingredientName)
+    }
+  }
+
+  // Return scaled display lines for matched ingredients (preserving order)
   return lines
     .map((line, i) => {
       const { rawName } = parseIngredientLine(line)
       if (!rawName) return null
-      // Use word-boundary regex so "oil" doesn't match inside "boil",
-      // or "rice" doesn't match inside "licorice".
-      const re = new RegExp(`\\b${escapeRegex(rawName)}\\b`, 'i')
-      return re.test(stepText) ? scaledLines[i] : null
+      return matchedNames.has(rawName) ? (scaledLines[i] ?? null) : null
     })
     .filter((l): l is string => l !== null)
 }

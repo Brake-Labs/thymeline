@@ -22,6 +22,31 @@ export function formatFraction(value: number): string {
   return value.toFixed(1)
 }
 
+export interface ScaledIngredient {
+  amount: number | null
+  unit: string | null
+  rawName: string
+  formatted: string
+}
+
+export function scaleIngredient(
+  line: string,
+  baseServings: number,
+  targetServings: number,
+): ScaledIngredient {
+  const base = baseServings === 0 ? 1 : baseServings
+  const factor = targetServings / base
+  const parsed = parseIngredientLine(line)
+  if (parsed.amount === null) {
+    return { amount: null, unit: null, rawName: parsed.rawName, formatted: line }
+  }
+  const scaled = parsed.amount * factor
+  const formatted = parsed.unit
+    ? `${formatFraction(scaled)} ${parsed.unit} ${parsed.rawName}`
+    : `${formatFraction(scaled)} ${parsed.rawName}`
+  return { amount: scaled, unit: parsed.unit, rawName: parsed.rawName, formatted }
+}
+
 export function scaleIngredients(
   ingredients: string,
   baseServings: number,
