@@ -13,6 +13,7 @@ import {
   roundToPurchaseUnits,
   suppressStapleQuantities,
 } from '@/lib/grocery'
+import { llmDeduplicateItems } from '@/lib/grocery-llm'
 import { resolveRecipeIngredients } from '@/lib/grocery-scrape'
 import { db } from '@/lib/db'
 import { eq, and, gte, lte, inArray, asc } from 'drizzle-orm'
@@ -217,6 +218,11 @@ onion, flour, sugar, butter, common spices, vinegar, soy sauce, etc.)`
   // when some occurrences of an ingredient merged in the rule pass (same unit)
   // and another occurrence came back from the LLM as a separate entry.
   let allItems: GroceryItem[] = deduplicateItems([...resolved, ...llmResolved])
+
+  // LLM-assisted semantic dedup (spec 26): catches duplicates the rule-based
+  // normalizer missed (e.g. "boneless skinless chicken breast" = "chicken breast").
+  // Must run BEFORE rounding so merged amounts get rounded once.
+  allItems = await llmDeduplicateItems(allItems)
 
   // Post-processing: round to natural purchase units, suppress pantry staple quantities
   allItems = roundToPurchaseUnits(allItems)
