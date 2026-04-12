@@ -190,6 +190,15 @@ const PURCHASE_RULES: PurchaseRule[] = [
       return { amount: Math.ceil(inLb), unit: 'lb' }
     },
   },
+  // Chicken (count) → convert count to weight (1 breast ≈ 0.5 lb), then round to 0.5 lb
+  // "whole chicken" is excluded — buying 1 whole chicken by count is valid.
+  {
+    match: (name, unit) => /\bchicken\b/.test(name.toLowerCase()) && !/\bwhole\b/.test(name.toLowerCase()) && (unit === null || ['piece', 'pieces'].includes(unit ?? '')),
+    round: (amount, _unit) => {
+      const inLb = amount * 0.5
+      return { amount: ceilTo(inLb, 0.5), unit: 'lb' }
+    },
+  },
   // Chicken (bulk) → round up to nearest 0.5 lb
   {
     match: (name, unit) => /\bchicken\b/.test(name.toLowerCase()) && isPurchaseWeight(unit),
@@ -417,7 +426,7 @@ const SECTION_KEYWORDS: { section: GrocerySection; keywords: string[] }[] = [
       'cilantro', 'corn', 'cucumber', 'dill', 'eggplant', 'fennel', 'fig',
       'garlic', 'ginger', 'grape', 'green bean', 'green onion', 'herbs', 'jalapeño',
       'kale', 'leek', 'lemon', 'lettuce', 'lime', 'mango', 'mint', 'mushroom',
-      'onion', 'orange', 'parsley', 'parsnip', 'pea', 'peach', 'pear', 'pepper',
+      'onion', 'orange', 'parsley', 'parsnip', 'pea', 'peach', 'pear',
       'pineapple', 'plum', 'potato', 'pumpkin', 'radish', 'rosemary', 'sage',
       'scallion', 'shallot', 'spinach', 'squash', 'strawberry', 'sweet potato',
       'thyme', 'tomato', 'turnip', 'zucchini',
@@ -508,6 +517,10 @@ export function assignSection(name: string): GrocerySection {
   // to Canned & Jarred before the keyword table runs — this catches cases like
   // "2 cans fire roasted diced tomatoes" where "tomato" would otherwise match Produce.
   if (CANNED_INDICATOR_RE.test(lc)) return 'Canned & Jarred'
+  // Bare "pepper" (with optional "black"/"white"/"ground" modifier) is the spice,
+  // not a fresh pepper. Must be checked before the keyword loop because Produce
+  // keywords like "bell pepper" also contain the substring "pepper".
+  if (/^(?:(?:black|white|ground|cracked)\s+)?pepper$/.test(lc)) return 'Pantry'
   for (const { section, keywords } of SECTION_KEYWORDS) {
     if (keywords.some((kw) => lc.includes(kw))) return section
   }
@@ -517,6 +530,7 @@ export function assignSection(name: string): GrocerySection {
 /** Whether a name matches pantry staple keywords. */
 export function isPantryStaple(name: string): boolean {
   const lc = name.toLowerCase()
+  if (/^(?:(?:black|white|ground|cracked)\s+)?pepper$/.test(lc)) return true
   return Array.from(PANTRY_KEYWORDS).some((kw) => lc.includes(kw))
 }
 
