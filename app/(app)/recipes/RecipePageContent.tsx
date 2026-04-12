@@ -423,17 +423,6 @@ export default function RecipePageContent() {
           </button>
         </div>
 
-        {/* Export */}
-        <button
-          type="button"
-          disabled={recipes.length === 0}
-          onClick={() => setShowExportModal(true)}
-          title={recipes.length === 0 ? 'Add some recipes first' : 'Export recipes'}
-          className="text-sm font-medium text-stone-600 hover:text-sage-600 disabled:text-stone-300 disabled:cursor-not-allowed transition-colors"
-        >
-          Export
-        </button>
-
         {/* Add Recipe dropdown */}
         <div ref={dropdownRef} className="relative">
           <button
@@ -467,6 +456,7 @@ export default function RecipePageContent() {
                 <span className="text-sage-500">✦</span>
                 Generate with AI
               </button>
+              <div className="border-t border-stone-100 my-1" />
               <Link
                 href="/import"
                 onClick={() => setShowAddDropdown(false)}
@@ -474,6 +464,17 @@ export default function RecipePageContent() {
               >
                 Import Recipes
               </Link>
+              <button
+                onClick={() => { if (recipes.length > 0) { setShowExportModal(true); setShowAddDropdown(false) } }}
+                disabled={recipes.length === 0}
+                className={`w-full text-left px-4 py-2 text-sm transition-colors ${
+                  recipes.length === 0
+                    ? 'text-stone-300 cursor-not-allowed'
+                    : 'text-stone-700 hover:bg-sage-50'
+                }`}
+              >
+                Export Recipes
+              </button>
             </div>
           )}
         </div>
