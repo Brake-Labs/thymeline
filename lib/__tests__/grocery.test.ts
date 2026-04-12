@@ -1686,3 +1686,73 @@ describe('Spec 26 — Pipeline integration', () => {
     expect(chicken.recipeBreakdown![1]!.amount).toBe(0.6)
   })
 })
+
+// ── Spec 27: Grocery list fixes (#387) ───────────────────────────────────────
+
+describe('Spec 27 — pepper section assignment', () => {
+  it('T27-01: bare "pepper" → Pantry', () => {
+    expect(assignSection('pepper')).toBe('Pantry')
+  })
+
+  it('T27-02: "black pepper" still → Pantry', () => {
+    expect(assignSection('black pepper')).toBe('Pantry')
+  })
+
+  it('T27-03: "bell pepper" still → Produce', () => {
+    expect(assignSection('bell pepper')).toBe('Produce')
+  })
+
+  it('T27-04: "red bell pepper" still → Produce', () => {
+    expect(assignSection('red bell pepper')).toBe('Produce')
+  })
+
+  it('T27-05: bare "pepper" is pantry staple', () => {
+    expect(isPantryStaple('pepper')).toBe(true)
+  })
+})
+
+describe('Spec 27 — chicken breast count → weight', () => {
+  const makeItem = (overrides: Partial<GroceryItem>): GroceryItem => ({
+    id: '1',
+    name: 'test',
+    amount: null,
+    unit: null,
+    section: 'Other',
+    isPantry: false,
+    checked: false,
+    recipes: [],
+    ...overrides,
+  })
+
+  it('T27-06: chicken breast count converts to lb', () => {
+    const result = roundToPurchaseUnits([makeItem({ name: 'chicken breast', amount: 2, unit: null })])
+    expect(result[0]!.amount).toBe(1)
+    expect(result[0]!.unit).toBe('lb')
+  })
+
+  it('T27-07: fractional chicken count rounds to 0.5 lb', () => {
+    const result = roundToPurchaseUnits([makeItem({ name: 'chicken breast', amount: 3.3, unit: null })])
+    // 3.3 × 0.5 = 1.65 → ceil to 2 lb
+    expect(result[0]!.amount).toBe(2)
+    expect(result[0]!.unit).toBe('lb')
+  })
+
+  it('T27-08: chicken thighs count also converts', () => {
+    const result = roundToPurchaseUnits([makeItem({ name: 'chicken thighs', amount: 4, unit: null })])
+    // 4 × 0.5 = 2 lb
+    expect(result[0]!.amount).toBe(2)
+    expect(result[0]!.unit).toBe('lb')
+  })
+
+  it('T27-09: chicken weight rule still works', () => {
+    const result = roundToPurchaseUnits([makeItem({ name: 'chicken breast', amount: 1.2, unit: 'lb' })])
+    expect(result[0]!.amount).toBe(1.5)
+    expect(result[0]!.unit).toBe('lb')
+  })
+
+  it('T27-10: "whole chicken" does NOT convert count to weight', () => {
+    const result = roundToPurchaseUnits([makeItem({ name: 'whole chicken', amount: 1, unit: null })])
+    expect(result[0]!.amount).toBe(1)
+    expect(result[0]!.unit).toBeNull()
+  })
+})
