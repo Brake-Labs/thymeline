@@ -1,5 +1,5 @@
 import { parseIngredientLine } from '@/lib/grocery'
-import { scaleIngredients } from '@/lib/scale-ingredients'
+import { formatFraction } from '@/lib/scale-ingredients'
 
 export interface HighlightRange {
   start: number
@@ -11,10 +11,68 @@ export interface InjectedStep {
   highlights: HighlightRange[]
 }
 
-function escapeRegex(str: string): string {
+export function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
+export interface IngredientEntry {
+  name: string
+  matchName: string
+  ingredientName: string
+  quantity: string
+}
+
+/**
+ * Builds a list of ingredient entries with match names, last-word fallbacks,
+ * and ambiguity guards. Shared by injectStepQuantities and StepIngredientPanel
+ * to ensure both systems agree on which ingredients belong to which step.
+ */
+export function buildIngredientEntries(
+  lines: string[],
+  servings: number,
+  originalServings: number,
+  stepText: string,
+): IngredientEntry[] {
+  const base = originalServings === 0 ? 1 : originalServings
+  const factor = servings / base
+
+  const primaryEntries: IngredientEntry[] = []
+  const fallbackCandidates: { entry: IngredientEntry; fullRe: RegExp }[] = []
+  const fallbackWordCount = new Map<string, number>()
+
+  for (const line of lines) {
+    const parsed = parseIngredientLine(line)
+    if (!parsed.rawName) continue
+
+    const scaledAmount = parsed.amount !== null ? parsed.amount * factor : null
+    const quantity = scaledAmount !== null
+      ? formatFraction(scaledAmount) + (parsed.unit ? ' ' + parsed.unit : '')
+      : ''
+
+    const preComma = parsed.rawName.includes(',') ? parsed.rawName.split(',')[0]!.trim() : parsed.rawName
+    const matchName = preComma || parsed.rawName
+    primaryEntries.push({ name: parsed.rawName, matchName, ingredientName: parsed.rawName, quantity })
+
+    const words = matchName.split(/\s+/)
+    if (words.length > 1) {
+      const lastWord = words[words.length - 1]!
+      const fullRe = new RegExp(`\\b${escapeRegex(matchName)}\\b`, 'i')
+      fallbackCandidates.push({ entry: { name: parsed.rawName, matchName: lastWord, ingredientName: parsed.rawName, quantity }, fullRe })
+      fallbackWordCount.set(lastWord, (fallbackWordCount.get(lastWord) ?? 0) + 1)
+    }
+  }
+
+  const entries: IngredientEntry[] = [...primaryEntries]
+  for (const { entry, fullRe } of fallbackCandidates) {
+    const lastWord = entry.matchName
+    if (!fullRe.test(stepText) && (fallbackWordCount.get(lastWord) ?? 0) <= 1) {
+      entries.push(entry)
+    }
+  }
+
+  entries.sort((a, b) => b.matchName.length - a.matchName.length)
+  return entries
+}
 
 // Detects a quantity-like token (number or fraction + optional unit) at the very
 // end of a lookback string — with an optional "of" preposition before the trailing
@@ -50,53 +108,7 @@ export function injectStepQuantities(
   const lines = ingredients.split('\n').filter(Boolean)
   if (lines.length === 0) return { text: stepText, highlights: [] }
 
-  const scaled = scaleIngredients(ingredients, originalServings, servings)
-
-  type Entry = { name: string; matchName: string; ingredientName: string; quantity: string }
-  const primaryEntries: Entry[] = []
-  // Collect fallback candidates separately so we can apply two guards before adding them:
-  //   1. The full ingredient name must NOT appear in the step text (prevents "sauce" from
-  //      shadowing "soy sauce" when both "sauce" and "soy sauce" are in the same step).
-  //   2. The fallback last-word must be unambiguous — only one ingredient maps to it
-  //      (prevents "sauce" matching when BOTH "soy sauce" and "fish sauce" are ingredients).
-  const fallbackCandidates: { entry: Entry; fullRe: RegExp }[] = []
-  const fallbackWordCount = new Map<string, number>()
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]!
-    const { rawName } = parseIngredientLine(line)
-    if (!rawName) continue
-    const scaledLine = scaled[i] ?? line
-    // quantity = everything before rawName in the scaled line
-    const idx = scaledLine.indexOf(rawName)
-    const quantity = idx > 0 ? scaledLine.slice(0, idx).trim() : ''
-    // Strip comma-separated descriptors so "garlic, minced" matches "garlic" in steps
-    const preComma = rawName.includes(',') ? rawName.split(',')[0]!.trim() : rawName
-    const matchName = preComma || rawName
-    primaryEntries.push({ name: rawName, matchName, ingredientName: rawName, quantity })
-    // Prepare last-word fallback for multi-word names (e.g. "olive oil" → "oil",
-    // "all-purpose flour" → "flour") so step text that uses only the short form still matches.
-    const words = matchName.split(/\s+/)
-    if (words.length > 1) {
-      const lastWord = words[words.length - 1]!
-      const fullRe = new RegExp(`\\b${escapeRegex(matchName)}\\b`, 'i')
-      fallbackCandidates.push({ entry: { name: rawName, matchName: lastWord, ingredientName: rawName, quantity }, fullRe })
-      fallbackWordCount.set(lastWord, (fallbackWordCount.get(lastWord) ?? 0) + 1)
-    }
-  }
-
-  const entries: Entry[] = [...primaryEntries]
-  for (const { entry, fullRe } of fallbackCandidates) {
-    const lastWord = entry.matchName
-    // Guard 1: only use fallback when the full name isn't already in the step
-    // Guard 2: skip if multiple ingredients share the same fallback word (ambiguous)
-    if (!fullRe.test(stepText) && (fallbackWordCount.get(lastWord) ?? 0) <= 1) {
-      entries.push(entry)
-    }
-  }
-
-  // Longer match names first to prevent partial-match clobbering
-  entries.sort((a, b) => b.matchName.length - a.matchName.length)
+  const entries = buildIngredientEntries(lines, servings, originalServings, stepText)
 
   type Match = { start: number; end: number; quantity: string; matched: string; matchName: string; ingredientName: string }
   const matches: Match[] = []

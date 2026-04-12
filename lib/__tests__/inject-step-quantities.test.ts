@@ -397,3 +397,86 @@ describe('T67 - ambiguous last-word fallback suppressed (regression for #319)', 
     expect(result.highlights).toHaveLength(2)
   })
 })
+
+// ── T68: Ingredient with no amount — no quantity injected ────────────────────
+
+describe('T68 - ingredient with no amount gets no quantity injected', () => {
+  it('leaves step unchanged when ingredient has no amount', () => {
+    const result = injectStepQuantities(
+      'season the chicken breasts',
+      'chicken breasts',
+      4,
+      4,
+    )
+    expect(result.text).toBe('season the chicken breasts')
+    expect(result.highlights).toHaveLength(0)
+  })
+})
+
+// ── T69: Ingredient with amount but no unit — injects number only ────────────
+
+describe('T69 - ingredient with amount but no unit injects number only', () => {
+  it('injects "3" before "eggs" when ingredient is "3 eggs"', () => {
+    const result = injectStepQuantities(
+      'crack the eggs into the bowl',
+      '3 eggs',
+      4,
+      4,
+    )
+    expect(result.text).toBe('crack the 3 eggs into the bowl')
+    expect(result.highlights).toHaveLength(1)
+    const span = result.text.slice(result.highlights[0]!.start, result.highlights[0]!.end)
+    expect(span).toBe('3')
+  })
+})
+
+// ── T70: rawName at position 0 in formatted line (idx > 0 regression) ────────
+
+describe('T70 - ingredient with no unit scales correctly (idx > 0 regression)', () => {
+  it('injects "3" before "chicken breasts" when ingredient is "3 chicken breasts"', () => {
+    const result = injectStepQuantities(
+      'dice the chicken breasts',
+      '3 chicken breasts',
+      4,
+      4,
+    )
+    expect(result.text).toBe('dice the 3 chicken breasts')
+    expect(result.highlights).toHaveLength(1)
+    const span = result.text.slice(result.highlights[0]!.start, result.highlights[0]!.end)
+    expect(span).toBe('3')
+  })
+
+  it('leaves step unchanged when ingredient has no amount and rawName starts at position 0', () => {
+    const result = injectStepQuantities(
+      'season the chicken',
+      'chicken',
+      4,
+      4,
+    )
+    expect(result.text).toBe('season the chicken')
+    expect(result.highlights).toHaveLength(0)
+  })
+})
+
+// ── T71: Compound unit ingredient ────────────────────────────────────────────
+
+describe('T71 - compound unit ingredient (e.g. "14.5-oz can") scales correctly', () => {
+  it('injects scaled quantity before "diced tomatoes" for compound unit ingredient', () => {
+    // parseIngredientLine("1 14.5-oz can diced tomatoes") → amount: 1, unit: null, rawName: "14.5-oz can diced tomatoes"
+    // At 2× scaling, quantity becomes "2"
+    const result = injectStepQuantities(
+      'add the diced tomatoes to the pot',
+      '1 14.5-oz can diced tomatoes',
+      8,
+      4,
+    )
+    // "diced tomatoes" is part of the rawName "14.5-oz can diced tomatoes"
+    // The full rawName won't match "diced tomatoes" alone, but the step should
+    // still work — the last-word fallback "tomatoes" would match
+    expect(result.text).toContain('tomatoes')
+    // Verify quantity "2" is injected and highlighted
+    expect(result.highlights.length).toBeGreaterThanOrEqual(1)
+    const span = result.text.slice(result.highlights[0]!.start, result.highlights[0]!.end)
+    expect(span).toBe('2')
+  })
+})
