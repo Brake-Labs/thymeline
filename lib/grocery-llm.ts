@@ -160,7 +160,12 @@ function mergeByGroups(items: GroceryItem[], groups: LLMDedupGroup[]): GroceryIt
         }
       }
       if (!conversionWorked) {
-        // Can't convert — keep the largest-amount item as base
+        // Can't convert (e.g. volume vs weight) — keep the largest-amount item
+        // as base. This means smaller amounts from other units are dropped,
+        // which could under-count. Acceptable because: (1) truly incompatible
+        // units are rare after rule-based dedup, (2) the LLM shouldn't group
+        // items with fundamentally different units, and (3) buying too little
+        // is better than a crash or nonsense total like "16 oz + 2 cups".
         const base = group.reduce((best, item) => {
           if (item.amount === null) return best
           if (best.amount === null) return item

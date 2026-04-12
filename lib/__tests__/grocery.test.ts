@@ -1637,3 +1637,52 @@ describe('Spec 26 — recipeBreakdown', () => {
     expect(beef.recipeBreakdown![1]!.amount).toBe(1)
   })
 })
+
+// ── Spec 26: Pipeline integration ────────────────────────────────────────────
+
+describe('Spec 26 — Pipeline integration', () => {
+  it('T26-23: combine → dedup → round produces correct amounts (no double-rounding)', () => {
+    // Two recipes each contribute chicken breast in the same unit
+    const inputs = [
+      { parsed: parseIngredientLine('0.7 lb chicken breast'), recipeTitle: 'Tacos', scaleFactor: 1 },
+      { parsed: parseIngredientLine('0.6 lb chicken breast'), recipeTitle: 'Stir Fry', scaleFactor: 1 },
+      { parsed: parseIngredientLine('5 oz cheddar'), recipeTitle: 'Tacos', scaleFactor: 1 },
+      { parsed: parseIngredientLine('4 oz cheddar'), recipeTitle: 'Stir Fry', scaleFactor: 1 },
+      { parsed: parseIngredientLine('3 eggs'), recipeTitle: 'Tacos', scaleFactor: 1 },
+      { parsed: parseIngredientLine('2 onion'), recipeTitle: 'Stir Fry', scaleFactor: 1 },
+    ]
+
+    // Step 1: combine
+    const { resolved } = combineIngredients(inputs)
+
+    // Step 2: rule-based dedup (may further merge if combine didn't catch all)
+    const deduped = deduplicateItems(resolved)
+
+    // Step 3: round to purchase units (LLM dedup would go between steps 2 and 3,
+    // but we're testing the rule-based pipeline here without mocking the LLM)
+    const rounded = roundToPurchaseUnits(deduped)
+
+    // Chicken: 0.7 + 0.6 = 1.3 lb → rounds to 1.5 lb (0.5 lb step)
+    const chicken = rounded.find((i) => i.name.toLowerCase().includes('chicken'))!
+    expect(chicken.amount).toBe(1.5)
+    expect(chicken.unit).toBe('lb')
+
+    // Cheddar: 5 + 4 = 9 oz → rounds to 16 oz (8 oz step)
+    const cheddar = rounded.find((i) => i.name.toLowerCase().includes('cheddar'))!
+    expect(cheddar.amount).toBe(16)
+    expect(cheddar.unit).toBe('oz')
+
+    // Eggs: 3 → rounds to 6 (half-dozen minimum)
+    const eggs = rounded.find((i) => i.name.toLowerCase().includes('egg'))!
+    expect(eggs.amount).toBe(6)
+
+    // Onion: 2 → stays 2 (already whole number, Produce count rule)
+    const onion = rounded.find((i) => i.name.toLowerCase().includes('onion'))!
+    expect(onion.amount).toBe(2)
+
+    // Verify recipeBreakdown preserved through the pipeline
+    expect(chicken.recipeBreakdown).toHaveLength(2)
+    expect(chicken.recipeBreakdown![0]!.amount).toBe(0.7)
+    expect(chicken.recipeBreakdown![1]!.amount).toBe(0.6)
+  })
+})

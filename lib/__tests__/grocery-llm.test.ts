@@ -152,6 +152,62 @@ describe('Spec 26 — llmDeduplicateItems', () => {
     expect(cheddar.recipes).toContain('Mac')
   })
 
+  it('T26-17: does NOT merge chicken breast + chicken thigh (identity rule)', async () => {
+    const items = [
+      makeItem({ name: 'chicken breast', amount: 1.5, unit: 'lb', recipes: ['Tacos'] }),
+      makeItem({ name: 'chicken thigh', amount: 1, unit: 'lb', recipes: ['Curry'] }),
+      makeItem({ name: 'onion', amount: 2, unit: null, section: 'Produce', recipes: ['Tacos'] }),
+      makeItem({ name: 'garlic', amount: 3, unit: 'cloves', section: 'Produce', recipes: ['Curry'] }),
+    ]
+
+    // LLM correctly keeps them separate (prompt includes DO NOT merge rule)
+    mockedCallLLM.mockResolvedValueOnce(JSON.stringify({
+      groups: [
+        { canonical: 'chicken breast', variants: ['chicken breast'] },
+        { canonical: 'chicken thigh', variants: ['chicken thigh'] },
+        { canonical: 'onion', variants: ['onion'] },
+        { canonical: 'garlic', variants: ['garlic'] },
+      ],
+    }))
+
+    const result = await llmDeduplicateItems(items)
+    expect(result).toHaveLength(4)
+    const breast = result.find((i) => i.name === 'chicken breast')!
+    const thigh = result.find((i) => i.name === 'chicken thigh')!
+    expect(breast).toBeDefined()
+    expect(thigh).toBeDefined()
+    expect(breast.amount).toBe(1.5)
+    expect(thigh.amount).toBe(1)
+  })
+
+  it('T26-18: does NOT merge scallion + green onion (identity rule)', async () => {
+    const items = [
+      makeItem({ name: 'scallion', amount: 4, unit: null, section: 'Produce', recipes: ['Stir Fry'] }),
+      makeItem({ name: 'green onion', amount: 3, unit: null, section: 'Produce', recipes: ['Tacos'] }),
+      makeItem({ name: 'garlic', amount: 2, unit: 'cloves', section: 'Produce', recipes: ['Stir Fry'] }),
+      makeItem({ name: 'ginger', amount: 1, unit: 'tbsp', recipes: ['Stir Fry'] }),
+    ]
+
+    // LLM correctly keeps them separate (prompt includes DO NOT merge rule)
+    mockedCallLLM.mockResolvedValueOnce(JSON.stringify({
+      groups: [
+        { canonical: 'scallion', variants: ['scallion'] },
+        { canonical: 'green onion', variants: ['green onion'] },
+        { canonical: 'garlic', variants: ['garlic'] },
+        { canonical: 'ginger', variants: ['ginger'] },
+      ],
+    }))
+
+    const result = await llmDeduplicateItems(items)
+    expect(result).toHaveLength(4)
+    const scallion = result.find((i) => i.name === 'scallion')!
+    const greenOnion = result.find((i) => i.name === 'green onion')!
+    expect(scallion).toBeDefined()
+    expect(greenOnion).toBeDefined()
+    expect(scallion.amount).toBe(4)
+    expect(greenOnion.amount).toBe(3)
+  })
+
   it('unparseable LLM response returns items unchanged', async () => {
     const items = [
       makeItem({ name: 'pasta', amount: 200, unit: 'g', recipes: ['A'] }),

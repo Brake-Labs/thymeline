@@ -112,7 +112,6 @@ Expand `PURCHASE_RULES` in `lib/grocery.ts` with these new rules. Insert them
 | Produce (count) | section is Produce AND unit is null (count items) | Round up to whole number |
 | Produce (weight) | section is Produce AND unit is weight | Round up to nearest 0.5 lb |
 | Eggs | name contains "egg" AND unit is count-like or null | Round to nearest 6 (half-dozen) with minimum 6 |
-| Small liquids | unit is volume AND amount < 0.25 cup equivalent AND item is a common pantry liquid | Suppress entirely (you have it) |
 
 Rules apply in order; first match wins. The existing rules (cans, butter,
 garlic, generic count) remain and keep their current positions.

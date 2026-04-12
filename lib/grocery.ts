@@ -216,7 +216,7 @@ const PURCHASE_RULES: PurchaseRule[] = [
   },
   // Eggs → round to nearest half-dozen (minimum 6)
   {
-    match: (name, unit) => /\begg\b/.test(name.toLowerCase()) && (unit === null || ['piece', 'pieces'].includes(unit)),
+    match: (name, unit) => /\beggs?\b/.test(name.toLowerCase()) && (unit === null || ['piece', 'pieces'].includes(unit)),
     round: (amount, _unit) => ({ amount: Math.max(6, ceilTo(amount, 6)), unit: null }),
   },
   // Produce (count, null unit) → round up to whole number
