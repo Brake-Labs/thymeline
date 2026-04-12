@@ -127,10 +127,10 @@ describe('POST /api/recipes/export/pdf', () => {
     expect(res.status).toBe(400)
   })
 
-  it('T03: >50 IDs returns 400', async () => {
+  it('T03: >200 IDs returns 400', async () => {
     await setupMocks()
     const { POST } = await import('../pdf/route')
-    const ids = Array.from({ length: 51 }, (_, i) =>
+    const ids = Array.from({ length: 201 }, (_, i) =>
       `a0000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
     )
     const req = makeRequest('POST', 'http://localhost/api/recipes/export/pdf', {

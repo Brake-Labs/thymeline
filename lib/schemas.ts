@@ -313,7 +313,7 @@ export const consumeInviteSchema = z.object({
 // ─── Export ────────────────────────────────────────────────────────────────
 
 export const exportPdfSchema = z.object({
-  recipe_ids: z.array(z.string().uuid()).min(1).max(50),
+  recipe_ids: z.array(z.string().uuid()).min(1).max(200),
   format: z.enum(['single', 'cookbook']),
 })
 
