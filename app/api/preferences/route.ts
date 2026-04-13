@@ -31,6 +31,8 @@ const DEFAULT_PREFS = {
   mealContext: null as string | null,
   hiddenTags: [] as string[],
   weekStartDay: 0,
+  lastActiveDays: [] as string[],
+  lastActiveMealTypes: [] as string[],
 }
 
 export const GET = withAuth(async (req, { user, ctx }) => {
@@ -48,6 +50,8 @@ export const GET = withAuth(async (req, { user, ctx }) => {
         mealContext: userPreferences.mealContext,
         hiddenTags: userPreferences.hiddenTags,
         weekStartDay: userPreferences.weekStartDay,
+        lastActiveDays: userPreferences.lastActiveDays,
+        lastActiveMealTypes: userPreferences.lastActiveMealTypes,
       })
       .from(userPreferences)
       .where(scopeCondition({ userId: userPreferences.userId, householdId: userPreferences.householdId }, user.id, ctx))
@@ -103,7 +107,7 @@ export const PATCH = withAuth(async (req, { user, ctx }) => {
   }
 
   // Build the payload with only allowed fields
-  const allowed = ['optionsPerDay', 'cooldownDays', 'seasonalMode', 'preferredTags', 'avoidedTags', 'limitedTags', 'onboardingCompleted', 'mealContext', 'hiddenTags', 'weekStartDay'] as const
+  const allowed = ['optionsPerDay', 'cooldownDays', 'seasonalMode', 'preferredTags', 'avoidedTags', 'limitedTags', 'onboardingCompleted', 'mealContext', 'hiddenTags', 'weekStartDay', 'lastActiveDays', 'lastActiveMealTypes'] as const
   const bodyRecord = body as Record<string, unknown>
 
   // Map snake_case body keys to camelCase Drizzle columns
@@ -118,6 +122,8 @@ export const PATCH = withAuth(async (req, { user, ctx }) => {
     mealContext: 'mealContext',
     hiddenTags: 'hiddenTags',
     weekStartDay: 'weekStartDay',
+    lastActiveDays: 'lastActiveDays',
+    lastActiveMealTypes: 'lastActiveMealTypes',
   }
 
   const update: Record<string, unknown> = {}
@@ -154,6 +160,8 @@ export const PATCH = withAuth(async (req, { user, ctx }) => {
         mealContext: userPreferences.mealContext,
         hiddenTags: userPreferences.hiddenTags,
         weekStartDay: userPreferences.weekStartDay,
+        lastActiveDays: userPreferences.lastActiveDays,
+        lastActiveMealTypes: userPreferences.lastActiveMealTypes,
       })
 
     const data = dbFirst(rows)

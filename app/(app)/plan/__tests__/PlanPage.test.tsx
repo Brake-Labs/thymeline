@@ -14,31 +14,25 @@ vi.mock('next/navigation', () => ({
 }))
 
 
-vi.mock('@/components/plan/SetupStep', () => ({
-  default: () => React.createElement('div', { 'data-testid': 'setup-step' }, 'SetupStep'),
+vi.mock('@/components/plan/ContextScreen', () => ({
+  default: () => React.createElement('div', { 'data-testid': 'context-screen' }, 'ContextScreen'),
 }))
-vi.mock('@/components/plan/SuggestionsStep', () => ({
-  default: () => React.createElement('div', { 'data-testid': 'suggestions-step' }, 'SuggestionsStep'),
-}))
-vi.mock('@/components/plan/SummaryStep', () => ({
-  default: () => React.createElement('div', { 'data-testid': 'summary-step' }, 'SummaryStep'),
-}))
-vi.mock('@/components/plan/PostSaveModal', () => ({
-  default: () => null,
+vi.mock('@/components/plan/SuggestionsScreen', () => ({
+  default: () => React.createElement('div', { 'data-testid': 'suggestions-screen' }, 'SuggestionsScreen'),
 }))
 
-// ── T38: /plan always shows the wizard without redirecting ────────────────────
+// ── T26: /plan uses 2-screen flow ───────────────────────────────────────────
 
-describe('T38 - /plan always renders the wizard directly', () => {
-  it('shows the setup step immediately without a loading state or redirect', async () => {
+describe('T26 - /plan renders 2-screen flow', () => {
+  it('shows the context screen immediately without a loading state or redirect', async () => {
     const { default: PlanPage } = await import('../page')
     render(React.createElement(PlanPage))
 
-    // Setup step must be immediately visible
-    expect(screen.getByTestId('setup-step')).toBeInTheDocument()
+    // Context screen must be immediately visible
+    expect(screen.getByTestId('context-screen')).toBeInTheDocument()
     // No loading spinner
     expect(screen.queryByText(/Loading/)).not.toBeInTheDocument()
-    // No redirect — wizard owns this route entirely
+    // No redirect
     expect(mockReplace).not.toHaveBeenCalled()
   })
 })

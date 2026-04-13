@@ -1,35 +1,34 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import SetupStep from '@/components/plan/SetupStep'
-import SuggestionsStep from '@/components/plan/SuggestionsStep'
-import SummaryStep from '@/components/plan/SummaryStep'
-import PostSaveModal from '@/components/plan/PostSaveModal'
+import ContextScreen from '@/components/plan/ContextScreen'
+import SuggestionsScreen from '@/components/plan/SuggestionsScreen'
 import type { RecipeSuggestion, DaySelection, DaySuggestions, MealType, SavedPlanEntry, PlanSetup, SelectionsMap } from '@/types'
-import type { MealTypeState } from '@/components/plan/SuggestionDayRow'
+import type { MealTypeState } from '@/components/plan/DayCard'
+
+import { getMostRecentSunday, getMostRecentWeekStart, getWeekDates, addDays } from '@/lib/date-utils'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 interface DayState {
-  date:       string
-  mealTypes: MealTypeState[]
+  date:        string
+  mealTypes:   MealTypeState[]
+  whyThisDay?: string
 }
 
 interface SuggestionsState {
   days: DayState[]
 }
 
-import { getMostRecentSunday, getMostRecentWeekStart, getWeekDates } from '@/lib/date-utils'
-
-// ── Helpers ────────────────────────────────────────────────────────────────────
+import { DAY_NAMES } from '@/lib/date-utils'
 
 // ── Inner page (needs Suspense for useSearchParams) ────────────────────────────
 
 function PlanPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const step = searchParams.get('step') ?? 'setup'
+  const step = searchParams.get('step') ?? 'context'
   const weekStartParam = searchParams.get('weekStart')
 
   const initialWeekStart = weekStartParam ?? getMostRecentSunday()
@@ -49,10 +48,11 @@ function PlanPageInner() {
   const [dessertSelections, setDessertSelections] = useState<Record<string, { recipeId: string; recipeTitle: string }>>({})
   const [isGenerating, setIsGenerating] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
-  const [savedWeekStart, setSavedWeekStart] = useState<string | null>(null)
   const [generateError, setGenerateError] = useState<string | null>(null)
+  const [existingPlanForWeek, setExistingPlanForWeek] = useState(false)
+  const isInitialLoad = useRef(true)
 
-  // Load weekStartDay preference once on mount and update initial weekStart
+  // Load weekStartDay preference and lastActiveDays/lastActiveMealTypes on mount
   useEffect(() => {
     async function loadPref() {
       try {
@@ -62,36 +62,73 @@ function PlanPageInner() {
           const raw = prefs.weekStartDay ?? 'sunday'
           const pref: number = raw === 'monday' ? 1 : typeof raw === 'number' ? raw : 0
           setWeekStartDay(pref)
+
+          let start = initialWeekStart
           if (pref !== 0 && !weekStartParam) {
-            const start = getMostRecentWeekStart(pref)
-            setSetup((prev) => ({ ...prev, weekStart: start, activeDates: getWeekDates(start) }))
+            start = getMostRecentWeekStart(pref)
           }
+
+          // Pre-populate from saved lastActiveDays and lastActiveMealTypes
+          const savedDays: string[] = prefs.lastActiveDays ?? []
+          const savedMealTypes: MealType[] = prefs.lastActiveMealTypes ?? []
+
+          let activeDates = getWeekDates(start)
+          if (savedDays.length > 0) {
+            // Convert day names to dates for the given week
+            const allDates = getWeekDates(start)
+            activeDates = allDates.filter((d) => {
+              const dayOfWeek = new Date(d + 'T12:00:00Z').getUTCDay()
+              const dayName = DAY_NAMES[dayOfWeek] ?? 'sunday'
+              return savedDays.includes(dayName)
+            })
+            // Ensure at least 1 day
+            if (activeDates.length === 0) activeDates = allDates
+          }
+
+          setSetup((prev) => ({
+            ...prev,
+            weekStart: start,
+            activeDates,
+            activeMealTypes: savedMealTypes.length > 0 ? savedMealTypes : prev.activeMealTypes,
+          }))
         }
       } catch { /* silently fail — default to Sunday */ }
     }
     void loadPref()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Reset active dates when week changes
+  // Reset active dates when week changes (skip initial load to preserve lastActiveDays)
   useEffect(() => {
+    if (isInitialLoad.current) {
+      isInitialLoad.current = false
+      return
+    }
     setSetup((prev) => ({
       ...prev,
       activeDates: getWeekDates(prev.weekStart),
     }))
   }, [setup.weekStart])
 
-  // Guard direct navigation to suggestions/summary without state
+  // Check if existing plan exists for this week
+  useEffect(() => {
+    async function checkPlan() {
+      try {
+        const res = await fetch(`/api/plan?weekStart=${setup.weekStart}`)
+        if (res.ok) {
+          const data = await res.json()
+          setExistingPlanForWeek(!!data.plan)
+        }
+      } catch { /* ignore */ }
+    }
+    checkPlan()
+  }, [setup.weekStart])
+
+  // Guard direct navigation to suggestions without state
   useEffect(() => {
     if (step === 'suggestions' && !suggestions) {
-      router.replace('/plan?step=setup')
+      router.replace('/plan?step=context')
     }
-    if (step === 'summary') {
-      const hasSelections = Object.values(selections).some((v) => v !== undefined && v !== null)
-      if (!hasSelections) {
-        router.replace('/plan?step=setup')
-      }
-    }
-  }, [step, suggestions, selections, router])
+  }, [step, suggestions, router])
 
   // ── Suggestion fetching ──────────────────────────────────────────────────────
 
@@ -140,6 +177,7 @@ function PlanPageInner() {
               options:    mts.options,
               isSwapping: false,
             }))
+            days[idx].whyThisDay = dayData.whyThisDay
           }
         }
       } else {
@@ -190,10 +228,11 @@ function PlanPageInner() {
         }),
       })
       if (res.ok) {
-        const data = await res.json() as { date: string; mealType: MealType; options: RecipeSuggestion[] }
+        const data = await res.json() as { date: string; mealType: MealType; options: RecipeSuggestion[]; whyThisSwap?: string }
         setSuggestions((prev) => prev ? {
           days: prev.days.map((d) => d.date === date ? {
             ...d,
+            whyThisDay: data.whyThisSwap ?? d.whyThisDay,
             mealTypes: d.mealTypes.map((mts) =>
               mts.mealType === mealType ? { ...mts, options: data.options, isSwapping: false } : mts
             ),
@@ -252,7 +291,6 @@ function PlanPageInner() {
   }
 
   const handleAssignToDay = (recipe: RecipeSuggestion, sourceDate: string, targetDate: string, mealType: MealType) => {
-    // Remove from source day, add to target day options
     setSuggestions((prev) => {
       if (!prev) return prev
       return {
@@ -286,7 +324,6 @@ function PlanPageInner() {
         }),
       }
     })
-    // Set as target day's selection (replaces any previous)
     const key = `${targetDate}:${mealType}`
     setSelections((prev) => ({
       ...prev,
@@ -314,7 +351,6 @@ function PlanPageInner() {
       if (!res.ok) return { matched: false }
       const data = await res.json() as { matches: { recipeId: string; recipeTitle: string }[] }
       if (!data.matches?.length) return { matched: false }
-      // Inject the top matches into the slot's options list (prepend, deduplicate by recipeId)
       setSuggestions((prev) => {
         if (!prev) return prev
         return {
@@ -379,84 +415,124 @@ function PlanPageInner() {
     }
   }
 
-  // ── Save ──────────────────────────────────────────────────────────────────────
+  // ── Save helpers ──────────────────────────────────────────────────────────────
 
-  async function handleSave() {
-    setIsSaving(true)
-    try {
-      const entries = Object.entries(selections)
-        .filter(([, sel]) => sel !== null && sel !== undefined)
-        .map(([, sel]) => {
-          const s = sel as DaySelection
-          return {
-            date:      s.date,
-            recipeId: s.recipeId,
-            mealType: s.mealType,
-          }
-        })
-
-      const res = await fetch('/api/plan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ weekStart: setup.weekStart, entries }),
+  async function savePlan(): Promise<{ planId: string; entries: SavedPlanEntry[] }> {
+    const entries = Object.entries(selections)
+      .filter(([, sel]) => sel !== null && sel !== undefined)
+      .map(([, sel]) => {
+        const s = sel as DaySelection
+        return {
+          date:      s.date,
+          recipeId: s.recipeId,
+          mealType: s.mealType,
+        }
       })
 
-      if (!res.ok) {
-        let msg = 'Save failed'
-        try { const body = await res.json(); if (body.error) msg = body.error } catch { /* ignore */ }
-        throw new Error(msg)
-      }
+    const res = await fetch('/api/plan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ weekStart: setup.weekStart, entries }),
+    })
 
-      const savedData = await res.json() as { planId: string; entries: SavedPlanEntry[] }
+    if (!res.ok) {
+      let msg = 'Save failed'
+      try { const body = await res.json(); if (body.error) msg = body.error } catch { /* ignore */ }
+      throw new Error(msg)
+    }
 
-      // Save side dishes: match each side dish to its parent entry by date + mealType
-      for (const [key, sideDish] of Object.entries(sideDishSelections)) {
-        const colonIdx = key.indexOf(':')
-        const date = key.slice(0, colonIdx)
-        const parentMealType = key.slice(colonIdx + 1) as MealType
-        const parent = savedData.entries.find(
-          (e) => e.plannedDate === date && e.mealType === parentMealType && !e.isSideDish
-        )
-        if (!parent) continue
-        await fetch('/api/plan/entries', {
+    const savedData = await res.json() as { planId: string; entries: SavedPlanEntry[] }
+
+    // Save side dishes
+    for (const [key, sideDish] of Object.entries(sideDishSelections)) {
+      const colonIdx = key.indexOf(':')
+      const entryDate = key.slice(0, colonIdx)
+      const parentMealType = key.slice(colonIdx + 1) as MealType
+      const parent = savedData.entries.find(
+        (e) => e.plannedDate === entryDate && e.mealType === parentMealType && !e.isSideDish
+      )
+      if (!parent) continue
+      await fetch('/api/plan/entries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          weekStart:      setup.weekStart,
+          date:            entryDate,
+          recipeId:       sideDish.recipeId,
+          mealType:       parentMealType,
+          isSideDish:    true,
+          parentEntryId: parent.id,
+        }),
+      })
+    }
+
+    // Save desserts
+    for (const [key, dessert] of Object.entries(dessertSelections)) {
+      const colonIdx = key.indexOf(':')
+      const entryDate = key.slice(0, colonIdx)
+      const parentMealType = key.slice(colonIdx + 1) as MealType
+      const parent = savedData.entries.find(
+        (e) => e.plannedDate === entryDate && e.mealType === parentMealType && !e.isSideDish
+      )
+      if (!parent) continue
+      await fetch('/api/plan/entries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          weekStart:      setup.weekStart,
+          date:            entryDate,
+          recipeId:       dessert.recipeId,
+          mealType:       'dessert',
+          isSideDish:    true,
+          parentEntryId: parent.id,
+        }),
+      })
+    }
+
+    return savedData
+  }
+
+  // ── Save & Build Grocery List ─────────────────────────────────────────────────
+
+  async function handleSaveAndGrocery() {
+    setIsSaving(true)
+    try {
+      await savePlan()
+
+      // Try to generate grocery list
+      try {
+        const groceryRes = await fetch('/api/groceries/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            weekStart:      setup.weekStart,
-            date,
-            recipeId:       sideDish.recipeId,
-            mealType:       parentMealType,
-            isSideDish:    true,
-            parentEntryId: parent.id,
+            weekStart: setup.weekStart,
+            dateFrom:  setup.weekStart,
+            dateTo:    addDays(setup.weekStart, 6),
           }),
         })
-      }
 
-      // Save desserts: match each dessert to its parent entry by date + mealType
-      for (const [key, dessert] of Object.entries(dessertSelections)) {
-        const colonIdx = key.indexOf(':')
-        const date = key.slice(0, colonIdx)
-        const parentMealType = key.slice(colonIdx + 1) as MealType
-        const parent = savedData.entries.find(
-          (e) => e.plannedDate === date && e.mealType === parentMealType && !e.isSideDish
-        )
-        if (!parent) continue
-        await fetch('/api/plan/entries', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            weekStart:      setup.weekStart,
-            date,
-            recipeId:       dessert.recipeId,
-            mealType:       'dessert',
-            isSideDish:    true,
-            parentEntryId: parent.id,
-          }),
-        })
+        if (groceryRes.ok) {
+          router.push(`/groceries?dateFrom=${setup.weekStart}&dateTo=${addDays(setup.weekStart, 6)}`)
+        } else {
+          // Partial failure: plan saved, grocery failed
+          router.push(`/groceries?weekStart=${setup.weekStart}&status=pending`)
+        }
+      } catch {
+        // Partial failure: plan saved, grocery failed
+        router.push(`/groceries?weekStart=${setup.weekStart}&status=pending`)
       }
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
-      setSavedWeekStart(setup.weekStart)
-      router.push('/plan?step=summary')
+  // ── Save Plan Only ────────────────────────────────────────────────────────────
+
+  async function handleSaveOnly() {
+    setIsSaving(true)
+    try {
+      await savePlan()
+      router.push('/home')
     } finally {
       setIsSaving(false)
     }
@@ -473,18 +549,19 @@ function PlanPageInner() {
           <p className="text-red-500 text-sm mt-2">{generateError}</p>
         )}
 
-        {step === 'setup' && (
-          <SetupStep
+        {(step === 'context' || step === 'setup') && (
+          <ContextScreen
             setup={setup}
             weekStartDay={weekStartDay}
             onSetupChange={(updates) => setSetup((prev) => ({ ...prev, ...updates }))}
-            onGetSuggestions={handleGetSuggestions}
+            onGenerate={handleGetSuggestions}
             isGenerating={isGenerating}
+            existingPlanForWeek={existingPlanForWeek}
           />
         )}
 
         {step === 'suggestions' && suggestions && (
-          <SuggestionsStep
+          <SuggestionsScreen
             setup={setup}
             suggestions={suggestions}
             selections={selections}
@@ -499,27 +576,13 @@ function PlanPageInner() {
             onDessertPick={handleDessertPick}
             onDessertRemove={handleDessertRemove}
             onRegenerate={handleRegenerate}
-            onConfirm={() => router.push('/plan?step=summary')}
-            onBack={() => router.push('/plan?step=setup')}
-          />
-        )}
-
-        {step === 'summary' && (
-          <SummaryStep
-            setup={setup}
-            selections={selections}
-            sideDishSelections={sideDishSelections}
-            dessertSelections={dessertSelections}
-            onSave={handleSave}
+            onSaveAndGrocery={handleSaveAndGrocery}
+            onSaveOnly={handleSaveOnly}
             isSaving={isSaving}
-            onBack={() => router.push('/plan?step=suggestions')}
+            onBack={() => router.push('/plan?step=context')}
           />
         )}
       </div>
-
-      {savedWeekStart && (
-        <PostSaveModal weekStart={savedWeekStart} isOpen={true} />
-      )}
     </div>
   )
 }

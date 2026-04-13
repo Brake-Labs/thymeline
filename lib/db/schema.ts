@@ -144,6 +144,8 @@ export const userPreferences = pgTable('user_preferences', {
   mealContext: text('meal_context'),
   hiddenTags: text('hidden_tags').array().notNull().default([]),
   weekStartDay: text('week_start_day').notNull().default('sunday'),
+  lastActiveDays: text('last_active_days').array().notNull().default([]),
+  lastActiveMealTypes: text('last_active_meal_types').array().notNull().default([]),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 })
 

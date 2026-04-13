@@ -10,7 +10,7 @@ vi.mock('next/navigation', () => ({
 }))
 
 
-// Prevent network calls from SetupStep's tag-loading effect
+// Prevent network calls from ContextScreen's tag-loading effect
 global.fetch = vi.fn(() =>
   Promise.resolve({ ok: false, json: () => Promise.resolve({}) })
 ) as unknown as typeof fetch
@@ -110,21 +110,13 @@ describe('T_assign - Cross-day assignment state transformation', () => {
   })
 })
 
-// ── T38: activeMealTypes defaults to ['dinner'] when wizard opens ──────────────
+// ── T26: page uses 2-screen flow (context screen shown by default) ──────────
 
-describe('T38 - activeMealTypes initialises to [\'dinner\'] on wizard mount', () => {
-  it('renders the Dinner meal-type pill as aria-pressed=true on the setup screen', () => {
+describe('T26 - page renders context screen by default', () => {
+  it('renders the page heading and context screen elements', () => {
     render(<PlanPage />)
-
-    const dinnerPill = screen.getByRole('button', { name: 'Dinner' })
-    expect(dinnerPill).toHaveAttribute('aria-pressed', 'true')
-  })
-
-  it('renders Breakfast, Lunch, Snacks pills as aria-pressed=false on mount', () => {
-    render(<PlanPage />)
-
-    for (const label of ['Breakfast', 'Lunch', 'Snacks']) {
-      expect(screen.getByRole('button', { name: label })).toHaveAttribute('aria-pressed', 'false')
-    }
+    expect(screen.getByText('Help Me Plan')).toBeInTheDocument()
+    // Context screen should show the free text prompt
+    expect(screen.getByPlaceholderText('Anything special this week?')).toBeInTheDocument()
   })
 })

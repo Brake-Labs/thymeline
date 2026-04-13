@@ -1,0 +1,2 @@
+ALTER TABLE "user_preferences" ADD COLUMN "last_active_days" text[] DEFAULT '{}' NOT NULL;--> statement-breakpoint
+ALTER TABLE "user_preferences" ADD COLUMN "last_active_meal_types" text[] DEFAULT '{}' NOT NULL;

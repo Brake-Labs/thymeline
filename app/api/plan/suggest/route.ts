@@ -13,6 +13,7 @@ import {
   buildFullWeekUserMessage,
   fetchPantryContext,
   validateSuggestions,
+  attachConfidenceScores,
   callLLMNonStreaming,
 } from '../helpers'
 import { db } from '@/lib/db'
@@ -122,6 +123,15 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
       return NextResponse.json({ error: 'Suggestion failed. Please try again.' }, { status: 500 })
     }
     const validated = validateSuggestions(parsed.days, validIdsByMealType)
+
+    // ── Attach confidence scores ────────────────────────────────────────────
+    const recipeTagsById = new Map<string, string[]>()
+    for (const recs of Object.values(recipesByMealType)) {
+      for (const r of recs) {
+        recipeTagsById.set(r.id, r.tags)
+      }
+    }
+    attachConfidenceScores(validated, recipeTagsById, prefs, season)
 
     // ── Step 1: Fetch next week's saved plan ──────────────────────────────────
     let nextWeekRecipes: RecipeForOverlap[] = []

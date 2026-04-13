@@ -27,6 +27,8 @@ function makePrefs(overrides: Partial<UserPreferences> = {}): UserPreferences {
     isActive: true,
     mealContext: null,
     hiddenTags: [],
+    lastActiveDays: null,
+    lastActiveMealTypes: null,
     createdAt: '2026-01-01T00:00:00Z',
     ...overrides,
   }

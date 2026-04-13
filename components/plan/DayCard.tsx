@@ -2,9 +2,17 @@
 
 import { useState } from 'react'
 import { Leaf } from 'lucide-react'
+import ConfidenceBar from './ConfidenceBar'
+import WhyThis from './WhyThis'
 import AssignDayPicker from './AssignDayPicker'
 import VaultSearchSheet from './VaultSearchSheet'
 import type { RecipeSuggestion, DaySelection, MealType } from '@/types'
+
+export interface MealTypeState {
+  mealType:   MealType
+  options:    RecipeSuggestion[]
+  isSwapping: boolean
+}
 
 const MEAL_TYPE_LABELS: Record<MealType, string> = {
   breakfast: 'Breakfast',
@@ -14,7 +22,85 @@ const MEAL_TYPE_LABELS: Record<MealType, string> = {
   dessert:   'Dessert',
 }
 
-interface SuggestionMealSlotRowProps {
+const MEAL_TYPE_ORDER: Record<string, number> = { breakfast: 0, lunch: 1, dinner: 2, snack: 3 }
+
+interface DayCardProps {
+  date:               string
+  mealTypeSuggestions: MealTypeState[]
+  whyThisDay?:        string
+  selections:         Record<string, DaySelection | null>
+  activeMealTypes:    MealType[]
+  activeDates:        string[]
+  onSelect:           (date: string, mealType: MealType, recipe: RecipeSuggestion) => void
+  onSkip:             (date: string, mealType: MealType) => void
+  onSwap:             (date: string, mealType: MealType) => void
+  onAssignToDay:      (recipe: RecipeSuggestion, sourceDate: string, targetDate: string, mealType: MealType) => void
+  onVaultPick:        (date: string, mealType: MealType, recipe: { recipeId: string; recipeTitle: string }) => void
+  onFreeTextMatch:    (query: string, date: string, mealType: MealType) => Promise<{ matched: boolean }>
+  onSideDishPick?:    (date: string, mealType: MealType, recipe: { recipeId: string; recipeTitle: string }) => void
+  onSideDishRemove?:  (date: string, mealType: MealType) => void
+  onDessertPick?:     (date: string, mealType: MealType, recipe: { recipeId: string; recipeTitle: string }) => void
+  onDessertRemove?:   (date: string, mealType: MealType) => void
+}
+
+function formatDayHeader(dateStr: string): string {
+  return new Date(dateStr + 'T12:00:00Z').toLocaleDateString('en-US', {
+    weekday: 'long', month: 'short', day: 'numeric', timeZone: 'UTC',
+  })
+}
+
+export default function DayCard({
+  date, mealTypeSuggestions, whyThisDay, selections, activeMealTypes, activeDates,
+  onSelect, onSkip, onSwap, onAssignToDay, onVaultPick, onFreeTextMatch,
+  onSideDishPick, onSideDishRemove, onDessertPick, onDessertRemove,
+}: DayCardProps) {
+  return (
+    <div className="border border-stone-200 rounded-xl overflow-hidden bg-white">
+      {/* Day header */}
+      <div className="px-4 py-3 bg-stone-50 border-b border-stone-200">
+        <span className="text-sm font-semibold text-stone-700">{formatDayHeader(date)}</span>
+        {whyThisDay && (
+          <div className="mt-1">
+            <WhyThis text={whyThisDay} />
+          </div>
+        )}
+      </div>
+
+      {/* One slot per active meal type */}
+      <div className="px-4 py-3 space-y-2">
+        {[...activeMealTypes].sort((a, b) => (MEAL_TYPE_ORDER[a] ?? 99) - (MEAL_TYPE_ORDER[b] ?? 99)).map((mt) => {
+          const slotState = mealTypeSuggestions.find((s) => s.mealType === mt)
+          const compositeKey = `${date}:${mt}`
+          return (
+            <MealSlot
+              key={mt}
+              date={date}
+              mealType={mt}
+              options={slotState?.options ?? []}
+              selection={selections[compositeKey]}
+              isSwapping={slotState?.isSwapping ?? false}
+              activeDates={activeDates}
+              onSelect={onSelect}
+              onSkip={onSkip}
+              onSwap={onSwap}
+              onAssignToDay={onAssignToDay}
+              onVaultPick={onVaultPick}
+              onFreeTextMatch={onFreeTextMatch}
+              onSideDishPick={onSideDishPick}
+              onSideDishRemove={onSideDishRemove}
+              onDessertPick={onDessertPick}
+              onDessertRemove={onDessertRemove}
+            />
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ── MealSlot (inlined, replaces SuggestionMealSlotRow) ──────────────────────
+
+interface MealSlotProps {
   date:         string
   mealType:     MealType
   options:      RecipeSuggestion[]
@@ -33,11 +119,11 @@ interface SuggestionMealSlotRowProps {
   onDessertRemove?: (date: string, mealType: MealType) => void
 }
 
-export default function SuggestionMealSlotRow({
+function MealSlot({
   date, mealType, options, selection, isSwapping, activeDates,
   onSelect, onSkip, onSwap, onAssignToDay, onVaultPick, onFreeTextMatch,
   onSideDishPick, onSideDishRemove, onDessertPick, onDessertRemove,
-}: SuggestionMealSlotRowProps) {
+}: MealSlotProps) {
   const [assignOpen, setAssignOpen] = useState<string | null>(null)
   const [assignRecipe, setAssignRecipe] = useState<RecipeSuggestion | null>(null)
   const [vaultOpen, setVaultOpen] = useState(false)
@@ -90,11 +176,11 @@ export default function SuggestionMealSlotRow({
               onClick={() => onSkip(date, mealType)}
               className="text-xs text-stone-500 hover:text-stone-700 px-2 py-0.5 rounded hover:bg-stone-100 transition-colors"
             >
-              Skip this slot
+              Skip
             </button>
           ) : (
             <span className="text-xs text-stone-400">
-              Skipping this slot{' '}
+              Skipping{' '}
               <button
                 onClick={() => onSkip(date, mealType)}
                 className="underline hover:text-stone-600"
@@ -119,7 +205,7 @@ export default function SuggestionMealSlotRow({
         </div>
       ) : (
         <div>
-          {/* Vault/free-text selection not in the options list — show it as the selected row */}
+          {/* Vault/free-text selection not in the options list */}
           {selection && !options.some((o) => o.recipeId === selection.recipeId) && (
             <div className="border-b border-stone-50 px-3 py-2.5 border-l-4 border-l-sage-500 bg-sage-50">
               <div className="flex items-start justify-between gap-3">
@@ -158,7 +244,12 @@ export default function SuggestionMealSlotRow({
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-stone-800 truncate">{opt.recipeTitle}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-stone-800 truncate">{opt.recipeTitle}</p>
+                        {opt.confidenceScore !== undefined && (
+                          <ConfidenceBar score={opt.confidenceScore} />
+                        )}
+                      </div>
                       {opt.reason && (
                         <p className="text-xs text-stone-400 italic mt-0.5">{opt.reason}</p>
                       )}
@@ -214,7 +305,7 @@ export default function SuggestionMealSlotRow({
             })
           )}
 
-          {/* Side dish add-on — shown when a main recipe is selected for dinner/lunch */}
+          {/* Side dish add-on */}
           {canHaveDessert && hasSelection && (
             <div className="px-3 py-2 border-t border-stone-50">
               {sideDishEntry ? (
@@ -243,7 +334,7 @@ export default function SuggestionMealSlotRow({
             </div>
           )}
 
-          {/* Dessert add-on — shown when a main recipe is selected for dinner/lunch */}
+          {/* Dessert add-on */}
           {canHaveDessert && hasSelection && (
             <div className="px-3 py-2 border-t border-stone-50">
               {dessertEntry ? (
@@ -318,7 +409,7 @@ export default function SuggestionMealSlotRow({
         </div>
       )}
 
-      {/* Assign to different day — rendered outside opacity-affected rows so it's never dimmed */}
+      {/* Assign to different day */}
       {assignOpen && assignRecipe && (
         <AssignDayPicker
           activeDates={activeDates}
@@ -331,7 +422,7 @@ export default function SuggestionMealSlotRow({
         />
       )}
 
-      {/* Vault search sheet for main slot */}
+      {/* Vault search sheets */}
       {vaultOpen && (
         <VaultSearchSheet
           forDate={date}
@@ -344,7 +435,6 @@ export default function SuggestionMealSlotRow({
         />
       )}
 
-      {/* Vault search sheet for side dish */}
       {sideDishVaultOpen && (
         <VaultSearchSheet
           forDate={date}
@@ -358,7 +448,6 @@ export default function SuggestionMealSlotRow({
         />
       )}
 
-      {/* Vault search sheet for dessert */}
       {dessertVaultOpen && (
         <VaultSearchSheet
           forDate={date}
