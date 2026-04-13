@@ -14,6 +14,7 @@ import {
   callLLMNonStreaming,
   MEAL_TYPE_CATEGORIES,
 } from '../../helpers'
+import { deriveTasteProfile } from '@/lib/taste-profile'
 import type { DaySuggestions, MealType } from '@/types'
 
 export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
@@ -32,7 +33,7 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
   const today = new Date()
   const season = getSeason(today.getMonth())
 
-  const tasteProfile = await (await import('@/lib/taste-profile')).deriveTasteProfile(user.id, null, ctx ?? null)
+  const tasteProfile = await deriveTasteProfile(user.id, null, ctx ?? null)
   const systemMessage = buildSystemMessage(prefs, preferThisWeek ?? [], avoidThisWeek ?? [], season, tasteProfile)
   const userMessage = buildSwapUserMessage(
     date,

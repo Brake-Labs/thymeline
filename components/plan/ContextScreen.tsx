@@ -6,8 +6,7 @@ import DayTogglePicker from './DayTogglePicker'
 import MealTypePicker from './MealTypePicker'
 import TagBucketPicker from '@/components/preferences/TagBucketPicker'
 import type { PlanSetup } from '@/types'
-
-const DAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const
+import { DAY_NAMES } from '@/lib/date-utils'
 
 interface ContextScreenProps {
   setup: PlanSetup

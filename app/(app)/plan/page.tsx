@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import ContextScreen from '@/components/plan/ContextScreen'
 import SuggestionsScreen from '@/components/plan/SuggestionsScreen'
@@ -21,7 +21,7 @@ interface SuggestionsState {
   days: DayState[]
 }
 
-const DAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const
+import { DAY_NAMES } from '@/lib/date-utils'
 
 // ── Inner page (needs Suspense for useSearchParams) ────────────────────────────
 
@@ -50,6 +50,7 @@ function PlanPageInner() {
   const [isSaving, setIsSaving] = useState(false)
   const [generateError, setGenerateError] = useState<string | null>(null)
   const [existingPlanForWeek, setExistingPlanForWeek] = useState(false)
+  const isInitialLoad = useRef(true)
 
   // Load weekStartDay preference and lastActiveDays/lastActiveMealTypes on mount
   useEffect(() => {
@@ -96,8 +97,12 @@ function PlanPageInner() {
     void loadPref()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Reset active dates when week changes
+  // Reset active dates when week changes (skip initial load to preserve lastActiveDays)
   useEffect(() => {
+    if (isInitialLoad.current) {
+      isInitialLoad.current = false
+      return
+    }
     setSetup((prev) => ({
       ...prev,
       activeDates: getWeekDates(prev.weekStart),

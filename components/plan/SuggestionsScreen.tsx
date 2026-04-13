@@ -48,8 +48,8 @@ export default function SuggestionsScreen({
   const [regenPrompt, setRegenPrompt] = useState<RegeneratePromptState>('none')
   const [saveError, setSaveError] = useState('')
 
-  const hasSelections = Object.values(selections).some((v) => v !== undefined && v !== null)
   const confirmedCount = Object.values(selections).filter((v) => v !== undefined && v !== null).length
+  const hasSelections = confirmedCount > 0
 
   // Count unique confirmed dates
   const confirmedDates = new Set(
