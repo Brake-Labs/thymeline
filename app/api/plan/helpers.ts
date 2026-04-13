@@ -449,13 +449,12 @@ export function validateSuggestions(
 
 /**
  * Compute a confidence score (0-4) for a recipe suggestion.
- * Server-computed from tag overlap, seasonal match, and context match.
+ * Server-computed from tag overlap and seasonal match.
  */
 export function computeConfidence(
   recipeTags: string[],
   prefs: UserPreferences | null,
   season: string,
-  freeTextMatched: boolean,
 ): number {
   let score = 0
   const preferredTags = prefs?.preferredTags ?? []
@@ -470,15 +469,10 @@ export function computeConfidence(
     score += 15
   }
 
-  // Weekly context match: +15 if LLM flagged this as matching freeText
-  if (freeTextMatched) {
-    score += 15
-  }
-
   // Base score for being in the suggestion at all: +20
   score += 20
 
-  // Map 0-100 to 0-4 bars
+  // Map 0-85 to 0-4 bars
   return Math.min(Math.round(score / 25), 4)
 }
 
@@ -496,9 +490,7 @@ export function attachConfidenceScores(
     for (const mts of day.mealTypes) {
       for (const opt of mts.options) {
         const tags = recipeTagsById.get(opt.recipeId) ?? []
-        // Use reason field as a heuristic for freeText matching:
-        // the LLM's reason often references context when relevant
-        opt.confidenceScore = computeConfidence(tags, prefs, season, false)
+        opt.confidenceScore = computeConfidence(tags, prefs, season)
       }
     }
   }

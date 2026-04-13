@@ -62,7 +62,7 @@ export const POST = withAuth(async (req: NextRequest, { user, ctx }) => {
     const recTagsById = new Map(recs.map((r) => [r.id, r.tags]))
     for (const opt of options) {
       const tags = recTagsById.get(opt.recipeId) ?? []
-      opt.confidenceScore = computeConfidence(tags, prefs, season, false)
+      opt.confidenceScore = computeConfidence(tags, prefs, season)
     }
 
     const whyThisSwap = dayResult?.whyThisDay
