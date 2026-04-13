@@ -259,3 +259,85 @@ describe('PATCH /api/preferences — weekStartDay number → DB text conversion'
     expect(json.weekStartDay).toBe(0)
   })
 })
+
+describe('PATCH /api/preferences — lastActiveDays and lastActiveMealTypes', () => {
+  beforeEach(async () => {
+    vi.resetModules()
+    await setupAuth()
+  })
+
+  it('persists lastActiveDays and returns them', async () => {
+    const { parseBody } = await import('@/lib/schemas')
+    vi.mocked(parseBody).mockResolvedValue({
+      data: { lastActiveDays: ['monday', 'wednesday', 'friday'] } as Record<string, unknown>,
+    })
+
+    const returnedRow = {
+      ...makePrefsRow(),
+      lastActiveDays: ['monday', 'wednesday', 'friday'],
+    }
+    const { db } = await import('@/lib/db')
+    const insertChain = mockChain([returnedRow])
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(db.insert).mockReturnValue(insertChain as any)
+
+    const { PATCH } = await import('@/app/api/preferences/route')
+    const res = await PATCH(makePatchReq({ lastActiveDays: ['monday', 'wednesday', 'friday'] }) as Parameters<typeof PATCH>[0])
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.lastActiveDays).toEqual(['monday', 'wednesday', 'friday'])
+  })
+
+  it('persists lastActiveMealTypes and returns them', async () => {
+    const { parseBody } = await import('@/lib/schemas')
+    vi.mocked(parseBody).mockResolvedValue({
+      data: { lastActiveMealTypes: ['dinner', 'breakfast'] } as Record<string, unknown>,
+    })
+
+    const returnedRow = {
+      ...makePrefsRow(),
+      lastActiveMealTypes: ['dinner', 'breakfast'],
+    }
+    const { db } = await import('@/lib/db')
+    const insertChain = mockChain([returnedRow])
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(db.insert).mockReturnValue(insertChain as any)
+
+    const { PATCH } = await import('@/app/api/preferences/route')
+    const res = await PATCH(makePatchReq({ lastActiveMealTypes: ['dinner', 'breakfast'] }) as Parameters<typeof PATCH>[0])
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.lastActiveMealTypes).toEqual(['dinner', 'breakfast'])
+  })
+
+  it('returns empty arrays from GET when no prefs exist', async () => {
+    const { db } = await import('@/lib/db')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(db.select).mockReturnValue(mockChain([]) as any)
+
+    const { GET } = await import('@/app/api/preferences/route')
+    const res = await GET(makeGetReq() as Parameters<typeof GET>[0])
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.lastActiveDays).toEqual([])
+    expect(json.lastActiveMealTypes).toEqual([])
+  })
+
+  it('returns lastActiveDays from GET when prefs exist', async () => {
+    const row = {
+      ...makePrefsRow(),
+      lastActiveDays: ['tuesday', 'thursday'],
+      lastActiveMealTypes: ['dinner'],
+    }
+    const { db } = await import('@/lib/db')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(db.select).mockReturnValue(mockChain([row]) as any)
+
+    const { GET } = await import('@/app/api/preferences/route')
+    const res = await GET(makeGetReq() as Parameters<typeof GET>[0])
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.lastActiveDays).toEqual(['tuesday', 'thursday'])
+    expect(json.lastActiveMealTypes).toEqual(['dinner'])
+  })
+})

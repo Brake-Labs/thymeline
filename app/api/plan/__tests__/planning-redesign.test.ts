@@ -65,33 +65,27 @@ describe('T10 - computeConfidence scoring', () => {
   } as unknown as UserPreferences
 
   it('returns base score (1) for recipe with no matching tags', () => {
-    const score = computeConfidence(['Comfort'], basePrefs, 'spring', false)
+    const score = computeConfidence(['Comfort'], basePrefs, 'spring')
     // base 20 → round(20/25) = 1
     expect(score).toBe(1)
   })
 
   it('adds 25 per preferred tag overlap, max 50', () => {
-    const score = computeConfidence(['Healthy', 'Quick', 'Comfort'], basePrefs, 'summer', false)
+    const score = computeConfidence(['Healthy', 'Quick', 'Comfort'], basePrefs, 'summer')
     // tag overlap: 50 + base 20 = 70 → round(70/25) = 3
     expect(score).toBe(3)
   })
 
   it('adds 15 for seasonal match', () => {
-    const score = computeConfidence(['Garden'], basePrefs, 'spring', false)
+    const score = computeConfidence(['Garden'], basePrefs, 'spring')
     // seasonal 15 + base 20 = 35 → round(35/25) = 1
     expect(score).toBe(1)
   })
 
-  it('adds 15 for freeText context match', () => {
-    const score = computeConfidence(['Healthy'], basePrefs, 'summer', true)
-    // tag 25 + context 15 + base 20 = 60 → round(60/25) = 2
-    expect(score).toBe(2)
-  })
-
-  it('combines all factors correctly', () => {
-    const score = computeConfidence(['Healthy', 'Quick', 'Garden'], basePrefs, 'spring', true)
-    // tag overlap: 50 (capped) + seasonal 15 + context 15 + base 20 = 100 → round(100/25) = 4
-    expect(score).toBe(4)
+  it('combines tag overlap and seasonal match', () => {
+    const score = computeConfidence(['Healthy', 'Quick', 'Garden'], basePrefs, 'spring')
+    // tag overlap: 50 (capped) + seasonal 15 + base 20 = 85 → round(85/25) = 3
+    expect(score).toBe(3)
   })
 })
 
@@ -101,12 +95,12 @@ describe('T11 - confidenceScore is clamped to 0-4', () => {
       preferredTags: ['A', 'B', 'C', 'D', 'E'],
       seasonalRules: { spring: { favor: ['A'] } },
     } as unknown as UserPreferences
-    const score = computeConfidence(['A', 'B', 'C', 'D', 'E'], prefs, 'spring', true)
+    const score = computeConfidence(['A', 'B', 'C', 'D', 'E'], prefs, 'spring')
     expect(score).toBeLessThanOrEqual(4)
   })
 
   it('returns 1 minimum for any suggestion (base score)', () => {
-    const score = computeConfidence([], null, 'spring', false)
+    const score = computeConfidence([], null, 'spring')
     // base 20 → round(20/25) = 1
     expect(score).toBe(1)
   })
